@@ -146,6 +146,7 @@ jobs:
         run: |
           git config user.name  "Trading Bot"
           git config user.email "bot@alpaca-trading"
+          git pull --rebase origin main
           git add journal/
           git diff --cached --quiet || git commit -m "journal: [$TRADING_ENV] daily summary $(date -u '+%Y-%m-%d')"
           git push -f origin main
