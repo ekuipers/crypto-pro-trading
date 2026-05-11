@@ -1,22 +1,9 @@
 name: Trading Bot
 
-# Base URLs are not secret — hardcoded here.
-# Paper: https://paper-api.alpaca.markets
-# Live:  https://api.alpaca.markets
-#
-# Required GitHub secrets:
-#   APCA_PAPER_KEY_ID      — paper trading API key
-#   APCA_PAPER_SECRET_KEY  — paper trading secret
-#   APCA_LIVE_KEY_ID       — live trading API key
-#   APCA_LIVE_SECRET_KEY   — live trading secret
-
 on:
   schedule:
-    # Hourly evaluation run — runs at :00 every hour, 24x per day (UTC)
-    - cron: "*/15 * * * *"
-    # Daily journal summary — runs at 23:00 UTC
-    - cron: "0 23 * * *"
-  # Manual trigger: choose environment and dry-run mode
+    - cron: "*/15 * * * *"   # elke 15 min (UTC)
+    - cron: "0 23 * * *"     # daily summary (UTC)
   workflow_dispatch:
     inputs:
       environment:
@@ -24,32 +11,48 @@ on:
         required: true
         default: "paper"
         type: choice
-        options:
-          - paper
-          - live
+        options: [paper, live]
       dry_run:
         description: "Dry run (no orders placed)"
         required: false
         default: "false"
         type: choice
-        options:
-          - "true"
-          - "false"
+        options: ["true", "false"]
+
+# Voorkom gelijktijdige runs die allebei naar main proberen te pushen.
+# Concurrency zorgt dat er max 1 run tegelijk actief/pending is per group. [2](https://docs.github.com/en/enterprise-cloud@latest/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)
+concurrency:
+  group: trading-bot-${{ github.ref }}
+  cancel-in-progress: false
+
+# Minimaal benodigde rechten om commits te kunnen pushen. [4](https://docs.github.com/en/actions/tutorials/authenticate-with-github_token)
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   evaluate:
-    name: Hourly Evaluation
+    name: Evaluate (15-min)
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    environment: ${{ inputs.environment || 'paper' }}
-    
-    # Skip the 23:00 run here — the journal job below handles that hour
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
-    
+
+    # Run voor manual dispatch, of voor schedule behalve de 23:00 cron
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'schedule' && github.event.schedule != '0 23 * * *')
+
+    # Inputs bestaan alleen bij workflow_dispatch; bij schedule zijn ze null. [1](https://stackoverflow.com/questions/72539900/schedule-trigger-github-action-workflow-with-input-parameters)
+    # Daarom kiezen we veilig een default:
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'paper' }}
+
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # nodig voor rebase/pull met volledige history [3](https://code.alazhar.dev/actions/checkout)
+          persist-credentials: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -59,63 +62,80 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Select environment
+      - name: Configure trading env vars
         run: |
-          # Scheduled runs always use paper. Manual runs use the chosen environment.
-          ENV="${{ inputs.environment }}"
-          ENV="${ENV:-paper}"
-          echo "Trading environment: $ENV"
+          # Determine runtime env: manual uses input; schedule defaults to paper.
+          ENV="${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'paper' }}"
+          echo "TRADING_ENV=$ENV" >> "$GITHUB_ENV"
 
           if [ "$ENV" = "live" ]; then
-            echo "APCA_API_KEY_ID=${{ secrets.APCA_LIVE_KEY_ID }}"      >> $GITHUB_ENV
-            echo "APCA_API_SECRET_KEY=${{ secrets.APCA_LIVE_SECRET_KEY }}" >> $GITHUB_ENV
-            echo "APCA_BASE_URL=https://api.alpaca.markets"              >> $GITHUB_ENV
+            echo "APCA_BASE_URL=https://api.alpaca.markets" >> "$GITHUB_ENV"
+
+            # Prefer “clean” env-scoped secret names if you have them:
+            #   APCA_API_KEY_ID / APCA_API_SECRET_KEY
+            # Fallback to your old names if needed:
+            echo "APCA_API_KEY_ID=${{ secrets.APCA_API_KEY_ID || secrets.APCA_LIVE_KEY_ID }}" >> "$GITHUB_ENV"
+            echo "APCA_API_SECRET_KEY=${{ secrets.APCA_API_SECRET_KEY || secrets.APCA_LIVE_SECRET_KEY }}" >> "$GITHUB_ENV"
           else
-            echo "APCA_API_KEY_ID=${{ secrets.APCA_PAPER_KEY_ID }}"      >> $GITHUB_ENV
-            echo "APCA_API_SECRET_KEY=${{ secrets.APCA_PAPER_SECRET_KEY }}" >> $GITHUB_ENV
-            echo "APCA_BASE_URL=https://paper-api.alpaca.markets"        >> $GITHUB_ENV
+            echo "APCA_BASE_URL=https://paper-api.alpaca.markets" >> "$GITHUB_ENV"
+            echo "APCA_API_KEY_ID=${{ secrets.APCA_API_KEY_ID || secrets.APCA_PAPER_KEY_ID }}" >> "$GITHUB_ENV"
+            echo "APCA_API_SECRET_KEY=${{ secrets.APCA_API_SECRET_KEY || secrets.APCA_PAPER_SECRET_KEY }}" >> "$GITHUB_ENV"
           fi
-          echo "TRADING_ENV=$ENV" >> $GITHUB_ENV
 
       - name: Validate credentials
         run: |
           missing=0
-          [ -z "$APCA_API_KEY_ID" ]    && echo "ERROR: API key not set for environment '$TRADING_ENV'" && missing=1
-          [ -z "$APCA_API_SECRET_KEY" ] && echo "ERROR: API secret not set for environment '$TRADING_ENV'" && missing=1
-          [ $missing -eq 1 ] && echo "Check your GitHub secrets under Settings → Secrets and variables → Actions" && exit 1
+          [ -z "$APCA_API_KEY_ID" ] && echo "ERROR: APCA_API_KEY_ID is empty" && missing=1
+          [ -z "$APCA_API_SECRET_KEY" ] && echo "ERROR: APCA_API_SECRET_KEY is empty" && missing=1
+          [ -z "$APCA_BASE_URL" ] && echo "ERROR: APCA_BASE_URL is empty" && missing=1
+          [ $missing -eq 1 ] && exit 1
           echo "Credentials present. ENV=$TRADING_ENV BASE_URL=$APCA_BASE_URL"
 
       - name: Run evaluation
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.dry_run }}" = "true" ]; then
-            echo "Running in dry-run mode (no orders)"
+          DRY="${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}"
+          if [ "$DRY" = "true" ]; then
+            echo "Dry run: no orders"
             python scripts/run_evaluation.py
           else
-            echo "Running with order execution enabled"
+            echo "Execute enabled"
             python scripts/run_evaluation.py --execute
           fi
 
-      - name: Commit journal entry
+      - name: Commit & push journal (safe)
         run: |
           git config user.name  "Trading Bot"
           git config user.email "bot@alpaca-trading"
+
+          # Only commit when there are changes
           git add journal/
-          git diff --cached --quiet || git commit -m "journal: [$TRADING_ENV] hourly evaluation $(date -u '+%Y-%m-%d %H:%M UTC')"
-          git pull --rebase origin main
-          git push
+          git diff --cached --quiet && { echo "No journal changes"; exit 0; }
+
+          git commit -m "journal: [$TRADING_ENV] evaluation $(date -u '+%Y-%m-%d %H:%M UTC')"
+
+          # Rebase + retry push to avoid 'fetch first' failures (race conditions)
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && \
+            git push origin HEAD:main && break
+            echo "Push failed, retrying ($i/3)..."
+            sleep 2
+          done
 
   journal:
-    name: Daily Journal Summary
+    name: Daily Journal Summary (23:00 UTC)
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    environment: ${{ inputs.environment || 'paper' }}
-        
-    if: github.event_name == 'schedule'
+
+    if: github.event_name == 'schedule' && github.event.schedule == '0 23 * * *'
+
+    # Daily journal is explicitly paper
+    environment: paper
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # rebase/pull reliability [3](https://code.alazhar.dev/actions/checkout)
+          persist-credentials: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -125,30 +145,36 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Select environment
+      - name: Configure paper env vars
         run: |
-          # Daily journal always runs on paper
-          echo "APCA_API_KEY_ID=${{ secrets.APCA_PAPER_KEY_ID }}"        >> $GITHUB_ENV
-          echo "APCA_API_SECRET_KEY=${{ secrets.APCA_PAPER_SECRET_KEY }}" >> $GITHUB_ENV
-          echo "APCA_BASE_URL=https://paper-api.alpaca.markets"          >> $GITHUB_ENV
-          echo "TRADING_ENV=paper"                                        >> $GITHUB_ENV
+          echo "TRADING_ENV=paper" >> "$GITHUB_ENV"
+          echo "APCA_BASE_URL=https://paper-api.alpaca.markets" >> "$GITHUB_ENV"
+          echo "APCA_API_KEY_ID=${{ secrets.APCA_API_KEY_ID || secrets.APCA_PAPER_KEY_ID }}" >> "$GITHUB_ENV"
+          echo "APCA_API_SECRET_KEY=${{ secrets.APCA_API_SECRET_KEY || secrets.APCA_PAPER_SECRET_KEY }}" >> "$GITHUB_ENV"
 
       - name: Validate credentials
         run: |
           missing=0
-          [ -z "$APCA_API_KEY_ID" ]    && echo "ERROR: APCA_PAPER_KEY_ID secret is not set" && missing=1
-          [ -z "$APCA_API_SECRET_KEY" ] && echo "ERROR: APCA_PAPER_SECRET_KEY secret is not set" && missing=1
-          [ $missing -eq 1 ] && echo "Check your GitHub secrets under Settings → Secrets and variables → Actions" && exit 1
-          echo "Credentials present. ENV=$TRADING_ENV BASE_URL=$APCA_BASE_URL"
+          [ -z "$APCA_API_KEY_ID" ] && echo "ERROR: key empty" && missing=1
+          [ -z "$APCA_API_SECRET_KEY" ] && echo "ERROR: secret empty" && missing=1
+          [ $missing -eq 1 ] && exit 1
 
-      - name: Run evaluation (final hour)
+      - name: Run daily summary
         run: python scripts/run_evaluation.py --execute
 
-      - name: Commit journal entry
+      - name: Commit & push journal (safe)
         run: |
           git config user.name  "Trading Bot"
           git config user.email "bot@alpaca-trading"
+
           git add journal/
-          git diff --cached --quiet || git commit -m "journal: [$TRADING_ENV] daily summary $(date -u '+%Y-%m-%d')"
-          git pull --rebase origin main
-          git push
+          git diff --cached --quiet && { echo "No journal changes"; exit 0; }
+
+          git commit -m "journal: [paper] daily summary $(date -u '+%Y-%m-%d')"
+
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && \
+            git push origin HEAD:main && break
+            echo "Push failed, retrying ($i/3)..."
+            sleep 2
+          done
