@@ -41,7 +41,7 @@ jobs:
     # Run voor manual dispatch, skip de 15-min schedule (de journal job draait op het uur) 
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'schedule' && github.event.schedule == '*/15 * * * *')
+      (github.event_name == 'schedule' && github.event.schedule == '*/30 * * * *')
 
     # Inputs bestaan alleen bij workflow_dispatch; bij schedule zijn ze null. [1](https://stackoverflow.com/questions/72539900/schedule-trigger-github-action-workflow-with-input-parameters)
     # Daarom kiezen we veilig een default:
