@@ -40,6 +40,8 @@ jobs:
   evaluate:
     name: Hourly Evaluation
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     environment: ${{ inputs.environment || 'paper' }}
     
     # Skip the 23:00 run here — the journal job below handles that hour
