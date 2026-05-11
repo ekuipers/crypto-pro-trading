@@ -40,6 +40,8 @@ jobs:
   evaluate:
     name: Hourly Evaluation
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'paper' }}
+    
     # Skip the 23:00 run here — the journal job below handles that hour
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 * * * *'
 
@@ -61,8 +63,7 @@ jobs:
           ENV="${{ inputs.environment }}"
           ENV="${ENV:-paper}"
           echo "Trading environment: $ENV"
-        environment: $ENV
-
+              
           if [ "$ENV" = "live" ]; then
             echo "APCA_API_KEY_ID=${{ secrets.APCA_LIVE_KEY_ID }}"      >> $GITHUB_ENV
             echo "APCA_API_SECRET_KEY=${{ secrets.APCA_LIVE_SECRET_KEY }}" >> $GITHUB_ENV
