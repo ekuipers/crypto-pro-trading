@@ -105,8 +105,8 @@ jobs:
     name: Daily Journal Summary
     runs-on: ubuntu-latest
     permissions:
-    contents: write
-    
+      contents: write
+        
     if: github.event.schedule == '0 23 * * *'
 
     steps:
