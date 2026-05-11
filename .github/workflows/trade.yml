@@ -63,7 +63,7 @@ jobs:
           ENV="${{ inputs.environment }}"
           ENV="${ENV:-paper}"
           echo "Trading environment: $ENV"
-              
+
           if [ "$ENV" = "live" ]; then
             echo "APCA_API_KEY_ID=${{ secrets.APCA_LIVE_KEY_ID }}"      >> $GITHUB_ENV
             echo "APCA_API_SECRET_KEY=${{ secrets.APCA_LIVE_SECRET_KEY }}" >> $GITHUB_ENV
@@ -104,6 +104,9 @@ jobs:
   journal:
     name: Daily Journal Summary
     runs-on: ubuntu-latest
+    permissions:
+    contents: write
+    
     if: github.event.schedule == '0 23 * * *'
 
     steps:
