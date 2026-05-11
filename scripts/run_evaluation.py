@@ -428,7 +428,7 @@ def main():
     else:
         print("\nNo actionable decisions.")
 
-    journal_path = append_journal_block(datetime.now(ZoneInfo('Europe/Amsterdam')), decisions, executed)
+    journal_path = append_journal_block(datetime.now(ZoneInfo("Europe/Amsterdam")), decisions, executed)
     print("\nWrote: " + str(journal_path))
     return 0
 
