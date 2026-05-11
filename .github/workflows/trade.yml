@@ -30,7 +30,7 @@ on:
       dry_run:
         description: "Dry run (no orders placed)"
         required: false
-        default: "true"
+        default: "false"
         type: choice
         options:
           - "true"
