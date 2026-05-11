@@ -148,4 +148,4 @@ jobs:
           git config user.email "bot@alpaca-trading"
           git add journal/
           git diff --cached --quiet || git commit -m "journal: [$TRADING_ENV] daily summary $(date -u '+%Y-%m-%d')"
-          git push origin main
+          git push -f origin main
