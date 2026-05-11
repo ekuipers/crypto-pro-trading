@@ -2,7 +2,7 @@ name: Trading Bot
 
 on:
   schedule:
-    - cron: "*/15 * * * *"   # elke 15 min (UTC)
+    - cron: "*/30 * * * *"   # elke 15 min (UTC)
     - cron: "0 23 * * *"     # daily summary (UTC)
   workflow_dispatch:
     inputs:
@@ -35,7 +35,7 @@ defaults:
 
 jobs:
   evaluate:
-    name: Evaluate (15-min)
+    name: Evaluate
     runs-on: ubuntu-latest
 
     # Run voor manual dispatch, skip de 15-min schedule (de journal job draait op het uur) 
