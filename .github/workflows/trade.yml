@@ -61,6 +61,7 @@ jobs:
           ENV="${{ inputs.environment }}"
           ENV="${ENV:-paper}"
           echo "Trading environment: $ENV"
+          environment: $ENV
 
           if [ "$ENV" = "live" ]; then
             echo "APCA_API_KEY_ID=${{ secrets.APCA_LIVE_KEY_ID }}"      >> $GITHUB_ENV
