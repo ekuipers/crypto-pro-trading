@@ -45,8 +45,8 @@ jobs:
     environment: ${{ inputs.environment || 'paper' }}
     
     # Skip the 23:00 run here — the journal job below handles that hour
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 * * * *'
-
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -110,7 +110,7 @@ jobs:
     permissions:
       contents: write
         
-    if: github.event.schedule == '0 23 * * *'
+    if: github.event_name == 'schedule'
 
     steps:
       - name: Checkout repository
