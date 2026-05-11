@@ -13,7 +13,7 @@ name: Trading Bot
 on:
   schedule:
     # Hourly evaluation run — runs at :00 every hour, 24x per day (UTC)
-    - cron: "0 * * * *"
+    - cron: "*/15 * * * *"
     # Daily journal summary — runs at 23:00 UTC
     - cron: "0 23 * * *"
   # Manual trigger: choose environment and dry-run mode
