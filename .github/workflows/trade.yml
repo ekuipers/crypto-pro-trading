@@ -2,8 +2,8 @@ name: Trading Bot
 
 on:
   schedule:
-    - cron: "*/30 * * * *"   # elke 30 min (UTC)
-    - cron: "0 23 * * *"     # daily summary (UTC)
+    - cron: '*/30 * * * *'   # elke 30 min (UTC)
+    - cron: '0 23 * * *'    # daily summary (UTC)
   workflow_dispatch:
     inputs:
       environment:
