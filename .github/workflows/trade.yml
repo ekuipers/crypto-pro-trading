@@ -151,4 +151,4 @@ jobs:
           git add journal/
           git diff --cached --quiet || git commit -m "journal: [$TRADING_ENV] daily summary $(date -u '+%Y-%m-%d')"
           git pull --rebase origin main
-          git push -f origin main
+          git push
