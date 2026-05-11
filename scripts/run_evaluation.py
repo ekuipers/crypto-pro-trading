@@ -40,6 +40,7 @@ import json
 import os
 import sys
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 import requests
@@ -337,7 +338,7 @@ def append_journal_block(timestamp, decisions, executed):
 
     lines = []
     lines.append("")
-    lines.append("## Evaluation " + hhmm + " UTC")
+    lines.append("## Evaluation " + hhmm + " GMT+2")
     lines.append("")
     if not decisions:
         lines.append("No symbols evaluated.")
@@ -427,7 +428,7 @@ def main():
     else:
         print("\nNo actionable decisions.")
 
-    journal_path = append_journal_block(datetime.now(timezone.utc), decisions, executed)
+    journal_path = append_journal_block(datetime.now(ZoneInfo("Europe/Amsterdam")), decisions, executed)
     print("\nWrote: " + str(journal_path))
     return 0
 

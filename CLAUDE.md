@@ -7,11 +7,11 @@ weekday/weekend distinction and no equity-market clock gate.
 ## Your Core Responsibilities (all times UTC)
 - One every hour timezone UTC+1: Run the research routine for every
   symbol in `watchlist_crypto.json`. Each pass appends a timestamped
-  `Research HH:MM UTC` block, so the hourly trading evaluations always
+  `Research HH:MM GMT+2` block, so the hourly trading evaluations always
   have research no more than ~12 hours old.
-- Every hour at :00 UTC (24 evaluations per day): Evaluate positions and
+- Every hour at :00 GMT+2 (24 evaluations per day): Evaluate positions and
   place trades.
-- Daily at 23:00 UTC: Write a journal entry summarising the day.
+- Daily at 23:00 GMT+2: Write a journal entry summarising the day.
 
 ## Rules You Must Always Follow
 - Never invest more than 5% of total portfolio value in a single position.
