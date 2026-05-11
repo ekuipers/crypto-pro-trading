@@ -109,6 +109,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    environment: ${{ inputs.environment || 'paper' }}
         
     if: github.event_name == 'schedule'
 
