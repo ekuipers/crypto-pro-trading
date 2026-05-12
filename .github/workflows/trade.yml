@@ -73,7 +73,6 @@ jobs:
 
             # Prefer “clean” env-scoped secret names if you have them:
             #   APCA_API_KEY_ID / APCA_API_SECRET_KEY
-            # Fallback to your old names if needed:
             echo "APCA_API_KEY_ID=${{ secrets.APCA_LIVE_KEY_ID }}" >> "$GITHUB_ENV"
             echo "APCA_API_SECRET_KEY=${{ secrets.APCA_LIVE_SECRET_KEY }}" >> "$GITHUB_ENV"
           else
@@ -98,7 +97,7 @@ jobs:
             echo "Dry run: no orders"
             python scripts/run_evaluation.py
           else
-            echo "Execute enabled"
+            echo "Execute enabled, orders will be placed"
             python scripts/run_evaluation.py --execute
           fi
 
