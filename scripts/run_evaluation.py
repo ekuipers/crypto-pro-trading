@@ -359,7 +359,7 @@ def append_journal_block(timestamp, decisions, executed):
             )
     else:
         lines.append("")
-        lines.append("### Orders submitted: (dry-run)")
+        lines.append("### No orders submitted")
 
     with path.open("a", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
