@@ -2,7 +2,7 @@ name: Trading Bot
 
 on:
   schedule:
-    - cron: '48 * * * *'   # elke 48 min na het uur
+    - cron: '23 * * * *'   # elke 48 min na het uur
     - cron: '0 21 * * *'    # daily summary elke dag om 23.00 Amsterdam tijd.
   workflow_dispatch:
     inputs:
