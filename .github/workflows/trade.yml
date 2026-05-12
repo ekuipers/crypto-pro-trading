@@ -125,7 +125,7 @@ jobs:
     name: Daily Journal Summary (23:00 UTC)
     runs-on: ubuntu-latest
 
-    if: github.event_name == 'schedule' && github.event.schedule == '0 23 * * *'
+    #if: github.event_name == 'schedule' && github.event.schedule == '0 23 * * *'
 
     # Daily journal is explicitly paper
     environment: paper
