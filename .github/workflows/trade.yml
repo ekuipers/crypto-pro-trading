@@ -2,10 +2,8 @@ name: Trading Bot
 
 on:
   schedule:
-    - cron: '*/30 * * * *'   # elke 30 min
-      timezone: "Europe/Amsterdam"   
-    - cron: '0 23 * * *'    # daily summary
-      timezone: "Europe/Amsterdam"
+    - cron: '*/30 * * * *'   # elke  30 min
+    - cron: '0 21 * * *'    # daily summary elke dag om 23.00 Amsterdam tijd.
   workflow_dispatch:
     inputs:
       environment:
@@ -127,7 +125,7 @@ jobs:
     name: Daily Journal Summary (23:00 UTC)
     runs-on: ubuntu-latest
 
-    if: github.event_name == 'schedule' && github.event.schedule == '0 23 * * *'
+    if: github.event_name == 'schedule' && github.event.schedule == '0 21 * * *'
 
     # Daily journal is explicitly paper
     environment: paper
