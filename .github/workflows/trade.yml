@@ -20,7 +20,7 @@ on:
         options: ["true", "false"]
 
 # Voorkom gelijktijdige runs die allebei naar main proberen te pushen.
-# Concurrency zorgt dat er max 1 run tegelijk actief/pending is per group. [2](https://docs.github.com/en/enterprise-cloud@latest/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)
+# Concurrency zorgt dat er max 1 run tegelijk actief/pending is per group.
 concurrency:
   group: trading-bot-${{ github.ref }}
   cancel-in-progress: false
@@ -38,7 +38,7 @@ jobs:
     name: Evaluate
     runs-on: ubuntu-latest
 
-    # Run voor manual dispatch, skip de 15-min schedule (de journal job draait op het uur) 
+    # Run voor manual dispatch, als event is schedule dan voer schedule uit) 
     if: >
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'schedule' && github.event.schedule == '*/30 * * * *')
@@ -125,7 +125,7 @@ jobs:
     name: Daily Journal Summary (23:00 UTC)
     runs-on: ubuntu-latest
 
-    #if: github.event_name == 'schedule' && github.event.schedule == '0 23 * * *'
+    if: github.event_name == 'schedule' && github.event.schedule == '0 23 * * *'
 
     # Daily journal is explicitly paper
     environment: paper
@@ -134,7 +134,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0        # rebase/pull reliability [3](https://code.alazhar.dev/actions/checkout)
+          fetch-depth: 0        # rebase/pull reliability
           persist-credentials: true
 
       - name: Set up Python
