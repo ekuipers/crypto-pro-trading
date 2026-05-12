@@ -155,10 +155,12 @@ jobs:
       - name: Validate credentials
         run: |
           missing=0
-          [ -z "$APCA_API_KEY_ID" ] && echo "ERROR: key empty" && missing=1
-          [ -z "$APCA_API_SECRET_KEY" ] && echo "ERROR: secret empty" && missing=1
+          [ -z "$APCA_API_KEY_ID" ] && echo "ERROR: APCA_API_KEY_ID is empty" && missing=1
+          [ -z "$APCA_API_SECRET_KEY" ] && echo "ERROR: APCA_API_SECRET_KEY is empty" && missing=1
+          [ -z "$APCA_BASE_URL" ] && echo "ERROR: APCA_BASE_URL is empty" && missing=1
           [ $missing -eq 1 ] && exit 1
-
+          echo "Credentials present. ENV=$TRADING_ENV BASE_URL=$APCA_BASE_URL"
+          
       - name: Run daily summary
         run: python scripts/run_evaluation.py --execute
 
