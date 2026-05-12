@@ -25,7 +25,7 @@ concurrency:
   group: trading-bot-${{ github.ref }}
   cancel-in-progress: false
 
-# Minimaal benodigde rechten om commits te kunnen pushen. [4](https://docs.github.com/en/actions/tutorials/authenticate-with-github_token)
+# Minimaal benodigde rechten om commits te kunnen pushen.
 permissions:
   contents: write
 
@@ -43,7 +43,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'schedule' && github.event.schedule == '*/30 * * * *')
 
-    # Inputs bestaan alleen bij workflow_dispatch; bij schedule zijn ze null. [1](https://stackoverflow.com/questions/72539900/schedule-trigger-github-action-workflow-with-input-parameters)
+    # Inputs bestaan alleen bij workflow_dispatch; bij schedule zijn ze null. 
     # Daarom kiezen we veilig een default:
     environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'paper' }}
 
@@ -74,12 +74,12 @@ jobs:
             # Prefer “clean” env-scoped secret names if you have them:
             #   APCA_API_KEY_ID / APCA_API_SECRET_KEY
             # Fallback to your old names if needed:
-            echo "APCA_API_KEY_ID=${{ secrets.APCA_API_KEY_ID || secrets.APCA_LIVE_KEY_ID }}" >> "$GITHUB_ENV"
-            echo "APCA_API_SECRET_KEY=${{ secrets.APCA_API_SECRET_KEY || secrets.APCA_LIVE_SECRET_KEY }}" >> "$GITHUB_ENV"
+            echo "APCA_API_KEY_ID=${{ secrets.APCA_LIVE_KEY_ID }}" >> "$GITHUB_ENV"
+            echo "APCA_API_SECRET_KEY=${{ secrets.APCA_LIVE_SECRET_KEY }}" >> "$GITHUB_ENV"
           else
             echo "APCA_BASE_URL=https://paper-api.alpaca.markets" >> "$GITHUB_ENV"
-            echo "APCA_API_KEY_ID=${{ secrets.APCA_API_KEY_ID || secrets.APCA_PAPER_KEY_ID }}" >> "$GITHUB_ENV"
-            echo "APCA_API_SECRET_KEY=${{ secrets.APCA_API_SECRET_KEY || secrets.APCA_PAPER_SECRET_KEY }}" >> "$GITHUB_ENV"
+            echo "APCA_API_KEY_ID=${{ secrets.APCA_PAPER_KEY_ID }}" >> "$GITHUB_ENV"
+            echo "APCA_API_SECRET_KEY=${{ secrets.APCA_PAPER_SECRET_KEY }}" >> "$GITHUB_ENV"
           fi
 
       - name: Validate credentials
@@ -93,7 +93,7 @@ jobs:
 
       - name: Run evaluation
         run: |
-          DRY="${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}"
+          DRY="${{ inputs.dry_run || 'false' }}"
           if [ "$DRY" = "true" ]; then
             echo "Dry run: no orders"
             python scripts/run_evaluation.py
@@ -149,8 +149,8 @@ jobs:
         run: |
           echo "TRADING_ENV=paper" >> "$GITHUB_ENV"
           echo "APCA_BASE_URL=https://paper-api.alpaca.markets" >> "$GITHUB_ENV"
-          echo "APCA_API_KEY_ID=${{ secrets.APCA_API_KEY_ID || secrets.APCA_PAPER_KEY_ID }}" >> "$GITHUB_ENV"
-          echo "APCA_API_SECRET_KEY=${{ secrets.APCA_API_SECRET_KEY || secrets.APCA_PAPER_SECRET_KEY }}" >> "$GITHUB_ENV"
+          echo "APCA_API_KEY_ID=${{ secrets.APCA_PAPER_KEY_ID }}" >> "$GITHUB_ENV"
+          echo "APCA_API_SECRET_KEY=${{ secrets.APCA_PAPER_SECRET_KEY }}" >> "$GITHUB_ENV"
 
       - name: Validate credentials
         run: |
