@@ -250,7 +250,7 @@ def write_reports(out_dir: Path, payload: Dict) -> Tuple[Path, Path]:
             lines.append(f"- Median Max Drawdown: {s.get('median_max_drawdown')}")
         lines.append("")
 
-    md_path.write_text("".join(lines) + "", encoding="utf-8")
+    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return json_path, md_path
 
 
@@ -281,7 +281,7 @@ def main():
     for tf in args.timeframes:
         res_by_sym = {}
         for sym in symbols:
-            print(f"Evaluating symbol: {sym}")
+            print(f"Evaluating symbol: {sym} on timeframe: {tf}")
             df = fetch_crypto_bars(sym, tf, args.start, args.end)
             res_by_sym[sym] = walk_forward(df, tf, cfg, args.train_days, args.test_days, args.initial_equity)
         report["timeframes"][tf] = res_by_sym
