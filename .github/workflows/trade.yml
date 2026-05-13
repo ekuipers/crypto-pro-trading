@@ -121,7 +121,7 @@ jobs:
           done
 
   journal:
-    name: Daily Journal Summary (23:00 UTC)
+    name: Daily Journal Summary
     runs-on: ubuntu-latest
 
     if: github.event_name == 'schedule' && github.event.schedule == '0 21 * * *'
