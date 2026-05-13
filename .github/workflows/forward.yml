@@ -3,6 +3,7 @@ name: Forward Analysis
 on:
   schedule:
     - cron: '11 8 * * *'   # once per hour
+  workflow_dispatch:    
       
 # Voorkom gelijktijdige runs die allebei naar main proberen te pushen.
 # Concurrency zorgt dat er max 1 run tegelijk actief/pending is per group.
