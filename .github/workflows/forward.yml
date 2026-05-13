@@ -27,7 +27,7 @@ jobs:
     # Run voor manual dispatch, als event is schedule dan voer schedule uit) 
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'schedule' && github.event.schedule ==  '11 8 * * *'))
+      (github.event_name == 'schedule' && github.event.schedule ==  '11 8 * * *')
 
     # Environment for walk forward is always paper
     environment: 'paper'
