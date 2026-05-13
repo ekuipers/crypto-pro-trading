@@ -2,7 +2,7 @@ name: Trading Bot
 
 on:
   schedule:
-    - cron: '23 * * * *'   # elke 48 min na het uur
+    - cron: '23 * * * *'   # elke 23 min na het uur
     - cron: '0 21 * * *'    # daily summary elke dag om 23.00 Amsterdam tijd.
   workflow_dispatch:
     inputs:
@@ -41,7 +41,7 @@ jobs:
     # Run voor manual dispatch, als event is schedule dan voer schedule uit) 
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'schedule' && github.event.schedule == '*/38 * * * *')
+      (github.event_name == 'schedule' && github.event.schedule == '23 * * * *')
 
     # Inputs bestaan alleen bij workflow_dispatch; bij schedule zijn ze null. 
     # Daarom kiezen we veilig een default:
