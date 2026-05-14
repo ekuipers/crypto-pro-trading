@@ -166,6 +166,31 @@
     /* ── SORTABLE HEADERS ── */
     th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
     th.sortable:hover { color: var(--text); background: #21262d; }
+
+    /* ── COLUMN TOOLTIPS ── */
+    th[data-tip] { position: relative; }
+    th[data-tip]::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1c2333;
+      color: #e6edf3;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: 0;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .15s;
+      z-index: 200;
+    }
+    th[data-tip]:hover::after { opacity: 1; }
     .sort-icon { font-size: 9px; margin-left: 4px; opacity: .4; transition: opacity .15s, color .15s; }
     th.sorted .sort-icon { opacity: 1; color: var(--blue); }
 
@@ -318,14 +343,14 @@
       <div class="table-wrap">
         <table>
           <thead id="posHead"><tr>
-            <th class="sortable"       data-key="symbol"                 onclick="sortPos('symbol')">Symbol <span class="sort-icon">⇅</span></th>
-            <th class="sortable right" data-key="qty"                    onclick="sortPos('qty')">Qty <span class="sort-icon">⇅</span></th>
-            <th class="sortable right" data-key="avg_entry_price"        onclick="sortPos('avg_entry_price')">Entry Price <span class="sort-icon">⇅</span></th>
-            <th class="sortable right" data-key="current_price"          onclick="sortPos('current_price')">Current Price <span class="sort-icon">⇅</span></th>
-            <th class="sortable right" data-key="market_value"           onclick="sortPos('market_value')">Market Value <span class="sort-icon">⇅</span></th>
-            <th class="sortable right" data-key="unrealized_pl"          onclick="sortPos('unrealized_pl')">Unrealized P&amp;L <span class="sort-icon">⇅</span></th>
-            <th class="sortable right" data-key="unrealized_plpc"        onclick="sortPos('unrealized_plpc')">Unrealized % <span class="sort-icon">⇅</span></th>
-            <th class="sortable right" data-key="unrealized_intraday_pl" onclick="sortPos('unrealized_intraday_pl')">Today P&amp;L <span class="sort-icon">⇅</span></th>
+            <th class="sortable"       data-key="symbol"                 data-tip="Trading pair symbol" onclick="sortPos('symbol')">Symbol <span class="sort-icon">⇅</span></th>
+            <th class="sortable right" data-key="qty"                    data-tip="Number of units held" onclick="sortPos('qty')">Qty <span class="sort-icon">⇅</span></th>
+            <th class="sortable right" data-key="avg_entry_price"        data-tip="Average cost per unit when position was opened" onclick="sortPos('avg_entry_price')">Entry Price <span class="sort-icon">⇅</span></th>
+            <th class="sortable right" data-key="current_price"          data-tip="Latest market price per unit" onclick="sortPos('current_price')">Current Price <span class="sort-icon">⇅</span></th>
+            <th class="sortable right" data-key="market_value"           data-tip="Current market value (qty × current price)" onclick="sortPos('market_value')">Market Value <span class="sort-icon">⇅</span></th>
+            <th class="sortable right" data-key="unrealized_pl"          data-tip="Unrealized profit/loss in dollars" onclick="sortPos('unrealized_pl')">Unrealized P&amp;L <span class="sort-icon">⇅</span></th>
+            <th class="sortable right" data-key="unrealized_plpc"        data-tip="Unrealized P&L as % of cost basis" onclick="sortPos('unrealized_plpc')">Unrealized % <span class="sort-icon">⇅</span></th>
+            <th class="sortable right" data-key="unrealized_intraday_pl" data-tip="Today's profit/loss since session open" onclick="sortPos('unrealized_intraday_pl')">Today P&amp;L <span class="sort-icon">⇅</span></th>
           </tr></thead>
           <tbody id="positionsBody">
             <tr><td colspan="8" class="placeholder"><span class="spinner"></span> Loading positions…</td></tr>
@@ -346,16 +371,16 @@
       <div class="table-wrap">
         <table>
           <thead id="ordHead"><tr>
-            <th class="sortable"       data-key="symbol"           onclick="sortOrd('symbol')">Symbol <span class="sort-icon">⇅</span></th>
-            <th class="sortable"       data-key="side"             onclick="sortOrd('side')">Side <span class="sort-icon">⇅</span></th>
-            <th class="sortable"       data-key="type"             onclick="sortOrd('type')">Type <span class="sort-icon">⇅</span></th>
-            <th class="sortable right" data-key="qty"              onclick="sortOrd('qty')">Qty <span class="sort-icon">⇅</span></th>
-            <th class="sortable right" data-key="filled_qty"       onclick="sortOrd('filled_qty')">Filled Qty <span class="sort-icon">⇅</span></th>
-            <th class="sortable right" data-key="limit_price"      onclick="sortOrd('limit_price')">Limit Price <span class="sort-icon">⇅</span></th>
-            <th class="sortable right" data-key="filled_avg_price" onclick="sortOrd('filled_avg_price')">Avg Fill <span class="sort-icon">⇅</span></th>
-            <th class="sortable right" data-key="value"            onclick="sortOrd('value')">Value <span class="sort-icon">⇅</span></th>
-            <th class="sortable"       data-key="status"           onclick="sortOrd('status')">Status <span class="sort-icon">⇅</span></th>
-            <th class="sortable"       data-key="created_at"       onclick="sortOrd('created_at')">Time <span class="sort-icon">⇅</span></th>
+            <th class="sortable"       data-key="symbol"           data-tip="Trading pair symbol" onclick="sortOrd('symbol')">Symbol <span class="sort-icon">⇅</span></th>
+            <th class="sortable"       data-key="side"             data-tip="Buy or sell" onclick="sortOrd('side')">Side <span class="sort-icon">⇅</span></th>
+            <th class="sortable"       data-key="type"             data-tip="Order type (always limit — market orders are forbidden)" onclick="sortOrd('type')">Type <span class="sort-icon">⇅</span></th>
+            <th class="sortable right" data-key="qty"              data-tip="Total quantity requested" onclick="sortOrd('qty')">Qty <span class="sort-icon">⇅</span></th>
+            <th class="sortable right" data-key="filled_qty"       data-tip="Quantity actually executed so far" onclick="sortOrd('filled_qty')">Filled Qty <span class="sort-icon">⇅</span></th>
+            <th class="sortable right" data-key="limit_price"      data-tip="Limit price submitted — must be within 0.2% of ask" onclick="sortOrd('limit_price')">Limit Price <span class="sort-icon">⇅</span></th>
+            <th class="sortable right" data-key="filled_avg_price" data-tip="Average price at which the order was filled" onclick="sortOrd('filled_avg_price')">Avg Fill <span class="sort-icon">⇅</span></th>
+            <th class="sortable right" data-key="value"            data-tip="Total value of the filled portion (filled qty × avg fill)" onclick="sortOrd('value')">Value <span class="sort-icon">⇅</span></th>
+            <th class="sortable"       data-key="status"           data-tip="Current order status" onclick="sortOrd('status')">Status <span class="sort-icon">⇅</span></th>
+            <th class="sortable"       data-key="created_at"       data-tip="When the order was submitted" onclick="sortOrd('created_at')">Time <span class="sort-icon">⇅</span></th>
           </tr></thead>
           <tbody id="ordersBody">
             <tr><td colspan="10" class="placeholder"><span class="spinner"></span> Loading orders…</td></tr>
@@ -395,17 +420,17 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr>
-            <th style="width:36px">#</th>
-            <th>Symbol</th>
-            <th class="right">Price</th>
-            <th class="right">Change $</th>
-            <th class="right">Change %</th>
-            <th class="right">Open</th>
-            <th class="right">24h High</th>
-            <th class="right">24h Low</th>
-            <th class="right">Volume</th>
-            <th class="right" style="width:150px">Move</th>
+          <thead id="hotHead"><tr>
+            <th style="width:36px" data-tip="Rank by selected sort column">#</th>
+            <th class="sortable"       data-key="sym"    data-tip="Trading pair symbol" onclick="sortHot('sym')">Symbol <span class="sort-icon">⇅</span></th>
+            <th class="sortable right" data-key="price"  data-tip="Latest traded price" onclick="sortHot('price')">Price <span class="sort-icon">⇅</span></th>
+            <th class="sortable right" data-key="change" data-tip="Dollar change from today's open" onclick="sortHot('change')">Change $ <span class="sort-icon">⇅</span></th>
+            <th class="sortable right" data-key="pct"    data-tip="Percentage change from today's open" onclick="sortHot('pct')">Change % <span class="sort-icon">⇅</span></th>
+            <th class="right" data-tip="Today's opening price">Open</th>
+            <th class="right" data-tip="24-hour high price">24h High</th>
+            <th class="right" data-tip="24-hour low price">24h Low</th>
+            <th class="sortable right" data-key="volume" data-tip="24-hour traded volume" onclick="sortHot('volume')">Volume <span class="sort-icon">⇅</span></th>
+            <th class="right" style="width:150px" data-tip="Visual bar showing relative magnitude of today's price move">Move</th>
           </tr></thead>
           <tbody id="cryptoRankBody">
             <tr><td colspan="10" class="placeholder"><span class="spinner"></span> Loading…</td></tr>
@@ -517,15 +542,15 @@
     <div class="brief-section-title">📂 Open Positions — Risk Status</div>
     <div class="pos-health-wrap">
       <table class="conf-table">
-        <thead><tr>
-          <th>Symbol</th>
-          <th class="right">Entry</th>
-          <th class="right">Current</th>
-          <th class="right">P&amp;L%</th>
-          <th class="right">Port%</th>
-          <th>Stop (−5%)</th>
-          <th>Target (+10%)</th>
-          <th>Status</th>
+        <thead id="briefPosHead"><tr>
+          <th class="sortable"       data-key="symbol"           data-tip="Crypto pair symbol" onclick="sortBriefPos('symbol')">Symbol <span class="sort-icon">⇅</span></th>
+          <th class="sortable right" data-key="avg_entry_price"  data-tip="Average price paid to open this position" onclick="sortBriefPos('avg_entry_price')">Entry <span class="sort-icon">⇅</span></th>
+          <th class="sortable right" data-key="current_price"    data-tip="Latest market price" onclick="sortBriefPos('current_price')">Current <span class="sort-icon">⇅</span></th>
+          <th class="sortable right" data-key="plPct"            data-tip="Unrealized profit/loss as % of entry price" onclick="sortBriefPos('plPct')">P&amp;L% <span class="sort-icon">⇅</span></th>
+          <th class="sortable right" data-key="portPct"          data-tip="Position size as % of total portfolio equity" onclick="sortBriefPos('portPct')">Port% <span class="sort-icon">⇅</span></th>
+          <th data-tip="Hard stop-loss — auto-closes position at −5% drawdown from entry">Stop (−5%)</th>
+          <th data-tip="Unrealized gain from entry — exit is driven by TA signal confluence, not a fixed target">Gain from Entry</th>
+          <th data-tip="Risk status: stop proximity, cap breach, or significant gain">Status</th>
         </tr></thead>
         <tbody id="briefPositions"><tr><td colspan="8" class="placeholder"><span class="spinner"></span></td></tr></tbody>
       </table>
@@ -535,17 +560,17 @@
     <div class="brief-section-title">📡 Signal Confluence — Watchlist</div>
     <div class="conf-wrap">
       <table class="conf-table">
-        <thead><tr>
-          <th>Symbol</th>
-          <th class="right">Score</th>
-          <th>EMA×</th>
-          <th>MACD</th>
-          <th>RSI</th>
-          <th>BB %b</th>
-          <th>Vol</th>
-          <th>4H</th>
-          <th>Daily Regime</th>
-          <th class="right">Action</th>
+        <thead id="confHead"><tr>
+          <th class="sortable"       data-key="sym"         data-tip="Watchlist symbol" onclick="sortConf('sym')">Symbol <span class="sort-icon">⇅</span></th>
+          <th class="sortable right" data-key="score"       data-tip="6-point confluence score: ≥4 = BUY, 3 = half-size buy, ≤−2 = TA SELL" onclick="sortConf('score')">Score <span class="sort-icon">⇅</span></th>
+          <th data-tip="EMA 20 vs 50 on 15-min: golden cross = +1, death cross = −1">EMA×</th>
+          <th data-tip="MACD histogram: green &amp; rising = +1, red &amp; falling = −1">MACD</th>
+          <th data-tip="RSI: 40–65 rising = +1, oversold &lt;30 = +1, overbought &gt;70 = −1">RSI</th>
+          <th data-tip="Bollinger %b: &lt;0.25 near lower band = +1; &gt;0.75 near upper band = −1">BB %b</th>
+          <th data-tip="Volume vs 20-bar average: ≥1.2× above average = +1, &lt;0.7× = −0.5">Vol</th>
+          <th data-tip="4-Hour EMA 20 vs 50: golden cross = +1, death cross = −1">4H</th>
+          <th class="sortable"       data-key="dailyRegime" data-tip="Daily trend regime (20/50-day SMA) — downtrend blocks new buys" onclick="sortConf('dailyRegime')">Daily Regime <span class="sort-icon">⇅</span></th>
+          <th class="sortable right" data-key="actionRank"  data-tip="Recommended action based on score and regime gate" onclick="sortConf('actionRank')">Action <span class="sort-icon">⇅</span></th>
         </tr></thead>
         <tbody id="briefConfluence"><tr><td colspan="10" class="placeholder"><span class="spinner"></span> Fetching bars & computing signals…</td></tr></tbody>
       </table>
@@ -590,15 +615,15 @@
         <!-- Breakdown table -->
         <div class="table-wrap">
           <table>
-            <thead><tr>
-              <th>Symbol</th>
-              <th class="right">Market Value</th>
-              <th class="right">% of Portfolio</th>
-              <th class="right">Qty</th>
-              <th class="right">Avg Entry</th>
-              <th class="right">Current Price</th>
-              <th class="right">Unrealized P&amp;L</th>
-              <th class="right">P&amp;L %</th>
+            <thead id="distTableHead"><tr>
+              <th class="sortable"       data-key="symbol"         data-tip="Asset symbol" onclick="sortDistTable('symbol')">Symbol <span class="sort-icon">⇅</span></th>
+              <th class="sortable right" data-key="market_value"   data-tip="Current market value (qty × price)" onclick="sortDistTable('market_value')">Market Value <span class="sort-icon">⇅</span></th>
+              <th class="sortable right" data-key="pct"            data-tip="Position value as % of total portfolio equity" onclick="sortDistTable('pct')">% of Portfolio <span class="sort-icon">⇅</span></th>
+              <th class="sortable right" data-key="qty"            data-tip="Number of units held" onclick="sortDistTable('qty')">Qty <span class="sort-icon">⇅</span></th>
+              <th class="sortable right" data-key="avg_entry_price" data-tip="Average cost per unit" onclick="sortDistTable('avg_entry_price')">Avg Entry <span class="sort-icon">⇅</span></th>
+              <th class="sortable right" data-key="current_price"  data-tip="Latest market price per unit" onclick="sortDistTable('current_price')">Current Price <span class="sort-icon">⇅</span></th>
+              <th class="sortable right" data-key="unrealized_pl"  data-tip="Unrealized profit/loss in dollars" onclick="sortDistTable('unrealized_pl')">Unrealized P&amp;L <span class="sort-icon">⇅</span></th>
+              <th class="sortable right" data-key="unrealized_plpc" data-tip="Unrealized P&L as % of cost basis" onclick="sortDistTable('unrealized_plpc')">P&amp;L % <span class="sort-icon">⇅</span></th>
             </tr></thead>
             <tbody id="distTableBody">
               <tr><td colspan="8" class="placeholder"><span class="spinner"></span> Loading…</td></tr>
@@ -614,13 +639,13 @@
       <div class="section-title">Cap Utilisation vs. Strategy Limits</div>
       <div class="table-wrap">
         <table>
-          <thead><tr>
-            <th>Symbol</th>
-            <th class="right">Current %</th>
-            <th class="right">Cap Limit</th>
-            <th class="right">Headroom</th>
-            <th style="width:220px">Utilisation</th>
-            <th>Status</th>
+          <thead id="distCapHead"><tr>
+            <th class="sortable"       data-key="sym"      data-tip="Asset symbol (all watchlist symbols shown)" onclick="sortDistCap('sym')">Symbol <span class="sort-icon">⇅</span></th>
+            <th class="sortable right" data-key="curPct"   data-tip="Current position as % of portfolio equity (– if no position)" onclick="sortDistCap('curPct')">Current % <span class="sort-icon">⇅</span></th>
+            <th class="sortable right" data-key="capPct"   data-tip="Maximum allowed % of equity per portfolio_caps.json" onclick="sortDistCap('capPct')">Cap Limit <span class="sort-icon">⇅</span></th>
+            <th class="sortable right" data-key="headroom" data-tip="Remaining room before hitting cap (Cap − Current%)" onclick="sortDistCap('headroom')">Headroom <span class="sort-icon">⇅</span></th>
+            <th style="width:220px" data-tip="Bar showing % of cap used — green = OK, yellow = ≥80%, red = over cap">Utilisation</th>
+            <th data-tip="Cap compliance status for this position">Status</th>
           </tr></thead>
           <tbody id="distCapBody">
             <tr><td colspan="6" class="placeholder"><span class="spinner"></span> Loading…</td></tr>
@@ -990,7 +1015,7 @@ function renderPositions() {
     const mv     = parseFloat(p.market_value);
     const qty    = parseFloat(p.qty);
     return `<tr>
-      <td><span class="symbol">${p.symbol}</span></td>
+      <td><span class="symbol">${toSlash(p.symbol)}</span></td>
       <td class="right">${fmt(qty, qty % 1 === 0 ? 0 : 6)}</td>
       <td class="right mono">${fmtPrice(p.avg_entry_price)}</td>
       <td class="right mono">${fmtPrice(p.current_price)}</td>
@@ -1039,7 +1064,7 @@ function renderOrderRow(o) {
   const val = filledQty && o.filled_avg_price
     ? "$" + fmt(filledQty * parseFloat(o.filled_avg_price)) : "–";
   return `<tr>
-    <td><span class="symbol">${o.symbol}</span></td>
+    <td><span class="symbol">${toSlash(o.symbol)}</span></td>
     <td class="side-${o.side}">${o.side.toUpperCase()}</td>
     <td style="color:var(--muted)">${o.type}</td>
     <td class="right">${fmt(qty, qty % 1 === 0 ? 0 : 6)}</td>
@@ -1142,7 +1167,6 @@ async function loadCryptoWatchlist() {
   });
 
   const sorted    = [...rows].sort((a, b) => b.pct - a.pct);
-  const maxAbsPct = Math.max(...rows.map(r => Math.abs(r.pct)), 0.01);
   const best      = sorted[0];
   const worst     = sorted[sorted.length - 1];
   const posCount  = rows.filter(r => r.pct > 0).length;
@@ -1155,26 +1179,9 @@ async function loadCryptoWatchlist() {
   avgEl.textContent = pctFmt(avgChg);
   avgEl.className   = "hot-stat-value " + plClass(avgChg);
 
-  $("cryptoRankBody").innerHTML = sorted.map((r, i) => {
-    if (r.noData) return `<tr>
-      <td class="rank">${i + 1}</td>
-      <td><span class="symbol">${r.sym}</span></td>
-      <td colspan="8" style="color:var(--muted)">No data</td>
-    </tr>`;
-    const cls = plClass(r.change);
-    return `<tr>
-      <td class="rank">${i + 1}</td>
-      <td><span class="symbol">${r.sym}</span></td>
-      <td class="right mono">${fmtPrice(r.price)}</td>
-      <td class="right ${cls}">${plSign(r.change)}</td>
-      <td class="right ${cls}" style="font-weight:700">${pctFmt(r.pct)}</td>
-      <td class="right mono" style="color:var(--muted)">${fmtPrice(r.open)}</td>
-      <td class="right mono pos">${fmtPrice(r.high)}</td>
-      <td class="right mono neg">${fmtPrice(r.low)}</td>
-      <td class="right" style="color:var(--muted)">${fmtVol(r.volume)}</td>
-      <td class="bar-cell right">${changeBar(r.pct, maxAbsPct)}</td>
-    </tr>`;
-  }).join("");
+  rawHotRows = rows;
+  setSortIcons("hotHead", hotSort.key, hotSort.dir);
+  renderHot();
 
   $("cryptoWlGrid").innerHTML = rows.map(r =>
     r.noData
@@ -1216,6 +1223,249 @@ function refreshCurrent() {
   else if (activeTab === "hot") loadHot();
   else if (activeTab === "brief") loadBrief();
   else if (activeTab === "dist") loadDist();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SYMBOL HELPER
+// ═══════════════════════════════════════════════════════════
+function toSlash(sym) {
+  if (!sym) return sym;
+  if (sym.includes("/")) return sym;
+  if (sym.endsWith("USD")) return sym.slice(0, -3) + "/USD";
+  return sym;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  GLOBAL DATA STORES — for sortable tables
+// ═══════════════════════════════════════════════════════════
+let _briefEquity   = 0;
+let rawBriefPos    = [];
+let rawConfRows    = [];
+let rawDistTable   = [];        // array of position objects; ._equity set after load
+let rawDistCapData = [];        // array of cap row objects; ._equity set after load
+let rawHotRows     = [];
+
+const briefPosSort  = { key: "plPct",        dir: -1 };
+const confSort      = { key: "score",         dir: -1 };
+const distTableSort = { key: "market_value",  dir: -1 };
+const distCapSort   = { key: "curPct",        dir: -1 };
+const hotSort       = { key: "pct",           dir: -1 };
+
+// ─── BRIEF POSITIONS — sort & render ──────────────────────
+function sortBriefPos(key) {
+  if (briefPosSort.key === key) briefPosSort.dir *= -1;
+  else { briefPosSort.key = key; briefPosSort.dir = 1; }
+  setSortIcons("briefPosHead", briefPosSort.key, briefPosSort.dir);
+  renderBriefPos();
+}
+function renderBriefPos() {
+  const equity = _briefEquity;
+  const data = [...rawBriefPos].sort((a, b) => {
+    const key = briefPosSort.key, dir = briefPosSort.dir;
+    const eA = parseFloat(a.avg_entry_price), cA = parseFloat(a.current_price);
+    const eB = parseFloat(b.avg_entry_price), cB = parseFloat(b.current_price);
+    let va, vb;
+    if (key === "plPct")   { va = (cA - eA) / eA; vb = (cB - eB) / eB; }
+    else if (key === "portPct") { va = parseFloat(a.market_value) / equity; vb = parseFloat(b.market_value) / equity; }
+    else { va = numOrStr(a[key]); vb = numOrStr(b[key]); }
+    if (va < vb) return -dir; if (va > vb) return dir; return 0;
+  });
+  if (!data.length) {
+    $("briefPositions").innerHTML = `<tr><td colspan="8" class="placeholder">No open positions</td></tr>`;
+    return;
+  }
+  $("briefPositions").innerHTML = data.map(p => {
+    const entry = parseFloat(p.avg_entry_price), cur = parseFloat(p.current_price);
+    const plPct = (cur - entry) / entry * 100;
+    const portPct = parseFloat(p.market_value) / equity * 100;
+    const stopPx = entry * 0.95;
+    const stopProg = Math.min(Math.max((plPct + 5) / 5 * 100, 0), 100);
+    const gainProg = Math.min(Math.max(plPct / 20 * 100, 0), 100);
+    const symCapPct = capFor(toSlash(p.symbol));
+    const portOver = portPct > symCapPct * 1.05;
+    const distStop = ((cur - stopPx) / entry * 100).toFixed(1);
+    let sc = `<span class="chip chip-muted">OK</span>`;
+    if (plPct <= -4)  sc = `<span class="chip chip-red">⚠ Near Stop</span>`;
+    else if (plPct >= 15) sc = `<span class="chip chip-green">💰 Strong Gain</span>`;
+    else if (portOver) sc = `<span class="chip chip-red">⚠ Over ${symCapPct.toFixed(0)}% Cap</span>`;
+    return `<tr>
+      <td><span class="symbol">${toSlash(p.symbol)}</span></td>
+      <td class="right mono">${fmtPrice(entry)}</td>
+      <td class="right mono">${fmtPrice(cur)}</td>
+      <td class="right ${plClass(plPct)}" style="font-weight:700">${(plPct >= 0 ? "+" : "") + plPct.toFixed(2)}%</td>
+      <td class="right">
+        <div style="font-weight:700;color:${portOver ? "var(--red)" : "var(--text)"}">${portPct.toFixed(1)}%</div>
+        <div style="font-size:10px;color:var(--muted)">cap ${symCapPct.toFixed(0)}%</div>
+        <div style="height:4px;border-radius:2px;background:var(--border);overflow:hidden;margin-top:3px;width:60px;margin-left:auto">
+          <div style="height:100%;border-radius:2px;background:${portOver ? "var(--red)" : portPct / symCapPct >= 0.8 ? "var(--yellow)" : "var(--green)"};width:${Math.min(portPct / symCapPct * 100, 100).toFixed(0)}%"></div>
+        </div>
+      </td>
+      <td><div style="font-size:11px;color:var(--muted)">${fmtPrice(stopPx)} (${distStop >= 0 ? "+" : ""}${distStop}%)</div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${stopProg}%;background:${stopProg < 30 ? "var(--red)" : "var(--green)"}"></div></div></td>
+      <td>
+        <div style="font-size:11px;color:${plPct >= 10 ? "var(--green)" : plPct >= 5 ? "var(--yellow)" : "var(--muted)"}">${(plPct >= 0 ? "+" : "") + plPct.toFixed(2)}% from entry</div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${gainProg}%;background:${plPct >= 10 ? "var(--green)" : plPct >= 5 ? "var(--yellow)" : "var(--blue)"}"></div></div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">Exit: TA signals</div>
+      </td>
+      <td>${sc}</td>
+    </tr>`;
+  }).join("");
+}
+
+// ─── CONFLUENCE — sort & render ────────────────────────────
+function sortConf(key) {
+  if (confSort.key === key) confSort.dir *= -1;
+  else { confSort.key = key; confSort.dir = 1; }
+  setSortIcons("confHead", confSort.key, confSort.dir);
+  renderConf();
+}
+function renderConf() {
+  const data = [...rawConfRows].sort((a, b) => {
+    const key = confSort.key, dir = confSort.dir;
+    let va, vb;
+    if (key === "score") { va = a.score ?? -99; vb = b.score ?? -99; }
+    else if (key === "actionRank") {
+      const rank = s => s >= 4 ? 3 : s >= 3 ? 2 : s <= -2 ? 1 : 0;
+      va = rank(a.score ?? -99); vb = rank(b.score ?? -99);
+    } else if (key === "dailyRegime") {
+      const order = { uptrend: 2, mixed: 1, downtrend: 0 };
+      va = order[a.dailyRegime] ?? -1; vb = order[b.dailyRegime] ?? -1;
+    } else { va = numOrStr(a[key]); vb = numOrStr(b[key]); }
+    if (va < vb) return -dir; if (va > vb) return dir; return 0;
+  });
+  $("briefConfluence").innerHTML = data.map(row => {
+    if (!row.ok) return `<tr><td><span class="symbol">${toSlash(row.sym)}</span></td><td colspan="9" style="color:var(--muted)">Error: ${row.err}</td></tr>`;
+    const s = row.signals;
+    const sc = row.score, scColor = sc >= 4 ? "var(--green)" : sc >= 3 ? "var(--yellow)" : sc <= -2 ? "var(--red)" : "var(--text)";
+    return `<tr>
+      <td><span class="symbol">${toSlash(row.sym)}</span></td>
+      <td class="right"><span class="conf-score" style="color:${scColor}">${sc !== null ? (sc > 0 ? "+" : "") + sc : "n/a"}/6</span>${scoreBar(sc)}</td>
+      <td>${s.ema  ? chipFor(s.ema.val,  s.ema.pts)  : "–"}</td>
+      <td>${s.macd ? chipFor(s.macd.val, s.macd.pts) : "–"}</td>
+      <td>${s.rsi  ? chipFor(s.rsi.val,  s.rsi.pts)  : "–"}</td>
+      <td>${s.bb   ? chipFor(s.bb.val,   s.bb.pts)   : "–"}</td>
+      <td>${s.vol  ? chipFor(s.vol.val,  s.vol.pts)  : "–"}</td>
+      <td>${s.tf4h ? chipFor(s.tf4h.val, s.tf4h.pts) : "–"}</td>
+      <td>${regimeChip(row.dailyRegime)}</td>
+      <td class="right">${actionChip(row.score, row.dailyRegime)}</td>
+    </tr>`;
+  }).join("");
+}
+
+// ─── DIST TABLE — sort & render ───────────────────────────
+function sortDistTable(key) {
+  if (distTableSort.key === key) distTableSort.dir *= -1;
+  else { distTableSort.key = key; distTableSort.dir = 1; }
+  setSortIcons("distTableHead", distTableSort.key, distTableSort.dir);
+  renderDistTable();
+}
+function renderDistTable() {
+  const equity = rawDistTable._equity || 0;
+  const data = [...rawDistTable].sort((a, b) => {
+    const key = distTableSort.key, dir = distTableSort.dir;
+    let va, vb;
+    if (key === "pct") { va = parseFloat(a.market_value) / equity; vb = parseFloat(b.market_value) / equity; }
+    else { va = numOrStr(a[key]); vb = numOrStr(b[key]); }
+    if (va < vb) return -dir; if (va > vb) return dir; return 0;
+  });
+  $("distTableBody").innerHTML = !data.length
+    ? `<tr><td colspan="8" class="placeholder">No open positions</td></tr>`
+    : data.map(p => {
+        const mv = parseFloat(p.market_value), pct = equity ? mv / equity * 100 : 0;
+        const qty = parseFloat(p.qty), entry = parseFloat(p.avg_entry_price);
+        const cur = parseFloat(p.current_price);
+        const unrPL = parseFloat(p.unrealized_pl), unrPct = parseFloat(p.unrealized_plpc);
+        return `<tr>
+          <td><span class="symbol">${toSlash(p.symbol)}</span></td>
+          <td class="right mono">$${fmt(mv)}</td>
+          <td class="right" style="font-weight:700">${fmt(pct, 1)}%</td>
+          <td class="right">${fmt(qty, qty % 1 === 0 ? 0 : 6)}</td>
+          <td class="right mono">${fmtPrice(entry)}</td>
+          <td class="right mono">${fmtPrice(cur)}</td>
+          <td class="right ${plClass(unrPL)}">${plSign(unrPL)}</td>
+          <td class="right ${plClass(unrPct)}">${pctFmt(unrPct, true)}</td>
+        </tr>`;
+    }).join("");
+}
+
+// ─── DIST CAP — sort & render ─────────────────────────────
+function sortDistCap(key) {
+  if (distCapSort.key === key) distCapSort.dir *= -1;
+  else { distCapSort.key = key; distCapSort.dir = 1; }
+  setSortIcons("distCapHead", distCapSort.key, distCapSort.dir);
+  renderDistCap();
+}
+function renderDistCap() {
+  const data = [...rawDistCapData].sort((a, b) => {
+    const key = distCapSort.key, dir = distCapSort.dir;
+    let va, vb;
+    if (key === "sym")       { va = a.sym.toLowerCase();  vb = b.sym.toLowerCase(); }
+    else if (key === "curPct")   { va = a.curPct;  vb = b.curPct; }
+    else if (key === "capPct")   { va = a.capPct;  vb = b.capPct; }
+    else if (key === "headroom") { va = a.headroom; vb = b.headroom; }
+    else { va = numOrStr(a[key]); vb = numOrStr(b[key]); }
+    if (va < vb) return -dir; if (va > vb) return dir; return 0;
+  });
+  $("distCapBody").innerHTML = data.map(item => {
+    const { sym, curPct, capPct, headroom, utilPct, isOver, hasPos } = item;
+    const barFill = isOver ? `background:var(--red);width:100%` : `background:var(--green);width:${utilPct.toFixed(1)}%`;
+    const badge = !hasPos
+      ? `<span style="color:var(--muted);font-size:12px">No position</span>`
+      : isOver
+        ? `<span class="status-badge" style="background:rgba(248,81,73,.15);color:var(--red)">⚠ Over Cap</span>`
+        : utilPct >= 80
+          ? `<span class="status-badge" style="background:rgba(210,153,34,.15);color:var(--yellow)">Near Cap</span>`
+          : `<span class="status-badge" style="background:rgba(63,185,80,.15);color:var(--green)">OK</span>`;
+    return `<tr>
+      <td><span class="symbol">${sym}</span></td>
+      <td class="right" style="font-weight:${hasPos ? 700 : 400};color:${!hasPos ? "var(--muted)" : "var(--text)"}">${hasPos ? fmt(curPct, 1) + "%" : "–"}</td>
+      <td class="right">${fmt(capPct, 0)}%</td>
+      <td class="right ${headroom < 1 && hasPos ? "neg" : ""}">${hasPos ? fmt(headroom, 1) + "%" : fmt(capPct, 0) + "%"}</td>
+      <td>
+        <div style="height:8px;border-radius:4px;background:var(--surface2);overflow:hidden;position:relative">
+          <div style="height:100%;border-radius:4px;position:absolute;top:0;left:0;${barFill}"></div>
+        </div>
+        ${hasPos ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${utilPct.toFixed(0)}% of cap used</div>` : ""}
+      </td>
+      <td>${badge}</td>
+    </tr>`;
+  }).join("");
+}
+
+// ─── HOT SYMBOLS — sort & render ──────────────────────────
+function sortHot(key) {
+  if (hotSort.key === key) hotSort.dir *= -1;
+  else { hotSort.key = key; hotSort.dir = 1; }
+  setSortIcons("hotHead", hotSort.key, hotSort.dir);
+  renderHot();
+}
+function renderHot() {
+  const data = [...rawHotRows].sort((a, b) => {
+    const key = hotSort.key, dir = hotSort.dir;
+    let va = numOrStr(a[key]), vb = numOrStr(b[key]);
+    if (va < vb) return -dir; if (va > vb) return dir; return 0;
+  });
+  const maxAbsPct = Math.max(...rawHotRows.map(r => Math.abs(r.pct)), 0.01);
+  $("cryptoRankBody").innerHTML = data.map((r, i) => {
+    if (r.noData) return `<tr>
+      <td class="rank">${i + 1}</td>
+      <td><span class="symbol">${r.sym}</span></td>
+      <td colspan="8" style="color:var(--muted)">No data</td>
+    </tr>`;
+    const cls = plClass(r.change);
+    return `<tr>
+      <td class="rank">${i + 1}</td>
+      <td><span class="symbol">${r.sym}</span></td>
+      <td class="right mono">${fmtPrice(r.price)}</td>
+      <td class="right ${cls}">${plSign(r.change)}</td>
+      <td class="right ${cls}" style="font-weight:700">${pctFmt(r.pct)}</td>
+      <td class="right mono" style="color:var(--muted)">${fmtPrice(r.open)}</td>
+      <td class="right mono pos">${fmtPrice(r.high)}</td>
+      <td class="right mono neg">${fmtPrice(r.low)}</td>
+      <td class="right" style="color:var(--muted)">${fmtVol(r.volume)}</td>
+      <td class="bar-cell right">${changeBar(r.pct, maxAbsPct)}</td>
+    </tr>`;
+  }).join("");
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1419,61 +1669,31 @@ async function loadBrief() {
       alerts.push({level:"yellow",msg:`<b>Low cash</b> — $${fmt(cash)} (${cashPct.toFixed(1)}%). Consider rebalancing.`});
 
     positions.forEach(p=>{
+      const sym=toSlash(p.symbol);
       const entry=parseFloat(p.avg_entry_price), cur=parseFloat(p.current_price);
       const plPct=(cur-entry)/entry*100, portPct=parseFloat(p.market_value)/equity*100;
-      const stopPx=entry*0.95, tpPx=entry*1.10;
-      const symCap = capFor(p.symbol);
+      const stopPx=entry*0.95;
+      const symCap = capFor(sym);
       if (portPct > symCap * 1.05)
-        alerts.push({level:"red",   msg:`<b>${p.symbol}</b> is <b>${portPct.toFixed(1)}%</b> of portfolio — exceeds ${symCap.toFixed(0)}% cap. Trim required.`});
+        alerts.push({level:"red",   msg:`<b>${sym}</b> is <b>${portPct.toFixed(1)}%</b> of portfolio — exceeds ${symCap.toFixed(0)}% cap. Trim required.`});
       if (plPct<=-4)
-        alerts.push({level:"red",   msg:`<b>${p.symbol}</b> at <b>${plPct.toFixed(2)}%</b> — approaching stop-loss. Stop: $${fmtPrice(stopPx)}.`});
+        alerts.push({level:"red",   msg:`<b>${sym}</b> at <b>${plPct.toFixed(2)}%</b> — approaching stop-loss. Stop: $${fmtPrice(stopPx)}.`});
       else if (plPct<=-3)
-        alerts.push({level:"yellow",msg:`<b>${p.symbol}</b> at ${plPct.toFixed(2)}% — within 2% of stop-loss. Monitor closely.`});
-      if (plPct>=8)
-        alerts.push({level:"green", msg:`<b>${p.symbol}</b> at <b>+${plPct.toFixed(2)}%</b> — approaching take-profit. Target: $${fmtPrice(tpPx)}.`});
-      else if (plPct>=6)
-        alerts.push({level:"yellow",msg:`<b>${p.symbol}</b> at +${plPct.toFixed(2)}% — consider partial exit toward $${fmtPrice(tpPx)}.`});
+        alerts.push({level:"yellow",msg:`<b>${sym}</b> at ${plPct.toFixed(2)}% — within 2% of stop-loss. Monitor closely.`});
+      if (plPct>=15)
+        alerts.push({level:"green", msg:`<b>${sym}</b> at <b>+${plPct.toFixed(2)}%</b> — significant gain. Review TA signals for exit opportunity.`});
+      else if (plPct>=8)
+        alerts.push({level:"yellow",msg:`<b>${sym}</b> at +${plPct.toFixed(2)}% — healthy gain. Monitor TA signals for potential partial exit.`});
     });
     $("briefAlerts").innerHTML=alerts.length
       ? alerts.map(a=>`<div class="alert-row"><div class="alert-dot ${a.level}"></div><div class="alert-msg">${a.msg}</div></div>`).join("")
       : `<div class="no-alerts">✅ No alerts — portfolio within all risk parameters.</div>`;
 
     // Positions risk table
-    $("briefPositions").innerHTML=!positions.length
-      ? `<tr><td colspan="8" class="placeholder">No open positions</td></tr>`
-      : positions.map(p=>{
-          const entry=parseFloat(p.avg_entry_price), cur=parseFloat(p.current_price);
-          const plPct=(cur-entry)/entry*100, portPct=parseFloat(p.market_value)/equity*100;
-          const stopPx=entry*0.95, tpPx=entry*1.10;
-          const stopProg=Math.min(Math.max((plPct+5)/5*100,0),100);
-          const tpProg=Math.min(Math.max(plPct/10*100,0),100);
-          const symCapPct=capFor(p.symbol);
-          const portOver=portPct > symCapPct * 1.05;
-          const distStop=((cur-stopPx)/entry*100).toFixed(1);
-          const distTP=((tpPx-cur)/entry*100).toFixed(1);
-          let sc=`<span class="chip chip-muted">OK</span>`;
-          if (plPct<=-4)   sc=`<span class="chip chip-red">⚠ Near Stop</span>`;
-          else if (plPct>=8) sc=`<span class="chip chip-green">🎯 Near TP</span>`;
-          else if (portOver) sc=`<span class="chip chip-red">⚠ Over ${symCapPct.toFixed(0)}% Cap</span>`;
-          return `<tr>
-            <td><span class="symbol">${p.symbol}</span></td>
-            <td class="right mono">${fmtPrice(entry)}</td>
-            <td class="right mono">${fmtPrice(cur)}</td>
-            <td class="right ${plClass(plPct)}" style="font-weight:700">${(plPct>=0?"+":"")+plPct.toFixed(2)}%</td>
-            <td class="right">
-              <div style="font-weight:700;color:${portOver?"var(--red)":"var(--text)"}">${portPct.toFixed(1)}%</div>
-              <div style="font-size:10px;color:var(--muted)">cap ${symCapPct.toFixed(0)}%</div>
-              <div style="height:4px;border-radius:2px;background:var(--border);overflow:hidden;margin-top:3px;width:60px;margin-left:auto">
-                <div style="height:100%;border-radius:2px;background:${portOver?"var(--red)":portPct/symCapPct>=0.8?"var(--yellow)":"var(--green)"};width:${Math.min(portPct/symCapPct*100,100).toFixed(0)}%"></div>
-              </div>
-            </td>
-            <td><div style="font-size:11px;color:var(--muted)">${fmtPrice(stopPx)} (${distStop>=0?"+":""}${distStop}%)</div>
-              <div class="progress-bar"><div class="progress-fill" style="width:${stopProg}%;background:${stopProg<30?"var(--red)":"var(--green)"}"></div></div></td>
-            <td><div style="font-size:11px;color:var(--muted)">${fmtPrice(tpPx)} (${distTP}% away)</div>
-              <div class="progress-bar"><div class="progress-fill" style="width:${tpProg}%;background:var(--blue)"></div></div></td>
-            <td>${sc}</td>
-          </tr>`;
-        }).join("");
+    _briefEquity = equity;
+    rawBriefPos  = positions;
+    setSortIcons("briefPosHead", briefPosSort.key, briefPosSort.dir);
+    renderBriefPos();
 
     // Signal confluence table
     $("briefConfluence").innerHTML=`<tr><td colspan="10" class="placeholder"><span class="spinner"></span> Fetching bars…</td></tr>`;
@@ -1487,24 +1707,9 @@ async function loadBrief() {
         return {sym,score,signals,dailyRegime,ok:true};
       } catch(e) { return {sym,score:null,signals:{},dailyRegime:"n/a",ok:false,err:e.message}; }
     }));
-    confRows.sort((a,b)=>(b.score??-99)-(a.score??-99));
-    $("briefConfluence").innerHTML=confRows.map(row=>{
-      if (!row.ok) return `<tr><td><span class="symbol">${row.sym}</span></td><td colspan="9" style="color:var(--muted)">Error: ${row.err}</td></tr>`;
-      const s=row.signals;
-      const sc=row.score, scColor=sc>=4?"var(--green)":sc>=3?"var(--yellow)":sc<=-2?"var(--red)":"var(--text)";
-      return `<tr>
-        <td><span class="symbol">${row.sym}</span></td>
-        <td class="right"><span class="conf-score" style="color:${scColor}">${sc!==null?(sc>0?"+":"")+sc:"n/a"}/6</span>${scoreBar(sc)}</td>
-        <td>${s.ema  ?chipFor(s.ema.val, s.ema.pts)  :"–"}</td>
-        <td>${s.macd ?chipFor(s.macd.val,s.macd.pts) :"–"}</td>
-        <td>${s.rsi  ?chipFor(s.rsi.val, s.rsi.pts)  :"–"}</td>
-        <td>${s.bb   ?chipFor(s.bb.val,  s.bb.pts)   :"–"}</td>
-        <td>${s.vol  ?chipFor(s.vol.val, s.vol.pts)  :"–"}</td>
-        <td>${s.tf4h ?chipFor(s.tf4h.val,s.tf4h.pts) :"–"}</td>
-        <td>${regimeChip(row.dailyRegime)}</td>
-        <td class="right">${actionChip(row.score,row.dailyRegime)}</td>
-      </tr>`;
-    }).join("");
+    rawConfRows = confRows;
+    setSortIcons("confHead", confSort.key, confSort.dir);
+    renderConf();
 
     $("briefTs").textContent="Updated "+new Date().toLocaleTimeString();
   } catch(e) {
@@ -1621,34 +1826,17 @@ async function loadDist() {
     }).join("");
 
     // — Breakdown table —
-    $("distTableBody").innerHTML = !sorted.length
-      ? `<tr><td colspan="8" class="placeholder">No open positions</td></tr>`
-      : sorted.map(p => {
-          const mv     = parseFloat(p.market_value);
-          const pct    = equity ? mv / equity * 100 : 0;
-          const qty    = parseFloat(p.qty);
-          const entry  = parseFloat(p.avg_entry_price);
-          const cur    = parseFloat(p.current_price);
-          const unrPL  = parseFloat(p.unrealized_pl);
-          const unrPct = parseFloat(p.unrealized_plpc);
-          return `<tr>
-            <td><span class="symbol">${p.symbol}</span></td>
-            <td class="right mono">$${fmt(mv)}</td>
-            <td class="right" style="font-weight:700">${fmt(pct, 1)}%</td>
-            <td class="right">${fmt(qty, qty % 1 === 0 ? 0 : 6)}</td>
-            <td class="right mono">${fmtPrice(entry)}</td>
-            <td class="right mono">${fmtPrice(cur)}</td>
-            <td class="right ${plClass(unrPL)}">${plSign(unrPL)}</td>
-            <td class="right ${plClass(unrPct)}">${pctFmt(unrPct, true)}</td>
-          </tr>`;
-        }).join("");
+    rawDistTable = sorted;
+    rawDistTable._equity = equity;
+    setSortIcons("distTableHead", distTableSort.key, distTableSort.dir);
+    renderDistTable();
 
     // — Cap utilisation table —
-    const allSyms = Array.from(new Set([...CRYPTO_WL, ...sorted.map(p => p.symbol)]));
+    const allSyms = Array.from(new Set([...CRYPTO_WL, ...sorted.map(p => toSlash(p.symbol))]));
     const posMap  = {};
-    sorted.forEach(p => { posMap[p.symbol] = p; });
+    sorted.forEach(p => { posMap[toSlash(p.symbol)] = p; });
 
-    $("distCapBody").innerHTML = allSyms.map(sym => {
+    rawDistCapData = allSyms.map(sym => {
       const p        = posMap[sym];
       const mv       = p ? parseFloat(p.market_value) : 0;
       const curPct   = equity ? mv / equity * 100 : 0;
@@ -1657,32 +1845,10 @@ async function loadDist() {
       const utilPct  = capPct ? Math.min(curPct / capPct * 100, 100) : 0;
       const isOver   = curPct > capPct;
       const hasPos   = !!p;
-
-      const barFill = isOver
-        ? `background:var(--red);width:100%`
-        : `background:var(--green);width:${utilPct.toFixed(1)}%`;
-      const badge = !hasPos
-        ? `<span style="color:var(--muted);font-size:12px">No position</span>`
-        : isOver
-          ? `<span class="status-badge" style="background:rgba(248,81,73,.15);color:var(--red)">⚠ Over Cap</span>`
-          : utilPct >= 80
-            ? `<span class="status-badge" style="background:rgba(210,153,34,.15);color:var(--yellow)">Near Cap</span>`
-            : `<span class="status-badge" style="background:rgba(63,185,80,.15);color:var(--green)">OK</span>`;
-
-      return `<tr>
-        <td><span class="symbol">${sym}</span></td>
-        <td class="right" style="font-weight:${hasPos?700:400};color:${!hasPos?"var(--muted)":"var(--text)"}">${hasPos ? fmt(curPct, 1) + "%" : "–"}</td>
-        <td class="right">${fmt(capPct, 0)}%</td>
-        <td class="right ${headroom < 1 && hasPos ? "neg" : ""}">${hasPos ? fmt(headroom, 1) + "%" : fmt(capPct, 0) + "%"}</td>
-        <td>
-          <div style="height:8px;border-radius:4px;background:var(--surface2);overflow:hidden;position:relative">
-            <div style="height:100%;border-radius:4px;position:absolute;top:0;left:0;${barFill}"></div>
-          </div>
-          ${hasPos ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${utilPct.toFixed(0)}% of cap used</div>` : ""}
-        </td>
-        <td>${badge}</td>
-      </tr>`;
-    }).join("");
+      return { sym, curPct, capPct, headroom, utilPct, isOver, hasPos };
+    });
+    setSortIcons("distCapHead", distCapSort.key, distCapSort.dir);
+    renderDistCap();
 
     $("lastUpdated").textContent = "Updated " + new Date().toLocaleTimeString();
   } catch (e) {
@@ -1698,6 +1864,11 @@ async function loadDist() {
 // ═══════════════════════════════════════════════════════════
 renderMode();
 setSortIcons("ordHead", ordSort.key, ordSort.dir);
+setSortIcons("confHead", confSort.key, confSort.dir);
+setSortIcons("hotHead", hotSort.key, hotSort.dir);
+setSortIcons("distTableHead", distTableSort.key, distTableSort.dir);
+setSortIcons("distCapHead", distCapSort.key, distCapSort.dir);
+setSortIcons("briefPosHead", briefPosSort.key, briefPosSort.dir);
 loadOverview();
 
 setInterval(() => {

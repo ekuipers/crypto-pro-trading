@@ -8,6 +8,7 @@ The trading rules are:
     5% for any symbol not listed in portfolio_caps.json.
   - Never place a market order -- limit orders only, within 0.2% of ask
   - If a position drops 5% from entry, close it without waiting
+  - Take-profit is TA signal-driven (score <= -2), NOT a fixed % target.
 
 Keep these as pure functions so they can be unit-tested without hitting Alpaca.
 """
@@ -20,7 +21,6 @@ from dataclasses import dataclass
 MAX_POSITION_PCT = 0.05      # default 5% of equity per position
 LIMIT_BAND_PCT = 0.002       # limit must be within 0.2% of ask
 STOP_LOSS_PCT = 0.05         # close if down 5% from entry
-TAKE_PROFIT_PCT = 0.10       # close if up 10% from entry
 
 
 @dataclass(frozen=True)
@@ -93,19 +93,6 @@ def stop_loss_price(entry_price: float) -> float:
     return entry_price * (1 - STOP_LOSS_PCT)
 
 
-def should_take_profit(entry_price: float, current_price: float) -> bool:
-    """True if position is up >=10% from entry -- take profit."""
-    if entry_price <= 0:
-        return False
-    gain = (current_price - entry_price) / entry_price
-    return gain >= TAKE_PROFIT_PCT
-
-
-def take_profit_price(entry_price: float) -> float:
-    """The price at which the 10% take-profit triggers."""
-    return entry_price * (1 + TAKE_PROFIT_PCT)
-
-
 if __name__ == "__main__":
     # Default 5% cap
     assert max_position_dollars(100_000) == 5_000
@@ -131,11 +118,5 @@ if __name__ == "__main__":
     assert should_stop_out(100, 90)
 
     assert abs(stop_loss_price(100) - 95.0) < 1e-9
-
-    assert not should_take_profit(100, 109)
-    assert should_take_profit(100, 110)
-    assert should_take_profit(100, 120)
-
-    assert abs(take_profit_price(100) - 110.0) < 1e-9
 
     print("risk.py: all self-checks passed")

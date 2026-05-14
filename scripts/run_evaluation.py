@@ -15,11 +15,11 @@ Decision logic
 --------------
 For each symbol:
   1. If we already hold it AND drawdown >= 5% from entry  -> forced SELL (stop-loss)
-  2. If we already hold it AND gain >= 10% from entry     -> forced SELL (take-profit)
-  3. If we already hold it AND signal score <= -2          -> SELL (bearish TA exit)
-  4. If we do NOT hold it AND signal score >= 4            -> BUY  (≥4/6 confluence)
-  5. If we do NOT hold it AND signal score == 3            -> BUY half-size (if logged)
-  6. Otherwise                                              -> HOLD
+  2. If we already hold it AND signal score <= -2          -> SELL (bearish TA exit)
+  3. If we do NOT hold it AND signal score >= 4            -> BUY  (≥4/6 confluence)
+  4. If we do NOT hold it AND signal score == 3            -> BUY half-size (if logged)
+  5. Otherwise                                              -> HOLD
+  Note: take-profit is TA signal-driven (score <= -2), not a fixed % target.
 
 The 6-point signal score (see indicators.signal_score):
   1. EMA cross 20 vs 50 on 15-min  (+1 golden / -1 death)
@@ -58,9 +58,7 @@ import indicators as ind
 from risk import (
     LIMIT_BAND_PCT,
     STOP_LOSS_PCT,
-    TAKE_PROFIT_PCT,
     should_stop_out,
-    should_take_profit,
 )
 from trade import (
     DATA_URL,
@@ -305,18 +303,8 @@ def evaluate_symbol(symbol, position_by_symbol):
             )
             return decision
 
-        # Take-profit: close the full position once gain >= 10%.
-        if should_take_profit(entry, cur):
-            decision["action"]      = "SELL"
-            decision["qty"]         = qty_held
-            decision["limit_price"] = round(ask * (1 - LIMIT_BAND_PCT * 0.5), 4)
-            decision["reason"] = (
-                "TAKE-PROFIT: entry $%.4f, current $%.4f (>= %d%% gain)"
-                % (entry, cur, int(TAKE_PROFIT_PCT * 100))
-            )
-            return decision
-
         # Discretionary exit on strongly bearish TA confluence.
+        # Note: exits are TA-driven (score <= -2), not a fixed % take-profit.
         if score <= SELL_SCORE_THRESHOLD:
             decision["action"]      = "SELL"
             decision["qty"]         = qty_held
@@ -597,6 +585,12 @@ def main():
 
     journal_path = append_journal_block(datetime.now(ZoneInfo("Europe/Amsterdam")), decisions, executed)
     print("\nWrote: " + str(journal_path))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+rote: " + str(journal_path))
     return 0
 
 

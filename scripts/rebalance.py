@@ -30,7 +30,7 @@ from zoneinfo import ZoneInfo
 
 import _env  # noqa: F401
 import indicators as ind
-from risk import LIMIT_BAND_PCT, should_stop_out, should_take_profit
+from risk import LIMIT_BAND_PCT, should_stop_out
 from trade import (
     TradeRejected,
     get_account,
@@ -181,17 +181,8 @@ def evaluate_rebalance(symbol: str, pos: dict | None,
                     (cur_price - entry) / entry * 100, entry)
             )
             return result
-        if entry and should_take_profit(entry, cur_price):
-            result["action"]      = "SELL"
-            result["qty"]         = cur_qty
-            result["limit_price"] = round(ask * (1 - LIMIT_BAND_PCT * 0.5), 4)
-            result["reason"] = (
-                "TAKE-PROFIT %.2f%% gain from entry $%.4f" % (
-                    (cur_price - entry) / entry * 100, entry)
-            )
-            return result
-
         # Over-cap → trim to cap (sell the excess).
+        # Note: exits are TA-driven via run_evaluation.py, not a fixed % take-profit.
         if cur_pct > cap_pct + 0.001:   # 0.1% tolerance
             target_value = equity * cap_pct
             excess_value = cur_value - target_value
