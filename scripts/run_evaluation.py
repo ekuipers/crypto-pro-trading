@@ -542,7 +542,22 @@ def main():
     except Exception as e:
         sys.stderr.write("FAIL: positions fetch: " + repr(e) + "\n")
         return 1
-    pos_by_symbol = {p.get("symbol"): p for p in positions}
+    # Alpaca returns crypto symbols without a slash (e.g. "BTCUSD") but the
+    # watchlist and caps use the canonical slash form ("BTC/USD").  Index both
+    # so lookups work regardless of which form is used.
+    def _to_slash(sym: str) -> str:
+        """Convert 'BTCUSD' → 'BTC/USD'. Leaves already-slashed symbols alone."""
+        if "/" in sym:
+            return sym
+        if sym.endswith("USD"):
+            return sym[:-3] + "/USD"
+        return sym
+
+    pos_by_symbol = {}
+    for p in positions:
+        raw = p.get("symbol", "")
+        pos_by_symbol[raw] = p
+        pos_by_symbol[_to_slash(raw)] = p
 
     decisions = []
     for sym in symbols:
