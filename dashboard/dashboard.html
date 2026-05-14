@@ -1761,7 +1761,7 @@ async function loadDist() {
       if (!largest || mv > parseFloat(largest.market_value)) largest = p;
     });
     if (largest) {
-      $("distLargest").textContent    = largest.symbol;
+      $("distLargest").textContent    = toSlash(largest.symbol);
       $("distLargestPct").textContent = fmt(parseFloat(largest.market_value) / equity * 100, 1) + "% of equity";
     } else {
       $("distLargest").textContent    = "–";
@@ -1772,7 +1772,7 @@ async function loadDist() {
     const sorted = [...positions].sort((a, b) => parseFloat(b.market_value) - parseFloat(a.market_value));
 
     // — Donut chart (positions + cash slice) —
-    const chartLabels = [...sorted.map(p => p.symbol), "Cash"];
+    const chartLabels = [...sorted.map(p => toSlash(p.symbol)), "Cash"];
     const chartValues = [...sorted.map(p => parseFloat(p.market_value)), cash];
     const chartColors = sorted.map((_, i) => DIST_COLORS[i % (DIST_COLORS.length - 1)]);
     chartColors.push(DIST_COLORS[DIST_COLORS.length - 1]); // grey for cash
