@@ -18,6 +18,7 @@ weekday/weekend distinction and no equity-market clock gate.
 
 | Rule | Detail |
 |------|--------|
+| **Preserve cash** | Keep at least 20% of cash in the portfolio. |
 | **Per-symbol position cap** | Never invest more than the symbol's cap (defined in `portfolio_caps.json`) of total equity in a single position. `trade.py` enforces this in code. See cap table below. |
 | **Limit orders only** | Never use market orders. Limit price must be within 0.2% of the current ask. |
 | **Stop-loss at -5%** | If a position drops 5% from entry, close it immediately — checked at every evaluation. |
