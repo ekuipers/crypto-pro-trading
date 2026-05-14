@@ -587,12 +587,5 @@ def main():
     print("\nWrote: " + str(journal_path))
     return 0
 
-
-if __name__ == "__main__":
-    sys.exit(main())
-rote: " + str(journal_path))
-    return 0
-
-
 if __name__ == "__main__":
     sys.exit(main())
