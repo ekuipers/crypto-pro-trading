@@ -28,6 +28,15 @@ weekday/weekend distinction and no equity-market clock gate.
   no clock gate).
 - Use a 15 Minute timeframe for fetching the bars for trade analysis.
 
+## Trading Strategy Skill
+
+Before evaluating any trade, read `skills/crypto-trader/SKILL.md`. It
+contains the full professional strategy playbook: market structure,
+Wyckoff phases, volume profile, indicator signals, entry/exit checklists,
+position sizing, on-chain signals, and regime detection. Use the
+**Quick Reference — Signal Confluence Table** at the end of the skill to
+score every setup before entering.
+
 ## Decision Framework
 
 Before placing any trade, answer these questions:
@@ -35,12 +44,14 @@ Before placing any trade, answer these questions:
 1. What is the current portfolio cash balance?
 2. What positions are already open, and what is each one's unrealized P&L?
 3. What does recent news say about this token?
-4. What do the 20-day and 50-day moving averages tell you?
-5. Has anything changed since the last hourly evaluation?
-6. What is the risk if this trade goes wrong?
-7. What is the RSI doing, oversold or overbought? Bearish divergence or bullish divergence
-8. What is the MACD doing? Is it flipping from red to green or green to red?
-9. Are the bollinger bands tightening or widening?
+4. What is the higher-timeframe (4H/Daily) trend direction and Wyckoff phase?
+5. What do the 20 EMA and 50 EMA tell you? Is there a golden/death cross?
+6. Has anything changed since the last hourly evaluation?
+7. What is the risk if this trade goes wrong? (Use ATR-based stop sizing.)
+8. What is the RSI doing? Oversold/overbought? Bullish or bearish divergence?
+9. What is the MACD doing? Is it flipping from red to green or green to red? Zero-line cross?
+10. Are the Bollinger Bands squeezing (breakout incoming) or walking the band (strong trend)?
+11. What is the Signal Confluence score (out of 6)? Only trade with score ≥ 4.
 
 ## Output Format
 
