@@ -202,46 +202,4 @@ if __name__ == "__main__":
         print(cancel_all_orders())
     else:
         sys.stderr.write("unknown action: " + action + "\n")
-        sys.exit(2)2]), indent=2))
-    elif action == "order":
-        # Usage: trade.py order SYMBOL QTY SIDE LIMIT_PRICE
-        if len(sys.argv) < 6:
-            sys.stderr.write("usage: trade.py order SYMBOL QTY SIDE LIMIT_PRICE\n")
-            sys.exit(2)
-        symbol = sys.argv[2]
-        qty = sys.argv[3]
-        side = sys.argv[4]
-        limit_price = sys.argv[5]
-        try:
-            result = place_order(symbol, qty, side, limit_price)
-            print(json.dumps(result, indent=2))
-        except TradeRejected as e:
-            sys.stderr.write("REJECTED: " + str(e) + "\n")
-            sys.exit(1)
-    elif action == "cancel":
-        print(cancel_all_orders())
-    else:
-        sys.stderr.write("unknown action: " + action + "\n")
         sys.exit(2)
-2], indent=2))
-    elif action == "order":
-        # Usage: trade.py order SYMBOL QTY SIDE LIMIT_PRICE
-        if len(sys.argv) < 6:
-            sys.stderr.write("usage: trade.py order SYMBOL QTY SIDE LIMIT_PRICE\n")
-            sys.exit(2)
-        symbol = sys.argv[2]
-        qty = sys.argv[3]
-        side = sys.argv[4]
-        limit_price = sys.argv[5]
-        try:
-            result = place_order(symbol, qty, side, limit_price)
-            print(json.dumps(result, indent=2))
-        except TradeRejected as e:
-            sys.stderr.write("REJECTED: " + str(e) + "\n")
-            sys.exit(1)
-    elif action == "cancel":
-        print(cancel_all_orders())
-    else:
-        sys.stderr.write("unknown action: " + action + "\n")
-        sys.exit(2)
-    sys.exit(2)
