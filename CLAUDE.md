@@ -141,11 +141,10 @@ Example: $100,000 equity, LINK ask $15, ATR $0.30, LINK cap = 5%
 ## Exit Strategy
 
 1. **Hard stop**: Close immediately if position drops 5% from entry.
-2. **Hard take-profit**: Close immediately if position gains 10% from entry.
-3. **TA exit**: Close if Signal Confluence score drops to ≤ −2 (strongly bearish).
-4. **Partial exit**: When a position reaches the first resistance target, close 50%
+2. **TA exit**: Close if Signal Confluence score drops to ≤ −2 (strongly bearish).
+3. **Partial exit**: When a position reaches the first resistance target, close 50%
    and trail the rest using the 20 EMA on the 15-min chart.
-5. **Never move a stop further away from entry.** Trail it toward entry as price
+4. **Never move a stop further away from entry.** Trail it toward entry as price
    moves in your favour, never away.
 
 ## Common Mistakes to Avoid
