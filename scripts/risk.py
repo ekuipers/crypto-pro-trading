@@ -3,7 +3,9 @@
 Pure-function risk helpers that encode the rules in CLAUDE.md.
 
 The trading rules are:
-  - Never invest more than 5% of total portfolio value in a single position
+  - Never invest more than the per-symbol cap (see portfolio_caps.json) of
+    total portfolio value in a single position.  The default fallback cap is
+    5% for any symbol not listed in portfolio_caps.json.
   - Never place a market order -- limit orders only, within 0.2% of ask
   - If a position drops 5% from entry, close it without waiting
 
@@ -13,8 +15,9 @@ Keep these as pure functions so they can be unit-tested without hitting Alpaca.
 from __future__ import annotations
 from dataclasses import dataclass
 
-# Hard-coded from CLAUDE.md. If these need to change, update CLAUDE.md and here.
-MAX_POSITION_PCT = 0.05      # 5% of equity per position
+# Default cap used when no per-symbol cap is available.
+# Per-symbol caps are defined in portfolio_caps.json and passed in by callers.
+MAX_POSITION_PCT = 0.05      # default 5% of equity per position
 LIMIT_BAND_PCT = 0.002       # limit must be within 0.2% of ask
 STOP_LOSS_PCT = 0.05         # close if down 5% from entry
 TAKE_PROFIT_PCT = 0.10       # close if up 10% from entry
@@ -26,20 +29,28 @@ class RiskCheck:
     reason: str
 
 
-def max_position_dollars(equity: float) -> float:
-    """Maximum dollar size for any single new position."""
-    return equity * MAX_POSITION_PCT
+def max_position_dollars(equity: float, cap_pct: float = MAX_POSITION_PCT) -> float:
+    """Maximum dollar size for a position given an equity-fraction cap."""
+    return equity * cap_pct
 
 
-def max_shares_for_position(equity: float, price: float) -> int:
-    """Largest whole-share quantity that respects the 5% rule at price."""
+def max_shares_for_position(
+    equity: float, price: float, cap_pct: float = MAX_POSITION_PCT
+) -> int:
+    """Largest whole-share quantity that respects the cap at price."""
     if price <= 0:
         return 0
-    return int(max_position_dollars(equity) // price)
+    return int(max_position_dollars(equity, cap_pct) // price)
 
 
-def check_position_size(equity: float, qty, price: float) -> RiskCheck:
-    """Reject orders that would exceed the 5% per-position cap."""
+def check_position_size(
+    equity: float, qty, price: float, cap_pct: float = MAX_POSITION_PCT
+) -> RiskCheck:
+    """Reject orders that would exceed the per-symbol position cap.
+
+    cap_pct defaults to MAX_POSITION_PCT (5%) but callers should pass the
+    symbol-specific value loaded from portfolio_caps.json.
+    """
     if equity <= 0:
         return RiskCheck(False, "equity is zero or negative")
     if qty <= 0:
@@ -47,11 +58,11 @@ def check_position_size(equity: float, qty, price: float) -> RiskCheck:
     if price <= 0:
         return RiskCheck(False, "price must be positive")
     notional = qty * price
-    cap = max_position_dollars(equity)
+    cap = max_position_dollars(equity, cap_pct)
     if notional > cap:
         return RiskCheck(
             False,
-            "order notional exceeds 5% cap (equity={})".format(equity),
+            "order notional exceeds {:.0%} cap (equity={})".format(cap_pct, equity),
         )
     return RiskCheck(True, "size ok")
 
@@ -96,11 +107,19 @@ def take_profit_price(entry_price: float) -> float:
 
 
 if __name__ == "__main__":
+    # Default 5% cap
     assert max_position_dollars(100_000) == 5_000
     assert max_shares_for_position(100_000, 250) == 20
-
     assert check_position_size(100_000, 20, 250).ok
     assert not check_position_size(100_000, 21, 250).ok
+
+    # Per-symbol caps (e.g. BTC at 30%, ADA at 10%)
+    assert max_position_dollars(100_000, 0.30) == 30_000
+    assert check_position_size(100_000, 0.375, 80_000, 0.30).ok   # 30k notional = ok
+    assert not check_position_size(100_000, 0.376, 80_000, 0.30).ok  # 30.08k > 30k
+    assert max_position_dollars(100_000, 0.10) == 10_000
+    assert check_position_size(100_000, 10, 1_000, 0.10).ok
+    assert not check_position_size(100_000, 11, 1_000, 0.10).ok
 
     assert check_limit_band(100.0, 100.0).ok
     assert check_limit_band(100.19, 100.0).ok

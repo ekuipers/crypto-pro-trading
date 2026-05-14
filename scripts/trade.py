@@ -6,7 +6,8 @@ in code so they can't be bypassed by a routine that forgets them.
 Hard rules (see CLAUDE.md):
   - Never market orders -- limit_price is REQUIRED.
   - Limit must be within 0.2% of current ask.
-  - Single position must not exceed 5% of equity.
+  - Single position must not exceed the per-symbol cap in portfolio_caps.json
+    (e.g. 30% for BTC/USD, 5% for LINK/USD).  Default fallback: 5%.
   - For US equities: never trade when /v2/clock reports the market is closed.
   - For crypto: 24/7 trading, the /v2/clock gate does NOT apply.
 
@@ -18,6 +19,7 @@ import os
 import sys
 import json
 import urllib.parse
+from pathlib import Path
 import requests
 
 import _env  # noqa: F401  -- side-effect: load .env into os.environ
@@ -30,6 +32,23 @@ ALPACA_KEY = os.getenv("APCA_API_KEY_ID")
 ALPACA_SECRET = os.getenv("APCA_API_SECRET_KEY")
 BASE_URL = os.getenv("APCA_BASE_URL")
 DATA_URL = "https://data.alpaca.markets"
+
+# Load per-symbol position caps from portfolio_caps.json (project root).
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_CAPS_FILE    = _PROJECT_ROOT / "portfolio_caps.json"
+
+def _load_caps() -> dict:
+    try:
+        with open(_CAPS_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {"caps": {}, "default_cap": 0.05}
+
+_CAPS_DATA = _load_caps()
+
+def _symbol_cap(symbol: str) -> float:
+    """Return the position cap fraction for *symbol* from portfolio_caps.json."""
+    return _CAPS_DATA["caps"].get(symbol, _CAPS_DATA.get("default_cap", 0.05))
 
 
 def _headers(json_body=False):
@@ -125,11 +144,12 @@ def place_order(symbol, qty, side, limit_price):
     if not band_check.ok:
         raise TradeRejected(symbol + ": " + band_check.reason)
 
-    # Rule: 5% per-position cap (buys only -- closing a position never
+    # Rule: per-symbol position cap (buys only -- closing a position never
     # creates new exposure, so we skip the size check on sells).
     if side == "buy":
         equity = float(get_account().get("equity") or 0)
-        size_check = check_position_size(equity, qty, limit_price)
+        cap_pct = _symbol_cap(symbol)
+        size_check = check_position_size(equity, qty, limit_price, cap_pct)
         if not size_check.ok:
             raise TradeRejected(symbol + ": " + size_check.reason)
 
@@ -182,4 +202,46 @@ if __name__ == "__main__":
         print(cancel_all_orders())
     else:
         sys.stderr.write("unknown action: " + action + "\n")
+        sys.exit(2)2]), indent=2))
+    elif action == "order":
+        # Usage: trade.py order SYMBOL QTY SIDE LIMIT_PRICE
+        if len(sys.argv) < 6:
+            sys.stderr.write("usage: trade.py order SYMBOL QTY SIDE LIMIT_PRICE\n")
+            sys.exit(2)
+        symbol = sys.argv[2]
+        qty = sys.argv[3]
+        side = sys.argv[4]
+        limit_price = sys.argv[5]
+        try:
+            result = place_order(symbol, qty, side, limit_price)
+            print(json.dumps(result, indent=2))
+        except TradeRejected as e:
+            sys.stderr.write("REJECTED: " + str(e) + "\n")
+            sys.exit(1)
+    elif action == "cancel":
+        print(cancel_all_orders())
+    else:
+        sys.stderr.write("unknown action: " + action + "\n")
         sys.exit(2)
+2], indent=2))
+    elif action == "order":
+        # Usage: trade.py order SYMBOL QTY SIDE LIMIT_PRICE
+        if len(sys.argv) < 6:
+            sys.stderr.write("usage: trade.py order SYMBOL QTY SIDE LIMIT_PRICE\n")
+            sys.exit(2)
+        symbol = sys.argv[2]
+        qty = sys.argv[3]
+        side = sys.argv[4]
+        limit_price = sys.argv[5]
+        try:
+            result = place_order(symbol, qty, side, limit_price)
+            print(json.dumps(result, indent=2))
+        except TradeRejected as e:
+            sys.stderr.write("REJECTED: " + str(e) + "\n")
+            sys.exit(1)
+    elif action == "cancel":
+        print(cancel_all_orders())
+    else:
+        sys.stderr.write("unknown action: " + action + "\n")
+        sys.exit(2)
+    sys.exit(2)

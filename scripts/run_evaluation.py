@@ -31,14 +31,16 @@ The 6-point signal score (see indicators.signal_score):
 
 Sizing
 ------
-  - BUY size (score >= 4): ATR-based risk sizing capped at 5% of equity.
+  - BUY size (score >= 4): ATR-based risk sizing capped at the per-symbol cap
+      from portfolio_caps.json (e.g. 30% for BTC, 5% for LINK).
       Max risk = equity × 1%; stop = entry - 1.5×ATR.
-      qty = max_risk / (1.5 × ATR), capped at (equity × 5%) / ask.
+      qty = max_risk / (1.5 × ATR), capped at (equity × cap_pct) / ask.
   - BUY size (score == 3): half the above size.
   - SELL size = full position quantity, limit inside 0.2% band.
 
 All orders are routed through scripts/trade.py, which still does the final
-rule enforcement (5% cap, 0.2% band, limit-only, crypto routing).
+rule enforcement (per-symbol cap from portfolio_caps.json, 0.2% band,
+limit-only, crypto routing).
 """
 
 import argparse
@@ -71,8 +73,25 @@ from trade import (
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-WATCHLIST = PROJECT_ROOT / "watchlist_crypto.json"
-JOURNAL_DIR = PROJECT_ROOT / "journal"
+WATCHLIST     = PROJECT_ROOT / "watchlist_crypto.json"
+CAPS_FILE     = PROJECT_ROOT / "portfolio_caps.json"
+JOURNAL_DIR   = PROJECT_ROOT / "journal"
+
+# Load per-symbol position caps from portfolio_caps.json.
+# Falls back to 5% default for any symbol not in the file.
+def _load_caps() -> dict:
+    try:
+        with open(CAPS_FILE) as f:
+            data = json.load(f)
+        return data
+    except Exception:
+        return {"caps": {}, "default_cap": 0.05}
+
+_CAPS_DATA = _load_caps()
+
+def symbol_cap(symbol: str) -> float:
+    """Return the position cap fraction for *symbol* (e.g. 0.30 for BTC/USD)."""
+    return _CAPS_DATA["caps"].get(symbol, _CAPS_DATA.get("default_cap", 0.05))
 
 # Strategy thresholds. Tweak here, not in the body of evaluate_symbol.
 # Per trading skill: score >= 4 → full size; == 3 → half size; <= 2 → pass.
@@ -341,8 +360,9 @@ def evaluate_symbol(symbol, position_by_symbol):
         return decision
 
     # ATR-based sizing: risk 1% of equity per trade, stop = 1.5× ATR.
-    # Hard cap: never more than 5% of equity in one position.
-    hard_cap_qty = round((equity * 0.05 / ask) * 0.99, 4)
+    # Hard cap: never more than the per-symbol cap (portfolio_caps.json) of equity.
+    sym_cap_pct  = symbol_cap(symbol)
+    hard_cap_qty = round((equity * sym_cap_pct / ask) * 0.99, 4)
     atr_val = decision.get("atr")
     if atr_val and atr_val > 0:
         max_risk    = equity * 0.01
