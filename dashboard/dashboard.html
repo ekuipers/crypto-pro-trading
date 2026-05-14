@@ -703,6 +703,15 @@ function fmtVol(n) {
   if (v > 1e3) return fmt(v / 1e3, 1) + "K";
   return fmt(v, 0);
 }
+// ── CAP LIMITS (mirrors portfolio_caps.json) ──
+const CAP_LIMITS = {
+  "BTC/USD": 0.30, "ETH/USD": 0.15, "ADA/USD": 0.10, "SOL/USD": 0.10,
+  "DOGE/USD": 0.08, "LTC/USD": 0.06, "DOT/USD": 0.06,
+  "LINK/USD": 0.05, "AVAX/USD": 0.05, "AAVE/USD": 0.05,
+};
+const CAP_DEFAULT = 0.05;
+function capFor(sym) { return (CAP_LIMITS[sym] || CAP_DEFAULT) * 100; }
+
 function changeBar(pct, maxPct = 10) {
   const v = parseFloat(pct);
   if (isNaN(v)) return "–";
@@ -1451,7 +1460,13 @@ async function loadBrief() {
             <td class="right mono">${fmtPrice(entry)}</td>
             <td class="right mono">${fmtPrice(cur)}</td>
             <td class="right ${plClass(plPct)}" style="font-weight:700">${(plPct>=0?"+":"")+plPct.toFixed(2)}%</td>
-            <td class="right ${portOver?"neg":""}" style="font-weight:${portOver?"700":"400"}">${portPct.toFixed(1)}%</td>
+            <td class="right">
+              <div style="font-weight:700;color:${portOver?"var(--red)":"var(--text)"}">${portPct.toFixed(1)}%</div>
+              <div style="font-size:10px;color:var(--muted)">cap ${symCapPct.toFixed(0)}%</div>
+              <div style="height:4px;border-radius:2px;background:var(--border);overflow:hidden;margin-top:3px;width:60px;margin-left:auto">
+                <div style="height:100%;border-radius:2px;background:${portOver?"var(--red)":portPct/symCapPct>=0.8?"var(--yellow)":"var(--green)"};width:${Math.min(portPct/symCapPct*100,100).toFixed(0)}%"></div>
+              </div>
+            </td>
             <td><div style="font-size:11px;color:var(--muted)">${fmtPrice(stopPx)} (${distStop>=0?"+":""}${distStop}%)</div>
               <div class="progress-bar"><div class="progress-fill" style="width:${stopProg}%;background:${stopProg<30?"var(--red)":"var(--green)"}"></div></div></td>
             <td><div style="font-size:11px;color:var(--muted)">${fmtPrice(tpPx)} (${distTP}% away)</div>
@@ -1504,14 +1519,6 @@ async function loadBrief() {
 //  DISTRIBUTION — PORTFOLIO ALLOCATION
 // ═══════════════════════════════════════════════════════════
 let distChartInst = null;
-
-const CAP_LIMITS = {
-  "BTC/USD": 0.30, "ETH/USD": 0.15, "ADA/USD": 0.10, "SOL/USD": 0.10,
-  "DOGE/USD": 0.08, "LTC/USD": 0.06, "DOT/USD": 0.06,
-  "LINK/USD": 0.05, "AVAX/USD": 0.05, "AAVE/USD": 0.05,
-};
-const CAP_DEFAULT = 0.05;
-function capFor(sym) { return (CAP_LIMITS[sym] || CAP_DEFAULT) * 100; }
 
 const DIST_COLORS = [
   "#58a6ff","#3fb950","#f0883e","#bc8cff","#d29922",
