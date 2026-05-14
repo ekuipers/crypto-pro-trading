@@ -167,14 +167,10 @@
     th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
     th.sortable:hover { color: var(--text); background: #21262d; }
 
-    /* ── COLUMN TOOLTIPS ── */
-    th[data-tip] { position: relative; }
-    th[data-tip]::after {
-      content: attr(data-tip);
-      position: absolute;
-      bottom: calc(100% + 6px);
-      left: 50%;
-      transform: translateX(-50%);
+    /* ── COLUMN TOOLTIPS (rendered via JS to escape overflow:hidden) ── */
+    #colTip {
+      position: fixed;
+      z-index: 9999;
       background: #1c2333;
       color: #e6edf3;
       border: 1px solid #30363d;
@@ -184,13 +180,14 @@
       font-weight: 400;
       text-transform: none;
       letter-spacing: 0;
-      white-space: nowrap;
+      white-space: normal;
+      max-width: 280px;
+      line-height: 1.4;
       pointer-events: none;
       opacity: 0;
       transition: opacity .15s;
-      z-index: 200;
     }
-    th[data-tip]:hover::after { opacity: 1; }
+    th[data-tip] { cursor: help; }
     .sort-icon { font-size: 9px; margin-left: 4px; opacity: .4; transition: opacity .15s, color .15s; }
     th.sorted .sort-icon { opacity: 1; color: var(--blue); }
 
@@ -1234,6 +1231,55 @@ function toSlash(sym) {
   if (sym.endsWith("USD")) return sym.slice(0, -3) + "/USD";
   return sym;
 }
+
+// ═══════════════════════════════════════════════════════════
+//  COLUMN HEADER TOOLTIPS
+//  Uses a fixed-position element on <body> so it escapes
+//  any overflow:hidden ancestor (table wrappers, etc.)
+// ═══════════════════════════════════════════════════════════
+(function () {
+  const tip = document.createElement("div");
+  tip.id = "colTip";
+  document.body.appendChild(tip);
+
+  let activeEl = null;
+
+  document.addEventListener("mouseover", e => {
+    const th = e.target.closest("th[data-tip]");
+    if (!th) return;
+    activeEl = th;
+    tip.textContent = th.dataset.tip;
+    tip.style.opacity = "1";
+    positionTip(e);
+  });
+
+  document.addEventListener("mousemove", e => {
+    if (!activeEl) return;
+    positionTip(e);
+  });
+
+  document.addEventListener("mouseout", e => {
+    const th = e.target.closest("th[data-tip]");
+    if (th) {
+      activeEl = null;
+      tip.style.opacity = "0";
+    }
+  });
+
+  function positionTip(e) {
+    // Position below the cursor so it doesn't hide the header text
+    const x = e.clientX, y = e.clientY;
+    tip.style.left = "0px"; tip.style.top = "0px"; // reset for measurement
+    const tw = tip.offsetWidth, th2 = tip.offsetHeight;
+    const vw = window.innerWidth;
+    let left = x + 14;
+    let top  = y + 18;
+    if (left + tw > vw - 12) left = x - tw - 14;
+    if (top + th2 > window.innerHeight - 12) top = y - th2 - 10;
+    tip.style.left = left + "px";
+    tip.style.top  = top  + "px";
+  }
+})();
 
 // ═══════════════════════════════════════════════════════════
 //  GLOBAL DATA STORES — for sortable tables
