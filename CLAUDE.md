@@ -18,11 +18,11 @@ weekday/weekend distinction and no equity-market clock gate.
 
 | Rule | Detail |
 |------|--------|
-| **Preserve cash** | Keep at least 20% of cash in the portfolio. |
+| **Preserve cash** | Keep at least 20% of cash available in the portfolio. |
 | **Per-symbol position cap** | Never invest more than the symbol's cap (defined in `portfolio_caps.json`) of total equity in a single position. `trade.py` enforces this in code. See cap table below. |
 | **Limit orders only** | Never use market orders. Limit price must be within 0.2% of the current ask. |
 | **Stop-loss at -5%** | If a position drops 5% from entry, close it immediately — checked at every evaluation. |
-| **Take-profit at +10%** | If a position gains 10% from entry, close it — checked at every evaluation, before TA signals. |
+| **Take-profit based on technical analysis** | If a position is flagged to be closed by the research, close it — checked at every evaluation, before TA signals. |
 | **Score gate** | Only open new positions with a Signal Confluence score ≥ 4/6. Half-size at score = 3/6 if R:R ≥ 1:3. |
 | **Regime gate** | Never buy into a confirmed daily downtrend (last close < 50-day SMA and 20-day SMA < 50-day SMA). |
 | **ATR-based sizing** | Size positions using the 1% risk rule: max_risk = equity × 1%, stop = entry − 1.5×ATR, qty = max_risk / stop_dist. Hard cap = per-symbol cap from `portfolio_caps.json`. |
