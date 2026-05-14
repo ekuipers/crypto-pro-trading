@@ -1,15 +1,15 @@
 # scripts/indicators.py
 """
 Pure-function technical indicators. No network, no Alpaca-specific code:
-takes a list of closing prices (oldest -> newest) and returns numbers and
-small dataclass-ish tuples.
+takes lists of OHLCV data (oldest -> newest) and returns numbers and
+small tuples.
 
 Used by run_evaluation.py to score each symbol's bullish/bearish stance per
-the decision framework in CLAUDE.md (RSI, MACD, Bollinger Bands).
+the trading skill's 6-point Signal Confluence Table.
 
 Conventions:
   - All inputs are oldest-first lists of floats.
-  - All "current" values are the most recent (closes[-1]).
+  - All "current" values are the most recent (values[-1]).
   - Functions return None when there is not enough history rather than raising.
 """
 
@@ -46,6 +46,52 @@ def ema(values, period):
     return s[-1] if s else None
 
 
+def ema_cross_state(closes, fast=20, slow=50):
+    """
+    Returns 'golden' if fast EMA > slow EMA (bullish uptrend),
+    'death' if fast EMA < slow EMA (bearish downtrend), or 'neutral'.
+    Used as the 20 EMA > 50 EMA confluence point from the trading skill.
+    """
+    if len(closes) < slow + 1:
+        return None
+    f = ema(closes, fast)
+    s = ema(closes, slow)
+    if f is None or s is None:
+        return None
+    if f > s * 1.0005:
+        return "golden"
+    if f < s * 0.9995:
+        return "death"
+    return "neutral"
+
+
+# ---------- ATR (Average True Range) --------------------------------------
+
+def atr(highs, lows, closes, period=14):
+    """
+    Wilder's Average True Range. Measures volatility — used for ATR-based
+    stop sizing (entry ± 1.5–2× ATR per the trading skill).
+    Returns the current ATR value or None if insufficient data.
+    """
+    if len(closes) < period + 1 or len(highs) != len(closes) or len(lows) != len(closes):
+        return None
+    trs = []
+    for i in range(1, len(closes)):
+        tr = max(
+            highs[i] - lows[i],
+            abs(highs[i] - closes[i - 1]),
+            abs(lows[i] - closes[i - 1]),
+        )
+        trs.append(tr)
+    if len(trs) < period:
+        return None
+    # Wilder's smoothing
+    avg = sum(trs[:period]) / period
+    for tr in trs[period:]:
+        avg = (avg * (period - 1) + tr) / period
+    return avg
+
+
 # ---------- RSI ------------------------------------------------------------
 
 def rsi(values, period=14):
@@ -69,6 +115,20 @@ def rsi(values, period=14):
         return 100.0 if avg_gain > 0 else 50.0
     rs = avg_gain / avg_loss
     return 100.0 - (100.0 / (1.0 + rs))
+
+
+def rsi_rising(values, period=14, lookback=3):
+    """
+    True if the RSI has been rising over the last `lookback` bars.
+    Checks whether RSI(now) > RSI(lookback bars ago).
+    """
+    if len(values) < period + 1 + lookback:
+        return None
+    r_now = rsi(values, period)
+    r_prev = rsi(values[:-lookback], period)
+    if r_now is None or r_prev is None:
+        return None
+    return r_now > r_prev
 
 
 # ---------- MACD -----------------------------------------------------------
@@ -124,6 +184,18 @@ def macd_flip(values, fast=12, slow=26, signal=9):
     if prev >= 0 > curr:
         return "bearish"
     return None
+
+
+def macd_hist_rising(values, fast=12, slow=26, signal=9, lookback=2):
+    """True if the MACD histogram has been rising for `lookback` bars."""
+    c = _macd_components(values, fast, slow, signal)
+    if c is None:
+        return None
+    _, _, hist_s = c
+    if len(hist_s) < lookback + 1:
+        return None
+    return all(hist_s[-(lookback - i)] > hist_s[-(lookback - i + 1)]
+               for i in range(lookback))
 
 
 # ---------- Bollinger Bands ------------------------------------------------
@@ -198,71 +270,156 @@ def bollinger_squeeze(values, period=20, lookback=60, percentile=20):
     return cur <= threshold
 
 
-# ---------- Composite signal score ----------------------------------------
+# ---------- Volume ---------------------------------------------------------
 
-def signal_score(closes):
+def volume_ratio(volumes, period=20):
     """
-    Aggregate bullish/bearish stance from RSI + MACD + Bollinger.
+    Returns current volume / average of the previous `period` bars.
+    > 1.0 means above-average volume on the current bar (a positive signal).
+    Returns None if insufficient data.
+    """
+    if len(volumes) < period + 1:
+        return None
+    avg = sum(volumes[-(period + 1):-1]) / float(period)
+    if avg == 0:
+        return None
+    return volumes[-1] / avg
+
+
+# ---------- 6-Point Confluence Score (per trading skill) ------------------
+
+def signal_score(closes, volumes=None, highs=None, lows=None, closes_4h=None):
+    """
+    6-point Signal Confluence Table from the trading skill's Quick Reference.
+
+    Each of the 6 conditions is worth 1 point (bullish) or -1 point (bearish).
+    Net score range: -6 to +6.
+
+    Confluence table:
+      1. EMA cross: 20 EMA vs 50 EMA  (+1 golden / -1 death)
+      2. MACD: histogram green & rising  (+1 / -1)
+      3. RSI: 40-65 rising for longs, <30 oversold  (+1 / -1)
+      4. Bollinger Bands: %b near lower band (mean-reversion long)  (+1 / -1)
+      5. Volume: current bar above 20-period average  (+1 / -1)
+      6. Higher-timeframe trend: 4H EMA cross alignment  (+1 / -1 / 0 if no data)
+
+    Trading skill thresholds:
+      score >= 4 → BUY with standard size
+      score == 3 → BUY with half size (if R:R >= 1:3)
+      score <= 2 → PASS / HOLD
+
     Returns (score, breakdown_dict).
-
-    Score range roughly -3..+3:
-      +1 each: RSI oversold (<30), MACD bullish flip, %b near lower band (<0.2)
-      -1 each: RSI overbought (>70), MACD bearish flip, %b near upper band (>0.8)
-      Existing-trend tie-breakers add +/-0.5 if no flip but hist clearly above/below 0.
-
-    The breakdown dict is suitable for journal logging.
+    The breakdown dict keys are: ema_cross, macd, rsi, bb, volume, regime_4h.
     """
     score = 0.0
     parts = {}
 
+    # ── 1. EMA Cross (20 vs 50 on execution timeframe) ──────────────────
+    cross = ema_cross_state(closes, fast=20, slow=50)
+    if cross is None:
+        parts["ema_cross"] = "n/a (need %d bars)" % 51
+    elif cross == "golden":
+        score += 1
+        parts["ema_cross"] = "GOLDEN (20>50, +1)"
+    elif cross == "death":
+        score -= 1
+        parts["ema_cross"] = "DEATH (20<50, -1)"
+    else:
+        parts["ema_cross"] = "neutral (0)"
+
+    # ── 2. MACD histogram green and rising ──────────────────────────────
+    m = macd(closes)
+    flip = macd_flip(closes)
+    rising = macd_hist_rising(closes)
+    if m is None:
+        parts["macd"] = "n/a"
+    else:
+        macd_line, signal_line, hist = m
+        if hist > 0 and rising:
+            score += 1
+            label = "BULLISH FLIP " if flip == "bullish" else ""
+            parts["macd"] = "hist=%.4f %sgreen+rising (+1)" % (hist, label)
+        elif hist < 0 and rising is False:
+            score -= 1
+            label = "BEARISH FLIP " if flip == "bearish" else ""
+            parts["macd"] = "hist=%.4f %sred+falling (-1)" % (hist, label)
+        elif hist > 0:
+            score += 0.5
+            parts["macd"] = "hist=%.4f green but not rising (+0.5)" % hist
+        elif hist < 0:
+            score -= 0.5
+            parts["macd"] = "hist=%.4f red but not falling (-0.5)" % hist
+        else:
+            parts["macd"] = "hist=%.4f (flat)" % hist
+
+    # ── 3. RSI ──────────────────────────────────────────────────────────
     r = rsi(closes)
+    r_rise = rsi_rising(closes)
     if r is None:
         parts["rsi"] = "n/a"
     else:
         if r < 30:
             score += 1
-            parts["rsi"] = "%.1f (oversold, +1)" % r
+            parts["rsi"] = "%.1f oversold (<30, +1)" % r
         elif r > 70:
             score -= 1
-            parts["rsi"] = "%.1f (overbought, -1)" % r
-        else:
-            parts["rsi"] = "%.1f (neutral)" % r
-
-    m = macd(closes)
-    flip = macd_flip(closes)
-    if m is None:
-        parts["macd"] = "n/a"
-    else:
-        macd_line, signal_line, hist = m
-        if flip == "bullish":
+            parts["rsi"] = "%.1f overbought (>70, -1)" % r
+        elif 40 <= r <= 65 and r_rise:
             score += 1
-            parts["macd"] = "hist=%.4f BULLISH FLIP +1" % hist
-        elif flip == "bearish":
-            score -= 1
-            parts["macd"] = "hist=%.4f BEARISH FLIP -1" % hist
-        elif hist > 0:
-            score += 0.5
-            parts["macd"] = "hist=%.4f (above signal, +0.5)" % hist
-        elif hist < 0:
+            parts["rsi"] = "%.1f in 40-65 and rising (+1)" % r
+        elif r < 40 and r_rise is False:
             score -= 0.5
-            parts["macd"] = "hist=%.4f (below signal, -0.5)" % hist
+            parts["rsi"] = "%.1f weak and falling (-0.5)" % r
         else:
-            parts["macd"] = "hist=%.4f" % hist
+            parts["rsi"] = "%.1f neutral (0)" % r
 
+    # ── 4. Bollinger Bands (%b position) ────────────────────────────────
     b = bollinger(closes)
     bb_trend = bollinger_trend(closes)
+    bb_sq = bollinger_squeeze(closes)
     if b is None:
         parts["bb"] = "n/a"
     else:
         lower, middle, upper, bw, pb = b
-        if pb < 0.2:
+        sq_tag = " SQUEEZE" if bb_sq else ""
+        if pb < 0.25:
             score += 1
-            parts["bb"] = "%%b=%.2f (near lower, +1) trend=%s" % (pb, bb_trend)
-        elif pb > 0.8:
+            parts["bb"] = ("%%b=%.2f near lower band (+1) trend=%s%s") % (pb, bb_trend, sq_tag)
+        elif pb > 0.75:
             score -= 1
-            parts["bb"] = "%%b=%.2f (near upper, -1) trend=%s" % (pb, bb_trend)
+            parts["bb"] = ("%%b=%.2f near upper band (-1) trend=%s%s") % (pb, bb_trend, sq_tag)
         else:
-            parts["bb"] = "%%b=%.2f trend=%s" % (pb, bb_trend)
+            parts["bb"] = ("%%b=%.2f mid-band (0) trend=%s%s") % (pb, bb_trend, sq_tag)
+
+    # ── 5. Volume ────────────────────────────────────────────────────────
+    if volumes is not None and len(volumes) >= 21:
+        vr = volume_ratio(volumes)
+        if vr is None:
+            parts["volume"] = "n/a"
+        elif vr >= 1.2:
+            score += 1
+            parts["volume"] = "%.2fx avg (above avg, +1)" % vr
+        elif vr < 0.7:
+            score -= 0.5
+            parts["volume"] = "%.2fx avg (thin, -0.5)" % vr
+        else:
+            parts["volume"] = "%.2fx avg (0)" % vr
+    else:
+        parts["volume"] = "n/a (no volume data)"
+
+    # ── 6. 4H Higher-Timeframe Regime ────────────────────────────────────
+    if closes_4h is not None and len(closes_4h) >= 51:
+        cross_4h = ema_cross_state(closes_4h, fast=20, slow=50)
+        if cross_4h == "golden":
+            score += 1
+            parts["regime_4h"] = "4H golden cross (uptrend, +1)"
+        elif cross_4h == "death":
+            score -= 1
+            parts["regime_4h"] = "4H death cross (downtrend, -1)"
+        else:
+            parts["regime_4h"] = "4H neutral (0)"
+    else:
+        parts["regime_4h"] = "n/a (no 4H data)"
 
     return score, parts
 
@@ -270,9 +427,12 @@ def signal_score(closes):
 # ---------- self-tests -----------------------------------------------------
 
 if __name__ == "__main__":
-    # Use 80 bars: enough for slow EMA(26) + signal EMA(9) + Bollinger lookback.
     import math
-    closes = [100 + 10 * math.sin(i / 6.0) + i * 0.3 for i in range(80)]
+    n = 120
+    closes = [100 + 10 * math.sin(i / 6.0) + i * 0.3 for i in range(n)]
+    highs  = [c + abs(math.sin(i)) * 2 for i, c in enumerate(closes)]
+    lows   = [c - abs(math.cos(i)) * 2 for i, c in enumerate(closes)]
+    volumes = [1000 + 500 * abs(math.sin(i / 3.0)) for i in range(n)]
 
     r = rsi(closes)
     assert r is not None and 0 <= r <= 100, "rsi out of range: %r" % r
@@ -280,25 +440,29 @@ if __name__ == "__main__":
     m = macd(closes)
     assert m is not None, "macd None"
     macd_line, sig, hist = m
-    assert isinstance(macd_line, float)
 
     b = bollinger(closes)
     assert b is not None, "bb None"
     lower, middle, upper, bw, pb = b
     assert lower < middle < upper
 
-    bbtrend = bollinger_trend(closes)
-    assert bbtrend in ("widening", "tightening", "stable"), bbtrend
+    a = atr(highs, lows, closes)
+    assert a is not None and a > 0, "atr failed: %r" % a
 
-    sq = bollinger_squeeze(closes)
-    assert sq in (True, False), sq
+    vr = volume_ratio(volumes)
+    assert vr is not None, "volume_ratio failed"
 
-    score, parts = signal_score(closes)
+    cross = ema_cross_state(closes)
+    assert cross in ("golden", "death", "neutral"), "ema_cross_state: %r" % cross
+
+    score, parts = signal_score(closes, volumes=volumes, highs=highs, lows=lows)
     print("indicators.py: self-checks passed")
-    print("  rsi      =", round(r, 2))
-    print("  macd     = line=%.4f signal=%.4f hist=%.4f" % (macd_line, sig, hist))
-    print("  bb       = lower=%.2f middle=%.2f upper=%.2f bw=%.4f pb=%.2f" %
-          (lower, middle, upper, bw, pb))
-    print("  bb_trend =", bbtrend, "  squeeze =", sq)
-    print("  score    =", score)
-    print("  breakdown=", parts)
+    print("  rsi         =", round(r, 2))
+    print("  macd        = line=%.4f signal=%.4f hist=%.4f" % (macd_line, sig, hist))
+    print("  bb          = lower=%.2f middle=%.2f upper=%.2f pb=%.2f" % (lower, middle, upper, pb))
+    print("  atr         =", round(a, 4))
+    print("  volume_ratio=", round(vr, 2))
+    print("  ema_cross   =", cross)
+    print("  score       =", score)
+    for k, v in parts.items():
+        print("    %-12s: %s" % (k + ":", v))

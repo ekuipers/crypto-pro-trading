@@ -1,10 +1,11 @@
 # scripts/run_evaluation.py
 """
-One-shot crypto evaluation driven by technical analysis (RSI / MACD /
-Bollinger Bands), per the decision framework in CLAUDE.md.
+One-shot crypto evaluation driven by the 6-point Signal Confluence Table
+from the trading skill (SKILL.md), per the decision framework in CLAUDE.md.
 
-Reads watchlist_crypto.json, fetches recent daily bars per symbol, computes
-a composite TA signal score, and decides BUY / SELL / HOLD.
+Reads watchlist_crypto.json, fetches 15-min bars (execution), 4H bars
+(trend filter), and daily bars (regime/MA filter) per symbol, computes
+the confluence score, and decides BUY / SELL / HOLD.
 
 Usage:
     python scripts/run_evaluation.py            # dry-run (default, no orders)
@@ -16,20 +17,25 @@ For each symbol:
   1. If we already hold it AND drawdown >= 5% from entry  -> forced SELL (stop-loss)
   2. If we already hold it AND gain >= 10% from entry     -> forced SELL (take-profit)
   3. If we already hold it AND signal score <= -2          -> SELL (bearish TA exit)
-  4. If we do NOT hold it AND signal score >= +2           -> BUY
-  5. Otherwise                                              -> HOLD
+  4. If we do NOT hold it AND signal score >= 4            -> BUY  (≥4/6 confluence)
+  5. If we do NOT hold it AND signal score == 3            -> BUY half-size (if logged)
+  6. Otherwise                                              -> HOLD
 
-The signal score (see indicators.signal_score) blends:
-  - RSI (oversold/overbought, +/-1)
-  - MACD (bullish/bearish flip +/-1, or above/below signal +/-0.5)
-  - Bollinger %b (near lower/upper band +/-1) and band-width trend
+The 6-point signal score (see indicators.signal_score):
+  1. EMA cross 20 vs 50 on 15-min  (+1 golden / -1 death)
+  2. MACD histogram green and rising  (+1 / -1)
+  3. RSI 40-65 rising or oversold <30  (+1 / -1)
+  4. Bollinger %b near lower band (<0.25)  (+1 / -1)
+  5. Volume above 20-bar average  (+1 / -0.5)
+  6. 4H trend: 20 EMA > 50 EMA on 4H  (+1 / -1)
 
 Sizing
 ------
-  - BUY size  = 5% of equity / ask, fractional (rounded to 4dp), 99% of cap
-                to leave float headroom. Limit = ask.
-  - SELL size = full position quantity, limit = ask * (1 - 0.1%) so it sits
-                inside the 0.2% band but biased to fill quickly.
+  - BUY size (score >= 4): ATR-based risk sizing capped at 5% of equity.
+      Max risk = equity × 1%; stop = entry - 1.5×ATR.
+      qty = max_risk / (1.5 × ATR), capped at (equity × 5%) / ask.
+  - BUY size (score == 3): half the above size.
+  - SELL size = full position quantity, limit inside 0.2% band.
 
 All orders are routed through scripts/trade.py, which still does the final
 rule enforcement (5% cap, 0.2% band, limit-only, crypto routing).
@@ -39,7 +45,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from pathlib import Path
 
@@ -69,19 +75,42 @@ WATCHLIST = PROJECT_ROOT / "watchlist_crypto.json"
 JOURNAL_DIR = PROJECT_ROOT / "journal"
 
 # Strategy thresholds. Tweak here, not in the body of evaluate_symbol.
-BUY_SCORE_THRESHOLD = 2.0
-SELL_SCORE_THRESHOLD = -2.0
-BARS_FOR_INDICATORS = 200  # 50h of 15-min data: enough for MACD warmup + BB lookback
-BARS_TIMEFRAME = "15Min"   # per CLAUDE.md: "Use a 15 Minute timeframe for fetching the bars"
+# Per trading skill: score >= 4 → full size; == 3 → half size; <= 2 → pass.
+BUY_SCORE_THRESHOLD      = 4.0
+BUY_SCORE_HALF_SIZE      = 3.0
+SELL_SCORE_THRESHOLD     = -2.0
+BARS_FOR_INDICATORS      = 200   # 50h of 15-min data: enough for EMA(50)+MACD warmup
+BARS_TIMEFRAME           = "15Min"
+BARS_4H_LOOKBACK         = 120   # ~20 days of 4H bars for the trend filter
+BARS_4H_TIMEFRAME        = "4Hour"
+DAILY_BARS_LOOKBACK      = 90    # 90 days to safely compute 20/50-day SMAs
+DAILY_BARS_TIMEFRAME     = "1Day"
 
-# Daily-bars regime filter: 60 daily closes lets us compute the 20/50-day SMAs
-# from CLAUDE.md's decision framework. Used only as a buy gate (no buys when
-# price is below the 50-day MA), not for sells -- exits stay on intraday signals.
-DAILY_BARS_LOOKBACK = 60
-DAILY_BARS_TIMEFRAME = "1Day"
+# Minutes per bar for each timeframe -- used to derive the `start` date.
+_TF_MINUTES = {
+    "15Min": 15,
+    "1H":    60,
+    "4Hour": 240,
+    "1Day":  1440,
+}
 
 
 # ---------- data fetch -----------------------------------------------------
+
+def _bars_start(limit, timeframe, buffer=1.6):
+    """
+    Return an ISO-8601 UTC start timestamp that gives enough history for
+    `limit` bars of the given timeframe, with a generous buffer.
+
+    ROOT CAUSE FIX: Alpaca's crypto bar endpoint ignores a bare `limit`
+    parameter and returns only the most-recent incomplete bars unless an
+    explicit `start` date is supplied.  Always pass `start`.
+    """
+    minutes = _TF_MINUTES.get(timeframe, 60)
+    lookback_minutes = int(limit * minutes * buffer)
+    start_dt = datetime.now(timezone.utc) - timedelta(minutes=lookback_minutes)
+    return start_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
 
 def get_positions():
     base_url = os.getenv("APCA_BASE_URL")
@@ -91,15 +120,32 @@ def get_positions():
 
 
 def get_crypto_bars(symbol, limit=BARS_FOR_INDICATORS, timeframe=BARS_TIMEFRAME):
-    params = {"symbols": symbol, "timeframe": timeframe, "limit": limit}
+    """
+    Fetch OHLCV bars for a crypto symbol.
+
+    Always includes a computed `start` date so Alpaca returns the full
+    historical window (a bare `limit` without `start` returns only the
+    current day's partial bars).
+    """
+    params = {
+        "symbols":   symbol,
+        "timeframe": timeframe,
+        "start":     _bars_start(limit, timeframe),
+        "limit":     limit,
+    }
     url = DATA_URL + "/v1beta3/crypto/us/bars"
     r = requests.get(url, headers=_headers(), params=params, timeout=20)
     r.raise_for_status()
     return r.json().get("bars", {}).get(symbol, [])
 
 
+def get_crypto_bars_4h(symbol, limit=BARS_4H_LOOKBACK):
+    """4-Hour bars for the higher-timeframe trend filter."""
+    return get_crypto_bars(symbol, limit=limit, timeframe=BARS_4H_TIMEFRAME)
+
+
 def get_crypto_bars_daily(symbol, limit=DAILY_BARS_LOOKBACK):
-    """Daily bars for the regime filter (20-day / 50-day SMA)."""
+    """Daily bars for the 20/50-day SMA regime filter."""
     return get_crypto_bars(symbol, limit=limit, timeframe=DAILY_BARS_TIMEFRAME)
 
 
@@ -116,17 +162,20 @@ def evaluate_symbol(symbol, position_by_symbol):
         "ask": None,
         "bid": None,
         "score": None,
+        "atr": None,
         "rsi": None,
         "macd": None,
         "macd_flip": None,
         "bb": None,
         "bb_trend": None,
         "bb_squeeze": None,
+        "ema_cross": None,
         "indicator_breakdown": None,
         "daily_ma20": None,
         "daily_ma50": None,
         "daily_last": None,
         "daily_regime": None,
+        "regime_4h": None,
         "entry_price": None,
         "current_price": None,
     }
@@ -143,44 +192,71 @@ def evaluate_symbol(symbol, position_by_symbol):
     decision["bid"] = bid
     decision["current_price"] = bid or ask
 
-    # Bars + indicators.
+    # ── 15-min bars (execution timeframe) ──────────────────────────────
     try:
         bars = get_crypto_bars(symbol)
     except Exception as e:
         decision["reason"] = "bars fetch failed: " + repr(e)
         return decision
-    closes = [float(b.get("c") or 0) for b in bars if b.get("c")]
-    if len(closes) < 35:  # need MACD slow(26) + signal(9) at minimum
-        decision["reason"] = "not enough history (%d bars)" % len(closes)
+
+    closes  = [float(b.get("c") or 0) for b in bars if b.get("c")]
+    highs   = [float(b.get("h") or 0) for b in bars if b.get("c")]
+    lows    = [float(b.get("l") or 0) for b in bars if b.get("c")]
+    volumes = [float(b.get("v") or 0) for b in bars if b.get("c")]
+
+    # Need at least EMA(50) + MACD slow(26)+signal(9) worth of history.
+    MIN_BARS = 60
+    if len(closes) < MIN_BARS:
+        decision["reason"] = "not enough 15-min history (%d bars, need %d)" % (len(closes), MIN_BARS)
         return decision
 
-    score, breakdown = ind.signal_score(closes)
-    decision["score"] = score
-    decision["indicator_breakdown"] = breakdown
-    decision["rsi"] = ind.rsi(closes)
-    decision["macd"] = ind.macd(closes)
-    decision["macd_flip"] = ind.macd_flip(closes)
-    decision["bb"] = ind.bollinger(closes)
-    decision["bb_trend"] = ind.bollinger_trend(closes)
-    decision["bb_squeeze"] = ind.bollinger_squeeze(closes)
+    # ── 4H bars (higher-timeframe trend filter) ─────────────────────────
+    closes_4h = None
+    try:
+        bars_4h   = get_crypto_bars_4h(symbol)
+        closes_4h = [float(b.get("c") or 0) for b in bars_4h if b.get("c")]
+        if len(closes_4h) < 51:
+            closes_4h = None   # not enough for EMA(50) on 4H
+            decision["regime_4h"] = "insufficient 4H history (%d bars)" % len(closes_4h or [])
+        else:
+            cross_4h = ind.ema_cross_state(closes_4h)
+            decision["regime_4h"] = cross_4h or "n/a"
+    except Exception as e:
+        decision["regime_4h"] = "4H fetch failed: " + repr(e)[:60]
 
-    # Daily-bars regime filter: compute 20/50-day SMAs to gate buys.
+    # ── Compute all indicators ──────────────────────────────────────────
+    score, breakdown = ind.signal_score(
+        closes,
+        volumes=volumes,
+        highs=highs,
+        lows=lows,
+        closes_4h=closes_4h,
+    )
+    decision["score"]               = score
+    decision["indicator_breakdown"] = breakdown
+    decision["rsi"]                 = ind.rsi(closes)
+    decision["macd"]                = ind.macd(closes)
+    decision["macd_flip"]           = ind.macd_flip(closes)
+    decision["bb"]                  = ind.bollinger(closes)
+    decision["bb_trend"]            = ind.bollinger_trend(closes)
+    decision["bb_squeeze"]          = ind.bollinger_squeeze(closes)
+    decision["ema_cross"]           = ind.ema_cross_state(closes)
+    decision["atr"]                 = ind.atr(highs, lows, closes)
+
+    # ── Daily-bars regime filter (20/50-day SMA gate for new buys) ──────
     try:
         daily_bars = get_crypto_bars_daily(symbol)
     except Exception as e:
-        # Soft-fail: regime filter unavailable, fall back to letting the
-        # intraday score drive decisions. We log the failure so the journal
-        # shows it.
-        decision["daily_regime"] = "unknown (fetch failed: " + repr(e)[:60] + ")"
+        decision["daily_regime"] = "fetch failed: " + repr(e)[:60]
     else:
         daily_closes = [float(b.get("c") or 0) for b in daily_bars if b.get("c")]
         if len(daily_closes) >= 50:
             daily_ma20 = ind.sma(daily_closes, 20)
             daily_ma50 = ind.sma(daily_closes, 50)
             last_daily = daily_closes[-1]
-            decision["daily_ma20"] = daily_ma20
-            decision["daily_ma50"] = daily_ma50
-            decision["daily_last"] = last_daily
+            decision["daily_ma20"]  = daily_ma20
+            decision["daily_ma50"]  = daily_ma50
+            decision["daily_last"]  = last_daily
             if last_daily > daily_ma50 and daily_ma20 > daily_ma50:
                 decision["daily_regime"] = "uptrend"
             elif last_daily < daily_ma50 and daily_ma20 < daily_ma50:
@@ -190,19 +266,19 @@ def evaluate_symbol(symbol, position_by_symbol):
         else:
             decision["daily_regime"] = "insufficient daily history (%d bars)" % len(daily_closes)
 
-    # Branch on whether we already hold this symbol.
+    # ── Branch: held position vs. potential new entry ───────────────────
     pos = position_by_symbol.get(symbol)
     if pos:
-        entry = float(pos.get("avg_entry_price") or 0)
-        cur = float(pos.get("current_price") or decision["current_price"])
+        entry    = float(pos.get("avg_entry_price") or 0)
+        cur      = float(pos.get("current_price") or decision["current_price"])
         qty_held = float(pos.get("qty") or 0)
-        decision["entry_price"] = entry
+        decision["entry_price"]   = entry
         decision["current_price"] = cur
 
-        # Hard stop first -- this is the only forced action in the system.
+        # Hard stop — checked before TA, cannot be overridden.
         if should_stop_out(entry, cur):
-            decision["action"] = "SELL"
-            decision["qty"] = qty_held
+            decision["action"]      = "SELL"
+            decision["qty"]         = qty_held
             decision["limit_price"] = round(ask * (1 - LIMIT_BAND_PCT * 0.5), 4)
             decision["reason"] = (
                 "STOP-LOSS: entry $%.4f, current $%.4f (>= %d%% drawdown)"
@@ -210,10 +286,10 @@ def evaluate_symbol(symbol, position_by_symbol):
             )
             return decision
 
-        # Take-profit: close the full position once gain >= 10% from entry.
+        # Take-profit: close the full position once gain >= 10%.
         if should_take_profit(entry, cur):
-            decision["action"] = "SELL"
-            decision["qty"] = qty_held
+            decision["action"]      = "SELL"
+            decision["qty"]         = qty_held
             decision["limit_price"] = round(ask * (1 - LIMIT_BAND_PCT * 0.5), 4)
             decision["reason"] = (
                 "TAKE-PROFIT: entry $%.4f, current $%.4f (>= %d%% gain)"
@@ -221,41 +297,40 @@ def evaluate_symbol(symbol, position_by_symbol):
             )
             return decision
 
-        # Discretionary exit on strong bearish TA.
+        # Discretionary exit on strongly bearish TA confluence.
         if score <= SELL_SCORE_THRESHOLD:
-            decision["action"] = "SELL"
-            decision["qty"] = qty_held
+            decision["action"]      = "SELL"
+            decision["qty"]         = qty_held
             decision["limit_price"] = round(ask * (1 - LIMIT_BAND_PCT * 0.5), 4)
             decision["reason"] = (
-                "TA SELL: score=%.1f <= %.1f, drawdown ok"
-                % (score, SELL_SCORE_THRESHOLD)
+                "TA SELL: score=%.1f <= %.1f" % (score, SELL_SCORE_THRESHOLD)
             )
             return decision
 
+        pct_from_entry = (cur - entry) / entry * 100 if entry else 0
         decision["reason"] = (
-            "hold %s @ $%.4f, score=%.1f" % (str(qty_held), entry, score)
+            "HOLD %.4f @ $%.4f (%.2f%%), score=%.1f"
+            % (qty_held, entry, pct_from_entry, score)
         )
         return decision
 
-    # No position: maybe buy.
-    if score < BUY_SCORE_THRESHOLD:
-        decision["reason"] = (
-            "no entry: score=%.1f < %.1f" % (score, BUY_SCORE_THRESHOLD)
-        )
-        return decision
-
-    # Regime gate: don't buy assets in a clear daily downtrend, even if the
-    # intraday TA score is bullish. CLAUDE.md framework Q4: "What do the
-    # 20-day and 50-day moving averages tell you?"
+    # ── No position: evaluate new entry ────────────────────────────────
+    # Regime gate: block buys in a confirmed daily downtrend.
     if decision["daily_regime"] == "downtrend":
         decision["reason"] = (
-            "regime block: daily downtrend (last=%.4f < ma50=%.4f, ma20=%.4f < ma50=%.4f)"
-            % (decision["daily_last"], decision["daily_ma50"],
-               decision["daily_ma20"], decision["daily_ma50"])
+            "regime block: daily downtrend (last=%.4f < ma50=%.4f)"
+            % (decision.get("daily_last", 0), decision.get("daily_ma50", 0))
         )
         return decision
 
-    # Sizing.
+    # Score gate: need at least 3/6 to consider entry.
+    if score < BUY_SCORE_HALF_SIZE:
+        decision["reason"] = (
+            "no entry: score=%.1f < %.1f" % (score, BUY_SCORE_HALF_SIZE)
+        )
+        return decision
+
+    # Fetch account for sizing.
     try:
         equity = float(get_account().get("equity") or 0)
     except Exception as e:
@@ -264,16 +339,37 @@ def evaluate_symbol(symbol, position_by_symbol):
     if ask <= 0:
         decision["reason"] = "no live ask"
         return decision
-    cap = equity * 0.05
-    qty = round((cap / ask) * 0.99, 4)  # leave a hair under the cap
+
+    # ATR-based sizing: risk 1% of equity per trade, stop = 1.5× ATR.
+    # Hard cap: never more than 5% of equity in one position.
+    hard_cap_qty = round((equity * 0.05 / ask) * 0.99, 4)
+    atr_val = decision.get("atr")
+    if atr_val and atr_val > 0:
+        max_risk    = equity * 0.01
+        stop_dist   = atr_val * 1.5
+        atr_qty     = round((max_risk / stop_dist) * 0.99, 4)
+        base_qty    = min(atr_qty, hard_cap_qty)
+    else:
+        # Fallback: use 2% of equity when ATR unavailable.
+        base_qty = round((equity * 0.02 / ask) * 0.99, 4)
+        base_qty = min(base_qty, hard_cap_qty)
+
+    # Half-size for score == 3 (borderline confluence).
+    if score < BUY_SCORE_THRESHOLD:
+        qty = round(base_qty * 0.5, 4)
+        size_note = "half-size (score=%.1f)" % score
+    else:
+        qty = base_qty
+        size_note = "full-size (score=%.1f)" % score
+
     if qty <= 0:
         decision["reason"] = "computed qty <= 0 (equity=%.2f)" % equity
         return decision
 
-    decision["action"] = "BUY"
-    decision["qty"] = qty
+    decision["action"]      = "BUY"
+    decision["qty"]         = qty
     decision["limit_price"] = round(ask, 4)
-    decision["reason"] = "TA BUY: score=%.1f >= %.1f" % (score, BUY_SCORE_THRESHOLD)
+    decision["reason"]      = "TA BUY %s, atr=%.4f" % (size_note, atr_val or 0)
     return decision
 
 
@@ -305,10 +401,38 @@ def format_decision_line(d):
     return " ".join(parts)
 
 
+def fmt_macd(m):
+    if m is None:
+        return "n/a"
+    return "line=%.4f sig=%.4f hist=%.4f" % m
+
+
+def fmt_bb(b):
+    if b is None:
+        return "n/a"
+    lower, middle, upper, bw, pb = b
+    return "lower=%.2f mid=%.2f upper=%.2f bw=%.4f pb=%.2f" % (lower, middle, upper, bw, pb)
+
+
+def format_decision_line(d):
+    parts = [d["symbol"], d["action"]]
+    if d["score"] is not None:
+        parts.append("score=%+.1f/6" % d["score"])
+    if d["qty"] is not None and d["limit_price"] is not None:
+        parts.append("qty=%s limit=$%.4f" % (str(d["qty"]), d["limit_price"]))
+    if d["ask"]:
+        parts.append("ask=$%.4f" % d["ask"])
+    if d["reason"]:
+        parts.append("(" + d["reason"] + ")")
+    return " ".join(parts)
+
+
 def format_indicator_block(d):
     """Multi-line indicator readout for the journal."""
     out = []
-    out.append("    score   : %s" % ("%+.1f" % d["score"] if d["score"] is not None else "n/a"))
+    score_str = ("%+.1f/6" % d["score"]) if d["score"] is not None else "n/a"
+    out.append("    score   : %s" % score_str)
+    out.append("    ema_x   : %s" % (d.get("ema_cross") or "n/a"))
     out.append("    rsi     : %s" % ("%.2f" % d["rsi"] if d["rsi"] is not None else "n/a"))
     out.append("    macd    : %s%s" % (
         fmt_macd(d["macd"]),
@@ -319,12 +443,20 @@ def format_indicator_block(d):
         " trend=" + d["bb_trend"] if d["bb_trend"] else "",
         " SQUEEZE" if d["bb_squeeze"] else "",
     ))
-    if d["daily_ma20"] is not None and d["daily_ma50"] is not None:
+    if d.get("atr") is not None:
+        out.append("    atr     : %.4f  stop_1.5x=%.4f" % (d["atr"], d["atr"] * 1.5))
+    out.append("    4h      : %s" % (d.get("regime_4h") or "n/a"))
+    if d.get("daily_ma20") is not None and d.get("daily_ma50") is not None:
         out.append("    daily   : ma20=%.4f ma50=%.4f last=%.4f regime=%s" % (
             d["daily_ma20"], d["daily_ma50"], d["daily_last"], d["daily_regime"]
         ))
-    elif d["daily_regime"]:
+    elif d.get("daily_regime"):
         out.append("    daily   : regime=" + str(d["daily_regime"]))
+    breakdown = d.get("indicator_breakdown") or {}
+    if breakdown:
+        out.append("    signals :")
+        for k, v in breakdown.items():
+            out.append("      %-12s %s" % (k + ":", v))
     return "\n".join(out)
 
 
@@ -354,7 +486,7 @@ def append_journal_block(timestamp, decisions, executed):
             lines.append(
                 "- %s %s -> %s" % (
                     r["symbol"], r["action"],
-                    json.dumps(r["result"])[:300],
+                    str(r["result"])[:300],
                 )
             )
     else:
