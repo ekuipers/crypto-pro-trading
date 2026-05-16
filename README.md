@@ -240,6 +240,10 @@ Key features (updated 2026-05-16):
 - **Auto-refresh toggle** — 60-second timer button in the header.
 - **Journal tab removed** — journal tracking is handled by the agent-written `.md` files in `journal/`.
 
+Bug fixes (2026-05-16):
+- Repaired broken HTML structure (head/body were assembled in reverse order).
+- Fixed JavaScript syntax error (dangling `else if` left by journal removal) that silently prevented all buttons, tabs and links from working.
+
 ### `dashboard/dashboard.html` *(legacy)*
 
 Original lighter dashboard — 3 tabs: Overview, Hot Symbols, Morning Brief.

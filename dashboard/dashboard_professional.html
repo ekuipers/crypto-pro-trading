@@ -90,6 +90,13 @@
       border-color:rgba(63,185,80,.35);
       background:rgba(63,185,80,.12);
     }
+    .badge select {
+      background: transparent; border: none; outline: none;
+      color: inherit; font: inherit; font-size: 12px; font-weight: 700;
+      letter-spacing: .3px; cursor: pointer; padding: 0; margin: 0;
+      appearance: none; -webkit-appearance: none;
+    }
+    .badge select option { background: var(--surface2); color: var(--text); }
 
     .dot {
       width:8px;
@@ -682,9 +689,12 @@
     <div class="logo">📊 Professional Trader Dashboard</div>
 
     <div class="header-right">
-      <span id="modeBadge" class="badge paper" data-tip="Shows whether the dashboard is connected to Alpaca paper or live mode. Paper mode is safer for testing.">
+      <span id="modeBadge" class="badge paper" data-tip="Active trading mode — switch between paper and live. Paper is safe for testing.">
         <span class="dot"></span>
-        <span id="modeText">Paper</span>
+        <select id="setMode" onchange="onModeChange()" title="Switch active trading mode">
+          <option value="paper">Paper Trading</option>
+          <option value="live">Live Trading</option>
+        </select>
       </span>
 
       <span id="lastUpdated" class="last-updated">Not loaded</span>
@@ -964,24 +974,29 @@
         <div class="panel">
           <div class="panel-title">⚙ Alpaca Connection</div>
 
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">📄 Paper Trading</div>
+          <div class="form-grid" style="margin-bottom:20px">
+            <div>
+              <label>Paper API Key</label>
+              <input id="setPaperApiKey" placeholder="PK...">
+            </div>
+            <div>
+              <label>Paper API Secret</label>
+              <input id="setPaperApiSecret" type="password" placeholder="Secret">
+            </div>
+          </div>
+
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">🔴 Live Trading</div>
           <div class="form-grid">
             <div>
-              <label>API Key</label>
-              <input id="setApiKey" placeholder="PK...">
+              <label>Live API Key</label>
+              <input id="setLiveApiKey" placeholder="PK...">
+            </div>
+            <div>
+              <label>Live API Secret</label>
+              <input id="setLiveApiSecret" type="password" placeholder="Secret">
             </div>
 
-            <div>
-              <label>API Secret</label>
-              <input id="setApiSecret" type="password" placeholder="Secret">
-            </div>
-
-            <div>
-              <label>Mode</label>
-              <select id="setMode">
-                <option value="paper">Paper Trading</option>
-                <option value="live">Live Trading</option>
-              </select>
-            </div>
 
             <div>
               <label>Assumed Stop Loss %</label>
@@ -1247,11 +1262,20 @@
     }
 
     function getSettings() {
-      const saved = JSON.parse(localStorage.getItem("proDashboardSettings") || "{}");
+      const saved       = JSON.parse(localStorage.getItem("proDashboardSettings") || "{}");
+      const mode        = saved.mode || "paper";
+      const paperKey    = saved.paperApiKey    || saved.apiKey    || "";
+      const paperSecret = saved.paperApiSecret || saved.apiSecret || "";
+      const liveKey     = saved.liveApiKey    || "";
+      const liveSecret  = saved.liveApiSecret || "";
       return {
-        apiKey: saved.apiKey || "",
-        apiSecret: saved.apiSecret || "",
-        mode: saved.mode || "paper",
+        paperApiKey:    paperKey,
+        paperApiSecret: paperSecret,
+        liveApiKey:     liveKey,
+        liveApiSecret:  liveSecret,
+        apiKey:    mode === "live" ? liveKey    : paperKey,
+        apiSecret: mode === "live" ? liveSecret : paperSecret,
+        mode,
         limits: Object.assign({}, DEFAULT_LIMITS, saved.limits || {})
       };
     }
@@ -1337,12 +1361,18 @@
     }
 
     function renderMode() {
-      const s = getSettings();
+      const s     = getSettings();
       const badge = $("modeBadge");
-      const text = $("modeText");
-
+      const sel   = $("setMode");
+      if (sel) sel.value = s.mode;
       badge.className = "badge " + (s.mode === "live" ? "live" : "paper");
-      text.textContent = s.mode === "live" ? "Live Trading" : "Paper Trading";
+    }
+    function onModeChange() {
+      const saved = JSON.parse(localStorage.getItem("proDashboardSettings") || "{}");
+      saved.mode  = $("setMode").value;
+      localStorage.setItem("proDashboardSettings", JSON.stringify(saved));
+      renderMode();
+      refreshCurrent();
     }
 
     function switchTab(id, btn) {
@@ -1950,8 +1980,11 @@
     function loadSettingsForm() {
       const s = getSettings();
 
-      $("setApiKey").value = s.apiKey;
-      $("setApiSecret").value = s.apiSecret;
+      const savedRaw = JSON.parse(localStorage.getItem("proDashboardSettings") || "{}");
+      $("setPaperApiKey").value    = savedRaw.paperApiKey    || savedRaw.apiKey    || "";
+      $("setPaperApiSecret").value = savedRaw.paperApiSecret || savedRaw.apiSecret || "";
+      $("setLiveApiKey").value     = savedRaw.liveApiKey     || "";
+      $("setLiveApiSecret").value  = savedRaw.liveApiSecret  || "";
       $("setMode").value = s.mode;
       $("setStopLoss").value = s.limits.assumedStopLossPct;
       $("setMaxDailyLoss").value = s.limits.maxDailyLossPct;
@@ -1967,8 +2000,10 @@
       const maxOpenRisk = Number($("setMaxOpenRisk").value || DEFAULT_LIMITS.maxOpenRiskPct);
 
       const saved = {
-        apiKey: $("setApiKey").value.trim(),
-        apiSecret: $("setApiSecret").value.trim(),
+        paperApiKey:    $("setPaperApiKey").value.trim(),
+        paperApiSecret: $("setPaperApiSecret").value.trim(),
+        liveApiKey:     $("setLiveApiKey").value.trim(),
+        liveApiSecret:  $("setLiveApiSecret").value.trim(),
         mode: $("setMode").value,
         limits: Object.assign({}, current.limits, {
           assumedStopLossPct: Number($("setStopLoss").value || DEFAULT_LIMITS.assumedStopLossPct),
@@ -2389,3 +2424,4 @@
   </script>
 </body>
 </html>
+                                                                                                   

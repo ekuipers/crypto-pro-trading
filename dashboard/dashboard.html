@@ -55,9 +55,18 @@
     }
     .mode-badge.paper { background: rgba(210,153,34,.15); color: var(--paper-color); border: 1px solid rgba(210,153,34,.35); }
     .mode-badge.live  { background: rgba(63,185,80,.12);  color: var(--live-color);  border: 1px solid rgba(63,185,80,.3); }
-    .mode-dot { width: 8px; height: 8px; border-radius: 50%; animation: pulse 2s infinite; }
+    .mode-dot { width: 8px; height: 8px; border-radius: 50%; animation: pulse 2s infinite; flex-shrink: 0; }
     .paper .mode-dot { background: var(--paper-color); }
     .live  .mode-dot { background: var(--live-color); }
+    /* Mode select inside header badge — inherits badge colour, no native chrome */
+    .mode-badge select {
+      background: transparent; border: none; outline: none;
+      color: inherit; font: inherit; font-size: 12px; font-weight: 700;
+      letter-spacing: .5px; text-transform: uppercase;
+      cursor: pointer; padding: 0; margin: 0;
+      appearance: none; -webkit-appearance: none;
+    }
+    .mode-badge select option { background: var(--surface2); color: var(--text); text-transform: none; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
     .header-right { display: flex; align-items: center; gap: 14px; }
     .refresh-btn {
@@ -253,6 +262,106 @@
       text-align: center; color: var(--muted); font-size: 12px;
       padding: 24px; border-top: 1px solid var(--border); margin-top: 16px;
     }
+
+    /* ── TRADE BUTTONS ── */
+    .trade-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .trade-action-btn {
+      background: rgba(88,166,255,.15); color: var(--blue);
+      border: 1px solid rgba(88,166,255,.4);
+      padding: 4px 9px; border-radius: 7px;
+      cursor: pointer; font-size: 12px; font-weight: 700;
+    }
+    .trade-action-btn:hover { background: rgba(88,166,255,.28); }
+    .trade-close-btn {
+      background: rgba(248,81,73,.12); color: var(--red);
+      border: 1px solid rgba(248,81,73,.35);
+      padding: 4px 9px; border-radius: 7px;
+      cursor: pointer; font-size: 12px; font-weight: 700;
+    }
+    .trade-close-btn:hover { background: rgba(248,81,73,.22); }
+
+    /* ── TRADE MODAL ── */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.62);
+      z-index: 99990; display: none;
+      align-items: center; justify-content: center; padding: 18px;
+    }
+    .modal {
+      width: min(560px,100%); background: var(--surface);
+      border: 1px solid var(--border); border-radius: 14px;
+      box-shadow: 0 24px 80px rgba(0,0,0,.55); overflow: hidden;
+    }
+    .modal-header {
+      padding: 16px 18px; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    }
+    .modal-title { font-size: 16px; font-weight: 700; }
+    .modal-body  { padding: 18px; }
+    .modal-footer {
+      padding: 14px 18px; border-top: 1px solid var(--border);
+      display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;
+    }
+    .trade-warning {
+      background: rgba(210,153,34,.12); border: 1px solid rgba(210,153,34,.35);
+      color: var(--yellow); border-radius: 8px; padding: 10px 12px;
+      font-size: 12px; line-height: 1.45; margin-bottom: 14px;
+    }
+    .trade-danger {
+      background: rgba(248,81,73,.12); border: 1px solid rgba(248,81,73,.35);
+      color: var(--red); border-radius: 8px; padding: 10px 12px;
+      font-size: 12px; line-height: 1.45; margin-bottom: 14px;
+    }
+    .trade-summary {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 12px;
+      font-size: 12px; color: var(--muted); line-height: 1.5; margin-top: 8px;
+    }
+
+    /* ── SETTINGS PAGE ── */
+    .panel {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px;
+    }
+    .panel-title {
+      font-size: 14px; font-weight: 700; margin-bottom: 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .form-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px; margin-bottom: 16px;
+    }
+    .form-grid label {
+      display: block; font-size: 11px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .5px; font-weight: 700; margin-bottom: 6px;
+    }
+    .form-grid input, .form-grid select {
+      width: 100%; background: var(--surface2); color: var(--text);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 9px 10px; font-family: inherit; font-size: 13px;
+    }
+    .form-grid input:focus, .form-grid select:focus {
+      outline: none; border-color: var(--blue);
+    }
+    .btn {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--blue); padding: 7px 16px; border-radius: var(--radius);
+      cursor: pointer; font-size: 13px; font-weight: 600;
+    }
+    .btn:hover { background: var(--border); }
+    .btn-green {
+      background: rgba(63,185,80,.15); border-color: rgba(63,185,80,.35); color: var(--green);
+    }
+    .btn-green:hover { background: rgba(63,185,80,.25); }
+    .btn-red {
+      background: rgba(248,81,73,.12); border-color: rgba(248,81,73,.35); color: var(--red);
+    }
+    .btn-red:hover { background: rgba(248,81,73,.22); }
+    .small { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .settings-saved {
+      display: inline-block; color: var(--green); font-size: 12px;
+      margin-left: 12px; opacity: 0; transition: opacity .3s;
+    }
+    .settings-saved.show { opacity: 1; }
   </style>
 </head>
 <body>
@@ -269,7 +378,10 @@
   <div class="header-right">
     <div class="mode-badge" id="modeBadge">
       <div class="mode-dot"></div>
-      <span id="modeLabel">Loading…</span>
+      <select id="setMode" onchange="onModeChange()" title="Switch active trading mode">
+        <option value="paper">Paper Trading</option>
+        <option value="live">Live Trading</option>
+      </select>
     </div>
     <span class="last-updated" id="lastUpdated">—</span>
     <button class="refresh-btn" onclick="refreshCurrent()">⟳ Refresh</button>
@@ -289,6 +401,9 @@
   </button>
   <button class="tab-btn" onclick="switchTab('brief',this)">
     <span>🌅</span> Morning Brief
+  </button>
+  <button class="tab-btn" onclick="switchTab('settings',this)">
+    <span>⚙️</span> Settings
   </button>
 </nav>
 
@@ -348,9 +463,33 @@
             <th class="sortable right" data-key="unrealized_pl"          data-tip="Unrealized profit/loss in dollars" onclick="sortPos('unrealized_pl')">Unrealized P&amp;L <span class="sort-icon">⇅</span></th>
             <th class="sortable right" data-key="unrealized_plpc"        data-tip="Unrealized P&L as % of cost basis" onclick="sortPos('unrealized_plpc')">Unrealized % <span class="sort-icon">⇅</span></th>
             <th class="sortable right" data-key="unrealized_intraday_pl" data-tip="Today's profit/loss since session open" onclick="sortPos('unrealized_intraday_pl')">Today P&amp;L <span class="sort-icon">⇅</span></th>
+            <th data-tip="Open a paper limit-order ticket for this symbol">Trade</th>
           </tr></thead>
           <tbody id="positionsBody">
-            <tr><td colspan="8" class="placeholder"><span class="spinner"></span> Loading positions…</td></tr>
+            <tr><td colspan="9" class="placeholder"><span class="spinner"></span> Loading positions…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Watchlist — no position -->
+    <section>
+      <div class="section-title">Watchlist — No Position</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Symbol</th>
+            <th class="right">Qty</th>
+            <th class="right">Entry Price</th>
+            <th class="right">Current Price</th>
+            <th class="right">Market Value</th>
+            <th class="right">Unrealized P&amp;L</th>
+            <th class="right">Unrealized %</th>
+            <th class="right">Today P&amp;L</th>
+            <th>Trade</th>
+          </tr></thead>
+          <tbody id="noPosBody">
+            <tr><td colspan="9" class="placeholder"><span class="spinner"></span> Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -653,31 +792,180 @@
 
   </div><!-- /page-dist -->
 
+  <!-- ─── PAGE: SETTINGS ─── -->
+  <div id="page-settings" class="page">
+    <section>
+      <div class="section-title">Settings</div>
+      <div class="panel">
+        <div class="panel-title">🔑 Alpaca Connection</div>
+
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">📄 Paper Trading</div>
+        <div class="form-grid" style="margin-bottom:20px">
+          <div>
+            <label>Paper API Key</label>
+            <input id="setPaperApiKey" placeholder="PK…" autocomplete="off">
+          </div>
+          <div>
+            <label>Paper API Secret</label>
+            <input id="setPaperApiSecret" type="password" placeholder="Secret" autocomplete="new-password">
+          </div>
+        </div>
+
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">🔴 Live Trading</div>
+        <div class="form-grid">
+          <div>
+            <label>Live API Key</label>
+            <input id="setLiveApiKey" placeholder="PK…" autocomplete="off">
+          </div>
+          <div>
+            <label>Live API Secret</label>
+            <input id="setLiveApiSecret" type="password" placeholder="Secret" autocomplete="new-password">
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-green" onclick="saveSettings()">💾 Save Settings</button>
+          <button class="btn btn-red"   onclick="clearSettings()">🗑 Clear Settings</button>
+          <span class="settings-saved" id="settingsSavedMsg">✓ Saved</span>
+        </div>
+        <div class="small" style="margin-top:16px">
+          Credentials are stored only in this browser's <code>localStorage</code> and never sent anywhere except directly to the Alpaca API.
+          For production use, consider a backend proxy so your API secret is not exposed in browser storage.
+        </div>
+      </div>
+    </section>
+  </div><!-- /page-settings -->
+
 </main>
 
 <footer>
   Alpaca Trading Dashboard · Auto-refreshes every 60 s · All prices USD
 </footer>
 
+<!-- ══════════════ TRADE MODAL ══════════════ -->
+<div id="tradeModalBackdrop" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Paper Limit Order</div>
+        <div class="small" id="tradeModalSymbol" style="margin-top:3px;color:var(--muted)"></div>
+      </div>
+      <button class="btn" onclick="closeTradeModal()" style="padding:5px 10px;font-size:18px;line-height:1">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="tradeModeWarning" class="trade-warning">
+        Paper mode is active. This will submit a paper limit order to Alpaca.
+      </div>
+      <input type="hidden" id="tradeSymbol">
+      <div class="form-grid">
+        <div>
+          <label>Side</label>
+          <select id="tradeSide" oninput="updateTradeSummary()">
+            <option value="buy">Buy</option>
+            <option value="sell">Sell</option>
+          </select>
+        </div>
+        <div>
+          <label>Quantity</label>
+          <input id="tradeQty" type="number" min="0" step="0.000001" placeholder="0.001" oninput="updateTradeSummary()">
+        </div>
+        <div>
+          <label>Limit Price ($)</label>
+          <input id="tradeLimitPrice" type="number" min="0" step="0.000001" placeholder="Price" oninput="updateTradeSummary()">
+        </div>
+        <div>
+          <label>Time in Force</label>
+          <select id="tradeTif">
+            <option value="gtc">GTC</option>
+            <option value="day">DAY</option>
+          </select>
+        </div>
+      </div>
+      <div class="trade-summary" id="tradeSummary">
+        Fill in quantity and limit price to see estimated notional value.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeTradeModal()">Cancel</button>
+      <button class="btn btn-green" onclick="submitPaperTrade()">Submit Paper Order</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════════════════════
-//  CONFIG  (credentials from .env)
+//  CONFIG
 // ═══════════════════════════════════════════════════════════
-const API_KEY    = "PKY6UKLLCKECNRHAYJ37J3H4Z4";
-const API_SECRET = "Cm5cKKanMKoVHTPuRSBbETEfD6SrX5D9t9R2zAsQAomP";
-const BASE_URL   = "https://paper-api.alpaca.markets";
-const DATA_URL   = "https://data.alpaca.markets";
-const IS_PAPER   = BASE_URL.includes("paper");
+// Fallback credentials (used if nothing is saved in Settings)
+const _DEFAULT_KEY    = "PKY6UKLLCKECNRHAYJ37J3H4Z4";
+const _DEFAULT_SECRET = "Cm5cKKanMKoVHTPuRSBbETEfD6SrX5D9t9R2zAsQAomP";
+const DATA_URL        = "https://data.alpaca.markets";
 
 const CRYPTO_WL = [
   "BTC/USD","ETH/USD","SOL/USD","AVAX/USD","LINK/USD",
   "DOT/USD","LTC/USD","DOGE/USD","ADA/USD","AAVE/USD"
 ];
 
-const HEADERS = {
-  "APCA-API-KEY-ID":     API_KEY,
-  "APCA-API-SECRET-KEY": API_SECRET,
-};
+// ── Settings (localStorage) ──────────────────────────────
+function getSettings() {
+  const saved       = JSON.parse(localStorage.getItem("alphaDashboardSettings") || "{}");
+  const mode        = saved.mode || "paper";
+  // Fall back to legacy single-key field for users upgrading from the old format
+  const paperKey    = saved.paperApiKey    || saved.apiKey    || _DEFAULT_KEY;
+  const paperSecret = saved.paperApiSecret || saved.apiSecret || _DEFAULT_SECRET;
+  const liveKey     = saved.liveApiKey    || "";
+  const liveSecret  = saved.liveApiSecret || "";
+  return {
+    paperApiKey:    paperKey,
+    paperApiSecret: paperSecret,
+    liveApiKey:     liveKey,
+    liveApiSecret:  liveSecret,
+    // Active credentials (used by getDynamicHeaders / apiFetch)
+    apiKey:    mode === "live" ? liveKey    : paperKey,
+    apiSecret: mode === "live" ? liveSecret : paperSecret,
+    mode,
+  };
+}
+function getBaseUrl() {
+  return getSettings().mode === "live"
+    ? "https://api.alpaca.markets"
+    : "https://paper-api.alpaca.markets";
+}
+function getDynamicHeaders() {
+  const s = getSettings();
+  return {
+    "APCA-API-KEY-ID":     s.apiKey,
+    "APCA-API-SECRET-KEY": s.apiSecret,
+  };
+}
+function saveSettings() {
+  const data = {
+    paperApiKey:    $("setPaperApiKey").value.trim(),
+    paperApiSecret: $("setPaperApiSecret").value.trim(),
+    liveApiKey:     $("setLiveApiKey").value.trim(),
+    liveApiSecret:  $("setLiveApiSecret").value.trim(),
+    mode:           $("setMode").value,
+  };
+  localStorage.setItem("alphaDashboardSettings", JSON.stringify(data));
+  renderMode();
+  const msg = $("settingsSavedMsg");
+  msg.classList.add("show");
+  setTimeout(() => msg.classList.remove("show"), 2500);
+}
+function clearSettings() {
+  if (!confirm("Clear saved API credentials and reset to defaults?")) return;
+  localStorage.removeItem("alphaDashboardSettings");
+  loadSettingsForm();
+  renderMode();
+}
+function loadSettingsForm() {
+  const saved = JSON.parse(localStorage.getItem("alphaDashboardSettings") || "{}");
+  // Support upgrade from the old single-key format
+  $("setPaperApiKey").value    = saved.paperApiKey    || saved.apiKey    || "";
+  $("setPaperApiSecret").value = saved.paperApiSecret || saved.apiSecret || "";
+  $("setLiveApiKey").value     = saved.liveApiKey     || "";
+  $("setLiveApiSecret").value  = saved.liveApiSecret  || "";
+  $("setMode").value           = saved.mode           || "paper";
+}
 
 // ═══════════════════════════════════════════════════════════
 //  HELPERS
@@ -742,7 +1030,7 @@ function changeBar(pct, maxPct = 10) {
   return `<div class="bar-track"><div class="bar-fill ${cls}" style="width:${w}%"></div></div>`;
 }
 async function apiFetch(url) {
-  const r = await fetch(url, { headers: HEADERS });
+  const r = await fetch(url, { headers: getDynamicHeaders() });
   if (!r.ok) throw new Error(r.status + " " + r.statusText + " (" + url + ")");
   return r.json();
 }
@@ -760,25 +1048,32 @@ function switchTab(id, btn) {
   activeTab = id;
   if (id === "hot") loadHot();
   else if (id === "brief") loadBrief();
+  else if (id === "settings") loadSettingsForm();
 }
 function refreshCurrent() {
   if (activeTab === "overview") loadOverview();
   else if (activeTab === "hot") loadHot();
   else if (activeTab === "brief") loadBrief();
+  else if (activeTab === "dist") loadDist();
 }
 
 // ═══════════════════════════════════════════════════════════
 //  MODE BADGE
 // ═══════════════════════════════════════════════════════════
 function renderMode() {
-  const badge = $("modeBadge"), label = $("modeLabel");
-  if (IS_PAPER) {
-    badge.className   = "mode-badge paper";
-    label.textContent = "Paper Trading — Dry Run";
-  } else {
-    badge.className   = "mode-badge live";
-    label.textContent = "Live Trading";
-  }
+  const badge = $("modeBadge");
+  const sel   = $("setMode");
+  const mode  = getSettings().mode;
+  if (sel) sel.value = mode;
+  badge.className = mode === "live" ? "mode-badge live" : "mode-badge paper";
+}
+function onModeChange() {
+  // Persist just the mode change immediately, leave keys untouched
+  const saved = JSON.parse(localStorage.getItem("alphaDashboardSettings") || "{}");
+  saved.mode  = $("setMode").value;
+  localStorage.setItem("alphaDashboardSettings", JSON.stringify(saved));
+  renderMode();
+  refreshCurrent();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -820,7 +1115,7 @@ function setSortIcons(headId, activeKey, dir) {
 //  OVERVIEW — ACCOUNT CARDS
 // ═══════════════════════════════════════════════════════════
 async function loadAccount() {
-  const a        = await apiFetch(BASE_URL + "/v2/account");
+  const a        = await apiFetch(getBaseUrl() + "/v2/account");
   const equity   = parseFloat(a.equity);
   const cash     = parseFloat(a.cash);
   const bp       = parseFloat(a.buying_power);
@@ -879,7 +1174,7 @@ async function loadPortfolioChart(period, timeframe) {
   timeframe = timeframe || chartTimeframe;
 
   const data = await apiFetch(
-    BASE_URL + "/v2/account/portfolio/history?period=" + period +
+    getBaseUrl() + "/v2/account/portfolio/history?period=" + period +
     "&timeframe=" + timeframe + "&intraday_reporting=continuous&extended_hours=true"
   );
 
@@ -997,22 +1292,58 @@ function changePeriod(btn) {
 // ═══════════════════════════════════════════════════════════
 let rawPositions = [];
 const posSort = { key: null, dir: 1 };
+let wlSnaps = {}; // { "BTC/USD": currentPrice }
+
+function renderWatchlistNoPos() {
+  const tbody = $("noPosBody");
+  if (!tbody) return;
+  const posSyms = new Set(rawPositions.map(p => toSlash(p.symbol)));
+  const noPos   = CRYPTO_WL.filter(sym => !posSyms.has(sym));
+  if (!noPos.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="placeholder">All watchlist symbols have open positions</td></tr>';
+    return;
+  }
+  tbody.innerHTML = noPos.map(sym => {
+    const price    = wlSnaps[sym] || 0;
+    const orderSym = sym.replace("/", "");
+    const priceStr = price ? fmtPrice(price) : '<span style="color:var(--muted)">–</span>';
+    return `<tr>
+      <td><span class="symbol">${sym}</span></td>
+      <td class="right" style="color:var(--muted)">–</td>
+      <td class="right" style="color:var(--muted)">–</td>
+      <td class="right mono">${priceStr}</td>
+      <td class="right" style="color:var(--muted)">–</td>
+      <td class="right" style="color:var(--muted)">–</td>
+      <td class="right" style="color:var(--muted)">–</td>
+      <td class="right" style="color:var(--muted)">–</td>
+      <td>
+        <div class="trade-actions">
+          <button class="trade-action-btn" onclick="openTradeModal('${orderSym}','${sym}','buy','',${price})">Buy</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
+}
 
 function renderPositions() {
   const tbody = $("positionsBody");
   const data  = applySort(rawPositions, posSort.key, posSort.dir);
   if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="placeholder">No open positions</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="placeholder">No open positions</td></tr>';
+    renderWatchlistNoPos();
     return;
   }
   tbody.innerHTML = data.map(p => {
-    const unrPL  = parseFloat(p.unrealized_pl);
-    const unrPct = parseFloat(p.unrealized_plpc);
-    const dayPL  = parseFloat(p.unrealized_intraday_pl ?? 0);
-    const mv     = parseFloat(p.market_value);
-    const qty    = parseFloat(p.qty);
+    const unrPL     = parseFloat(p.unrealized_pl);
+    const unrPct    = parseFloat(p.unrealized_plpc);
+    const dayPL     = parseFloat(p.unrealized_intraday_pl ?? 0);
+    const mv        = parseFloat(p.market_value);
+    const qty       = parseFloat(p.qty);
+    const sym       = toSlash(p.symbol);
+    const current   = parseFloat(p.current_price) || 0;
+    const orderSym  = p.symbol; // raw symbol for API (e.g. "BTCUSD")
     return `<tr>
-      <td><span class="symbol">${toSlash(p.symbol)}</span></td>
+      <td><span class="symbol">${sym}</span></td>
       <td class="right">${fmt(qty, qty % 1 === 0 ? 0 : 6)}</td>
       <td class="right mono">${fmtPrice(p.avg_entry_price)}</td>
       <td class="right mono">${fmtPrice(p.current_price)}</td>
@@ -1020,8 +1351,15 @@ function renderPositions() {
       <td class="right ${plClass(unrPL)}">${plSign(unrPL)}</td>
       <td class="right ${plClass(unrPct)}">${pctFmt(unrPct, true)}</td>
       <td class="right ${plClass(dayPL)}">${plSign(dayPL)}</td>
+      <td>
+        <div class="trade-actions">
+          <button class="trade-action-btn" onclick="openTradeModal('${orderSym}','${sym}','buy','',${current})">Buy</button>
+          <button class="trade-close-btn"  onclick="openTradeModal('${orderSym}','${sym}','sell','${qty}',${current})">Sell / Close</button>
+        </div>
+      </td>
     </tr>`;
   }).join("");
+  renderWatchlistNoPos();
 }
 
 function sortPos(key) {
@@ -1031,11 +1369,96 @@ function sortPos(key) {
 }
 
 async function loadPositions() {
-  const positions = await apiFetch(BASE_URL + "/v2/positions");
+  const positions = await apiFetch(getBaseUrl() + "/v2/positions");
   rawPositions = positions;
   $("posCount").textContent = positions.length;
+  // Fetch watchlist snapshots so the no-position table has current prices
+  try {
+    const encoded = CRYPTO_WL.map(s => encodeURIComponent(s)).join(",");
+    const data    = await apiFetch(DATA_URL + "/v1beta3/crypto/us/snapshots?symbols=" + encoded);
+    const snaps   = data.snapshots || {};
+    wlSnaps = {};
+    CRYPTO_WL.forEach(sym => {
+      const s = snaps[sym];
+      if (s && s.dailyBar) wlSnaps[sym] = parseFloat(s.dailyBar.c || s.dailyBar.o || 0);
+    });
+  } catch (_) { /* price fetch is best-effort */ }
   renderPositions();
 }
+
+// ═══════════════════════════════════════════════════════════
+//  TRADE MODAL
+// ═══════════════════════════════════════════════════════════
+function openTradeModal(orderSymbol, displaySymbol, side, qty, currentPrice) {
+  $("tradeSymbol").value       = orderSymbol;
+  $("tradeSide").value         = side || "buy";
+  $("tradeQty").value          = qty  || "";
+  $("tradeLimitPrice").value   = currentPrice || "";
+  $("tradeModalSymbol").textContent = displaySymbol || orderSymbol;
+  const warning = $("tradeModeWarning");
+  if (getSettings().mode === "live") {
+    warning.className   = "trade-danger";
+    warning.textContent = "Live mode is selected. This dashboard only submits paper orders — switch to Paper Trading mode in Settings to proceed.";
+  } else {
+    warning.className   = "trade-warning";
+    warning.textContent = "Paper mode is active. This will submit a paper limit order to Alpaca (no real money).";
+  }
+  updateTradeSummary();
+  $("tradeModalBackdrop").style.display = "flex";
+}
+function closeTradeModal() {
+  $("tradeModalBackdrop").style.display = "none";
+}
+function updateTradeSummary() {
+  const qty      = Number($("tradeQty").value || 0);
+  const price    = Number($("tradeLimitPrice").value || 0);
+  const side     = $("tradeSide").value;
+  const sym      = toSlash($("tradeSymbol").value || "");
+  const notional = qty * price;
+  $("tradeSummary").innerHTML = qty && price
+    ? `<b>Draft order:</b> ${side.toUpperCase()} ${qty} ${sym} at ${fmtPrice(price)} limit &nbsp;|&nbsp; <b>Estimated notional:</b> $${fmt(notional)}`
+    : "Fill in quantity and limit price to see estimated notional value.";
+}
+async function submitPaperTrade() {
+  if (getSettings().mode === "live") {
+    alert("Live order execution is blocked. Switch to Paper Trading in Settings.");
+    return;
+  }
+  const symbol     = $("tradeSymbol").value;
+  const side       = $("tradeSide").value;
+  const qty        = Number($("tradeQty").value);
+  const limitPrice = Number($("tradeLimitPrice").value);
+  const tif        = $("tradeTif").value;
+  if (!symbol)                { alert("Missing symbol.");             return; }
+  if (!qty || qty <= 0)       { alert("Enter a valid quantity.");     return; }
+  if (!limitPrice || limitPrice <= 0) { alert("Enter a valid limit price."); return; }
+  const confirmed = confirm(
+    "Submit PAPER limit order?\n\n" +
+    side.toUpperCase() + " " + qty + " " + toSlash(symbol) + "\n" +
+    "Limit: $" + limitPrice + "\n" +
+    "Estimated notional: $" + fmt(qty * limitPrice)
+  );
+  if (!confirmed) return;
+  try {
+    const r = await fetch(getBaseUrl() + "/v2/orders", {
+      method:  "POST",
+      headers: { ...getDynamicHeaders(), "Content-Type": "application/json" },
+      body:    JSON.stringify({ symbol, qty: String(qty), side, type: "limit", time_in_force: tif, limit_price: String(limitPrice) }),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    const result = await r.json();
+    alert("Paper order submitted! Order ID: " + (result.id || "accepted"));
+    closeTradeModal();
+    loadOverview();
+  } catch (err) {
+    alert("Error submitting order: " + err.message);
+    console.error(err);
+  }
+}
+// Close modal on backdrop click
+document.addEventListener("click", e => {
+  if (e.target.id === "tradeModalBackdrop") closeTradeModal();
+});
 
 // ═══════════════════════════════════════════════════════════
 //  OVERVIEW — ORDERS
@@ -1099,8 +1522,8 @@ function sortOrd(key) {
 
 async function loadOrders() {
   const [open, closed] = await Promise.all([
-    apiFetch(BASE_URL + "/v2/orders?status=open&limit=100&direction=desc"),
-    apiFetch(BASE_URL + "/v2/orders?status=closed&limit=100&direction=desc"),
+    apiFetch(getBaseUrl() + "/v2/orders?status=open&limit=100&direction=desc"),
+    apiFetch(getBaseUrl() + "/v2/orders?status=closed&limit=100&direction=desc"),
   ]);
   allOrders = [...open, ...closed]
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
@@ -1684,8 +2107,8 @@ async function loadBrief() {
   $("briefTs").textContent="Loading…";
   try {
     const [acct, positions] = await Promise.all([
-      apiFetch(BASE_URL+"/v2/account"),
-      apiFetch(BASE_URL+"/v2/positions"),
+      apiFetch(getBaseUrl()+"/v2/account"),
+      apiFetch(getBaseUrl()+"/v2/positions"),
     ]);
     const equity=parseFloat(acct.equity), cash=parseFloat(acct.cash);
     const lastEq=parseFloat(acct.last_equity), dayPL=equity-lastEq;
@@ -1782,8 +2205,8 @@ async function loadDist() {
   $("lastUpdated").textContent = "Refreshing…";
   try {
     const [acct, positions] = await Promise.all([
-      apiFetch(BASE_URL + "/v2/account"),
-      apiFetch(BASE_URL + "/v2/positions"),
+      apiFetch(getBaseUrl() + "/v2/account"),
+      apiFetch(getBaseUrl() + "/v2/positions"),
     ]);
 
     const equity   = parseFloat(acct.equity);
@@ -1909,6 +2332,7 @@ async function loadDist() {
 //  INIT & AUTO-REFRESH
 // ═══════════════════════════════════════════════════════════
 renderMode();
+loadSettingsForm();
 setSortIcons("ordHead", ordSort.key, ordSort.dir);
 setSortIcons("confHead", confSort.key, confSort.dir);
 setSortIcons("hotHead", hotSort.key, hotSort.dir);
