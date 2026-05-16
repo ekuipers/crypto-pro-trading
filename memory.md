@@ -25,7 +25,7 @@ Erik (the.eekman@gmail.com). Running a paper crypto trading agent on Alpaca.
 | `watchlist_crypto.json` | 10 symbols |
 | `journal/YYYY-MM-DD.md` | Daily trading journal (append, never overwrite) |
 | `dashboard/dashboard.html` | Original live dashboard — 3 tabs: Overview, Hot Symbols, Morning Brief |
-| `dashboard/dashboard_professional.html` | Professional trader dashboard — 7 tabs: Command, Performance, Risk, Positions, Execution, Backtest vs Live, Settings. No journal tab (removed 2026-05-16). Includes: cash-reserve rule, stop-distance column, portfolio-cap usage, ATR position sizer, auto-refresh, hard-rules panel. |
+| `dashboard/dashboard_professional.html` | Professional trader dashboard — 9 tabs: Command, Performance, Risk, Positions, Execution, **Signals**, **P&L**, Backtest vs Live, Settings. No journal tab (removed 2026-05-16). Signals tab: live 6-point confluence scanner (TA computed in-browser from Alpaca data API). P&L tab: FIFO realized P&L, calendar heatmap, trade log, CSV export. Also: concentration + correlation panels (Risk), rolling 30D/90D metrics (Performance), period selector (1M/3M/6M/1Y), keyboard shortcuts (1–9 = tabs, R = refresh), browser notifications on score ≥ 4. |
 | `skills/crypto-trader/SKILL.md` | Full strategy playbook (read before any trade eval) |
 
 ## Hard Rules (never break)

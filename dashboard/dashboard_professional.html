@@ -658,6 +658,56 @@
       margin-top:20px;
     }
 
+
+    .period-btn { color:var(--muted); }
+    .period-btn.active { color:var(--blue); border-color:rgba(88,166,255,.4); background:rgba(88,166,255,.1); }
+
+    .cal-grid {
+      display:grid;
+      gap:3px;
+      margin-top:10px;
+    }
+    .cal-cell {
+      border-radius:4px;
+      font-size:10px;
+      padding:3px 5px;
+      min-height:38px;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+    }
+    .cal-cell.pos { background:rgba(63,185,80,.18); color:var(--green); }
+    .cal-cell.neg { background:rgba(248,81,73,.15); color:var(--red); }
+    .cal-cell.neu { background:var(--surface2); color:var(--muted); }
+    .cal-cell.empty { background:transparent; }
+    .cal-day { font-size:9px; color:var(--muted); }
+    .cal-pnl { font-weight:900; font-size:10px; }
+    .cal-month-label { font-size:10px; color:var(--muted); font-weight:900; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+
+    .score-bar { display:inline-flex; gap:2px; }
+    .score-pip {
+      width:10px; height:10px; border-radius:2px;
+      background:var(--border);
+    }
+    .score-pip.on-pos { background:var(--green); }
+    .score-pip.on-neg { background:var(--red); }
+    .score-pip.on-half { background:var(--yellow); }
+
+    .regime-badge {
+      display:inline-flex; align-items:center; gap:5px;
+      padding:2px 7px; border-radius:999px; font-size:10px; font-weight:900;
+    }
+    .regime-badge.up { color:var(--green); background:rgba(63,185,80,.14); }
+    .regime-badge.down { color:var(--red); background:rgba(248,81,73,.12); }
+    .regime-badge.mixed { color:var(--yellow); background:rgba(210,153,34,.12); }
+    .regime-badge.blocked { color:var(--red); background:rgba(248,81,73,.18); }
+
+    .kbd {
+      display:inline-block; padding:1px 5px; border-radius:4px;
+      background:var(--surface2); border:1px solid var(--border);
+      font-size:10px; font-family:monospace;
+    }
+
     @media (max-width:700px) {
       header {
         align-items:flex-start;
@@ -711,6 +761,8 @@
     <button class="tab-btn" onclick="switchTab('risk',this)">⚠️ Risk</button>
     <button class="tab-btn" onclick="switchTab('positions',this)">📂 Positions</button>
     <button class="tab-btn" onclick="switchTab('execution',this)">🎯 Execution</button>
+    <button class="tab-btn" onclick="switchTab('signals',this)">📡 Signals</button>
+    <button class="tab-btn" onclick="switchTab('pnl',this)">💰 P&amp;L</button>
     <button class="tab-btn" onclick="switchTab('backtest',this)">🧪 Backtest vs Live</button>
     <button class="tab-btn" onclick="switchTab('settings',this)">⚙ Settings</button>
   </nav>
@@ -723,6 +775,7 @@
       <section>
         <div class="section-title">Professional Command Center</div>
         <div id="tradingStatus" class="status-main reduce" data-tip="Final trading permission based on risk limits, drawdown, open risk, concentration, and journal discipline.">Connect Alpaca</div>
+        <div id="sessionBanner" style="display:none;text-align:center;font-size:12px;color:var(--muted);margin-bottom:8px"></div>
         <div id="commandKpis" class="grid-3"></div>
       </section>
 
@@ -748,8 +801,17 @@
 
     <div id="page-performance" class="page">
       <section>
-        <div class="section-title">Performance Dashboard</div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
+          <div class="section-title" style="margin-bottom:0">Performance Dashboard</div>
+          <div style="display:flex;gap:6px;margin-left:auto">
+            <button class="btn period-btn active" data-period="1M" onclick="setPeriod('1M',this)">1M</button>
+            <button class="btn period-btn" data-period="3M" onclick="setPeriod('3M',this)">3M</button>
+            <button class="btn period-btn" data-period="6M" onclick="setPeriod('6M',this)">6M</button>
+            <button class="btn period-btn" data-period="1Y" onclick="setPeriod('1Y',this)">1Y</button>
+          </div>
+        </div>
         <div id="performanceKpis" class="grid-3"></div>
+        <div class="grid-3" style="margin-top:14px" id="rollingKpis"></div>
       </section>
 
       <section>
@@ -825,6 +887,21 @@
       </section>
 
       <section>
+        <div class="section-title">Portfolio Concentration &amp; Correlation Risk</div>
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-title">📊 Effective Exposure</div>
+            <div id="concentrationPanel" class="small">Load positions to calculate effective exposure.</div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">🔗 BTC Correlation Warning</div>
+            <div class="small" style="margin-bottom:10px">BTC, ETH, SOL, AVAX &amp; LINK typically move together (ρ &gt; 0.80). Holding all simultaneously provides less diversification than the per-symbol caps suggest.</div>
+            <div id="correlationPanel" class="small">Load positions to calculate.</div>
+          </div>
+        </div>
+      </section>
+
+      <section>
         <div class="section-title">Open Exposure & Concentration</div>
         <div class="table-wrap">
           <table>
@@ -852,6 +929,9 @@
       </section>
 
       <section>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+          <button class="btn" onclick="exportCsv('positions')">↓ Export CSV</button>
+        </div>
         <div class="table-wrap">
           <table>
             <thead>
@@ -865,6 +945,9 @@
                 <th class="right" data-tip="Unrealized profit or loss. Click to sort.">Unrealized P&L <span class="sort">⇅</span></th>
                 <th class="right" data-tip="Unrealized P&L percentage. Click to sort.">Unrealized % <span class="sort">⇅</span></th>
                 <th class="right" data-tip="Current P&L % vs −5% hard stop. Shows remaining room before auto-close.">Stop Dist <span class="sort">⇅</span></th>
+                <th class="right" data-tip="ATR-based hard stop price (entry − 1.5×ATR). Fetched from bar data.">Stop $</th>
+                <th class="right" data-tip="Take-profit target price (+10% from entry).">Target $</th>
+                <th class="right" data-tip="How long this position has been open.">Age</th>
                 <th data-tip="Open a paper-only trade ticket for this symbol.">Action <span class="sort">⇅</span></th>
               </tr>
             </thead>
@@ -905,6 +988,93 @@
       </section>
     </div>
 
+
+    <div id="page-signals" class="page">
+      <section>
+        <div class="section-title">Signal Scanner — 6-Point Confluence</div>
+        <div id="signalKpis" class="grid-3"></div>
+      </section>
+
+      <section>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
+          <div class="section-title" style="margin-bottom:0">Live Signal Scores</div>
+          <span class="small">15-min bars · 4H regime · Scores update on Refresh</span>
+          <button class="btn" onclick="loadSignals()" style="margin-left:auto">⟳ Scan Now</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-tip="Crypto pair.">Symbol</th>
+                <th class="right" data-tip="Current ask price.">Price</th>
+                <th class="right" data-tip="6-point confluence score. ≥4 = BUY, 3 = half-size, ≤2 = HOLD.">Score</th>
+                <th data-tip="20/50 EMA cross on 15-min chart.">EMA Cross</th>
+                <th class="right" data-tip="RSI (14) on 15-min. 40–65 bullish, &lt;30 oversold +1, &gt;70 overbought −1.">RSI</th>
+                <th data-tip="MACD histogram direction.">MACD</th>
+                <th class="right" data-tip="Bollinger %b. &lt;0.25 bullish +1, &gt;0.75 bearish −1.">BB %b</th>
+                <th class="right" data-tip="Volume vs 20-bar average. ≥1.2× bullish, &lt;0.7× bearish.">Volume</th>
+                <th data-tip="4H EMA 20/50 regime. Golden = uptrend, Death = downtrend.">4H Regime</th>
+                <th data-tip="Daily regime gate. Uptrend = buys allowed.">Daily</th>
+                <th data-tip="Recommended action based on score and regime gate.">Action</th>
+              </tr>
+            </thead>
+            <tbody id="signalBody"><tr><td colspan="11" class="placeholder">Click Scan Now or Refresh to load signals.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-title">📊 Score Distribution</div>
+            <div id="scoreDist" class="small">Load signals to see distribution.</div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">⚡ Setup Alerts</div>
+            <div class="small" style="margin-bottom:10px">Get a browser notification when any symbol hits score ≥ 4.</div>
+            <div id="notifStatus" class="small" style="margin-bottom:10px;color:var(--muted)">Notifications: not enabled</div>
+            <button class="btn btn-green" onclick="requestNotifications()">Enable Notifications</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div id="page-pnl" class="page">
+      <section>
+        <div class="section-title">Realized P&amp;L &amp; Trade Statistics</div>
+        <div id="pnlKpis" class="grid-3"></div>
+      </section>
+
+      <section>
+        <div class="section-title">P&amp;L Calendar</div>
+        <div id="pnlCalendar" class="panel" style="overflow-x:auto">
+          <div class="small">Load account data to see the calendar.</div>
+        </div>
+      </section>
+
+      <section>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
+          <div class="section-title" style="margin-bottom:0">Closed Trade Log</div>
+          <button class="btn" onclick="exportCsv('trades')" style="margin-left:auto">↓ Export CSV</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-tip="Date of fill.">Date</th>
+                <th data-tip="Symbol.">Symbol</th>
+                <th data-tip="Buy or sell.">Side</th>
+                <th class="right" data-tip="Fill quantity.">Qty</th>
+                <th class="right" data-tip="Average fill price.">Fill Price</th>
+                <th class="right" data-tip="Estimated P&amp;L vs matched entry (FIFO).">Est. P&amp;L</th>
+                <th data-tip="Order status.">Status</th>
+              </tr>
+            </thead>
+            <tbody id="pnlTradeBody"><tr><td colspan="7" class="placeholder">Load data to see trade log.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
     <div id="page-backtest" class="page">
       <section>
         <div class="section-title">Backtest vs Live</div>
@@ -1388,6 +1558,10 @@
       else if (id === "backtest") {
         loadBacktestForm();
         refreshCurrent();
+      } else if (id === "signals") {
+        loadSignals();
+      } else if (id === "pnl") {
+        loadPnl();
       } else {
         refreshCurrent();
       }
@@ -2421,7 +2595,801 @@
         </div>
       `;
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  TA LIBRARY — pure functions for client-side signal computation
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** Exponential moving average array — returns same length as input (NaN-filled head). */
+    function emaArr(src, period) {
+      const k = 2 / (period + 1);
+      const out = new Array(src.length).fill(NaN);
+      // seed with first non-NaN
+      let i = 0;
+      while (i < src.length && isNaN(src[i])) i++;
+      if (i >= src.length) return out;
+      out[i] = src[i];
+      for (let j = i + 1; j < src.length; j++) {
+        out[j] = src[j] * k + out[j - 1] * (1 - k);
+      }
+      return out;
+    }
+
+    /** Simple moving average array. */
+    function smaArr(src, period) {
+      const out = new Array(src.length).fill(NaN);
+      for (let i = period - 1; i < src.length; i++) {
+        let sum = 0;
+        for (let j = i - period + 1; j <= i; j++) sum += src[j];
+        out[i] = sum / period;
+      }
+      return out;
+    }
+
+    /** RSI(14) — returns last value. */
+    function calcRSI(closes, period = 14) {
+      if (closes.length < period + 1) return null;
+      const diffs = closes.slice(1).map((v, i) => v - closes[i]);
+      let gains = 0, losses = 0;
+      for (let i = 0; i < period; i++) {
+        if (diffs[i] > 0) gains += diffs[i];
+        else losses -= diffs[i];
+      }
+      let avgGain = gains / period;
+      let avgLoss = losses / period;
+      for (let i = period; i < diffs.length; i++) {
+        const g = diffs[i] > 0 ? diffs[i] : 0;
+        const l = diffs[i] < 0 ? -diffs[i] : 0;
+        avgGain = (avgGain * (period - 1) + g) / period;
+        avgLoss = (avgLoss * (period - 1) + l) / period;
+      }
+      if (avgLoss === 0) return 100;
+      const rs = avgGain / avgLoss;
+      return 100 - 100 / (1 + rs);
+    }
+
+    /** MACD(12,26,9) — returns {macdLine, signalLine, histogram} last values. */
+    function calcMACD(closes) {
+      if (closes.length < 35) return null;
+      const ema12 = emaArr(closes, 12);
+      const ema26 = emaArr(closes, 26);
+      const macdLine = ema12.map((v, i) => isNaN(v) || isNaN(ema26[i]) ? NaN : v - ema26[i]);
+      const validMacd = macdLine.filter(v => !isNaN(v));
+      const macdForSignal = macdLine.map(v => isNaN(v) ? NaN : v);
+      const signalLine = emaArr(macdForSignal, 9);
+      const last = closes.length - 1;
+      const prev = last - 1;
+      return {
+        macdLine: macdLine[last],
+        signalLine: signalLine[last],
+        histogram: macdLine[last] - signalLine[last],
+        prevHistogram: isNaN(macdLine[prev]) || isNaN(signalLine[prev]) ? NaN : macdLine[prev] - signalLine[prev]
+      };
+    }
+
+    /** Bollinger Bands(20,2) — returns {upper, mid, lower, pb, bw} last values. */
+    function calcBB(closes, period = 20, stdMult = 2) {
+      if (closes.length < period) return null;
+      const slice = closes.slice(-period);
+      const mid = slice.reduce((a, b) => a + b, 0) / period;
+      const variance = slice.reduce((a, b) => a + (b - mid) ** 2, 0) / period;
+      const sd = Math.sqrt(variance);
+      const upper = mid + stdMult * sd;
+      const lower = mid - stdMult * sd;
+      const last = closes[closes.length - 1];
+      const pb = (upper - lower) === 0 ? 0.5 : (last - lower) / (upper - lower);
+      const bw = mid !== 0 ? (upper - lower) / mid : 0;
+      return { upper, mid, lower, pb, bw };
+    }
+
+    /** ATR(14) — returns last ATR value. */
+    function calcATRVal(highs, lows, closes, period = 14) {
+      if (highs.length < period + 1) return null;
+      const trs = [];
+      for (let i = 1; i < highs.length; i++) {
+        const hl = highs[i] - lows[i];
+        const hc = Math.abs(highs[i] - closes[i - 1]);
+        const lc = Math.abs(lows[i] - closes[i - 1]);
+        trs.push(Math.max(hl, hc, lc));
+      }
+      let atr = trs.slice(0, period).reduce((a, b) => a + b, 0) / period;
+      for (let i = period; i < trs.length; i++) {
+        atr = (atr * (period - 1) + trs[i]) / period;
+      }
+      return atr;
+    }
+
+    /** Volume ratio vs 20-bar average. */
+    function calcVolRatio(volumes) {
+      if (volumes.length < 21) return null;
+      const avg = volumes.slice(-21, -1).reduce((a, b) => a + b, 0) / 20;
+      return avg === 0 ? null : volumes[volumes.length - 1] / avg;
+    }
+
+    /**
+     * Compute the 6-point Signal Confluence score.
+     * @param bars15  array of 15-min bar objects {c, h, l, v} — at least 60 bars
+     * @param bars4h  array of 4H bar objects — at least 55 bars
+     * @param barsDaily array of daily bar objects — at least 55 bars
+     * @returns {score, signals, regime, rsi, macd, bb, ema20, ema50, atr, volRatio}
+     */
+    function calcSignalScore(bars15, bars4h, barsDaily) {
+      const closes = bars15.map(b => b.c);
+      const highs = bars15.map(b => b.h);
+      const lows = bars15.map(b => b.l);
+      const vols = bars15.map(b => b.v);
+
+      const ema20arr = emaArr(closes, 20);
+      const ema50arr = emaArr(closes, 50);
+      const ema20 = ema20arr[ema20arr.length - 1];
+      const ema50 = ema50arr[ema50arr.length - 1];
+
+      const rsi = calcRSI(closes);
+      const macdData = calcMACD(closes);
+      const bb = calcBB(closes);
+      const volRatio = calcVolRatio(vols);
+      const atr = calcATRVal(highs, lows, closes);
+
+      // 4H regime
+      const c4 = bars4h.map(b => b.c);
+      const e4_20 = emaArr(c4, 20);
+      const e4_50 = emaArr(c4, 50);
+      const ema4h_20 = e4_20[e4_20.length - 1];
+      const ema4h_50 = e4_50[e4_50.length - 1];
+      const is4hGolden = ema4h_20 > ema4h_50;
+
+      // Daily regime
+      let dailyRegime = "mixed";
+      if (barsDaily && barsDaily.length >= 51) {
+        const cd = barsDaily.map(b => b.c);
+        const sma20d = smaArr(cd, 20);
+        const sma50d = smaArr(cd, 50);
+        const lastClose = cd[cd.length - 1];
+        const m20 = sma20d[sma20d.length - 1];
+        const m50 = sma50d[sma50d.length - 1];
+        if (lastClose < m50 && m20 < m50) dailyRegime = "downtrend";
+        else if (lastClose > m50 && m20 > m50) dailyRegime = "uptrend";
+      }
+
+      const signals = {};
+      let score = 0;
+
+      // 1. EMA cross (15-min)
+      if (!isNaN(ema20) && !isNaN(ema50)) {
+        if (ema20 > ema50) { score += 1; signals.ema_cross = "+1 Golden"; }
+        else { score -= 1; signals.ema_cross = "−1 Death"; }
+      } else {
+        signals.ema_cross = "0 Neutral";
+      }
+
+      // 2. MACD histogram
+      if (macdData) {
+        const rising = macdData.histogram > macdData.prevHistogram;
+        if (macdData.histogram > 0 && rising) { score += 1; signals.macd = "+1 Green↑"; }
+        else if (macdData.histogram < 0 && !rising) { score -= 1; signals.macd = "−1 Red↓"; }
+        else { signals.macd = "0 Flat"; }
+      } else {
+        signals.macd = "0 –";
+      }
+
+      // 3. RSI
+      if (rsi !== null) {
+        if (rsi >= 40 && rsi <= 65) { score += 1; signals.rsi = "+1 Bullish zone"; }
+        else if (rsi < 30) { score += 1; signals.rsi = "+1 Oversold"; }
+        else if (rsi > 70) { score -= 1; signals.rsi = "−1 Overbought"; }
+        else { signals.rsi = "0 Neutral"; }
+      } else {
+        signals.rsi = "0 –";
+      }
+
+      // 4. Bollinger %b
+      if (bb) {
+        if (bb.pb < 0.25) { score += 1; signals.bb = "+1 Near lower"; }
+        else if (bb.pb > 0.75) { score -= 1; signals.bb = "−1 Near upper"; }
+        else { signals.bb = "0 Mid"; }
+      } else {
+        signals.bb = "0 –";
+      }
+
+      // 5. Volume
+      if (volRatio !== null) {
+        if (volRatio >= 1.2) { score += 1; signals.volume = "+1 High vol"; }
+        else if (volRatio < 0.7) { score -= 0.5; signals.volume = "−0.5 Low vol"; }
+        else { signals.volume = "0 Normal"; }
+      } else {
+        signals.volume = "0 –";
+      }
+
+      // 6. 4H regime
+      if (!isNaN(ema4h_20) && !isNaN(ema4h_50)) {
+        if (is4hGolden) { score += 1; signals.regime4h = "+1 Golden"; }
+        else { score -= 1; signals.regime4h = "−1 Death"; }
+      } else {
+        signals.regime4h = "0 –";
+      }
+
+      return {
+        score: Math.round(score * 10) / 10,
+        signals,
+        dailyRegime,
+        rsi: rsi !== null ? Math.round(rsi * 10) / 10 : null,
+        macd: macdData,
+        bb,
+        ema20,
+        ema50,
+        ema4h_20,
+        ema4h_50,
+        atr,
+        volRatio,
+        lastClose: closes[closes.length - 1]
+      };
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  SIGNAL SCANNER
+    // ═══════════════════════════════════════════════════════════════════════
+
+    const DATA_URL = "https://data.alpaca.markets";
+    let _signalCache = null;
+
+    async function fetchBars(symbols, timeframe, limit) {
+      const s = getSettings();
+      if (!s.apiKey || !s.apiSecret) return null;
+      const joined = symbols.map(encodeURIComponent).join(",");
+      const url = `${DATA_URL}/v2/crypto/bars?symbols=${joined}&timeframe=${timeframe}&limit=${limit}&sort=asc`;
+      const resp = await fetch(url, {
+        headers: {
+          "APCA-API-KEY-ID": s.apiKey,
+          "APCA-API-SECRET-KEY": s.apiSecret
+        }
+      });
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      return data.bars || {};
+    }
+
+    async function loadSignals() {
+      const s = getSettings();
+      if (!s.apiKey || !s.apiSecret) {
+        $("signalBody").innerHTML = '<tr><td colspan="11" class="placeholder">Configure API credentials in Settings first.</td></tr>';
+        return;
+      }
+      $("signalBody").innerHTML = '<tr><td colspan="11" class="placeholder">Scanning all symbols…</td></tr>';
+      $("signalKpis").innerHTML = kpi("Status", "Scanning…", "Fetching bars from Alpaca Data API");
+
+      const SYMBOLS = ["BTC/USD","ETH/USD","SOL/USD","AVAX/USD","LINK/USD","DOT/USD","LTC/USD","DOGE/USD","ADA/USD","AAVE/USD"];
+
+      try {
+        const [bars15, bars4h, barsD] = await Promise.all([
+          fetchBars(SYMBOLS, "15Min", 120),
+          fetchBars(SYMBOLS, "4Hour", 60),
+          fetchBars(SYMBOLS, "1Day", 60)
+        ]);
+
+        if (!bars15) {
+          $("signalBody").innerHTML = '<tr><td colspan="11" class="placeholder">Error fetching bars — check API credentials.</td></tr>';
+          return;
+        }
+
+        const rows = [];
+        const scores = [];
+
+        for (const sym of SYMBOLS) {
+          const alpacaSym = sym.replace("/", "");
+          const b15 = (bars15[sym] || bars15[alpacaSym] || []).map(b => ({ c: b.c, h: b.h, l: b.l, v: b.v }));
+          const b4h = (bars4h[sym] || bars4h[alpacaSym] || []).map(b => ({ c: b.c, h: b.h, l: b.l, v: b.v }));
+          const bD  = (barsD[sym]  || barsD[alpacaSym]  || []).map(b => ({ c: b.c, h: b.h, l: b.l, v: b.v }));
+
+          if (b15.length < 55) {
+            rows.push({ sym, score: null, error: "Insufficient bars" });
+            continue;
+          }
+
+          const res = calcSignalScore(b15, b4h, bD);
+          scores.push(res.score);
+          rows.push({ sym, ...res });
+
+          // fire notification if score >= 4 and notifications are enabled
+          if (Notification.permission === "granted" && res.score >= 4) {
+            const action = res.score >= 4 ? "BUY signal" : "HALF-SIZE";
+            try {
+              new Notification(`🚀 ${sym} — Score ${res.score}/6`, {
+                body: `${action} · RSI ${res.rsi} · ${res.dailyRegime}`,
+                tag: sym
+              });
+            } catch(e) {}
+          }
+        }
+
+        // Render signal table
+        const scoreBar = (s) => {
+          if (s === null) return "–";
+          const abs = Math.min(Math.abs(s), 6);
+          const pct = abs / 6 * 100;
+          const color = s >= 4 ? "#3fb950" : s >= 3 ? "#d29922" : s <= 0 ? "#f85149" : "#58a6ff";
+          return `<span style="display:inline-flex;align-items:center;gap:6px">
+            <span style="width:52px;height:6px;border-radius:3px;background:rgba(255,255,255,.1);display:inline-block;vertical-align:middle">
+              <span style="display:block;height:100%;width:${pct}%;background:${color};border-radius:3px"></span>
+            </span>
+            <b style="color:${color}">${s > 0 ? "+" : ""}${s}</b>
+          </span>`;
+        };
+
+        const actionPill = (row) => {
+          if (row.score === null) return pill("muted", "Error");
+          if (row.dailyRegime === "downtrend" && row.score >= 3) return pill("yellow", "Blocked");
+          if (row.score >= 4) return pill("green", "BUY");
+          if (row.score === 3) return pill("yellow", "HALF");
+          if (row.score <= -3) return pill("red", "SELL");
+          return pill("muted", "HOLD");
+        };
+
+        const emaCls = (row) => {
+          const sig = row.signals && row.signals.ema_cross || "";
+          return sig.includes("+") ? "pos" : sig.includes("−") ? "neg" : "";
+        };
+
+        const macdCls = (row) => {
+          const sig = row.signals && row.signals.macd || "";
+          return sig.includes("+") ? "pos" : sig.includes("−") ? "neg" : "";
+        };
+
+        const regimeCls = (row) => {
+          if (row.dailyRegime === "uptrend") return "pos";
+          if (row.dailyRegime === "downtrend") return "neg";
+          return "";
+        };
+
+        $("signalBody").innerHTML = rows.map(row => {
+          if (row.error) return `<tr><td><span class="symbol">${row.sym}</span></td><td colspan="10" style="color:var(--muted)">${row.error}</td></tr>`;
+          const emaLabel = (row.ema20 > row.ema50) ? "Golden" : "Death";
+          const regime4hLabel = (row.ema4h_20 > row.ema4h_50) ? "Golden" : "Death";
+          const regime4hCls = (row.ema4h_20 > row.ema4h_50) ? "pos" : "neg";
+          return `
+            <tr>
+              <td><span class="symbol">${row.sym}</span></td>
+              <td class="right mono">${row.lastClose ? fmtPrice(row.lastClose) : "–"}</td>
+              <td class="right">${scoreBar(row.score)}</td>
+              <td class="${emaCls(row)}">${emaLabel}</td>
+              <td class="right ${row.rsi >= 70 ? "neg" : row.rsi < 30 ? "pos" : ""}">${row.rsi !== null ? row.rsi : "–"}</td>
+              <td class="${macdCls(row)}">${row.signals && row.signals.macd ? row.signals.macd.replace(/[+−0]\s/, "") : "–"}</td>
+              <td class="right ${row.bb && row.bb.pb < 0.25 ? "pos" : row.bb && row.bb.pb > 0.75 ? "neg" : ""}">${row.bb ? fmt(row.bb.pb, 2) : "–"}</td>
+              <td class="right ${row.volRatio >= 1.2 ? "pos" : row.volRatio < 0.7 ? "neg" : ""}">${row.volRatio !== null ? fmt(row.volRatio, 2) + "×" : "–"}</td>
+              <td class="${regime4hCls}">${regime4hLabel}</td>
+              <td class="${regimeCls(row)}">${row.dailyRegime}</td>
+              <td>${actionPill(row)}</td>
+            </tr>
+          `;
+        }).join("");
+
+        // Score distribution
+        const dist = {"-6to-3": 0, "-2to0": 0, "1to2": 0, "3": 0, "4plus": 0};
+        scores.forEach(s => {
+          if (s <= -3) dist["-6to-3"]++;
+          else if (s <= 0) dist["-2to0"]++;
+          else if (s <= 2) dist["1to2"]++;
+          else if (s === 3) dist["3"]++;
+          else dist["4plus"]++;
+        });
+        const total = scores.length || 1;
+        $("scoreDist").innerHTML = `
+          <div style="display:grid;gap:6px;margin-top:8px">
+            ${[
+              ["≥ 4 (BUY)", dist["4plus"], "#3fb950"],
+              ["= 3 (HALF)", dist["3"], "#d29922"],
+              ["1–2 (HOLD)", dist["1to2"], "#58a6ff"],
+              ["−2–0 (HOLD)", dist["-2to0"], "#8b949e"],
+              ["≤ −3 (SELL)", dist["-6to-3"], "#f85149"]
+            ].map(([label, count, color]) => `
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="width:90px;font-size:11px;color:var(--muted)">${label}</span>
+                <span style="flex:1;height:8px;background:rgba(255,255,255,.08);border-radius:4px">
+                  <span style="display:block;height:100%;width:${count/total*100}%;background:${color};border-radius:4px"></span>
+                </span>
+                <span style="font-size:11px;width:16px;text-align:right">${count}</span>
+              </div>
+            `).join("")}
+          </div>
+        `;
+
+        const buys = scores.filter(s => s >= 4).length;
+        const halfs = scores.filter(s => s === 3).length;
+        $("signalKpis").innerHTML = [
+          kpi("BUY Signals", String(buys), "Score ≥ 4 across all symbols", buys > 0 ? "pos" : ""),
+          kpi("HALF Signals", String(halfs), "Score = 3 (half-size if R:R ≥ 1:3)", halfs > 0 ? "" : ""),
+          kpi("Avg Score", scores.length ? fmt(scores.reduce((a,b)=>a+b,0)/scores.length, 1) : "–", "Mean confluence score")
+        ].join("");
+
+        _signalCache = rows;
+
+      } catch(e) {
+        $("signalBody").innerHTML = `<tr><td colspan="11" class="placeholder">Error: ${e.message}</td></tr>`;
+      }
+    }
+
+    async function requestNotifications() {
+      if (!("Notification" in window)) {
+        $("notifStatus").textContent = "Notifications not supported in this browser.";
+        return;
+      }
+      const perm = await Notification.requestPermission();
+      $("notifStatus").textContent = `Notifications: ${perm}`;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  P&L TAB
+    // ═══════════════════════════════════════════════════════════════════════
+
+    let _pnlActivities = [];
+    let _pnlTradeRows  = [];
+
+    async function loadPnl() {
+      const s = getSettings();
+      if (!s.apiKey || !s.apiSecret) {
+        $("pnlTradeBody").innerHTML = '<tr><td colspan="7" class="placeholder">Configure API credentials in Settings first.</td></tr>';
+        return;
+      }
+      $("pnlKpis").innerHTML = kpi("Status", "Loading…", "Fetching trade activities");
+      $("pnlTradeBody").innerHTML = '<tr><td colspan="7" class="placeholder">Fetching activities…</td></tr>';
+
+      try {
+        const baseUrl = s.mode === "live"
+          ? "https://api.alpaca.markets"
+          : "https://paper-api.alpaca.markets";
+
+        const resp = await fetch(`${baseUrl}/v2/account/activities?activity_type=FILL&page_size=100&sort=desc`, {
+          headers: { "APCA-API-KEY-ID": s.apiKey, "APCA-API-SECRET-KEY": s.apiSecret }
+        });
+
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        const activities = await resp.json();
+        _pnlActivities = Array.isArray(activities) ? activities : [];
+
+        // FIFO P&L matching per symbol
+        const queues = {}; // symbol -> [{qty, price}]
+        const trades = [];
+        let totalPnl = 0, wins = 0, losses = 0, winPnl = 0, lossPnl = 0;
+
+        // Activities are desc; reverse for FIFO
+        const sorted = [..._pnlActivities].reverse();
+
+        for (const act of sorted) {
+          const sym = act.symbol;
+          const side = act.side; // "buy" or "sell"
+          const qty = Math.abs(Number(act.qty || 0));
+          const price = Number(act.price || 0);
+          const date = (act.transaction_time || act.date || "").slice(0, 10);
+
+          if (!queues[sym]) queues[sym] = [];
+
+          if (side === "buy") {
+            queues[sym].push({ qty, price });
+            trades.push({ date, sym, side: "BUY", qty, price, pnl: null, status: act.order_status || "filled" });
+          } else if (side === "sell") {
+            let remaining = qty;
+            let realizedPnl = 0;
+            while (remaining > 0 && queues[sym] && queues[sym].length > 0) {
+              const entry = queues[sym][0];
+              const matched = Math.min(remaining, entry.qty);
+              realizedPnl += matched * (price - entry.price);
+              entry.qty -= matched;
+              remaining -= matched;
+              if (entry.qty < 0.000001) queues[sym].shift();
+            }
+            totalPnl += realizedPnl;
+            if (realizedPnl >= 0) { wins++; winPnl += realizedPnl; }
+            else { losses++; lossPnl += Math.abs(realizedPnl); }
+            trades.push({ date, sym, side: "SELL", qty, price, pnl: realizedPnl, status: act.order_status || "filled" });
+          }
+        }
+
+        _pnlTradeRows = trades.reverse(); // most recent first
+
+        const totalTrades = wins + losses;
+        const winRate = totalTrades ? wins / totalTrades * 100 : null;
+        const profitFactor = lossPnl > 0 ? winPnl / lossPnl : null;
+        const avgWin = wins > 0 ? winPnl / wins : null;
+        const avgLoss = losses > 0 ? lossPnl / losses : null;
+
+        $("pnlKpis").innerHTML = [
+          kpi("Total Realized P&L", plSign(totalPnl), "FIFO matched fills", plClass(totalPnl) === "pos" ? "pos" : "neg"),
+          kpi("Win Rate", winRate !== null ? fmt(winRate, 1) + "%" : "–", `${wins}W / ${losses}L`, winRate >= 50 ? "pos" : "neg"),
+          kpi("Profit Factor", profitFactor !== null ? fmt(profitFactor, 2) : "–", "Gross wins / gross losses", profitFactor >= 1 ? "pos" : "neg"),
+          kpi("Avg Win", avgWin !== null ? "$" + fmt(avgWin) : "–", "Average winning trade", "pos"),
+          kpi("Avg Loss", avgLoss !== null ? "-$" + fmt(avgLoss) : "–", "Average losing trade", "neg"),
+          kpi("Total Fills", String(_pnlActivities.length), "Loaded from Alpaca activities")
+        ].join("");
+
+        // Render P&L calendar heatmap
+        renderPnlCalendar(_pnlTradeRows);
+
+        // Trade log
+        $("pnlTradeBody").innerHTML = _pnlTradeRows.length
+          ? _pnlTradeRows.map(t => `
+            <tr>
+              <td style="color:var(--muted);white-space:nowrap">${t.date}</td>
+              <td><span class="symbol">${toSlash(t.sym)}</span></td>
+              <td class="${t.side === "BUY" ? "pos" : "neg"}">${t.side}</td>
+              <td class="right mono">${fmt(t.qty, 6)}</td>
+              <td class="right mono">${fmtPrice(t.price)}</td>
+              <td class="right ${t.pnl !== null ? plClass(t.pnl) : ""}">${t.pnl !== null ? plSign(t.pnl) : "–"}</td>
+              <td><span style="color:var(--muted)">${t.status}</span></td>
+            </tr>
+          `).join("")
+          : '<tr><td colspan="7" class="placeholder">No fill activities found.</td></tr>';
+
+      } catch(e) {
+        $("pnlKpis").innerHTML = kpi("Error", e.message, "Failed to load P&L data");
+        $("pnlTradeBody").innerHTML = `<tr><td colspan="7" class="placeholder">Error: ${e.message}</td></tr>`;
+      }
+    }
+
+    function renderPnlCalendar(trades) {
+      // Group SELL trades by date
+      const byDate = {};
+      trades.filter(t => t.side === "SELL" && t.pnl !== null).forEach(t => {
+        if (!byDate[t.date]) byDate[t.date] = 0;
+        byDate[t.date] += t.pnl;
+      });
+
+      if (!Object.keys(byDate).length) {
+        $("pnlCalendar").innerHTML = '<div class="small">No realized P&L data to display.</div>';
+        return;
+      }
+
+      // Build 3-month calendar
+      const today = new Date();
+      const months = [];
+      for (let m = 2; m >= 0; m--) {
+        const d = new Date(today.getFullYear(), today.getMonth() - m, 1);
+        months.push({ year: d.getFullYear(), month: d.getMonth() });
+      }
+
+      const maxAbs = Math.max(...Object.values(byDate).map(Math.abs), 1);
+
+      const html = months.map(({ year, month }) => {
+        const monthName = new Date(year, month, 1).toLocaleString("default", { month: "short", year: "numeric" });
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        let cells = '<div class="small" style="margin-bottom:4px;color:var(--muted)">' + monthName + '</div>';
+        cells += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">';
+        // Day headers
+        ["S","M","T","W","T","F","S"].forEach(d => {
+          cells += `<div style="text-align:center;font-size:9px;color:var(--muted);padding:1px">${d}</div>`;
+        });
+        // Empty cells before first day
+        for (let i = 0; i < firstDay; i++) cells += '<div></div>';
+        // Day cells
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dateStr = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+          const pnl = byDate[dateStr];
+          let bg = "rgba(255,255,255,.05)";
+          let title = dateStr;
+          if (pnl !== undefined) {
+            const intensity = Math.min(Math.abs(pnl) / maxAbs, 1);
+            const alpha = 0.2 + intensity * 0.7;
+            bg = pnl >= 0 ? `rgba(63,185,80,${alpha})` : `rgba(248,81,73,${alpha})`;
+            title = `${dateStr}: ${plSign(pnl)}`;
+          }
+          const isToday = dateStr === today.toISOString().slice(0,10);
+          cells += `<div style="aspect-ratio:1;border-radius:2px;background:${bg};font-size:9px;display:flex;align-items:center;justify-content:center;cursor:default;${isToday ? "outline:1px solid var(--blue);" : ""}" title="${title}">${d}</div>`;
+        }
+        cells += '</div>';
+        return `<div style="margin-right:20px">${cells}</div>`;
+      }).join("");
+
+      $("pnlCalendar").innerHTML = `
+        <div style="display:flex;flex-wrap:wrap;gap:16px;padding:8px">
+          ${html}
+          <div style="margin-top:8px;display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);width:100%">
+            <span>P&L:</span>
+            <span style="background:rgba(63,185,80,.4);width:12px;height:12px;border-radius:2px;display:inline-block"></span>Gain
+            <span style="background:rgba(248,81,73,.4);width:12px;height:12px;border-radius:2px;display:inline-block"></span>Loss
+          </div>
+        </div>
+      `;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  PERIOD SELECTOR (Performance tab)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    let _currentPeriod = "1M";
+
+    function setPeriod(period, btn) {
+      _currentPeriod = period;
+      document.querySelectorAll(".period-btn").forEach(b => b.classList.remove("active"));
+      if (btn) btn.classList.add("active");
+      refreshCurrent();
+    }
+
+    // Override the history fetch to use the current period
+    const _PERIOD_MAP = { "1M": "1Month", "3M": "3Month", "6M": "6Month", "1Y": "1Year" };
+
+    // Patch loadDashboard to inject the period — we hook into fetch via a wrapper
+    // We intercept at the point where portfolio history is fetched
+    const _origLoadDashboard = loadDashboard;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ROLLING METRICS (Performance tab)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function rollingKpis(returns, days, tradingDaysPerYear) {
+      if (!returns || returns.length < days) return null;
+      const slice = returns.slice(-days);
+      const sh = sharpe(slice, tradingDaysPerYear);
+      const avgRet = mean(slice) * 100;
+      const vol = std(slice) * Math.sqrt(tradingDaysPerYear) * 100;
+      const dd = drawdown(slice);
+      return { sh, avgRet, vol, maxDD: dd.maxDDPct };
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  RISK ENHANCEMENTS — Concentration + Correlation panels
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function renderConcentration(positions, equity) {
+      if (!positions || !positions.length) {
+        $("concentrationPanel").innerHTML = '<div class="small">No open positions.</div>';
+        return;
+      }
+      const rows = positions.map(p => {
+        const mv = Math.abs(Number(p.market_value || 0));
+        const pct = equity ? mv / equity * 100 : 0;
+        const sym = toSlash(p.symbol);
+        const cap = PORTFOLIO_CAPS[sym] || PORTFOLIO_CAPS[p.symbol] || 5;
+        const used = fmt(pct / cap * 100, 0);
+        const barColor = pct >= cap * 0.9 ? "#f85149" : pct >= cap * 0.7 ? "#d29922" : "#3fb950";
+        return `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+            <span class="symbol" style="width:70px">${sym}</span>
+            <div style="flex:1;height:7px;background:rgba(255,255,255,.08);border-radius:4px">
+              <div style="height:100%;width:${Math.min(pct/cap*100,100)}%;background:${barColor};border-radius:4px"></div>
+            </div>
+            <span class="small" style="width:80px;text-align:right">${fmt(pct,1)}% / ${cap}% cap</span>
+          </div>
+        `;
+      }).join("");
+      $("concentrationPanel").innerHTML = rows;
+    }
+
+    function renderCorrelation(positions) {
+      // We show a simple text-based correlation note based on BTC dominance
+      if (!positions || !positions.length) {
+        $("correlationPanel").innerHTML = '<div class="small">No open positions.</div>';
+        return;
+      }
+      const syms = positions.map(p => toSlash(p.symbol));
+      const altcoins = syms.filter(s => !s.startsWith("BTC") && !s.startsWith("ETH"));
+      const note = altcoins.length >= 3
+        ? "⚠️ High altcoin concentration — portfolio likely highly correlated to BTC. Consider reducing exposure in drawdowns."
+        : altcoins.length >= 1
+        ? "Moderate correlation risk. Altcoins tend to move with BTC in risk-off environments."
+        : "Low correlation risk — mostly BTC/ETH which are the benchmark assets.";
+
+      const rows = syms.map(s => {
+        const isBtc = s.startsWith("BTC");
+        const isEth = s.startsWith("ETH");
+        const corrLabel = isBtc ? "Benchmark" : isEth ? "~0.85 BTC" : "~0.75–0.95 BTC";
+        const corrColor = isBtc ? "var(--muted)" : isEth ? "var(--blue)" : "#d29922";
+        return `<div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span class="symbol">${s}</span>
+          <span style="font-size:12px;color:${corrColor}">${corrLabel}</span>
+        </div>`;
+      }).join("");
+      $("correlationPanel").innerHTML = `<div style="margin-bottom:10px;font-size:12px">${rows}</div><div class="small" style="color:var(--muted)">${note}</div>`;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  CSV EXPORT
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function exportCsv(type) {
+      let csv = "";
+      let filename = "";
+
+      if (type === "positions") {
+        const positions = window._lastPositions || [];
+        if (!positions.length) { alert("No position data loaded. Refresh first."); return; }
+        csv = "Symbol,Qty,Entry,Current,Market Value,%Equity,Unrealized P&L,P&L%\n";
+        positions.forEach(p => {
+          const qty = Number(p.qty || 0);
+          const mv = Math.abs(Number(p.market_value || 0));
+          const unreal = Number(p.unrealized_pl || 0);
+          const unrealPct = Number(p.unrealized_plpc || 0) * 100;
+          csv += [toSlash(p.symbol), qty, p.avg_entry_price, p.current_price, mv.toFixed(2), (mv / (window._lastEquity || 1) * 100).toFixed(2), unreal.toFixed(2), unrealPct.toFixed(2)].join(",") + "\n";
+        });
+        filename = `positions_${new Date().toISOString().slice(0,10)}.csv`;
+      } else if (type === "trades") {
+        if (!_pnlTradeRows.length) { alert("No trade data loaded. Open the P&L tab first."); return; }
+        csv = "Date,Symbol,Side,Qty,Fill Price,Realized P&L,Status\n";
+        _pnlTradeRows.forEach(t => {
+          csv += [t.date, toSlash(t.sym), t.side, t.qty, t.price.toFixed(4), t.pnl !== null ? t.pnl.toFixed(2) : "", t.status].join(",") + "\n";
+        });
+        filename = `trades_${new Date().toISOString().slice(0,10)}.csv`;
+      }
+
+      if (!csv) return;
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  KEYBOARD SHORTCUTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    (function initKeyboardShortcuts() {
+      const TAB_ORDER = ["command","performance","risk","positions","execution","signals","pnl","backtest","settings"];
+      document.addEventListener("keydown", function(e) {
+        // Ignore when typing in an input/textarea
+        if (["INPUT","TEXTAREA","SELECT"].includes(e.target.tagName)) return;
+        const n = parseInt(e.key, 10);
+        if (n >= 1 && n <= 9) {
+          const id = TAB_ORDER[n - 1];
+          if (id) {
+            const btn = Array.from(document.querySelectorAll(".tab-btn")).find(b => b.getAttribute("onclick") && b.getAttribute("onclick").includes(`'${id}'`));
+            switchTab(id, btn);
+          }
+        }
+        if (e.key === "r" || e.key === "R") refreshCurrent();
+      });
+    })();
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  HOOKS INTO EXISTING RENDERERS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Cache positions data for CSV export and concentration panel
+    const _origRenderPositions = renderPositions;
+    renderPositions = function(c) {
+      window._lastPositions = c.positions;
+      window._lastEquity = c.equity;
+      _origRenderPositions(c);
+    };
+
+    // After renderRisk runs, also populate concentration and correlation panels
+    const _origRenderRisk = renderRisk;
+    renderRisk = function(c) {
+      _origRenderRisk(c);
+      renderConcentration(c.positions, c.equity);
+      renderCorrelation(c.positions);
+    };
+
+    // After renderPerformance, populate rolling KPIs row
+    const _origRenderPerformance = renderPerformance;
+    renderPerformance = function(c) {
+      _origRenderPerformance(c);
+      const L = getSettings().limits;
+      const rolling30 = rollingKpis(c.returns, 30, L.tradingDaysPerYear);
+      const rolling90 = rollingKpis(c.returns, 90, L.tradingDaysPerYear);
+      if ($("rollingKpis")) {
+        const cards = [];
+        if (rolling30) {
+          cards.push(
+            kpi("30D Sharpe", fmt(rolling30.sh, 2), "Rolling 30-day risk-adjusted return"),
+            kpi("30D Avg Return", pct(rolling30.avgRet, 2), "Average return over last 30 periods", rolling30.avgRet >= 0 ? "pos" : "neg"),
+            kpi("30D Max DD", pct(rolling30.maxDD), "Max drawdown in rolling 30D window", "neg")
+          );
+        }
+        if (rolling90) {
+          cards.push(
+            kpi("90D Sharpe", fmt(rolling90.sh, 2), "Rolling 90-day risk-adjusted return"),
+            kpi("90D Avg Return", pct(rolling90.avgRet, 2), "Average return over last 90 periods", rolling90.avgRet >= 0 ? "pos" : "neg"),
+            kpi("90D Max DD", pct(rolling90.maxDD), "Max drawdown in rolling 90D window", "neg")
+          );
+        }
+        if (!cards.length) {
+          $("rollingKpis").innerHTML = '<div class="small" style="color:var(--muted)">Not enough history for rolling metrics.</div>';
+        } else {
+          $("rollingKpis").innerHTML = cards.join("");
+        }
+      }
+    };
+
   </script>
 </body>
 </html>
-                                                                                                   

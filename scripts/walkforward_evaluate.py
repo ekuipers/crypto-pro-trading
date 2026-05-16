@@ -37,11 +37,21 @@ from metrics import compute_metrics
 DATA_URL = "https://data.alpaca.markets"
 
 
-def _headers():
+def _headers() -> dict[str, str]:
     return {
-        "APCA-API-KEY-ID": os.getenv("APCA_API_KEY_ID") or "",
+        "APCA-API-KEY-ID":     os.getenv("APCA_API_KEY_ID") or "",
         "APCA-API-SECRET-KEY": os.getenv("APCA_API_SECRET_KEY") or "",
     }
+
+
+def _load_sim_defaults() -> dict:
+    """Load strategy + risk thresholds from config.json for the SimConfig defaults."""
+    cfg_path = Path(__file__).resolve().parent.parent / "config.json"
+    try:
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        return {"strategy": cfg.get("strategy", {}), "risk": cfg.get("risk", {})}
+    except Exception:
+        return {"strategy": {}, "risk": {}}
 
 
 def fetch_crypto_bars(symbol: str, timeframe: str, start: str, end: str, limit: int = 10000) -> pd.DataFrame:
@@ -78,13 +88,31 @@ def fetch_crypto_bars(symbol: str, timeframe: str, start: str, end: str, limit: 
 
 @dataclass
 class SimConfig:
-    buy_score_threshold: float = 2.0
+    # Entry/exit thresholds — must match live trading (run_evaluation.py).
+    # Loaded from config.json by default_sim_config(); edit config.json, not here.
+    buy_score_threshold: float = 4.0   # >= 4 → full size (was incorrectly 2.0)
+    buy_score_half_size: float = 3.0   # >= 3 → half size
     sell_score_threshold: float = -2.0
     max_position_pct: float = 0.05
     stop_loss_pct: float = 0.05
+    # take_profit_pct: live trading uses TA exit (score <= -2), not a fixed %.
+    # The backtest uses a fixed 10% as a reasonable approximation.
     take_profit_pct: float = 0.10
     fee_bps: float = 0.0
     slippage_bps: float = 0.0
+
+
+def default_sim_config() -> SimConfig:
+    """Build SimConfig from config.json, falling back to dataclass defaults."""
+    d = _load_sim_defaults()
+    s = d["strategy"]
+    r = d["risk"]
+    return SimConfig(
+        buy_score_threshold=float(s.get("buy_score_threshold",           4.0)),
+        buy_score_half_size=float(s.get("buy_score_half_size_threshold",  3.0)),
+        sell_score_threshold=float(s.get("sell_score_threshold",         -2.0)),
+        stop_loss_pct=float(r.get("stop_loss_pct",                        0.05)),
+    )
 
 
 def _apply_costs(price: float, side: str, fee_bps: float, slippage_bps: float) -> float:
@@ -119,10 +147,11 @@ def simulate_symbol(df: pd.DataFrame, timeframe: str, cfg: SimConfig, initial_eq
 
         score, _ = ind.signal_score(closes[: i + 1].tolist())
 
-        action = "HOLD"
+        action    = "HOLD"
+        size_mult = 1.0  # 1.0 = full size, 0.5 = half size
         if position_qty > 0 and entry_price > 0:
             dd = (entry_price - mtm) / entry_price
-            g = (mtm - entry_price) / entry_price
+            g  = (mtm - entry_price) / entry_price
             if dd >= cfg.stop_loss_pct:
                 action = "SELL_STOP"
             elif g >= cfg.take_profit_pct:
@@ -131,14 +160,18 @@ def simulate_symbol(df: pd.DataFrame, timeframe: str, cfg: SimConfig, initial_eq
                 action = "SELL_TA"
         else:
             if score >= cfg.buy_score_threshold:
-                action = "BUY_TA"
+                action    = "BUY_TA"
+                size_mult = 1.0
+            elif score >= cfg.buy_score_half_size:
+                action    = "BUY_TA"
+                size_mult = 0.5   # borderline confluence → half size
 
         exec_px = opens[i + 1]
         if exec_px <= 0:
             continue
 
         if action.startswith("BUY") and position_qty == 0:
-            cap = equity * cfg.max_position_pct
+            cap = equity * cfg.max_position_pct * size_mult
             qty = cap / exec_px
             if qty > 0:
                 fill = _apply_costs(exec_px, "buy", cfg.fee_bps, cfg.slippage_bps)
@@ -256,7 +289,7 @@ def write_reports(out_dir: Path, payload: Dict) -> Tuple[Path, Path]:
 
 def main():
     print("Walkforward evaluation started")
-    
+
     p = argparse.ArgumentParser()
     p.add_argument("--symbols", nargs="*", help="Symbols like BTC/USD. Default: watchlist_crypto.json")
     p.add_argument("--timeframes", nargs="*", default=["1H", "4H", "1D"], help="Timeframes to evaluate")
@@ -274,7 +307,20 @@ def main():
     if not symbols:
         raise SystemExit("No symbols provided and watchlist not found/empty")
 
-    cfg = SimConfig(fee_bps=args.fee_bps, slippage_bps=args.slippage_bps)
+    base_cfg = default_sim_config()
+    cfg = SimConfig(
+        buy_score_threshold=base_cfg.buy_score_threshold,
+        buy_score_half_size=base_cfg.buy_score_half_size,
+        sell_score_threshold=base_cfg.sell_score_threshold,
+        stop_loss_pct=base_cfg.stop_loss_pct,
+        fee_bps=args.fee_bps,
+        slippage_bps=args.slippage_bps,
+    )
+    print(
+        "  thresholds: buy=%.1f  half=%.1f  sell=%.1f  stop=%.0f%%"
+        % (cfg.buy_score_threshold, cfg.buy_score_half_size,
+           cfg.sell_score_threshold, cfg.stop_loss_pct * 100)
+    )
 
     report: Dict = {"params": vars(args), "timeframes": {}}
 

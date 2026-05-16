@@ -1,16 +1,16 @@
 {
-  "_comment": "Per-symbol maximum position cap as a fraction of total portfolio equity. Caps sum to 1.00 (100%). The default_cap applies to any symbol not listed here. trade.py and run_evaluation.py read this file at runtime.",
+  "_comment": "Per-symbol maximum position cap as a fraction of total portfolio equity. Keys use the canonical slash form (BTC/USD) to match Alpaca's watchlist format. The default_cap applies to any symbol not listed here. trade.py and run_evaluation.py read this file at runtime.",
   "caps": {
-    "BTCUSD":  0.30,
-    "ETHUSD":  0.15,
-    "ADAUSD":  0.10,
-    "SOLUSD":  0.10,
-    "DOGEUSD": 0.08,
-    "LTCUSD":  0.06,
-    "DOTUSD":  0.06,
-    "LINKUSD": 0.05,
-    "AVAXUSD": 0.05,
-    "AAVEUSD": 0.05
+    "BTC/USD":  0.30,
+    "ETH/USD":  0.15,
+    "ADA/USD":  0.10,
+    "SOL/USD":  0.10,
+    "DOGE/USD": 0.08,
+    "LTC/USD":  0.06,
+    "DOT/USD":  0.06,
+    "LINK/USD": 0.05,
+    "AVAX/USD": 0.05,
+    "AAVE/USD": 0.05
   },
   "default_cap": 0.05
 }

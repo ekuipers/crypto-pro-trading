@@ -14,12 +14,13 @@ Usage:
 Decision logic
 --------------
 For each symbol:
-  1. If we already hold it AND drawdown >= 5% from entry  -> forced SELL (stop-loss)
-  2. If we already hold it AND signal score <= -2          -> SELL (bearish TA exit)
-  3. If we do NOT hold it AND signal score >= 4            -> BUY  (≥4/6 confluence)
-  4. If we do NOT hold it AND signal score == 3            -> BUY half-size (if logged)
-  5. Otherwise                                              -> HOLD
-  Note: take-profit is TA signal-driven (score <= -2), not a fixed % target.
+  1. If we already hold it AND drawdown >= stop_loss_pct from entry  -> SELL (stop-loss)
+  2. If we already hold it AND signal score <= sell_score_threshold   -> SELL (bearish TA)
+  3. If we do NOT hold it AND signal score >= buy_score_threshold     -> BUY  (full size)
+  4. If we do NOT hold it AND signal score >= buy_score_half_size     -> BUY  (half size)
+  5. Otherwise                                                         -> HOLD
+
+All thresholds are loaded from config.json at startup.
 
 The 6-point signal score (see indicators.signal_score):
   1. EMA cross 20 vs 50 on 15-min  (+1 golden / -1 death)
@@ -31,30 +32,29 @@ The 6-point signal score (see indicators.signal_score):
 
 Sizing
 ------
-  - BUY size (score >= 4): ATR-based risk sizing capped at the per-symbol cap
-      from portfolio_caps.json (e.g. 30% for BTC, 5% for LINK).
-      Max risk = equity × 1%; stop = entry - 1.5×ATR.
-      qty = max_risk / (1.5 × ATR), capped at (equity × cap_pct) / ask.
-  - BUY size (score == 3): half the above size.
-  - SELL size = full position quantity, limit inside 0.2% band.
+  - BUY (score >= buy_score_threshold): ATR-based risk sizing capped at the
+    per-symbol cap from portfolio_caps.json (e.g. 30% for BTC, 5% for LINK).
+    max_risk = equity × risk_per_trade_pct; stop = entry - atr_multiplier × ATR.
+    qty = max_risk / (atr_multiplier × ATR), capped at (equity × cap_pct) / ask.
+  - BUY (score >= buy_score_half_size): half the above size.
+  - SELL: full position quantity, limit inside the configured band.
 
 All orders are routed through scripts/trade.py, which still does the final
-rule enforcement (per-symbol cap from portfolio_caps.json, 0.2% band,
-limit-only, crypto routing).
+rule enforcement (per-symbol cap, limit band, limit-only, crypto routing).
 """
+
+from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from datetime import datetime, timedelta, timezone
-from zoneinfo import ZoneInfo
 from pathlib import Path
-
-import requests
+from zoneinfo import ZoneInfo
 
 import _env  # noqa: F401  -- load .env into os.environ
 import indicators as ind
+from _api import api_get
 from risk import (
     LIMIT_BAND_PCT,
     STOP_LOSS_PCT,
@@ -66,44 +66,52 @@ from trade import (
     _headers,
     get_account,
     get_latest_quote,
+    get_positions,
     is_crypto,
     place_order,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-WATCHLIST     = PROJECT_ROOT / "watchlist_crypto.json"
-CAPS_FILE     = PROJECT_ROOT / "portfolio_caps.json"
-JOURNAL_DIR   = PROJECT_ROOT / "journal"
+WATCHLIST    = PROJECT_ROOT / "watchlist_crypto.json"
+CAPS_FILE    = PROJECT_ROOT / "portfolio_caps.json"
+JOURNAL_DIR  = PROJECT_ROOT / "journal"
 
-# Load per-symbol position caps from portfolio_caps.json.
-# Falls back to 5% default for any symbol not in the file.
-def _load_caps() -> dict:
+
+# ---------------------------------------------------------------------------
+# Config loading
+# ---------------------------------------------------------------------------
+
+def _load_config() -> dict:
+    cfg_path = PROJECT_ROOT / "config.json"
     try:
-        with open(CAPS_FILE) as f:
-            data = json.load(f)
-        return data
+        return json.loads(cfg_path.read_text(encoding="utf-8"))
     except Exception:
-        return {"caps": {}, "default_cap": 0.05}
+        return {}
 
-_CAPS_DATA = _load_caps()
 
-def symbol_cap(symbol: str) -> float:
-    """Return the position cap fraction for *symbol* (e.g. 0.30 for BTC/USD)."""
-    return _CAPS_DATA["caps"].get(symbol, _CAPS_DATA.get("default_cap", 0.05))
+_CFG = _load_config()
+_STRATEGY = _CFG.get("strategy", {})
+_DATA     = _CFG.get("data", {})
 
-# Strategy thresholds. Tweak here, not in the body of evaluate_symbol.
-# Per trading skill: score >= 4 → full size; == 3 → half size; <= 2 → pass.
-BUY_SCORE_THRESHOLD      = 4.0
-BUY_SCORE_HALF_SIZE      = 3.0
-SELL_SCORE_THRESHOLD     = -2.0
-BARS_FOR_INDICATORS      = 200   # 50h of 15-min data: enough for EMA(50)+MACD warmup
-BARS_TIMEFRAME           = "15Min"
-BARS_4H_LOOKBACK         = 120   # ~20 days of 4H bars for the trend filter
-BARS_4H_TIMEFRAME        = "4Hour"
-DAILY_BARS_LOOKBACK      = 90    # 90 days to safely compute 20/50-day SMAs
-DAILY_BARS_TIMEFRAME     = "1Day"
+# Strategy thresholds (all from config.json > strategy).
+BUY_SCORE_THRESHOLD  = float(_STRATEGY.get("buy_score_threshold",           4.0))
+BUY_SCORE_HALF_SIZE  = float(_STRATEGY.get("buy_score_half_size_threshold",  3.0))
+SELL_SCORE_THRESHOLD = float(_STRATEGY.get("sell_score_threshold",          -2.0))
+ATR_MULTIPLIER       = float(_STRATEGY.get("atr_multiplier",                 1.5))
+RISK_PER_TRADE_PCT   = float(_STRATEGY.get("risk_per_trade_pct",             0.01))
+FALLBACK_SIZE_PCT    = float(_STRATEGY.get("fallback_size_pct",              0.02))
 
-# Minutes per bar for each timeframe -- used to derive the `start` date.
+# Bar-fetch sizes (all from config.json > data).
+BARS_FOR_INDICATORS  = int(_DATA.get("bars_15min",          200))
+BARS_4H_LOOKBACK     = int(_DATA.get("bars_4h",             120))
+DAILY_BARS_LOOKBACK  = int(_DATA.get("bars_daily",           90))
+MIN_BARS             = int(_DATA.get("min_bars_for_signal",  60))
+
+BARS_TIMEFRAME       = "15Min"
+BARS_4H_TIMEFRAME    = "4Hour"
+DAILY_BARS_TIMEFRAME = "1Day"
+
+# Minutes per bar for each timeframe — used to derive the `start` date.
 _TF_MINUTES = {
     "15Min": 15,
     "1H":    60,
@@ -112,11 +120,37 @@ _TF_MINUTES = {
 }
 
 
-# ---------- data fetch -----------------------------------------------------
+# ---------------------------------------------------------------------------
+# Portfolio caps
+# ---------------------------------------------------------------------------
 
-def _bars_start(limit, timeframe, buffer=1.6):
+def _load_caps() -> dict:
+    try:
+        with open(CAPS_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {"caps": {}, "default_cap": 0.05}
+
+
+_CAPS_DATA = _load_caps()
+
+
+def symbol_cap(symbol: str) -> float:
+    """Return the position cap fraction for *symbol* (e.g. 0.30 for BTC/USD).
+
+    Keys in portfolio_caps.json use slash form (BTC/USD) to match the
+    watchlist, so no conversion is needed here.
     """
-    Return an ISO-8601 UTC start timestamp that gives enough history for
+    return _CAPS_DATA["caps"].get(symbol, _CAPS_DATA.get("default_cap", 0.05))
+
+
+# ---------------------------------------------------------------------------
+# Data fetch
+# ---------------------------------------------------------------------------
+
+def _bars_start(limit: int, timeframe: str, buffer: float = 1.6) -> str:
+    """
+    Return an ISO-8601 UTC start timestamp giving enough history for
     `limit` bars of the given timeframe, with a generous buffer.
 
     ROOT CAUSE FIX: Alpaca's crypto bar endpoint ignores a bare `limit`
@@ -129,14 +163,11 @@ def _bars_start(limit, timeframe, buffer=1.6):
     return start_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def get_positions():
-    base_url = os.getenv("APCA_BASE_URL")
-    r = requests.get(base_url + "/v2/positions", headers=_headers(), timeout=15)
-    r.raise_for_status()
-    return r.json()
-
-
-def get_crypto_bars(symbol, limit=BARS_FOR_INDICATORS, timeframe=BARS_TIMEFRAME):
+def get_crypto_bars(
+    symbol: str,
+    limit: int = BARS_FOR_INDICATORS,
+    timeframe: str = BARS_TIMEFRAME,
+) -> list:
     """
     Fetch OHLCV bars for a crypto symbol.
 
@@ -151,65 +182,66 @@ def get_crypto_bars(symbol, limit=BARS_FOR_INDICATORS, timeframe=BARS_TIMEFRAME)
         "limit":     limit,
     }
     url = DATA_URL + "/v1beta3/crypto/us/bars"
-    r = requests.get(url, headers=_headers(), params=params, timeout=20)
-    r.raise_for_status()
+    r = api_get(url, headers=_headers(), params=params, timeout=20)
     return r.json().get("bars", {}).get(symbol, [])
 
 
-def get_crypto_bars_4h(symbol, limit=BARS_4H_LOOKBACK):
+def get_crypto_bars_4h(symbol: str, limit: int = BARS_4H_LOOKBACK) -> list:
     """4-Hour bars for the higher-timeframe trend filter."""
     return get_crypto_bars(symbol, limit=limit, timeframe=BARS_4H_TIMEFRAME)
 
 
-def get_crypto_bars_daily(symbol, limit=DAILY_BARS_LOOKBACK):
+def get_crypto_bars_daily(symbol: str, limit: int = DAILY_BARS_LOOKBACK) -> list:
     """Daily bars for the 20/50-day SMA regime filter."""
     return get_crypto_bars(symbol, limit=limit, timeframe=DAILY_BARS_TIMEFRAME)
 
 
-# ---------- per-symbol evaluation -----------------------------------------
+# ---------------------------------------------------------------------------
+# Per-symbol evaluation
+# ---------------------------------------------------------------------------
 
-def evaluate_symbol(symbol, position_by_symbol):
+def evaluate_symbol(symbol: str, position_by_symbol: dict) -> dict:
     """Return a decision dict for one symbol."""
-    decision = {
-        "symbol": symbol,
-        "action": "HOLD",
-        "reason": "",
-        "qty": None,
-        "limit_price": None,
-        "ask": None,
-        "bid": None,
-        "score": None,
-        "atr": None,
-        "rsi": None,
-        "macd": None,
-        "macd_flip": None,
-        "bb": None,
-        "bb_trend": None,
-        "bb_squeeze": None,
-        "ema_cross": None,
+    decision: dict = {
+        "symbol":              symbol,
+        "action":              "HOLD",
+        "reason":              "",
+        "qty":                 None,
+        "limit_price":         None,
+        "ask":                 None,
+        "bid":                 None,
+        "score":               None,
+        "atr":                 None,
+        "rsi":                 None,
+        "macd":                None,
+        "macd_flip":           None,
+        "bb":                  None,
+        "bb_trend":            None,
+        "bb_squeeze":          None,
+        "ema_cross":           None,
         "indicator_breakdown": None,
-        "daily_ma20": None,
-        "daily_ma50": None,
-        "daily_last": None,
-        "daily_regime": None,
-        "regime_4h": None,
-        "entry_price": None,
-        "current_price": None,
+        "daily_ma20":          None,
+        "daily_ma50":          None,
+        "daily_last":          None,
+        "daily_regime":        None,
+        "regime_4h":           None,
+        "entry_price":         None,
+        "current_price":       None,
     }
 
-    # Live quote -- needed for sizing, stop-loss, and limit pricing.
+    # Live quote — needed for sizing, stop-loss, and limit pricing.
     try:
-        q = get_latest_quote(symbol)
+        q   = get_latest_quote(symbol)
         ask = float(q.get("ap") or 0)
         bid = float(q.get("bp") or 0)
     except Exception as e:
         decision["reason"] = "quote fetch failed: " + repr(e)
         return decision
-    decision["ask"] = ask
-    decision["bid"] = bid
+    decision["ask"]           = ask
+    decision["bid"]           = bid
     decision["current_price"] = bid or ask
 
-    # ── 15-min bars (execution timeframe) ──────────────────────────────
+    # ── 15-min bars (execution timeframe) ──────────────────────────────────
     try:
         bars = get_crypto_bars(symbol)
     except Exception as e:
@@ -221,19 +253,19 @@ def evaluate_symbol(symbol, position_by_symbol):
     lows    = [float(b.get("l") or 0) for b in bars if b.get("c")]
     volumes = [float(b.get("v") or 0) for b in bars if b.get("c")]
 
-    # Need at least EMA(50) + MACD slow(26)+signal(9) worth of history.
-    MIN_BARS = 60
     if len(closes) < MIN_BARS:
-        decision["reason"] = "not enough 15-min history (%d bars, need %d)" % (len(closes), MIN_BARS)
+        decision["reason"] = (
+            "not enough 15-min history (%d bars, need %d)" % (len(closes), MIN_BARS)
+        )
         return decision
 
-    # ── 4H bars (higher-timeframe trend filter) ─────────────────────────
+    # ── 4H bars (higher-timeframe trend filter) ─────────────────────────────
     closes_4h = None
     try:
         bars_4h   = get_crypto_bars_4h(symbol)
         closes_4h = [float(b.get("c") or 0) for b in bars_4h if b.get("c")]
         if len(closes_4h) < 51:
-            closes_4h = None   # not enough for EMA(50) on 4H
+            closes_4h = None
             decision["regime_4h"] = "insufficient 4H history (%d bars)" % len(closes_4h or [])
         else:
             cross_4h = ind.ema_cross_state(closes_4h)
@@ -241,7 +273,7 @@ def evaluate_symbol(symbol, position_by_symbol):
     except Exception as e:
         decision["regime_4h"] = "4H fetch failed: " + repr(e)[:60]
 
-    # ── Compute all indicators ──────────────────────────────────────────
+    # ── Compute all indicators ───────────────────────────────────────────────
     score, breakdown = ind.signal_score(
         closes,
         volumes=volumes,
@@ -260,7 +292,7 @@ def evaluate_symbol(symbol, position_by_symbol):
     decision["ema_cross"]           = ind.ema_cross_state(closes)
     decision["atr"]                 = ind.atr(highs, lows, closes)
 
-    # ── Daily-bars regime filter (20/50-day SMA gate for new buys) ──────
+    # ── Daily-bars regime filter (20/50-day SMA gate for new buys) ──────────
     try:
         daily_bars = get_crypto_bars_daily(symbol)
     except Exception as e:
@@ -281,9 +313,11 @@ def evaluate_symbol(symbol, position_by_symbol):
             else:
                 decision["daily_regime"] = "mixed"
         else:
-            decision["daily_regime"] = "insufficient daily history (%d bars)" % len(daily_closes)
+            decision["daily_regime"] = (
+                "insufficient daily history (%d bars)" % len(daily_closes)
+            )
 
-    # ── Branch: held position vs. potential new entry ───────────────────
+    # ── Branch: held position vs. potential new entry ────────────────────────
     pos = position_by_symbol.get(symbol)
     if pos:
         entry    = float(pos.get("avg_entry_price") or 0)
@@ -304,7 +338,6 @@ def evaluate_symbol(symbol, position_by_symbol):
             return decision
 
         # Discretionary exit on strongly bearish TA confluence.
-        # Note: exits are TA-driven (score <= -2), not a fixed % take-profit.
         if score <= SELL_SCORE_THRESHOLD:
             decision["action"]      = "SELL"
             decision["qty"]         = qty_held
@@ -321,7 +354,7 @@ def evaluate_symbol(symbol, position_by_symbol):
         )
         return decision
 
-    # ── No position: evaluate new entry ────────────────────────────────
+    # ── No position: evaluate new entry ─────────────────────────────────────
     # Regime gate: block buys in a confirmed daily downtrend.
     if decision["daily_regime"] == "downtrend":
         decision["reason"] = (
@@ -330,7 +363,7 @@ def evaluate_symbol(symbol, position_by_symbol):
         )
         return decision
 
-    # Score gate: need at least 3/6 to consider entry.
+    # Score gate: need at least buy_score_half_size to consider entry.
     if score < BUY_SCORE_HALF_SIZE:
         decision["reason"] = (
             "no entry: score=%.1f < %.1f" % (score, BUY_SCORE_HALF_SIZE)
@@ -347,27 +380,27 @@ def evaluate_symbol(symbol, position_by_symbol):
         decision["reason"] = "no live ask"
         return decision
 
-    # ATR-based sizing: risk 1% of equity per trade, stop = 1.5× ATR.
-    # Hard cap: never more than the per-symbol cap (portfolio_caps.json) of equity.
+    # ATR-based sizing: risk RISK_PER_TRADE_PCT of equity per trade,
+    # stop = ATR_MULTIPLIER × ATR.  Hard cap: per-symbol cap from portfolio_caps.json.
     sym_cap_pct  = symbol_cap(symbol)
     hard_cap_qty = round((equity * sym_cap_pct / ask) * 0.99, 4)
-    atr_val = decision.get("atr")
+    atr_val      = decision.get("atr")
     if atr_val and atr_val > 0:
-        max_risk    = equity * 0.01
-        stop_dist   = atr_val * 1.5
-        atr_qty     = round((max_risk / stop_dist) * 0.99, 4)
-        base_qty    = min(atr_qty, hard_cap_qty)
+        max_risk   = equity * RISK_PER_TRADE_PCT
+        stop_dist  = atr_val * ATR_MULTIPLIER
+        atr_qty    = round((max_risk / stop_dist) * 0.99, 4)
+        base_qty   = min(atr_qty, hard_cap_qty)
     else:
-        # Fallback: use 2% of equity when ATR unavailable.
-        base_qty = round((equity * 0.02 / ask) * 0.99, 4)
+        # Fallback: fixed fraction of equity when ATR unavailable.
+        base_qty = round((equity * FALLBACK_SIZE_PCT / ask) * 0.99, 4)
         base_qty = min(base_qty, hard_cap_qty)
 
-    # Half-size for score == 3 (borderline confluence).
+    # Half-size for borderline confluence.
     if score < BUY_SCORE_THRESHOLD:
-        qty = round(base_qty * 0.5, 4)
+        qty       = round(base_qty * 0.5, 4)
         size_note = "half-size (score=%.1f)" % score
     else:
-        qty = base_qty
+        qty       = base_qty
         size_note = "full-size (score=%.1f)" % score
 
     if qty <= 0:
@@ -381,48 +414,26 @@ def evaluate_symbol(symbol, position_by_symbol):
     return decision
 
 
-# ---------- presentation --------------------------------------------------
+# ---------------------------------------------------------------------------
+# Presentation helpers
+# ---------------------------------------------------------------------------
 
-def fmt_macd(m):
+def fmt_macd(m: tuple | None) -> str:
     if m is None:
         return "n/a"
     return "line=%.4f sig=%.4f hist=%.4f" % m
 
 
-def fmt_bb(b):
+def fmt_bb(b: tuple | None) -> str:
     if b is None:
         return "n/a"
     lower, middle, upper, bw, pb = b
-    return "lower=%.2f mid=%.2f upper=%.2f bw=%.4f pb=%.2f" % (lower, middle, upper, bw, pb)
+    return "lower=%.2f mid=%.2f upper=%.2f bw=%.4f pb=%.2f" % (
+        lower, middle, upper, bw, pb
+    )
 
 
-def format_decision_line(d):
-    parts = [d["symbol"], d["action"]]
-    if d["score"] is not None:
-        parts.append("score=%+.1f" % d["score"])
-    if d["qty"] is not None and d["limit_price"] is not None:
-        parts.append("qty=%s limit=$%.4f" % (str(d["qty"]), d["limit_price"]))
-    if d["ask"]:
-        parts.append("ask=$%.4f" % d["ask"])
-    if d["reason"]:
-        parts.append("(" + d["reason"] + ")")
-    return " ".join(parts)
-
-
-def fmt_macd(m):
-    if m is None:
-        return "n/a"
-    return "line=%.4f sig=%.4f hist=%.4f" % m
-
-
-def fmt_bb(b):
-    if b is None:
-        return "n/a"
-    lower, middle, upper, bw, pb = b
-    return "lower=%.2f mid=%.2f upper=%.2f bw=%.4f pb=%.2f" % (lower, middle, upper, bw, pb)
-
-
-def format_decision_line(d):
+def format_decision_line(d: dict) -> str:
     parts = [d["symbol"], d["action"]]
     if d["score"] is not None:
         parts.append("score=%+.1f/6" % d["score"])
@@ -435,7 +446,7 @@ def format_decision_line(d):
     return " ".join(parts)
 
 
-def format_indicator_block(d):
+def format_indicator_block(d: dict) -> str:
     """Multi-line indicator readout for the journal."""
     out = []
     score_str = ("%+.1f/6" % d["score"]) if d["score"] is not None else "n/a"
@@ -452,12 +463,15 @@ def format_indicator_block(d):
         " SQUEEZE" if d["bb_squeeze"] else "",
     ))
     if d.get("atr") is not None:
-        out.append("    atr     : %.4f  stop_1.5x=%.4f" % (d["atr"], d["atr"] * 1.5))
+        out.append("    atr     : %.4f  stop_%.1fx=%.4f" % (
+            d["atr"], ATR_MULTIPLIER, d["atr"] * ATR_MULTIPLIER
+        ))
     out.append("    4h      : %s" % (d.get("regime_4h") or "n/a"))
     if d.get("daily_ma20") is not None and d.get("daily_ma50") is not None:
-        out.append("    daily   : ma20=%.4f ma50=%.4f last=%.4f regime=%s" % (
-            d["daily_ma20"], d["daily_ma50"], d["daily_last"], d["daily_regime"]
-        ))
+        out.append(
+            "    daily   : ma20=%.4f ma50=%.4f last=%.4f regime=%s"
+            % (d["daily_ma20"], d["daily_ma50"], d["daily_last"], d["daily_regime"])
+        )
     elif d.get("daily_regime"):
         out.append("    daily   : regime=" + str(d["daily_regime"]))
     breakdown = d.get("indicator_breakdown") or {}
@@ -468,18 +482,19 @@ def format_indicator_block(d):
     return "\n".join(out)
 
 
-# ---------- journal -------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Journal
+# ---------------------------------------------------------------------------
 
-def append_journal_block(timestamp, decisions, executed):
+def append_journal_block(
+    timestamp: datetime, decisions: list, executed: list
+) -> Path:
     JOURNAL_DIR.mkdir(exist_ok=True)
     today = timestamp.strftime("%Y-%m-%d")
-    hhmm = timestamp.strftime("%H:%M")
-    path = JOURNAL_DIR / (today + ".md")
+    hhmm  = timestamp.strftime("%H:%M")
+    path  = JOURNAL_DIR / (today + ".md")
 
-    lines = []
-    lines.append("")
-    lines.append("## Evaluation " + hhmm + " GMT+2")
-    lines.append("")
+    lines = ["", "## Evaluation " + hhmm + " GMT+2", ""]
     if not decisions:
         lines.append("No symbols evaluated.")
     for d in decisions:
@@ -492,10 +507,7 @@ def append_journal_block(timestamp, decisions, executed):
         lines.append("### Orders submitted")
         for r in executed:
             lines.append(
-                "- %s %s -> %s" % (
-                    r["symbol"], r["action"],
-                    str(r["result"])[:300],
-                )
+                "- %s %s -> %s" % (r["symbol"], r["action"], str(r["result"])[:300])
             )
     else:
         lines.append("")
@@ -506,20 +518,28 @@ def append_journal_block(timestamp, decisions, executed):
     return path
 
 
-# ---------- main ----------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--execute", action="store_true",
-                        help="actually place orders (default is dry-run)")
+    parser.add_argument(
+        "--execute", action="store_true",
+        help="actually place orders (default is dry-run)",
+    )
     args = parser.parse_args()
 
     print("Starting evaluation...")
+    print(
+        "  thresholds: buy=%.1f  half=%.1f  sell=%.1f  stop=%.0f%%"
+        % (BUY_SCORE_THRESHOLD, BUY_SCORE_HALF_SIZE, SELL_SCORE_THRESHOLD, STOP_LOSS_PCT * 100)
+    )
 
     if not WATCHLIST.exists():
         sys.stderr.write("FAIL: " + str(WATCHLIST) + " not found\n")
         return 1
-    wl = json.loads(WATCHLIST.read_text())
+    wl      = json.loads(WATCHLIST.read_text(encoding="utf-8"))
     symbols = [s for s in wl.get("symbols", []) if is_crypto(s)]
     if not symbols:
         sys.stderr.write("FAIL: no crypto symbols in watchlist\n")
@@ -530,9 +550,10 @@ def main():
     except Exception as e:
         sys.stderr.write("FAIL: positions fetch: " + repr(e) + "\n")
         return 1
-    # Alpaca returns crypto symbols without a slash (e.g. "BTCUSD") but the
-    # watchlist and caps use the canonical slash form ("BTC/USD").  Index both
-    # so lookups work regardless of which form is used.
+
+    # Alpaca returns crypto symbols without a slash (e.g. "BTCUSD") in the
+    # positions response.  Index both forms so holds are found regardless
+    # of which the API returns on a given day.
     def _to_slash(sym: str) -> str:
         """Convert 'BTCUSD' → 'BTC/USD'. Leaves already-slashed symbols alone."""
         if "/" in sym:
@@ -541,25 +562,26 @@ def main():
             return sym[:-3] + "/USD"
         return sym
 
-    pos_by_symbol = {}
+    pos_by_symbol: dict = {}
     for p in positions:
         raw = p.get("symbol", "")
-        pos_by_symbol[raw] = p
-        pos_by_symbol[_to_slash(raw)] = p
+        pos_by_symbol[raw]          = p   # keep no-slash form too
+        pos_by_symbol[_to_slash(raw)] = p  # canonical slash form for lookups
 
     decisions = []
     for sym in symbols:
         decisions.append(evaluate_symbol(sym, pos_by_symbol))
 
-    print("Evaluation results:")
+    print("\nEvaluation results:")
     for d in decisions:
         print("  " + format_decision_line(d))
 
-    actionable = [d for d in decisions
-                  if d["action"] in ("BUY", "SELL")
-                  and d["qty"] and d["limit_price"]]
+    actionable = [
+        d for d in decisions
+        if d["action"] in ("BUY", "SELL") and d["qty"] and d["limit_price"]
+    ]
 
-    executed = []
+    executed: list = []
     if args.execute and actionable:
         print("\nPlacing orders:")
         for d in actionable:
@@ -571,21 +593,28 @@ def main():
                 executed.append({"symbol": d["symbol"], "action": d["action"], "result": result})
             except TradeRejected as e:
                 print("  REJECTED %s: %s" % (d["symbol"], str(e)))
-                executed.append({"symbol": d["symbol"], "action": d["action"],
-                                 "result": {"rejected": str(e)}})
+                executed.append({
+                    "symbol": d["symbol"], "action": d["action"],
+                    "result": {"rejected": str(e)},
+                })
             except Exception as e:
                 print("  ERROR    %s: %r" % (d["symbol"], e))
-                executed.append({"symbol": d["symbol"], "action": d["action"],
-                                 "result": {"error": repr(e)}})
+                executed.append({
+                    "symbol": d["symbol"], "action": d["action"],
+                    "result": {"error": repr(e)},
+                })
     elif actionable:
         print("\nDry-run: %d order(s) would be placed." % len(actionable))
         print("Re-run with --execute to actually submit them.")
     else:
         print("\nNo actionable decisions.")
 
-    journal_path = append_journal_block(datetime.now(ZoneInfo("Europe/Amsterdam")), decisions, executed)
+    journal_path = append_journal_block(
+        datetime.now(ZoneInfo("Europe/Amsterdam")), decisions, executed
+    )
     print("\nWrote: " + str(journal_path))
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

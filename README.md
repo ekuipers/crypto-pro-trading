@@ -61,6 +61,8 @@ All 10 symbols trade 24/7 — the `/v2/clock` market-hours gate is **not** used.
 Hard limits on position size as a fraction of total equity. Enforced at runtime by both
 `run_evaluation.py` (sizing) and `trade.py` (final guard before order submission).
 
+Keys use the canonical slash form (`BTC/USD`) to match the watchlist — no conversion needed.
+
 | Symbol   | Max % equity |
 |----------|-------------|
 | BTC/USD  | 30%         |
@@ -96,14 +98,16 @@ filtered by 4H trend and daily regime. Full strategy detail lives in
 
 **Entry rules:** score ≥ 4 → BUY full size · score = 3 → BUY half-size (R:R ≥ 1:3) · score ≤ 2 → HOLD
 
+All thresholds are configured in `config.json` — edit there, not in source files.
+
 ### Risk Rules (hard — cannot be overridden)
 
 - **Limit orders only** — market orders are rejected by `trade.py`.
-- **Limit band** — limit price must be within 0.2% of current ask.
-- **Stop-loss** — close immediately if a position drops 5% from entry.
-- **Take-profit** — close immediately if a position gains 10% from entry.
+- **Limit band** — limit price must be within 0.2% of current ask (`config.json > risk.limit_band_pct`).
+- **Stop-loss** — close immediately if a position drops 5% from entry (`config.json > risk.stop_loss_pct`).
+- **Take-profit** — TA-driven exit when Signal Confluence score drops to ≤ −2.
 - **Regime gate** — no new buys in a confirmed daily downtrend (last close < 50-day SMA and 20-day SMA < 50-day SMA).
-- **ATR-based sizing** — `qty = (equity × 1%) / (ATR × 1.5)`, hard-capped by `portfolio_caps.json`.
+- **ATR-based sizing** — `qty = (equity × 1%) / (ATR × 1.5)`, hard-capped by `portfolio_caps.json`. Both multipliers configurable via `config.json`.
 
 ---
 
@@ -114,7 +118,8 @@ filtered by 4H trend and daily regime. Full strategy detail lives in
 | `scripts/run_evaluation.py` | Core evaluation loop — fetches bars, scores signals, decides BUY/SELL/HOLD, optionally places orders, writes journal |
 | `scripts/trade.py` | Single gateway for all orders — enforces limit-only, limit-band, position-cap, and crypto 24/7 rules |
 | `scripts/indicators.py` | Pure-function TA library — EMA, SMA, RSI, MACD, Bollinger Bands, ATR, signal_score |
-| `scripts/risk.py` | Pure-function risk checks — position-cap, limit-band, stop-loss, take-profit thresholds |
+| `scripts/risk.py` | Pure-function risk checks — position-cap, limit-band, stop-loss thresholds (loaded from `config.json`) |
+| `scripts/_api.py` | Shared HTTP helper — exponential-backoff retry (3 attempts, 5 s → 10 s → 20 s) for all Alpaca API calls |
 | `scripts/walkforward_evaluate.py` | Walk-forward backtester — signal at bar close, fill at next open, supports 1H/4H/1D timeframes |
 | `scripts/metrics.py` | Performance metrics — Sharpe, Sortino, max drawdown, profit factor |
 | `scripts/verify.py` | Credential and connectivity verification |
@@ -131,7 +136,7 @@ python scripts/run_evaluation.py --execute
 
 # Walk-forward backtest (BTC + ETH, 2024–2026, three timeframes)
 python scripts/walkforward_evaluate.py \
-  --symbols BTC/USDC ETH/USDC \
+  --symbols BTC/USD ETH/USD \
   --start 2024-01-01 --end 2026-05-01 \
   --train-days 90 --test-days 30 \
   --timeframes 1H 4H 1D \
@@ -141,7 +146,25 @@ python scripts/walkforward_evaluate.py \
 python scripts/trade.py status
 python scripts/trade.py quote BTC/USD
 python scripts/trade.py order BTC/USD 0.001 buy 95000.00
+
+# Run the test suite
+pytest tests/
 ```
+
+---
+
+## Tests
+
+A pytest suite in `tests/` covers all pure-function modules without hitting the Alpaca API.
+
+```
+tests/
+├── conftest.py          # sys.path setup + dummy env vars
+├── test_indicators.py   # 41 tests — SMA, EMA, RSI, MACD, Bollinger, ATR, volume, signal_score
+└── test_risk.py         # 34 tests — position cap, limit band, stop-loss, RiskCheck
+```
+
+Run with: `pytest tests/` (75 tests, ~0.25 s)
 
 ---
 
@@ -165,7 +188,7 @@ Two workflows in `.github/workflows/` drive fully autonomous operation.
 
 | Trigger | Schedule | What runs |
 |---------|----------|-----------|
-| Cron | Daily at **08:11 UTC** | Walk-forward evaluation for BTC/USDC + ETH/USDC across 1H, 4H, 1D |
+| Cron | Daily at **08:11 UTC** | Walk-forward evaluation for BTC/USD + ETH/USD across 1H, 4H, 1D |
 | Manual dispatch | On demand | Same |
 
 - Always runs against the `paper` environment.
@@ -209,16 +232,19 @@ Example journal block structure:
 
 Stored in `reports/` as paired `*.json` + `*.md` files, timestamped in UTC.
 
+The backtester uses the same score thresholds as live trading (≥ 4 full size, = 3 half size),
+loaded from `config.json`, so backtest results reflect actual strategy behaviour.
+
 Latest report (`walkforward_20260514T103155Z`) summary — 23 windows, 2024-01-01 → 2026-05-01:
 
 | Timeframe | Symbol    | Avg Sharpe | Median MDD |
 |-----------|-----------|-----------|-----------|
-| 1H        | BTC/USDC  | +0.38     | −0.53%    |
-| 1H        | ETH/USDC  | −0.30     | −0.74%    |
-| 4H        | BTC/USDC  | −0.00     | −0.42%    |
-| 4H        | ETH/USDC  | −1.22     | −0.60%    |
-| 1D        | BTC/USDC  | +0.27     | −0.36%    |
-| 1D        | ETH/USDC  | −0.97     | −0.58%    |
+| 1H        | BTC/USD   | +0.38     | −0.53%    |
+| 1H        | ETH/USD   | −0.30     | −0.74%    |
+| 4H        | BTC/USD   | −0.00     | −0.42%    |
+| 4H        | ETH/USD   | −1.22     | −0.60%    |
+| 1D        | BTC/USD   | +0.27     | −0.36%    |
+| 1D        | ETH/USD   | −0.97     | −0.58%    |
 
 ---
 
@@ -228,21 +254,16 @@ Two self-contained HTML dashboards live in `dashboard/`. Open either locally in 
 
 ### `dashboard/dashboard_professional.html` *(primary)*
 
-Professional trader decision cockpit with 7 tabs: **Command**, **Performance**, **Risk**, **Positions**, **Execution**, **Backtest vs Live**, **Settings**.
+Professional trader decision cockpit with 9 tabs: **Command**, **Performance**, **Risk**, **Positions**, **Execution**, **Signals**, **P&L**, **Backtest vs Live**, **Settings**.
 
-Key features (updated 2026-05-16):
+Key features:
 - **Hard Rules panel** — Command tab lists all CLAUDE.md hard rules at a glance.
 - **Cash Reserve rule** — Command Center checks cash ≥ 20% of equity (red if breached, yellow below 25%).
-- **Cash Reserve KPI** — top-row metric replacing the removed Rule Adherence tile.
-- **Stop Distance column** — Positions table shows current P&L % vs the −5% hard-stop, with distance remaining before auto-close triggers.
+- **Stop Distance column** — Positions table shows current P&L % vs the −5% hard-stop.
 - **Portfolio Cap Usage column** — Risk table shows current allocation vs each symbol's cap from `portfolio_caps.json`.
 - **ATR Position Sizer** — built into the trade modal: enter equity, ATR, ask and cap% to get the 1%-risk-rule quantity, stop price and R:R.
-- **Auto-refresh toggle** — 60-second timer button in the header.
-- **Journal tab removed** — journal tracking is handled by the agent-written `.md` files in `journal/`.
-
-Bug fixes (2026-05-16):
-- Repaired broken HTML structure (head/body were assembled in reverse order).
-- Fixed JavaScript syntax error (dangling `else if` left by journal removal) that silently prevented all buttons, tabs and links from working.
+- **📡 Signals tab** — live 6-point confluence scanner for all 10 watchlist symbols.
+- **💰 P&L tab** — realized P&L from `/v2/account/activities` with FIFO matching, win rate, profit factor, calendar heatmap.
 
 ### `dashboard/dashboard.html` *(legacy)*
 
@@ -251,6 +272,40 @@ Original lighter dashboard — 3 tabs: Overview, Hot Symbols, Morning Brief.
 ---
 
 ## Configuration
+
+### `config.json` — Strategy Parameters
+
+Central configuration for all tunable numbers. **Edit here, not in source files.**
+Scripts load this at startup; no restart needed between runs.
+
+```json
+{
+  "strategy": {
+    "buy_score_threshold": 4.0,
+    "buy_score_half_size_threshold": 3.0,
+    "sell_score_threshold": -2.0,
+    "atr_multiplier": 1.5,
+    "risk_per_trade_pct": 0.01
+  },
+  "risk": {
+    "stop_loss_pct": 0.05,
+    "limit_band_pct": 0.002,
+    "default_position_cap_pct": 0.05
+  },
+  "indicators": {
+    "ema_fast": 20, "ema_slow": 50,
+    "rsi_period": 14,
+    "macd_fast": 12, "macd_slow": 26, "macd_signal": 9,
+    "bollinger_period": 20, "bollinger_std": 2.0
+  },
+  "api": {
+    "max_retry_attempts": 3,
+    "retry_backoff_seconds": 5.0
+  }
+}
+```
+
+After changing indicator periods, re-run the walk-forward backtest to validate.
 
 ### Environment Variables (`.env`)
 
@@ -271,11 +326,6 @@ Grants the agent permission to stage files for git commits:
 }
 ```
 
-### Claude Agent Routines (`.claude/routines.json`)
-
-Scheduled routines are managed via the Cowork agent. Current routines: none active
-(schedules are driven by GitHub Actions instead).
-
 ---
 
 ## Repository Structure
@@ -290,7 +340,7 @@ alpaca-trading-agent/
 │   └── forward.yml            # Daily walk-forward analysis
 ├── dashboard/
 │   ├── dashboard.html                  # Legacy dashboard (3 tabs)
-│   ├── dashboard_professional.html     # Professional dashboard (7 tabs, primary)
+│   ├── dashboard_professional.html     # Professional dashboard (9 tabs, primary)
 │   └── dashboard_layout.md            # Dashboard design notes
 ├── journal/
 │   ├── _template.md           # Journal entry template
@@ -302,21 +352,27 @@ alpaca-trading-agent/
 ├── reports/
 │   └── walkforward_*.json/md  # Walk-forward backtest results
 ├── scripts/
+│   ├── _api.py                # HTTP retry helper (exponential backoff)
 │   ├── _env.py                # .env loader
 │   ├── indicators.py          # Pure-function TA (EMA/RSI/MACD/BB/ATR)
 │   ├── metrics.py             # Performance metrics (Sharpe/MDD/PF)
 │   ├── research.py            # Market research helper
-│   ├── risk.py                # Risk rule enforcement
+│   ├── risk.py                # Risk rule enforcement (reads config.json)
 │   ├── run_evaluation.py      # Main evaluation + order placement
-│   ├── trade.py               # Alpaca order gateway
+│   ├── trade.py               # Alpaca order gateway (retry via _api.py)
 │   ├── verify.py              # Credential/connectivity check
 │   └── walkforward_evaluate.py # Walk-forward backtester
 ├── skills/crypto-trader/
 │   └── SKILL.md               # Full trading strategy playbook
+├── tests/
+│   ├── conftest.py            # pytest setup (sys.path + dummy env vars)
+│   ├── test_indicators.py     # 41 indicator unit tests
+│   └── test_risk.py           # 34 risk rule unit tests
 ├── .env                       # API credentials (git-ignored)
 ├── .gitignore
 ├── CLAUDE.md                  # Agent operating instructions
-├── portfolio_caps.json        # Per-symbol position caps
+├── config.json                # Central strategy + risk configuration
+├── portfolio_caps.json        # Per-symbol position caps (BTC/USD slash form)
 ├── requirements.txt           # Python dependencies
 └── watchlist_crypto.json      # Symbols to trade
 ```
@@ -326,6 +382,7 @@ alpaca-trading-agent/
 ## Dependencies
 
 See `requirements.txt`. Core packages: `requests`, `numpy`, `pandas`.
+Dev dependency: `pytest` (for running the test suite).
 Python 3.11 is used in CI; 3.10+ works locally.
 
 ---
