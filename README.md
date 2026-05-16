@@ -224,8 +224,25 @@ Latest report (`walkforward_20260514T103155Z`) summary — 23 windows, 2024-01-0
 
 ## Dashboard
 
-`dashboard/dashboard.html` — a self-contained HTML page for monitoring portfolio status,
-open positions, and recent journal entries. Open locally in a browser; no server required.
+Two self-contained HTML dashboards live in `dashboard/`. Open either locally in a browser — no server required.
+
+### `dashboard/dashboard_professional.html` *(primary)*
+
+Professional trader decision cockpit with 7 tabs: **Command**, **Performance**, **Risk**, **Positions**, **Execution**, **Backtest vs Live**, **Settings**.
+
+Key features (updated 2026-05-16):
+- **Hard Rules panel** — Command tab lists all CLAUDE.md hard rules at a glance.
+- **Cash Reserve rule** — Command Center checks cash ≥ 20% of equity (red if breached, yellow below 25%).
+- **Cash Reserve KPI** — top-row metric replacing the removed Rule Adherence tile.
+- **Stop Distance column** — Positions table shows current P&L % vs the −5% hard-stop, with distance remaining before auto-close triggers.
+- **Portfolio Cap Usage column** — Risk table shows current allocation vs each symbol's cap from `portfolio_caps.json`.
+- **ATR Position Sizer** — built into the trade modal: enter equity, ATR, ask and cap% to get the 1%-risk-rule quantity, stop price and R:R.
+- **Auto-refresh toggle** — 60-second timer button in the header.
+- **Journal tab removed** — journal tracking is handled by the agent-written `.md` files in `journal/`.
+
+### `dashboard/dashboard.html` *(legacy)*
+
+Original lighter dashboard — 3 tabs: Overview, Hot Symbols, Morning Brief.
 
 ---
 
@@ -268,7 +285,9 @@ alpaca-trading-agent/
 │   ├── trade.yml              # Hourly trading + daily summary
 │   └── forward.yml            # Daily walk-forward analysis
 ├── dashboard/
-│   └── dashboard.html         # Portfolio monitoring dashboard
+│   ├── dashboard.html                  # Legacy dashboard (3 tabs)
+│   ├── dashboard_professional.html     # Professional dashboard (7 tabs, primary)
+│   └── dashboard_layout.md            # Dashboard design notes
 ├── journal/
 │   ├── _template.md           # Journal entry template
 │   └── YYYY-MM-DD.md          # One file per calendar day

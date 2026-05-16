@@ -24,7 +24,8 @@ Erik (the.eekman@gmail.com). Running a paper crypto trading agent on Alpaca.
 | `scripts/verify.py` | API smoke test |
 | `watchlist_crypto.json` | 10 symbols |
 | `journal/YYYY-MM-DD.md` | Daily trading journal (append, never overwrite) |
-| `dashboard/dashboard.html` | Live dashboard — 3 tabs: Overview, Hot Symbols, Morning Brief |
+| `dashboard/dashboard.html` | Original live dashboard — 3 tabs: Overview, Hot Symbols, Morning Brief |
+| `dashboard/dashboard_professional.html` | Professional trader dashboard — 7 tabs: Command, Performance, Risk, Positions, Execution, Backtest vs Live, Settings. No journal tab (removed 2026-05-16). Includes: cash-reserve rule, stop-distance column, portfolio-cap usage, ATR position sizer, auto-refresh, hard-rules panel. |
 | `skills/crypto-trader/SKILL.md` | Full strategy playbook (read before any trade eval) |
 
 ## Hard Rules (never break)
