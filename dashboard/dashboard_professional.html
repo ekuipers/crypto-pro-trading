@@ -2832,18 +2832,36 @@
     const DATA_URL = "https://data.alpaca.markets";
     let _signalCache = null;
 
+    // Compute an ISO-8601 UTC start timestamp for the bar fetch.
+    // ROOT CAUSE FIX (mirrors run_evaluation.py): Alpaca's crypto bar endpoint
+    // ignores a bare `limit` and returns only the current day's partial bars
+    // unless an explicit `start` date is supplied.  Always pass `start`.
+    function barsStart(limit, timeframe, buffer) {
+      buffer = buffer || 1.6;
+      const TF_MINUTES = { "15Min": 15, "1H": 60, "4Hour": 240, "1Day": 1440 };
+      const minutes = TF_MINUTES[timeframe] || 60;
+      const ms = limit * minutes * buffer * 60 * 1000;
+      return new Date(Date.now() - ms).toISOString().replace(/\.\d+Z$/, "Z");
+    }
+
     async function fetchBars(symbols, timeframe, limit) {
       const s = getSettings();
       if (!s.apiKey || !s.apiSecret) return null;
       const joined = symbols.map(encodeURIComponent).join(",");
-      const url = `${DATA_URL}/v2/crypto/bars?symbols=${joined}&timeframe=${timeframe}&limit=${limit}&sort=asc`;
+      const start = barsStart(limit, timeframe);
+      // Correct endpoint: /v1beta3/crypto/us/bars  (not the old /v2/crypto/bars)
+      const url = `${DATA_URL}/v1beta3/crypto/us/bars?symbols=${joined}&timeframe=${timeframe}&start=${encodeURIComponent(start)}&limit=${limit}&sort=asc`;
       const resp = await fetch(url, {
         headers: {
           "APCA-API-KEY-ID": s.apiKey,
           "APCA-API-SECRET-KEY": s.apiSecret
         }
       });
-      if (!resp.ok) return null;
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => "");
+        console.error(`fetchBars ${timeframe} error ${resp.status}:`, errText);
+        return null;
+      }
       const data = await resp.json();
       return data.bars || {};
     }
