@@ -24,8 +24,9 @@ Erik (the.eekman@gmail.com). Running a paper crypto trading agent on Alpaca.
 | `scripts/verify.py` | API smoke test |
 | `watchlist_crypto.json` | 10 symbols |
 | `journal/YYYY-MM-DD.md` | Daily trading journal (append, never overwrite) |
-| `dashboard/dashboard.html` | Original live dashboard — 3 tabs: Overview, Hot Symbols, Morning Brief |
-| `dashboard/dashboard_professional.html` | Professional trader dashboard — 9 tabs: Command, Performance, Risk, Positions, Execution, **Signals**, **P&L**, Backtest vs Live, Settings. No journal tab (removed 2026-05-16). Signals tab: live 6-point confluence scanner (TA computed in-browser from Alpaca data API). P&L tab: FIFO realized P&L, calendar heatmap, trade log, CSV export. Also: concentration + correlation panels (Risk), rolling 30D/90D metrics (Performance), period selector (1M/3M/6M/1Y), keyboard shortcuts (1–9 = tabs, R = refresh), browser notifications on score ≥ 4. |
+| `dashboard/dashboard.html` | Legacy dashboard — 5 tabs: Overview, Hot Symbols, Distribution, Morning Brief, Settings. Equity curve, positions table, portfolio donut chart. Paper/live toggle. |
+| `dashboard/dashboard_professional.html` | Primary dashboard — 9 tabs: Command, Performance, Risk, Positions, Execution, Signals, P&L, Backtest vs Live, Settings. Hard Rules panel, Cash Reserve gate, ATR Position Sizer, Stop Distance column, Portfolio Cap Usage table, concentration + BTC-correlation panels, rolling 30D/90D Sharpe, period selector (1M/3M/6M/1Y), keyboard shortcuts (1–9 = tabs, R = refresh), browser notifications on score ≥ 4. Signals tab fixed 2026-05-16 (endpoint + barsStart helper). Journal tab removed 2026-05-16. |
+| `dashboard/dashboard_layout.md` | Changelog + design reference for both dashboards. Two sections: Simple and Professional. Includes per-dashboard tab tables, feature descriptions, and dated changelog rows. |
 | `skills/crypto-trader/SKILL.md` | Full strategy playbook (read before any trade eval) |
 
 ## Hard Rules (never break)
@@ -73,6 +74,13 @@ Erik (the.eekman@gmail.com). Running a paper crypto trading agent on Alpaca.
 | `morning-brief` | 07:00 Amsterdam daily | Runs eval, writes journal block, opens dashboard |
 | `portfolio-rebalance-morning` | 10:00 Amsterdam daily | Trims all positions over 5% cap back to ≤5%; limit sells via trade.py |
 | `portfolio-rebalance-evening` | 22:00 Amsterdam daily | Same as morning rebalance — second daily check |
+
+## Recent Changes (as of 2026-05-17)
+| Date | File | Change |
+|------|------|--------|
+| 2026-05-16 | `dashboard_professional.html` | Signals tab fixed: corrected API endpoint to `/v1beta3/crypto/us/bars`; added `barsStart()` helper for mandatory `start` param |
+| 2026-05-17 | `dashboard_layout.md` | Restructured as changelog; split into Simple and Professional sections with tab tables and dated changelog rows |
+| 2026-05-17 | `memory.md` | Updated key files table with dashboard_layout.md entry and correct dashboard descriptions |
 
 ## Status (as of 2026-05-14 12:35 GMT+2)
 - Rebalance executed: 9 limit sell orders placed to trim all positions to ≤5% cap
