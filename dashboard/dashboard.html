@@ -77,6 +77,36 @@
     .refresh-btn:hover { background: var(--border); }
     .last-updated { color: var(--muted); font-size: 12px; }
 
+    /* ── LIGHT THEME ── */
+    :root[data-theme="light"] {
+      --bg:      #f6f8fa;
+      --surface: #ffffff;
+      --surface2:#f0f3f7;
+      --border:  #d0d7de;
+      --text:    #1f2328;
+      --muted:   #656d76;
+      --green:   #1a7f37;
+      --red:     #cf222e;
+      --yellow:  #9a6700;
+      --blue:    #0969da;
+      --purple:  #8250df;
+      --orange:  #bc4c00;
+      --paper-color: #9a6700;
+      --live-color:  #1a7f37;
+    }
+    :root[data-theme="light"] .refresh-btn { background: #f0f3f7; }
+    :root[data-theme="light"] .refresh-btn:hover { background: #e2e7ed; }
+    :root[data-theme="light"] input,
+    :root[data-theme="light"] select { background: #f0f3f7; }
+
+    .theme-btn {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--muted); padding: 6px 10px; border-radius: var(--radius);
+      cursor: pointer; font-size: 15px; line-height: 1;
+      transition: color .15s, background .15s;
+    }
+    .theme-btn:hover { color: var(--text); background: var(--border); }
+
     /* ── TAB NAV ── */
     nav {
       background: var(--surface);
@@ -385,6 +415,7 @@
     </div>
     <span class="last-updated" id="lastUpdated">—</span>
     <button class="refresh-btn" onclick="refreshCurrent()">⟳ Refresh</button>
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Toggle light / dark theme">🌙</button>
   </div>
 </header>
 
@@ -2347,6 +2378,24 @@ setInterval(() => {
   else if (activeTab === "brief") loadBrief();
   else if (activeTab === "dist") loadDist();
 }, 60_000);
+
+// ── Theme toggle ──────────────────────────────────────────────────────────
+(function initTheme() {
+  const saved = localStorage.getItem("dashTheme") || "dark";
+  applyTheme(saved);
+})();
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  const btn = document.getElementById("themeBtn");
+  if (btn) btn.textContent = theme === "light" ? "🌙" : "☀️";
+  localStorage.setItem("dashTheme", theme);
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute("data-theme") || "dark";
+  applyTheme(current === "dark" ? "light" : "dark");
+}
 </script>
 </body>
 </html>

@@ -58,7 +58,7 @@ Key principles applied across both dashboards:
 ## 2. Professional Dashboard — `dashboard/dashboard_professional.html`
 
 **Status:** Primary (recommended)
-**Tabs:** 9 — Command · Performance · Risk · Positions · Execution · Signals · P&L · Backtest vs Live · Settings
+**Tabs:** 10 — Command · Performance · Risk · Positions · Execution · Signals · P&L · Backtest vs Live · Gap & Go · Settings
 
 ### Tabs
 
@@ -72,6 +72,7 @@ Key principles applied across both dashboards:
 | **📡 Signals** | `signals` | Live 6-point Signal Confluence scanner for all 10 watchlist symbols; scores computed in-browser from Alpaca Data API bars; browser notification on score ≥ 4 |
 | **💰 P&L** | `pnl` | Realized P&L from `/v2/account/activities`; FIFO-matched fills per symbol; win rate, profit factor, total realized P&L; P&L calendar heatmap; trade log table; CSV export |
 | **🧪 Backtest vs Live** | `backtest` | Walk-forward report summary (latest `reports/*.json`); live Sharpe vs backtest Sharpe; drawdown comparison; strategy health indicator (green/yellow/red) |
+| **🔥 Gap & Go** | `gapgo` | On-demand pre-session analysis for all 10 watchlist symbols ranked by conviction score. Fetches 6M daily bars + 8D hourly bars from `data.alpaca.markets`. Per-symbol sections: Catalyst (quality + news links), Market Cap & Supply Risk, Gap & Go Likelihood (signal confluence breakdown), 6-Month Range Position (visual bar), Daily Chart Key Levels (5 S/R levels), Historical Gap Behaviour (back-tested gap-and-go rate from 6M data), Trade Plan (strategy, entry, stop, T1, T2, sizing), Risk Rating (ATR%, cap tier). Symbols ranked highest-to-lowest conviction; downtrend + negative-gap tickers flagged AVOID. |
 | **⚙ Settings** | `settings` | API credentials input; paper/live mode toggle; notification permission toggle; thresholds display (loaded from `config.json` values shown for reference) |
 
 ### Key Features
@@ -113,7 +114,15 @@ Key principles applied across both dashboards:
 
 | Key | Action |
 |-----|--------|
-| `1` – `9` | Switch to tab 1–9 in order: Command, Performance, Risk, Positions, Execution, Signals, P&L, Backtest vs Live, Settings |
+| `1` | Command |
+| `2` | Performance |
+| `3` | Risk |
+| `4` | Positions |
+| `5` | Execution |
+| `6` | Signals |
+| `7` | P&L |
+| `8` | Backtest vs Live |
+| `9` | Gap & Go |
 | `R` | Refresh current tab |
 
 ### Changelog
@@ -134,6 +143,7 @@ Key principles applied across both dashboards:
 | 2026-05-15 | Added concentration panel and BTC-correlation note to Risk tab |
 | 2026-05-16 | Journal tab removed (journal is now written by the agent; no manual UI needed) |
 | 2026-05-16 | **Signals tab fix** — corrected `fetchBars()` endpoint from non-existent `/v2/crypto/bars` to `/v1beta3/crypto/us/bars`; added `barsStart()` helper to supply mandatory `start` date parameter (Alpaca crypto bar endpoint ignores bare `limit` without `start`); added `console.error()` logging for failed fetches |
+| 2026-05-17 | **Gap & Go tab added** — new 10th tab (`gapgo`, keyboard shortcut `9`). On-demand pre-session analysis engine for all 10 watchlist symbols. Fetches 6M daily + 8D hourly bars from `data.alpaca.markets` in parallel. Client-side TA engine computes: EMA (20/50 daily + simulated 4H), RSI, ATR, Bollinger Bands, MACD, volume ratio, 6M range position, swing-high/low + round-number key levels, historical gap-and-go rate (back-tested over 6M data). Conviction score from −7 to +7 drives ranking and likelihood rating. Each card has 8 sections: Catalyst, Market Cap & Supply Risk, Gap & Go Likelihood, 6-Month Range Position, Daily Chart Key Levels, Historical Gap Behaviour, Trade Plan, Risk Rating. Symbols in confirmed daily downtrend with negative gap flagged AVOID. |
 
 ---
 

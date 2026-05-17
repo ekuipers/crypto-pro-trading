@@ -254,7 +254,7 @@ Two self-contained HTML dashboards live in `dashboard/`. Open either locally in 
 
 ### `dashboard/dashboard_professional.html` *(primary)*
 
-Professional trader decision cockpit with 9 tabs: **Command**, **Performance**, **Risk**, **Positions**, **Execution**, **Signals**, **P&L**, **Backtest vs Live**, **Settings**.
+Professional trader decision cockpit with 10 tabs: **Command**, **Performance**, **Risk**, **Positions**, **Execution**, **Signals**, **P&L**, **Backtest vs Live**, **Gap & Go**, **Settings**.
 
 Key features:
 - **Hard Rules panel** — Command tab lists all CLAUDE.md hard rules at a glance.
@@ -264,6 +264,7 @@ Key features:
 - **ATR Position Sizer** — built into the trade modal: enter equity, ATR, ask and cap% to get the 1%-risk-rule quantity, stop price and R:R.
 - **📡 Signals tab** — live 6-point confluence scanner for all 10 watchlist symbols.
 - **💰 P&L tab** — realized P&L from `/v2/account/activities` with FIFO matching, win rate, profit factor, calendar heatmap.
+- **🔥 Gap & Go tab** — on-demand pre-session analysis for all 10 watchlist symbols: catalyst rating, market cap / supply risk, gap-and-go likelihood, 6-month range position, key S/R levels, historical gap behaviour, trade plan (strategy, entry, stop, T1, T2), and risk rating. All computed client-side from 6 months of daily bars + 8 days of hourly bars via the Alpaca crypto data API. Symbols ranked by conviction score.
 
 ### `dashboard/dashboard.html` *(legacy)*
 
@@ -340,7 +341,7 @@ alpaca-trading-agent/
 │   └── forward.yml            # Daily walk-forward analysis
 ├── dashboard/
 │   ├── dashboard.html                  # Legacy dashboard (3 tabs)
-│   ├── dashboard_professional.html     # Professional dashboard (9 tabs, primary)
+│   ├── dashboard_professional.html     # Professional dashboard (10 tabs, primary)
 │   └── dashboard_layout.md            # Dashboard design notes
 ├── journal/
 │   ├── _template.md           # Journal entry template

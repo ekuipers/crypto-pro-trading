@@ -33,7 +33,9 @@ alpaca-trading-agent/
 ├── journal/
 │   └── YYYY-MM-DD.md            ← Daily trading journals (append, never overwrite)
 ├── dashboard/
-│   └── dashboard.html           ← Live dashboard (3 tabs: Overview, Hot Symbols, Morning Brief)
+│   ├── dashboard.html                 ← Legacy dashboard (5 tabs: Overview, Hot Symbols, Distribution, Morning Brief, Settings)
+│   ├── dashboard_professional.html    ← Primary dashboard (10 tabs — see dashboard_layout.md)
+│   └── dashboard_layout.md            ← Tab structure, feature notes, changelog
 └── skills/
     └── crypto-trader/
         └── SKILL.md             ← Full strategy playbook (read before any trade eval)
@@ -116,6 +118,27 @@ alpaca-trading-agent/
 **`memory/glossary.md` created** — full decoder ring
 
 **`morning-brief` scheduled task created** — 07:00 Amsterdam daily
+
+---
+
+## Dashboard — Professional (`dashboard_professional.html`)
+
+10 tabs (key `1`–`9` + Settings):
+
+| # | Tab | Key feature |
+|---|-----|-------------|
+| 1 | 🧭 Command | Trading permission status, cash reserve gate, hard rules panel, trade modal |
+| 2 | 📈 Performance | Equity curve, rolling 30D/90D Sharpe, win rate, profit factor |
+| 3 | ⚠️ Risk | MDD, Sharpe, Sortino, portfolio cap usage, concentration panel |
+| 4 | 📂 Positions | P&L%, stop distance (vs −5%), cap usage per position |
+| 5 | 🎯 Execution | Orders table, cancel-all, ATR Position Sizer |
+| 6 | 📡 Signals | Live 6-point confluence scanner, browser notification on score ≥ 4 |
+| 7 | 💰 P&L | FIFO-matched realized P&L, calendar heatmap, CSV export |
+| 8 | 🧪 Backtest vs Live | Walk-forward report loader, strategy health indicator |
+| 9 | 🔥 Gap & Go | Pre-session analysis: catalyst rating, supply risk, 6M range, key levels, historical gap-and-go rate, trade plan (entry/stop/T1/T2), risk rating — all 10 symbols ranked by conviction score |
+| — | ⚙ Settings | API keys, mode toggle, notification permission |
+
+Data source for Gap & Go: `https://data.alpaca.markets/v1beta3/crypto/us/bars` — 6M daily + 8D hourly bars fetched in parallel.
 
 ---
 
