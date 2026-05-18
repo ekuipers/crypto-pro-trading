@@ -396,3 +396,8 @@ GitHub secrets (`APCA_LIVE_KEY_ID` / `APCA_LIVE_SECRET_KEY`) and an explicit man
 
 > **Note:** This is a paper trading agent for research purposes. Past backtest performance
 > does not guarantee future results.
+
+## TO DO
+
+[] Merge config and parameter files
+[] expand forward test results.

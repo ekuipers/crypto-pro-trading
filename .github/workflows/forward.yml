@@ -63,11 +63,11 @@ jobs:
           [ $missing -eq 1 ] && exit 1
           echo "Credentials present. ENV=$TRADING_ENV BASE_URL=$APCA_BASE_URL"
 
-      - name: Run forward anlaysis
+      - name: Run forward analysis
         run: |
           python scripts/walkforward_evaluate.py --symbols BTC/USDC ETH/USDC --start 2024-01-01 --end 2026-05-01 --train-days 90 --test-days 30 --timeframes 1H 4H 1D --fee-bps 5 --slippage-bps 5
           
-      - name: Commit & push journal (safe)
+      - name: Commit & push reports
         run: |
           git config user.name  "Trading Bot"
           git config user.email "bot@alpaca-trading"
