@@ -1,6 +1,6 @@
 # scripts/rebalance.py
 """
-Portfolio rebalance against portfolio_caps.json.
+Portfolio rebalance against config.json (portfolio_caps.caps).
 
 For each watchlist symbol, computes the current allocation and compares it to
 the cap target.  Uses the same signal-confluence gate as run_evaluation.py:
@@ -42,9 +42,17 @@ from trade import (
 import requests
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-WATCHLIST    = PROJECT_ROOT / "watchlist_crypto.json"
-CAPS_FILE    = PROJECT_ROOT / "portfolio_caps.json"
 JOURNAL_DIR  = PROJECT_ROOT / "journal"
+
+
+def _load_config() -> dict:
+    try:
+        return json.loads((PROJECT_ROOT / "config.json").read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+_CFG = _load_config()
 
 DATA_URL = "https://data.alpaca.markets"
 BASE_URL = os.getenv("APCA_BASE_URL", "https://paper-api.alpaca.markets")
@@ -61,10 +69,7 @@ def _to_slash(sym: str) -> str:
 
 
 def _load_caps() -> dict:
-    try:
-        return json.loads(CAPS_FILE.read_text())
-    except Exception:
-        return {"caps": {}, "default_cap": 0.05}
+    return _CFG.get("portfolio_caps", {"caps": {}, "default_cap": 0.05})
 
 
 def symbol_cap(caps_data: dict, symbol: str) -> float:
@@ -273,7 +278,7 @@ def append_rebalance_journal(timestamp: datetime, decisions: list[dict],
     path  = JOURNAL_DIR / (today + ".md")
 
     lines = ["", "## Rebalance " + hhmm + " GMT+2", "",
-             "Trigger: manual rebalance against updated portfolio_caps.json", ""]
+             "Trigger: manual rebalance against config.json (portfolio_caps.caps)", ""]
 
     lines.append("| Symbol | Current% | Cap% | Score | Action |")
     lines.append("|--------|----------|------|-------|--------|")
@@ -313,11 +318,10 @@ def main() -> int:
 
     caps_data = _load_caps()
     if not caps_data["caps"]:
-        sys.stderr.write("FAIL: portfolio_caps.json empty or missing\n")
+        sys.stderr.write("FAIL: config.json > portfolio_caps.caps is empty or missing\n")
         return 1
 
-    wl = json.loads(WATCHLIST.read_text())
-    symbols = [s for s in wl.get("symbols", []) if is_crypto(s)]
+    symbols = [s for s in _CFG.get("watchlist", {}).get("symbols", []) if is_crypto(s)]
 
     try:
         account  = get_account()

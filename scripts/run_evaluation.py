@@ -3,7 +3,7 @@
 One-shot crypto evaluation driven by the 6-point Signal Confluence Table
 from the trading skill (SKILL.md), per the decision framework in CLAUDE.md.
 
-Reads watchlist_crypto.json, fetches 15-min bars (execution), 4H bars
+Reads config.json (watchlist.symbols), fetches 15-min bars (execution), 4H bars
 (trend filter), and daily bars (regime/MA filter) per symbol, computes
 the confluence score, and decides BUY / SELL / HOLD.
 
@@ -33,7 +33,7 @@ The 6-point signal score (see indicators.signal_score):
 Sizing
 ------
   - BUY (score >= buy_score_threshold): ATR-based risk sizing capped at the
-    per-symbol cap from portfolio_caps.json (e.g. 30% for BTC, 5% for LINK).
+    per-symbol cap from config.json > portfolio_caps.caps (e.g. 30% for BTC, 5% for LINK).
     max_risk = equity × risk_per_trade_pct; stop = entry - atr_multiplier × ATR.
     qty = max_risk / (atr_multiplier × ATR), capped at (equity × cap_pct) / ask.
   - BUY (score >= buy_score_half_size): half the above size.
@@ -72,8 +72,6 @@ from trade import (
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-WATCHLIST    = PROJECT_ROOT / "watchlist_crypto.json"
-CAPS_FILE    = PROJECT_ROOT / "portfolio_caps.json"
 JOURNAL_DIR  = PROJECT_ROOT / "journal"
 
 
@@ -125,11 +123,7 @@ _TF_MINUTES = {
 # ---------------------------------------------------------------------------
 
 def _load_caps() -> dict:
-    try:
-        with open(CAPS_FILE, encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {"caps": {}, "default_cap": 0.05}
+    return _CFG.get("portfolio_caps", {"caps": {}, "default_cap": 0.05})
 
 
 _CAPS_DATA = _load_caps()
@@ -138,8 +132,8 @@ _CAPS_DATA = _load_caps()
 def symbol_cap(symbol: str) -> float:
     """Return the position cap fraction for *symbol* (e.g. 0.30 for BTC/USD).
 
-    Keys in portfolio_caps.json use slash form (BTC/USD) to match the
-    watchlist, so no conversion is needed here.
+    Caps are read from config.json > portfolio_caps.caps using slash form
+    (e.g. "BTC/USD") to match the watchlist.
     """
     return _CAPS_DATA["caps"].get(symbol, _CAPS_DATA.get("default_cap", 0.05))
 
@@ -381,7 +375,7 @@ def evaluate_symbol(symbol: str, position_by_symbol: dict) -> dict:
         return decision
 
     # ATR-based sizing: risk RISK_PER_TRADE_PCT of equity per trade,
-    # stop = ATR_MULTIPLIER × ATR.  Hard cap: per-symbol cap from portfolio_caps.json.
+    # stop = ATR_MULTIPLIER × ATR.  Hard cap: per-symbol cap from config.json > portfolio_caps.caps.
     sym_cap_pct  = symbol_cap(symbol)
     hard_cap_qty = round((equity * sym_cap_pct / ask) * 0.99, 4)
     atr_val      = decision.get("atr")
@@ -536,13 +530,9 @@ def main() -> int:
         % (BUY_SCORE_THRESHOLD, BUY_SCORE_HALF_SIZE, SELL_SCORE_THRESHOLD, STOP_LOSS_PCT * 100)
     )
 
-    if not WATCHLIST.exists():
-        sys.stderr.write("FAIL: " + str(WATCHLIST) + " not found\n")
-        return 1
-    wl      = json.loads(WATCHLIST.read_text(encoding="utf-8"))
-    symbols = [s for s in wl.get("symbols", []) if is_crypto(s)]
+    symbols = [s for s in _CFG.get("watchlist", {}).get("symbols", []) if is_crypto(s)]
     if not symbols:
-        sys.stderr.write("FAIL: no crypto symbols in watchlist\n")
+        sys.stderr.write("FAIL: no crypto symbols in config.json > watchlist.symbols\n")
         return 1
 
     try:

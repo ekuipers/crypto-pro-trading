@@ -1,15 +1,4 @@
 {
-  "_comment": "Crypto watchlist. Alpaca crypto symbols use the SLASH form (e.g. BTC/USD). Crypto markets are 24/7 — /v2/clock is NOT used as a gate for crypto orders.",
-  "symbols": [
-    "BTC/USD",
-    "ETH/USD",
-    "SOL/USD",
-    "AVAX/USD",
-    "LINK/USD",
-    "DOT/USD",
-    "LTC/USD",
-    "DOGE/USD",
-    "ADA/USD",
-    "AAVE/USD"
-  ]
+  "_DEPRECATED": "Merged into config.json (watchlist section). Remove this file.",
+  "_merged_into": "config.json > watchlist"
 }

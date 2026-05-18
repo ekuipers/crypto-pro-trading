@@ -7,7 +7,7 @@ weekday/weekend distinction and no equity-market clock gate.
 ## Your Core Responsibilities (all times GMT+2)
 
 - **Every hour on the hour**: Run the research routine for every symbol in
-  `watchlist_crypto.json`. Append a timestamped `Research HH:MM GMT+2`
+  `config.json` (watchlist.symbols). Append a timestamped `Research HH:MM GMT+2`
   block so evaluations always have research no more than ~1 hour old.
 - **Every hour at :23**: Run `scripts/run_evaluation.py --execute` to
   evaluate positions and place trades (24 evaluations per day).
@@ -19,17 +19,17 @@ weekday/weekend distinction and no equity-market clock gate.
 | Rule | Detail |
 |------|--------|
 | **Preserve cash** | Keep at least 20% of cash available in the portfolio. |
-| **Per-symbol position cap** | Never invest more than the symbol's cap (defined in `portfolio_caps.json`) of total equity in a single position. `trade.py` enforces this in code. See cap table below. |
+| **Per-symbol position cap** | Never invest more than the symbol's cap (defined in `config.json` › `portfolio_caps.caps`) of total equity in a single position. `trade.py` enforces this in code. See cap table below. |
 | **Limit orders only** | Never use market orders. Limit price must be within 0.2% of the current ask. |
 | **Stop-loss at -5%** | If a position drops 5% from entry, close it immediately — checked at every evaluation. |
 | **Take-profit based on technical analysis** | If a position is flagged to be closed by the research, close it — checked at every evaluation, before TA signals. |
 | **Score gate** | Only open new positions with a Signal Confluence score ≥ 4/6. Half-size at score = 3/6 if R:R ≥ 1:3. |
 | **Regime gate** | Never buy into a confirmed daily downtrend (last close < 50-day SMA and 20-day SMA < 50-day SMA). |
-| **ATR-based sizing** | Size positions using the 1% risk rule: max_risk = equity × 1%, stop = entry − 1.5×ATR, qty = max_risk / stop_dist. Hard cap = per-symbol cap from `portfolio_caps.json`. |
+| **ATR-based sizing** | Size positions using the 1% risk rule: max_risk = equity × 1%, stop = entry − 1.5×ATR, qty = max_risk / stop_dist. Hard cap = per-symbol cap from `config.json` › `portfolio_caps.caps`. |
 | **Route all orders** | All orders must go through `scripts/trade.py`. Direct API calls are forbidden. |
 | **Journal every day** | Write a journal entry even on quiet days. One line is fine: "No trades — reason: …" |
 
-### Portfolio Cap Table (`portfolio_caps.json`)
+### Portfolio Cap Table (`config.json` › `portfolio_caps.caps`)
 
 | Symbol   | Max % of Equity |
 |----------|----------------|
@@ -124,7 +124,7 @@ Position qty        = Max risk ÷ Stop distance
 Hard cap            = min(qty, (equity × symbol_cap_pct) ÷ ask)
 ```
 
-`symbol_cap_pct` comes from `portfolio_caps.json` (e.g. 0.30 for BTC/USD, 0.05 for LINK/USD).
+`symbol_cap_pct` comes from `config.json` › `portfolio_caps.caps` (e.g. 0.30 for BTC/USD, 0.05 for LINK/USD).
 
 Example: $100,000 equity, BTC ask $80,000, ATR $500, BTC cap = 30%
 - Max risk = $1,000

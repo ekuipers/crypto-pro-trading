@@ -253,12 +253,12 @@ def walk_forward(df: pd.DataFrame, timeframe: str, cfg: SimConfig, train_days: i
 
 def load_default_symbols() -> List[str]:
     here = Path(__file__).resolve()
-    candidates = [here.parent / 'watchlist_crypto.json', here.parent.parent / 'watchlist_crypto.json']
-    watchlist = next((c for c in candidates if c.exists()), None)
-    if watchlist is None:
+    candidates = [here.parent / "config.json", here.parent.parent / "config.json"]
+    cfg_path = next((c for c in candidates if c.exists()), None)
+    if cfg_path is None:
         return []
-    data = json.loads(watchlist.read_text(encoding="utf-8"))
-    return [s for s in data.get("symbols", []) if "/" in s]
+    data = json.loads(cfg_path.read_text(encoding="utf-8"))
+    return [s for s in data.get("watchlist", {}).get("symbols", []) if "/" in s]
 
 
 def write_reports(out_dir: Path, payload: Dict) -> Tuple[Path, Path]:
@@ -291,7 +291,7 @@ def main():
     print("Walkforward evaluation started")
 
     p = argparse.ArgumentParser()
-    p.add_argument("--symbols", nargs="*", help="Symbols like BTC/USD. Default: watchlist_crypto.json")
+    p.add_argument("--symbols", nargs="*", help="Symbols like BTC/USD. Default: config.json > watchlist.symbols")
     p.add_argument("--timeframes", nargs="*", default=["1H", "4H", "1D"], help="Timeframes to evaluate")
     p.add_argument("--start", required=True, help="ISO date/time, e.g. 2024-01-01")
     p.add_argument("--end", required=True, help="ISO date/time, e.g. 2026-01-01")

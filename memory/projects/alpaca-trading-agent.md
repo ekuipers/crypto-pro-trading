@@ -24,7 +24,7 @@ alpaca-trading-agent/
 │   ├── glossary.md              ← Full decoder ring
 │   └── projects/
 │       └── alpaca-trading-agent.md  ← This file
-├── watchlist_crypto.json        ← 10 symbols: BTC ETH SOL AVAX LINK DOT LTC DOGE UNI AAVE
+├── config.json                  ← Central config: strategy, risk, indicators, portfolio caps, watchlist
 ├── scripts/
 │   ├── run_evaluation.py        ← Main eval loop; run with --execute to trade
 │   ├── indicators.py            ← TA library: RSI, MACD, BB, ATR, EMA cross, vol ratio

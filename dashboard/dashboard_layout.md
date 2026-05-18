@@ -66,7 +66,7 @@ Key principles applied across both dashboards:
 |-----|-----|---------|
 | **🧭 Command** | `command` | Trading permission cockpit: equity, cash reserve, open risk, drawdown, daily P&L, hard rules panel, trade modal |
 | **📈 Performance** | `performance` | Equity curve (3M history), win rate, profit factor, expectancy, rolling 30D/90D Sharpe, period selector (1M/3M/6M/1Y) |
-| **⚠️ Risk** | `risk` | Max drawdown, Sharpe, Sortino, Calmar, VaR, portfolio cap usage per symbol, concentration panel, BTC-correlation note |
+| **⚠️ Risk** | `risk` | Max drawdown, Sharpe, Sortino, Calmar, VaR, portfolio cap usage per symbol (from `config.json`), concentration panel, BTC-correlation note |
 | **📂 Positions** | `positions` | Open positions table: symbol, qty, entry price, current price, market value, unrealised P&L ($ and %), stop distance (% from −5% hard stop), position cap usage |
 | **🎯 Execution** | `execution` | Open and recent orders table; cancel-all button; order fill status; limit-band compliance indicator; ATR Position Sizer widget |
 | **📡 Signals** | `signals` | Live 6-point Signal Confluence scanner for all 10 watchlist symbols; scores computed in-browser from Alpaca Data API bars; browser notification on score ≥ 4 |
@@ -89,7 +89,7 @@ Key principles applied across both dashboards:
 - Win rate and profit factor derived from closed-position activities.
 
 #### Risk Tab
-- **Portfolio Cap Usage** — table of all 10 symbols showing current position value vs cap from `portfolio_caps.json`; colour-coded (green/yellow/red).
+- **Portfolio Cap Usage** — table of all 10 symbols showing current position value vs cap from `config.json` › `portfolio_caps.caps`; colour-coded (green/yellow/red).
 - **Concentration panel** — text summary of largest-position concentration risk.
 - **Correlation note** — heuristic BTC-dominance check: high altcoin % → warns of correlated drawdown risk.
 - Stop Distance column: shows each position's current P&L% relative to the −5% hard stop.
@@ -131,7 +131,7 @@ Key principles applied across both dashboards:
 |------|--------|
 | 2026-05-12 | Initial version — 8 tabs: Command, Performance, Risk, Positions, Execution, Signals, Journal, Settings |
 | 2026-05-13 | Added Backtest vs Live tab; walk-forward report JSON loader |
-| 2026-05-14 | Added Portfolio Cap Usage table to Risk tab (per-symbol cap from `portfolio_caps.json`) |
+| 2026-05-14 | Added Portfolio Cap Usage table to Risk tab (per-symbol cap from `config.json`) |
 | 2026-05-14 | Added ATR Position Sizer widget to Execution tab |
 | 2026-05-14 | Added Stop Distance column to Positions tab |
 | 2026-05-14 | Added Cash Reserve hard-rule indicator to Command tab (red < 20%, yellow < 25%) |

@@ -3,7 +3,7 @@
 Pure-function risk helpers that encode the rules in CLAUDE.md.
 
 Trading rules:
-  - Never invest more than the per-symbol cap (see portfolio_caps.json) of
+  - Never invest more than the per-symbol cap (see config.json > portfolio_caps.caps) of
     total portfolio value in a single position.  The default fallback cap is
     config.json > risk.default_position_cap_pct (default 5%).
   - Limit orders only, within config.json > risk.limit_band_pct of ask.
@@ -79,7 +79,7 @@ def check_position_size(
     """Reject orders that would exceed the per-symbol position cap.
 
     cap_pct defaults to MAX_POSITION_PCT but callers should pass the
-    symbol-specific value loaded from portfolio_caps.json.
+    symbol-specific value loaded from config.json > portfolio_caps.caps.
     """
     if equity <= 0:
         return RiskCheck(False, "equity is zero or negative")

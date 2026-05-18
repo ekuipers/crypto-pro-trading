@@ -6,8 +6,9 @@ in code so they can't be bypassed by a routine that forgets them.
 Hard rules (see CLAUDE.md):
   - Never market orders -- limit_price is REQUIRED.
   - Limit must be within config.json > risk.limit_band_pct of current ask.
-  - Single position must not exceed the per-symbol cap in portfolio_caps.json
-    (e.g. 30% for BTC/USD, 5% for LINK/USD).  Default fallback: 5%.
+  - Single position must not exceed the per-symbol cap in
+    config.json > portfolio_caps.caps (e.g. 30% for BTC/USD, 5% for LINK/USD).
+    Default fallback: 5%.
   - For US equities: never trade when /v2/clock reports the market is closed.
   - For crypto: 24/7 trading, the /v2/clock gate does NOT apply.
 
@@ -43,13 +44,12 @@ DATA_URL      = "https://data.alpaca.markets"
 # ---------------------------------------------------------------------------
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
-_CAPS_FILE    = _PROJECT_ROOT / "portfolio_caps.json"
 
 
 def _load_caps() -> dict:
     try:
-        with open(_CAPS_FILE, encoding="utf-8") as f:
-            return json.load(f)
+        cfg = json.loads((_PROJECT_ROOT / "config.json").read_text(encoding="utf-8"))
+        return cfg.get("portfolio_caps", {"caps": {}, "default_cap": 0.05})
     except Exception:
         return {"caps": {}, "default_cap": 0.05}
 
@@ -58,10 +58,10 @@ _CAPS_DATA = _load_caps()
 
 
 def _symbol_cap(symbol: str) -> float:
-    """Return the position cap fraction for *symbol* from portfolio_caps.json.
+    """Return the position cap fraction for *symbol* from config.json > portfolio_caps.caps.
 
-    Both the file and incoming symbols must use the canonical slash form
-    (e.g. "BTC/USD").  portfolio_caps.json keys are validated to use slashes.
+    Both the config and incoming symbols use the canonical slash form
+    (e.g. "BTC/USD").
     """
     return _CAPS_DATA["caps"].get(symbol, _CAPS_DATA.get("default_cap", 0.05))
 
