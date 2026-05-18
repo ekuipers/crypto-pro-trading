@@ -22,11 +22,11 @@ Erik (the.eekman@gmail.com). Running a paper crypto trading agent on Alpaca.
 | `scripts/indicators.py` | TA library (RSI, MACD, BB, ATR, EMA cross, volume) |
 | `scripts/trade.py` | Order placement (enforces all hard rules in code) |
 | `scripts/verify.py` | API smoke test |
-| `watchlist_crypto.json` | 10 symbols |
+| `config.json` | Central config: strategy, risk, indicators, portfolio caps, watchlist |
 | `journal/YYYY-MM-DD.md` | Daily trading journal (append, never overwrite) |
-| `dashboard/dashboard.html` | Legacy dashboard — 5 tabs: Overview, Hot Symbols, Distribution, Morning Brief, Settings. Equity curve, positions table, portfolio donut chart. Paper/live toggle. |
-| `dashboard/dashboard_professional.html` | Primary dashboard — 9 tabs: Command, Performance, Risk, Positions, Execution, Signals, P&L, Backtest vs Live, Settings. Hard Rules panel, Cash Reserve gate, ATR Position Sizer, Stop Distance column, Portfolio Cap Usage table, concentration + BTC-correlation panels, rolling 30D/90D Sharpe, period selector (1M/3M/6M/1Y), keyboard shortcuts (1–9 = tabs, R = refresh), browser notifications on score ≥ 4. Signals tab fixed 2026-05-16 (endpoint + barsStart helper). Journal tab removed 2026-05-16. |
-| `dashboard/dashboard_layout.md` | Changelog + design reference for both dashboards. Two sections: Simple and Professional. Includes per-dashboard tab tables, feature descriptions, and dated changelog rows. |
+| `docs/dashboard.html` | Legacy dashboard — 5 tabs: Overview, Hot Symbols, Distribution, Morning Brief, Settings. Equity curve, positions table, portfolio donut chart. Paper/live toggle. |
+| `docs/dashboard_professional.html` | Primary dashboard — 9 tabs: Command, Performance, Risk, Positions, Execution, Signals, P&L, Backtest vs Live, Settings. Hard Rules panel, Cash Reserve gate, ATR Position Sizer, Stop Distance column, Portfolio Cap Usage table, concentration + BTC-correlation panels, rolling 30D/90D Sharpe, period selector (1M/3M/6M/1Y), keyboard shortcuts (1–9 = tabs, R = refresh), browser notifications on score ≥ 4. Signals tab fixed 2026-05-16 (endpoint + barsStart helper). Journal tab removed 2026-05-16. |
+| `docs/dashboard_layout.md` | Changelog + design reference for both dashboards. Two sections: Simple and Professional. Includes per-dashboard tab tables, feature descriptions, and dated changelog rows. |
 | `skills/crypto-trader/SKILL.md` | Full strategy playbook (read before any trade eval) |
 
 ## Hard Rules (never break)

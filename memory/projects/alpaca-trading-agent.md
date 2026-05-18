@@ -32,7 +32,7 @@ alpaca-trading-agent/
 │   └── verify.py                ← API smoke test
 ├── journal/
 │   └── YYYY-MM-DD.md            ← Daily trading journals (append, never overwrite)
-├── dashboard/
+├── docs/
 │   ├── dashboard.html                 ← Legacy dashboard (5 tabs: Overview, Hot Symbols, Distribution, Morning Brief, Settings)
 │   ├── dashboard_professional.html    ← Primary dashboard (10 tabs — see dashboard_layout.md)
 │   └── dashboard_layout.md            ← Tab structure, feature notes, changelog
@@ -102,7 +102,7 @@ alpaca-trading-agent/
 - Added: Wyckoff phase section, 6-point confluence table, ATR sizing formula with worked example, 12-item decision checklist, common mistakes list
 - Updated output format with `ema_x`, `atr`, `4h`, `signals` block
 
-**`dashboard/dashboard.html` — Morning Brief tab added:**
+**`docs/dashboard.html` — Morning Brief tab added:**
 - Third tab button: `🌅 Morning Brief`
 - Health strip (cash %, position count, regime status)
 - Alerts box for stop-loss/take-profit proximity warnings

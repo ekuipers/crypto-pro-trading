@@ -250,9 +250,9 @@ Latest report (`walkforward_20260514T103155Z`) summary — 23 windows, 2024-01-0
 
 ## Dashboard
 
-Two self-contained HTML dashboards live in `dashboard/`. Open either locally in a browser — no server required.
+Two self-contained HTML dashboards live in `docs/`. Open either locally in a browser — no server required.
 
-### `dashboard/dashboard_professional.html` *(primary)*
+### `docs/dashboard_professional.html` *(primary)*
 
 Professional trader decision cockpit with 10 tabs: **Command**, **Performance**, **Risk**, **Positions**, **Execution**, **Signals**, **P&L**, **Backtest vs Live**, **Gap & Go**, **Settings**.
 
@@ -260,13 +260,13 @@ Key features:
 - **Hard Rules panel** — Command tab lists all CLAUDE.md hard rules at a glance.
 - **Cash Reserve rule** — Command Center checks cash ≥ 20% of equity (red if breached, yellow below 25%).
 - **Stop Distance column** — Positions table shows current P&L % vs the −5% hard-stop.
-- **Portfolio Cap Usage column** — Risk table shows current allocation vs each symbol's cap from `portfolio_caps.json`.
+- **Portfolio Cap Usage column** — Risk table shows current allocation vs each symbol's cap from `config.json`.
 - **ATR Position Sizer** — built into the trade modal: enter equity, ATR, ask and cap% to get the 1%-risk-rule quantity, stop price and R:R.
 - **📡 Signals tab** — live 6-point confluence scanner for all 10 watchlist symbols.
 - **💰 P&L tab** — realized P&L from `/v2/account/activities` with FIFO matching, win rate, profit factor, calendar heatmap.
 - **🔥 Gap & Go tab** — on-demand pre-session analysis for all 10 watchlist symbols: catalyst rating, market cap / supply risk, gap-and-go likelihood, 6-month range position, key S/R levels, historical gap behaviour, trade plan (strategy, entry, stop, T1, T2), and risk rating. All computed client-side from 6 months of daily bars + 8 days of hourly bars via the Alpaca crypto data API. Symbols ranked by conviction score.
 
-### `dashboard/dashboard.html` *(legacy)*
+### `docs/dashboard.html` *(legacy)*
 
 Original lighter dashboard — 3 tabs: Overview, Hot Symbols, Morning Brief.
 
@@ -339,7 +339,7 @@ alpaca-trading-agent/
 ├── .github/workflows/
 │   ├── trade.yml              # Hourly trading + daily summary
 │   └── forward.yml            # Daily walk-forward analysis
-├── dashboard/
+├── docs/
 │   ├── dashboard.html                  # Legacy dashboard (3 tabs)
 │   ├── dashboard_professional.html     # Professional dashboard (10 tabs, primary)
 │   └── dashboard_layout.md            # Dashboard design notes

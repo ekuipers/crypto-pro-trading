@@ -20,7 +20,7 @@ Key principles applied across both dashboards:
 
 ---
 
-## 1. Simple Dashboard — `dashboard/dashboard.html`
+## 1. Simple Dashboard — `docs/dashboard.html`
 
 **Status:** Legacy (still maintained, lighter-weight alternative)
 **Tabs:** 5 — Overview · Hot Symbols · Distribution · Morning Brief · Settings
@@ -55,7 +55,7 @@ Key principles applied across both dashboards:
 
 ---
 
-## 2. Professional Dashboard — `dashboard/dashboard_professional.html`
+## 2. Professional Dashboard — `docs/dashboard_professional.html`
 
 **Status:** Primary (recommended)
 **Tabs:** 10 — Command · Performance · Risk · Positions · Execution · Signals · P&L · Backtest vs Live · Gap & Go · Settings
