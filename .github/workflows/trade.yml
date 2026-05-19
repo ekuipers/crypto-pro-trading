@@ -2,8 +2,8 @@ name: Trading Bot
 
 on:
   schedule:
-    - cron: '23 * * * *'   # elke 23 min na het uur
-    - cron: '11 21 * * *'    # daily summary elke dag om 23.11 Amsterdam tijd.
+    - cron: '23 21 * * *'  
+    - cron: '21 23 * * *'   
   workflow_dispatch:
     inputs:
       environment:
@@ -41,7 +41,7 @@ jobs:
     # Run voor manual dispatch, als event is schedule dan voer schedule uit) 
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'schedule' && github.event.schedule == '23 * * * *')
+      (github.event_name == 'schedule' && github.event.schedule == '23 21 * * *')
 
     # Inputs bestaan alleen bij workflow_dispatch; bij schedule zijn ze null. 
     # Daarom kiezen we veilig een default:
@@ -124,7 +124,7 @@ jobs:
     name: Daily Journal Summary
     runs-on: ubuntu-latest
 
-    if: github.event_name == 'schedule' && github.event.schedule == '0 21 * * *'
+    if: github.event_name == 'schedule' && github.event.schedule == '21 23 * * *'
 
     # Daily journal is explicitly paper
     environment: paper
