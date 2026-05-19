@@ -176,13 +176,16 @@ Two workflows in `.github/workflows/` drive fully autonomous operation.
 
 | Trigger | Schedule | What runs |
 |---------|----------|-----------|
-| Cron | Every hour at **:23** | `run_evaluation.py --execute` (paper) |
-| Cron | Daily at **23:11 UTC** (≈ 01:11 Amsterdam) | Daily journal summary |
+| Cron | Every hour at **:00** | `run_evaluation.py --execute` (paper) |
+| Cron | Daily at **23:00 UTC** | Daily journal summary |
 | Manual dispatch | On demand | Configurable: `paper`/`live`, dry-run on/off |
 
-- Secrets: `APCA_PAPER_KEY_ID` / `APCA_PAPER_SECRET_KEY` (paper) and `APCA_LIVE_KEY_ID` / `APCA_LIVE_SECRET_KEY` (live).
-- Concurrency group `trading-bot-{ref}` prevents simultaneous runs.
-- Journal changes are committed back to `main` with rebase-retry logic (3 attempts).
+Uses **GitHub Environments** (`paper` / `live`) — each environment holds two secrets:
+- `APCA_API_KEY_ID` — Alpaca API key for that environment
+- `APCA_SECRET_KEY` — Alpaca API secret for that environment
+
+Configure under **Settings → Environments** in the GitHub repo. The `environment:` field on each job controls which set of secrets is injected; without it, environment secrets are never exposed.
+- Journal changes are committed back to `main` after each run.
 
 ### `forward.yml` — Forward Analysis
 

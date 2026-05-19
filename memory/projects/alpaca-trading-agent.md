@@ -64,6 +64,22 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-05-19
+
+**`trade.yml` secrets → GitHub Environments:**
+- Old model: 4 separate repository secrets (`APCA_PAPER_KEY_ID`, `APCA_PAPER_SECRET_KEY`, `APCA_LIVE_KEY_ID`, `APCA_LIVE_SECRET_KEY`)
+- New model: 2 GitHub Environments (`paper`, `live`), each with `APCA_API_KEY_ID` + `APCA_SECRET_KEY`
+- Added `environment:` field to both jobs; without it, environment secrets are never injected
+- Error messages updated to point to Settings → Environments → {env} → Secrets
+
+**Global skill installed:**
+- `karpathy-guidelines` from `https://github.com/multica-ai/andrej-karpathy-skills`
+- Invoke with `/karpathy-guidelines` — behavioral guidelines for LLM coding (simplicity, surgical changes, goal-driven execution)
+
+**`README.md` updated** — corrected GitHub Actions secrets section to reflect Environments model
+
+---
+
 ### 2026-05-14 — Initial Setup & Major Rewrite
 
 **Portfolio validation:**
