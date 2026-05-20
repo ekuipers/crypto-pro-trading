@@ -1645,6 +1645,8 @@
     let drawdownChart = null;
     let lastContext = null;
     let autoRefreshTimer = null;
+    const DATA_URL   = "https://data.alpaca.markets";
+    let _tickerTimer = null;     // independent 15s ticker interval
 
     function $(id) {
       return document.getElementById(id);
@@ -2969,10 +2971,8 @@
 
     if (getSettings().apiKey && getSettings().apiSecret) {
       loadDashboard();
-      setTimeout(() => {
-        loadTickerStrip();
-        _tickerTimer = setInterval(loadTickerStrip, 15000);
-      }, 0);
+      loadTickerStrip();
+      _tickerTimer = setInterval(loadTickerStrip, 15000);
     } else {
       $("commandKpis").innerHTML = [
         kpi("Connection", "Not configured", "Go to Settings and add Alpaca credentials"),
@@ -3224,11 +3224,9 @@
     //  SIGNAL SCANNER
     // ═══════════════════════════════════════════════════════════════════════
 
-    const DATA_URL = "https://data.alpaca.markets";
     let _signalCache  = null;
     let _prevScoreMap = {};       // sym → previous scan score
     let _corrCache    = null;     // correlation matrix populated by loadSignals
-    let _tickerTimer  = null;     // independent 15s ticker interval
 
     // ── Live price ticker strip ──────────────────────────────────────────────
 
