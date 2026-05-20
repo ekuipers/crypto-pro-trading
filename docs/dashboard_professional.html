@@ -3051,26 +3051,45 @@
       return new Date(Date.now() - ms).toISOString().replace(/\.\d+Z$/, "Z");
     }
 
+    // fetchBars follows next_page_token until all symbols have their full bar
+    // history.  The Alpaca multi-symbol endpoint paginates by *total* bars across
+    // all symbols (not per-symbol), so a single request for 10 symbols × 120 bars
+    // only returns the first ~12 bars per symbol.  Without pagination only the
+    // first alphabetical symbol (AAVE) accumulates enough bars; every other symbol
+    // falls below the 55-bar threshold and shows "Insufficient bars".
     async function fetchBars(symbols, timeframe, limit) {
       const s = getSettings();
       if (!s.apiKey || !s.apiSecret) return null;
       const joined = symbols.map(encodeURIComponent).join(",");
       const start = barsStart(limit, timeframe);
-      // Correct endpoint: /v1beta3/crypto/us/bars  (not the old /v2/crypto/bars)
-      const url = `${DATA_URL}/v1beta3/crypto/us/bars?symbols=${joined}&timeframe=${timeframe}&start=${encodeURIComponent(start)}&limit=${limit}&sort=asc`;
-      const resp = await fetch(url, {
-        headers: {
-          "APCA-API-KEY-ID": s.apiKey,
-          "APCA-API-SECRET-KEY": s.apiSecret
+      const allBars = {};
+      let pageToken = null;
+      let pages = 0;
+      const MAX_PAGES = 20; // safety cap
+
+      do {
+        // Correct endpoint: /v1beta3/crypto/us/bars  (not the old /v2/crypto/bars)
+        let url = `${DATA_URL}/v1beta3/crypto/us/bars?symbols=${joined}&timeframe=${timeframe}&start=${encodeURIComponent(start)}&limit=${limit}&sort=asc`;
+        if (pageToken) url += `&page_token=${encodeURIComponent(pageToken)}`;
+
+        const resp = await fetch(url, { headers: getHeaders() });
+        if (!resp.ok) {
+          const errText = await resp.text().catch(() => "");
+          console.error(`fetchBars ${timeframe} error ${resp.status}:`, errText);
+          return null;
         }
-      });
-      if (!resp.ok) {
-        const errText = await resp.text().catch(() => "");
-        console.error(`fetchBars ${timeframe} error ${resp.status}:`, errText);
-        return null;
-      }
-      const data = await resp.json();
-      return data.bars || {};
+        const data = await resp.json();
+
+        for (const [sym, symBars] of Object.entries(data.bars || {})) {
+          if (!allBars[sym]) allBars[sym] = [];
+          allBars[sym].push(...symBars);
+        }
+
+        pageToken = data.next_page_token || null;
+        pages++;
+      } while (pageToken && pages < MAX_PAGES);
+
+      return allBars;
     }
 
     async function loadSignals() {
