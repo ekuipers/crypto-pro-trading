@@ -260,13 +260,16 @@ Two self-contained HTML dashboards live in `docs/`. Open either locally in a bro
 Professional trader decision cockpit with 10 tabs: **Command**, **Performance**, **Risk**, **Positions**, **Execution**, **Signals**, **P&L**, **Backtest vs Live**, **Gap & Go**, **Settings**.
 
 Key features:
-- **Hard Rules panel** — Command tab lists all CLAUDE.md hard rules at a glance.
+- **Live ticker strip** — top-of-page price bar for all 10 watchlist symbols. Fetches from Alpaca `/v1beta3/crypto/us/snapshots`, auto-refreshes every 15 seconds independently of the main dashboard.
+- **3-mode auto-refresh button** — cycles: `Auto OFF` → `Prices 15s` (ticker only) → `Full 60s` (ticker + full dashboard).
+- **Hard Rules panel (live)** — Command tab shows all 6 hard rules with real-time portfolio status (cash %, daily loss, open risk, drawdown, stop-loss proximity, order type).
 - **Cash Reserve rule** — Command Center checks cash ≥ 20% of equity (red if breached, yellow below 25%).
-- **Stop Distance column** — Positions table shows current P&L % vs the −5% hard-stop.
+- **Stop Distance column** — Positions table shows Stop $ (`entry × 0.95`), Target $ (`entry × 1.10`), and Live R:R columns in addition to P&L%.
 - **Portfolio Cap Usage column** — Risk table shows current allocation vs each symbol's cap from `config.json`.
+- **Correlation heatmap** — Risk tab shows a 10×10 Pearson correlation matrix of daily log-returns across all watchlist symbols.
 - **ATR Position Sizer** — built into the trade modal: enter equity, ATR, ask and cap% to get the 1%-risk-rule quantity, stop price and R:R.
-- **📡 Signals tab** — live 6-point confluence scanner for all 10 watchlist symbols.
-- **💰 P&L tab** — realized P&L from `/v2/account/activities` with FIFO matching, win rate, profit factor, calendar heatmap.
+- **📡 Signals tab** — live 6-point confluence scanner for all 10 watchlist symbols. Uses paginated `next_page_token` fetching to ensure all symbols receive enough bars. Includes trend arrows (↑/↓/→ vs previous scan), ATR-based suggested quantity, and a ⚡ quick-buy button for setups scoring ≥ 3.
+- **💰 P&L tab** — realized P&L from `/v2/account/activities` with FIFO matching, win rate, profit factor, calendar heatmap, P&L attribution by symbol, and day-of-week performance table.
 - **🔥 Gap & Go tab** — on-demand pre-session analysis for all 10 watchlist symbols: catalyst rating, market cap / supply risk, gap-and-go likelihood, 6-month range position, key S/R levels, historical gap behaviour, trade plan (strategy, entry, stop, T1, T2), and risk rating. All computed client-side from 6 months of daily bars + 8 days of hourly bars via the Alpaca crypto data API. Symbols ranked by conviction score.
 
 ### `docs/dashboard.html` *(legacy)*
@@ -402,5 +405,5 @@ GitHub secrets (`APCA_LIVE_KEY_ID` / `APCA_LIVE_SECRET_KEY`) and an explicit man
 
 ## TO DO
 
-[] Merge config and parameter files
+[x] Merge config and parameter files
 [] expand forward test results.

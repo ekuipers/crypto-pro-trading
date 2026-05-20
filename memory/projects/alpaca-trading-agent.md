@@ -64,6 +64,31 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-05-20 — Dashboard Professional: Ticker + Signals + Correlation + UX
+
+**Bug fixed — Signals tab "Insufficient Bars" for 9/10 symbols:**
+- Root cause: Alpaca multi-symbol bars API paginates by *total bars across all symbols*, not per-symbol. With 10 symbols × 100 bars, the first page only returned ~10 bars for the first symbol, leaving the rest empty.
+- Fix: Rewrote `fetchBars()` in the dashboard to follow `next_page_token` pagination (up to 20 pages), accumulating all bars before returning. Pattern mirrors the `ggFetchBarsAllPages` function already in the file.
+
+**Dashboard improvements implemented (all in `docs/dashboard_professional.html`):**
+
+1. **Live ticker strip** — new top-of-page bar showing price + 24h% for all 10 symbols. Fetches `/v1beta3/crypto/us/snapshots`. Initially broken due to JavaScript TDZ (see below); fixed.
+2. **Correlation heatmap** — new 10×10 matrix in Risk tab. Computes Pearson ρ from daily log-returns. Red = high positive correlation, blue = negative.
+3. **Live hard rules panel** — Command tab now checks 6 rules in real time (cash %, daily loss, open risk, drawdown, stop-loss proximity, limit-orders-only) with green/yellow/red indicators.
+4. **Positions table enhanced** — added Stop $ (`entry × 0.95`), Target $ (`entry × 1.10`), and Live R:R columns. Colspan updated 10→13.
+5. **Signals tab enhanced** — trend arrows (↑/↓/→ comparing current score to previous scan), ATR-based suggested quantity per row, ⚡ quick-buy button (score ≥ 3) that pre-fills the trade modal with ATR qty.
+6. **P&L tab enhanced** — added P&L attribution by symbol table and day-of-week performance table.
+7. **3-mode auto-refresh** — button cycles: `Auto OFF` → `Prices 15s` (ticker-only, 15 s) → `Full 60s` (ticker + full dashboard).
+
+**Bug fixed — live ticker TDZ (Temporal Dead Zone):**
+- Root cause: `const DATA_URL` and `let _tickerTimer` were declared at line ~3227, *after* the inline startup block at line ~2970 that called `loadTickerStrip()` and assigned `_tickerTimer`. JavaScript `let`/`const` are in TDZ until their declaration is evaluated; referencing them before that throws `ReferenceError`. The `catch(e) { /* silent */ }` in `loadTickerStrip` swallowed the error.
+- Fix: Moved both declarations to line 1648 (right after `autoRefreshTimer`), well before the startup block. Removed the `setTimeout` workaround. No TDZ; ticker now loads on page open and refreshes every 15 s.
+
+**File truncation (recurring issue):**
+- Large Edit operations can truncate the file, cutting off the closing `}`, `</script>`, `</body>`, `</html>`. Always verify with `tail -3` after edits. Restore from `git show HEAD:docs/dashboard_professional.html | tail -n +<line>` if needed.
+
+---
+
 ### 2026-05-19
 
 **`trade.yml` secrets → GitHub Environments:**
@@ -143,16 +168,20 @@ alpaca-trading-agent/
 
 | # | Tab | Key feature |
 |---|-----|-------------|
-| 1 | 🧭 Command | Trading permission status, cash reserve gate, hard rules panel, trade modal |
+| 1 | 🧭 Command | Trading permission status, cash reserve gate, live hard rules panel (6 real-time checks), trade modal |
 | 2 | 📈 Performance | Equity curve, rolling 30D/90D Sharpe, win rate, profit factor |
-| 3 | ⚠️ Risk | MDD, Sharpe, Sortino, portfolio cap usage, concentration panel |
-| 4 | 📂 Positions | P&L%, stop distance (vs −5%), cap usage per position |
+| 3 | ⚠️ Risk | MDD, Sharpe, Sortino, portfolio cap usage, concentration panel, 10×10 correlation heatmap |
+| 4 | 📂 Positions | P&L%, Stop $ / Target $, Live R:R column, cap usage per position |
 | 5 | 🎯 Execution | Orders table, cancel-all, ATR Position Sizer |
-| 6 | 📡 Signals | Live 6-point confluence scanner, browser notification on score ≥ 4 |
-| 7 | 💰 P&L | FIFO-matched realized P&L, calendar heatmap, CSV export |
+| 6 | 📡 Signals | Live 6-point confluence scanner (paginated bars), trend arrows ↑↓→, ATR qty, ⚡ quick-buy, browser notification on score ≥ 4 |
+| 7 | 💰 P&L | FIFO-matched realized P&L, calendar heatmap, P&L attribution by symbol, day-of-week performance, CSV export |
 | 8 | 🧪 Backtest vs Live | Walk-forward report loader, strategy health indicator |
 | 9 | 🔥 Gap & Go | Pre-session analysis: catalyst rating, supply risk, 6M range, key levels, historical gap-and-go rate, trade plan (entry/stop/T1/T2), risk rating — all 10 symbols ranked by conviction score |
 | — | ⚙ Settings | API keys, mode toggle, notification permission |
+
+**Top-of-page live ticker strip** — shows all 10 symbols with price + 24h change. Auto-refreshes every 15 s via `setInterval`. Uses `/v1beta3/crypto/us/snapshots` endpoint.
+
+**3-mode auto-refresh button** — `Auto OFF` → `Prices 15s` (ticker only) → `Full 60s` (ticker + full dashboard).
 
 Data source for Gap & Go: `https://data.alpaca.markets/v1beta3/crypto/us/bars` — 6M daily + 8D hourly bars fetched in parallel.
 

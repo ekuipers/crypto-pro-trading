@@ -53,6 +53,11 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | Morning brief | Scheduled 7 AM task: eval + journal block + dashboard summary |
 | Daily regime | Computed from 90-day daily bars: SMA-20 vs SMA-50 vs last close |
 | Vol ratio | Current bar volume / 20-bar average volume |
+| Live R:R | Real-time risk-to-reward: `(target − current) / (current − stop)` using −5% stop, +10% target |
+| Ticker strip | Top-of-dashboard price bar; 10 symbols, 15-second auto-refresh via Alpaca snapshots API |
+| Correlation heatmap | 10×10 Pearson ρ matrix of daily log-returns; shown in Risk tab |
+| Trend arrow | ↑/↓/→ indicator in Signals tab comparing current confluence score to previous scan |
+| Quick-buy (⚡) | Signals tab button for setups scoring ≥ 3; pre-fills trade modal with ATR-sized qty |
 
 ---
 
@@ -80,12 +85,14 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | Base URL | `https://paper-api.alpaca.markets` |
 | Data URL | `https://data.alpaca.markets` |
 | Bars endpoint | `/v1beta3/crypto/us/bars` |
+| Snapshots endpoint | `/v1beta3/crypto/us/snapshots?symbols=...` — returns latest trade, daily bar, prev daily bar per symbol |
 | API key var | `APCA_API_KEY_ID` |
 | Secret var | `APCA_API_SECRET_KEY` |
 | Account ID | PA3EZEE1I9RS |
 | Crypto hours | 24/7 — no market clock gate |
 | Critical bug (fixed) | `limit` param alone → 1 bar; must pass explicit `start` date |
 | `_bars_start()` | Computes: `now − (limit × tf_minutes × 1.6)` to ensure enough history |
+| Multi-symbol pagination | Bars API paginates by *total bars*, not per-symbol. Must follow `next_page_token` until `null`. |
 
 ---
 

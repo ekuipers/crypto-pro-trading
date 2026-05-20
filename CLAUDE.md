@@ -238,3 +238,26 @@ Every evaluation must be logged to `journal/YYYY-MM-DD.md`:
 
 Keep entries terse on quiet hours — one line per symbol is sufficient when
 all decisions are HOLD.
+
+---
+
+## Dashboard (`docs/dashboard_professional.html`)
+
+Self-contained single-file HTML dashboard. Open locally in any browser — no server needed.
+
+| Feature | Detail |
+|---------|--------|
+| Live ticker strip | Top-of-page, 10 symbols, price + 24h%. Auto-refreshes every 15 s via `/v1beta3/crypto/us/snapshots`. |
+| Auto-refresh button | 3 modes: `Auto OFF` → `Prices 15s` → `Full 60s`. |
+| Command tab | Live hard-rules panel (6 real-time checks), cash reserve gate, trade modal. |
+| Risk tab | Portfolio cap usage, 10×10 correlation heatmap (Pearson ρ, daily log-returns). |
+| Positions tab | P&L%, Stop $ (entry×0.95), Target $ (entry×1.10), Live R:R. |
+| Signals tab | Paginated bars fetch (follows `next_page_token`), trend arrows ↑↓→, ATR qty, ⚡ quick-buy. |
+| P&L tab | FIFO P&L, calendar heatmap, attribution by symbol, day-of-week performance. |
+
+### Documentation update rule
+When any code in this project is changed, update **all four** of these files to reflect the change:
+- `CLAUDE.md` — add/update the relevant section
+- `README.md` — update the relevant feature description
+- `memory/projects/alpaca-trading-agent.md` — add a dated session history entry
+- `memory/glossary.md` — add/update any new terms or API notes
