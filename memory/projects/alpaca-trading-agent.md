@@ -33,8 +33,8 @@ alpaca-trading-agent/
 ├── journal/
 │   └── YYYY-MM-DD.md            ← Daily trading journals (append, never overwrite)
 ├── docs/
-│   ├── dashboard.html                 ← Legacy dashboard (5 tabs: Overview, Hot Symbols, Distribution, Morning Brief, Settings)
-│   ├── dashboard_professional.html    ← Primary dashboard (10 tabs — see dashboard_layout.md)
+│   ├── portfolio-dashboard.html       ← Legacy dashboard (5 tabs: Overview, Hot Symbols, Distribution, Morning Brief, Settings)
+│   ├── portfolio_dashboard.html       ← Primary dashboard (10 tabs — see dashboard_layout.md)
 │   └── dashboard_layout.md            ← Tab structure, feature notes, changelog
 └── skills/
     └── crypto-trader/
@@ -70,7 +70,7 @@ alpaca-trading-agent/
 - Root cause: Alpaca multi-symbol bars API paginates by *total bars across all symbols*, not per-symbol. With 10 symbols × 100 bars, the first page only returned ~10 bars for the first symbol, leaving the rest empty.
 - Fix: Rewrote `fetchBars()` in the dashboard to follow `next_page_token` pagination (up to 20 pages), accumulating all bars before returning. Pattern mirrors the `ggFetchBarsAllPages` function already in the file.
 
-**Dashboard improvements implemented (all in `docs/dashboard_professional.html`):**
+**Dashboard improvements implemented (all in `docs/portfolio_dashboard.html`):**
 
 1. **Live ticker strip** — new top-of-page bar showing price + 24h% for all 10 symbols. Fetches `/v1beta3/crypto/us/snapshots`. Initially broken due to JavaScript TDZ (see below); fixed.
 2. **Correlation heatmap** — new 10×10 matrix in Risk tab. Computes Pearson ρ from daily log-returns. Red = high positive correlation, blue = negative.
@@ -143,7 +143,7 @@ alpaca-trading-agent/
 - Added: Wyckoff phase section, 6-point confluence table, ATR sizing formula with worked example, 12-item decision checklist, common mistakes list
 - Updated output format with `ema_x`, `atr`, `4h`, `signals` block
 
-**`docs/dashboard.html` — Morning Brief tab added:**
+**`docs/portfolio-dashboard.html` — Morning Brief tab added:**
 - Third tab button: `🌅 Morning Brief`
 - Health strip (cash %, position count, regime status)
 - Alerts box for stop-loss/take-profit proximity warnings
@@ -162,7 +162,7 @@ alpaca-trading-agent/
 
 ---
 
-## Dashboard — Professional (`dashboard_professional.html`)
+## Portfolio Dashboard (`portfolio_dashboard.html`)
 
 10 tabs (key `1`–`9` + Settings):
 

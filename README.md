@@ -255,7 +255,7 @@ Latest report (`walkforward_20260514T103155Z`) summary — 23 windows, 2024-01-0
 
 Two self-contained HTML dashboards live in `docs/`. Open either locally in a browser — no server required.
 
-### `docs/dashboard_professional.html` *(primary)*
+### `docs/portfolio_dashboard.html` *(primary)*
 
 Professional trader decision cockpit with 10 tabs: **Command**, **Performance**, **Risk**, **Positions**, **Execution**, **Signals**, **P&L**, **Backtest vs Live**, **Gap & Go**, **Settings**.
 
@@ -272,7 +272,7 @@ Key features:
 - **💰 P&L tab** — realized P&L from `/v2/account/activities` with FIFO matching, win rate, profit factor, calendar heatmap, P&L attribution by symbol, and day-of-week performance table.
 - **🔥 Gap & Go tab** — on-demand pre-session analysis for all 10 watchlist symbols: catalyst rating, market cap / supply risk, gap-and-go likelihood, 6-month range position, key S/R levels, historical gap behaviour, trade plan (strategy, entry, stop, T1, T2), and risk rating. All computed client-side from 6 months of daily bars + 8 days of hourly bars via the Alpaca crypto data API. Symbols ranked by conviction score.
 
-### `docs/dashboard.html` *(legacy)*
+### `docs/portfolio-dashboard.html` *(legacy)*
 
 Original lighter dashboard — 3 tabs: Overview, Hot Symbols, Morning Brief.
 
@@ -346,8 +346,8 @@ alpaca-trading-agent/
 │   ├── trade.yml              # Hourly trading + daily summary
 │   └── forward.yml            # Daily walk-forward analysis
 ├── docs/
-│   ├── dashboard.html                  # Legacy dashboard (3 tabs)
-│   ├── dashboard_professional.html     # Professional dashboard (10 tabs, primary)
+│   ├── portfolio-dashboard.html        # Legacy dashboard (3 tabs)
+│   ├── portfolio_dashboard.html        # Professional dashboard (10 tabs, primary)
 │   └── dashboard_layout.md            # Dashboard design notes
 ├── journal/
 │   ├── _template.md           # Journal entry template
