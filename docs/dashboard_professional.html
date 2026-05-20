@@ -2969,8 +2969,10 @@
 
     if (getSettings().apiKey && getSettings().apiSecret) {
       loadDashboard();
-      loadTickerStrip();
-      _tickerTimer = setInterval(loadTickerStrip, 15000);
+      setTimeout(() => {
+        loadTickerStrip();
+        _tickerTimer = setInterval(loadTickerStrip, 15000);
+      }, 0);
     } else {
       $("commandKpis").innerHTML = [
         kpi("Connection", "Not configured", "Go to Settings and add Alpaca credentials"),
