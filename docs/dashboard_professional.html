@@ -904,6 +904,59 @@
         grid-template-columns:1fr;
       }
     }
+
+    /* ── Ticker strip ────────────────────────────────────── */
+    .ticker-strip {
+      display:flex;
+      gap:0;
+      overflow-x:auto;
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      background:var(--surface2);
+      margin-bottom:14px;
+      flex-wrap:nowrap;
+      scrollbar-width:none;
+      min-height:54px;
+      align-items:stretch;
+    }
+    .ticker-strip::-webkit-scrollbar { display:none; }
+    .ticker-item {
+      flex:0 0 auto;
+      padding:7px 14px;
+      border-right:1px solid var(--border);
+      min-width:110px;
+      cursor:default;
+      transition:background .15s;
+    }
+    .ticker-item:last-child { border-right:none; }
+    .ticker-item:hover { background:rgba(255,255,255,.04); }
+    .ticker-sym { font-size:10px; font-weight:850; color:var(--muted); letter-spacing:.5px; text-transform:uppercase; }
+    .ticker-price { font-size:13px; font-weight:700; font-family:"SF Mono",Consolas,monospace; margin:2px 0 1px; }
+    .ticker-chg { font-size:10px; font-weight:700; }
+
+    /* ── Correlation heatmap ─────────────────────────────── */
+    .corr-wrap { overflow-x:auto; margin-top:8px; }
+    .corr-wrap table { border-collapse:separate; border-spacing:2px; font-size:9px; }
+    .corr-cell {
+      width:28px; height:24px;
+      text-align:center; vertical-align:middle;
+      border-radius:3px; font-weight:700;
+      cursor:default; font-size:9px;
+    }
+    .corr-head { color:var(--muted); font-weight:850; font-size:9px; text-align:center; padding:0 2px; }
+
+    /* ── Trend arrows ────────────────────────────────────── */
+    .trend-up   { color:var(--green); font-weight:900; font-size:13px; }
+    .trend-down { color:var(--red);   font-weight:900; font-size:13px; }
+    .trend-flat { color:var(--muted); font-size:13px; }
+
+    /* ── R:R colours ─────────────────────────────────────── */
+    .rr-good { color:var(--green); font-weight:700; }
+    .rr-warn { color:var(--yellow); font-weight:700; }
+    .rr-bad  { color:var(--red);   font-weight:700; }
+
+    /* ── Day-of-week heatmap bar ─────────────────────────── */
+    .dow-bar { display:inline-block; height:8px; border-radius:4px; vertical-align:middle; }
   </style>
 </head>
 
@@ -938,7 +991,7 @@
     <button class="tab-btn" onclick="switchTab('signals',this)">📡 Signals</button>
     <button class="tab-btn" onclick="switchTab('pnl',this)">💰 P&amp;L</button>
     <button class="tab-btn" onclick="switchTab('backtest',this)">🧪 Backtest vs Live</button>
-    <button class="tab-btn" onclick="switchTab('gapgo',this)">🔥 Gap &amp; Go</button>
+    <button class="tab-btn" onclick="switchTab('gapgo',this)">📊 Breakout Scanner</button>
     <button class="tab-btn" onclick="switchTab('settings',this)">⚙ Settings</button>
   </nav>
 
@@ -951,6 +1004,9 @@
         <div class="section-title">Professional Command Center</div>
         <div id="tradingStatus" class="status-main reduce" data-tip="Final trading permission based on risk limits, drawdown, open risk, concentration, and journal discipline.">Connect Alpaca</div>
         <div id="sessionBanner" style="display:none;text-align:center;font-size:12px;color:var(--muted);margin-bottom:8px"></div>
+        <div id="tickerStrip" class="ticker-strip">
+          <div style="padding:10px 16px;color:var(--muted);font-size:12px;align-self:center">Connect Alpaca to see live prices</div>
+        </div>
         <div id="commandKpis" class="grid-3"></div>
       </section>
 
@@ -962,13 +1018,8 @@
           </div>
 
           <div class="panel">
-            <div class="panel-title">📌 Hard Rules — Never Break</div>
-            <div class="rule-row"><div class="rule-dot green"></div><div class="small"><b>Cash reserve ≥ 20%</b> — No new positions if cash drops below 20% of equity.</div></div>
-            <div class="rule-row"><div class="rule-dot green"></div><div class="small"><b>Limit orders only</b> — Limit price must be within 0.2% of current ask.</div></div>
-            <div class="rule-row"><div class="rule-dot green"></div><div class="small"><b>Stop-loss at −5%</b> — Close immediately if position drops 5% from entry.</div></div>
-            <div class="rule-row"><div class="rule-dot green"></div><div class="small"><b>Score gate ≥ 4/6</b> — Only open new positions with Signal Confluence ≥ 4. Half-size at 3 if R:R ≥ 1:3.</div></div>
-            <div class="rule-row"><div class="rule-dot green"></div><div class="small"><b>Regime gate</b> — No buys when daily close &lt; 50-day SMA and 20-day SMA &lt; 50-day SMA.</div></div>
-            <div class="rule-row"><div class="rule-dot green"></div><div class="small"><b>ATR sizing</b> — qty = (equity × 1%) ÷ (ATR × 1.5). Cap from portfolio_caps.json.</div></div>
+            <div class="panel-title">📌 Hard Rules — Live Status</div>
+            <div id="hardRulesLive"><div class="small" style="color:var(--muted)">Load data to check live rule status.</div></div>
           </div>
         </div>
       </section>
@@ -1069,9 +1120,10 @@
             <div id="concentrationPanel" class="small">Load positions to calculate effective exposure.</div>
           </div>
           <div class="panel">
-            <div class="panel-title">🔗 BTC Correlation Warning</div>
-            <div class="small" style="margin-bottom:10px">BTC, ETH, SOL, AVAX &amp; LINK typically move together (ρ &gt; 0.80). Holding all simultaneously provides less diversification than the per-symbol caps suggest.</div>
+            <div class="panel-title">🔗 Live Correlation Matrix</div>
+            <div class="small" style="margin-bottom:8px;color:var(--muted)">Pairwise Pearson ρ of daily log-returns. Load Signals tab to compute from live bar data.</div>
             <div id="correlationPanel" class="small">Load positions to calculate.</div>
+            <div id="corrHeatmap" style="margin-top:10px"><div class="small" style="color:var(--muted)">Open Signals tab and click Scan Now to populate correlation data.</div></div>
           </div>
         </div>
       </section>
@@ -1120,9 +1172,9 @@
                 <th class="right" data-tip="Unrealized profit or loss. Click to sort.">Unrealized P&L <span class="sort">⇅</span></th>
                 <th class="right" data-tip="Unrealized P&L percentage. Click to sort.">Unrealized % <span class="sort">⇅</span></th>
                 <th class="right" data-tip="Current P&L % vs −5% hard stop. Shows remaining room before auto-close.">Stop Dist <span class="sort">⇅</span></th>
-                <th class="right" data-tip="ATR-based hard stop price (entry − 1.5×ATR). Fetched from bar data.">Stop $</th>
-                <th class="right" data-tip="Take-profit target price (+10% from entry).">Target $</th>
-                <th class="right" data-tip="How long this position has been open.">Age</th>
+                <th class="right" data-tip="Hard stop price = entry × 0.95 (−5% rule).">Stop $</th>
+                <th class="right" data-tip="Take-profit target = entry × 1.10 (+10% from entry).">Target $</th>
+                <th class="right" data-tip="Live R:R = (target − current) ÷ (current − stop). ≥2 green, ≥1 yellow, &lt;1 red.">Live R:R</th>
                 <th data-tip="Open a paper-only trade ticket for this symbol.">Action <span class="sort">⇅</span></th>
               </tr>
             </thead>
@@ -1183,6 +1235,7 @@
                 <th data-tip="Crypto pair.">Symbol</th>
                 <th class="right" data-tip="Current ask price.">Price</th>
                 <th class="right" data-tip="6-point confluence score. ≥4 = BUY, 3 = half-size, ≤2 = HOLD.">Score</th>
+                <th data-tip="Score trend vs previous scan. ↑ improving, ↓ worsening, → unchanged.">Trend</th>
                 <th data-tip="20/50 EMA cross on 15-min chart.">EMA Cross</th>
                 <th class="right" data-tip="RSI (14) on 15-min. 40–65 bullish, &lt;30 oversold +1, &gt;70 overbought −1.">RSI</th>
                 <th data-tip="MACD histogram direction.">MACD</th>
@@ -1190,10 +1243,11 @@
                 <th class="right" data-tip="Volume vs 20-bar average. ≥1.2× bullish, &lt;0.7× bearish.">Volume</th>
                 <th data-tip="4H EMA 20/50 regime. Golden = uptrend, Death = downtrend.">4H Regime</th>
                 <th data-tip="Daily regime gate. Uptrend = buys allowed.">Daily</th>
-                <th data-tip="Recommended action based on score and regime gate.">Action</th>
+                <th class="right" data-tip="ATR-based suggested quantity using 1% equity risk rule. Requires account data loaded first.">ATR Qty</th>
+                <th data-tip="Recommended action. BUY button pre-fills trade modal with ATR sizing.">Action</th>
               </tr>
             </thead>
-            <tbody id="signalBody"><tr><td colspan="11" class="placeholder">Click Scan Now or Refresh to load signals.</td></tr></tbody>
+            <tbody id="signalBody"><tr><td colspan="13" class="placeholder">Click Scan Now or Refresh to load signals.</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -1224,6 +1278,45 @@
         <div class="section-title">P&amp;L Calendar</div>
         <div id="pnlCalendar" class="panel" style="overflow-x:auto">
           <div class="small">Load account data to see the calendar.</div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">P&amp;L Attribution by Symbol</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-tip="Trading pair.">Symbol</th>
+                <th class="right" data-tip="Total sell-side trades matched for this symbol.">Trades</th>
+                <th class="right" data-tip="Winning vs losing trades.">W/L</th>
+                <th class="right" data-tip="Win rate for this symbol.">Win Rate</th>
+                <th class="right" data-tip="Total realized P&amp;L (FIFO matched).">Realized P&amp;L</th>
+                <th class="right" data-tip="Gross wins / gross losses.">Profit Factor</th>
+                <th class="right" data-tip="Average winning trade.">Avg Win</th>
+                <th class="right" data-tip="Average losing trade.">Avg Loss</th>
+              </tr>
+            </thead>
+            <tbody id="pnlBySymbolBody"><tr><td colspan="8" class="placeholder">Open P&amp;L tab and load data to see attribution.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">Performance by Day of Week</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-tip="Day of week.">Day</th>
+                <th class="right" data-tip="Number of closed trades on this day.">Trades</th>
+                <th class="right" data-tip="Win rate for trades closed on this day.">Win Rate</th>
+                <th class="right" data-tip="Total realized P&amp;L for this day of week.">Realized P&amp;L</th>
+                <th data-tip="Relative P&amp;L bar.">Distribution</th>
+              </tr>
+            </thead>
+            <tbody id="dowBody"><tr><td colspan="5" class="placeholder">Load P&amp;L data to see day-of-week breakdown.</td></tr></tbody>
+          </table>
         </div>
       </section>
 
@@ -1317,7 +1410,7 @@
       <section>
         <div class="gg-toolbar">
           <div>
-            <div class="section-title" style="margin-bottom:2px">🔥 Gap &amp; Go — Pre-Session Analysis</div>
+            <div class="section-title" style="margin-bottom:2px">📊 Breakout Scanner — Pre-Session Analysis</div>
             <div id="ggLastUpdated" style="font-size:12px;color:var(--muted)">Click "Run Analysis" to fetch live data</div>
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -1327,7 +1420,7 @@
         </div>
 
         <div class="gg-legend">
-          <span><span class="pill green" style="font-size:9px">HIGH</span> Gap &amp; Go likelihood — momentum aligned, volume confirms</span>
+          <span><span class="pill green" style="font-size:9px">HIGH</span> Breakout Scanner likelihood — momentum aligned, volume confirms</span>
           <span><span class="pill yellow" style="font-size:9px">MEDIUM</span> Mixed signals — wait for ORB confirmation</span>
           <span><span class="pill red" style="font-size:9px">LOW</span> Fade risk — avoid chasing, watch for reversal</span>
           <span><span class="pill red" style="font-size:9px">⚠ AVOID</span> Downtrend + negative gap or very high risk</span>
@@ -1336,7 +1429,7 @@
 
         <div id="ggContainer">
           <div class="placeholder" style="padding:48px">
-            ▶ Click <strong>Run Analysis</strong> to fetch the latest price data and generate the full Gap &amp; Go playbook for all 10 watchlist symbols.
+            ▶ Click <strong>Run Analysis</strong> to fetch the latest price data and generate the full Breakout Scanner playbook for all 10 watchlist symbols.
           </div>
         </div>
       </section>
@@ -1720,18 +1813,33 @@
     }
 
 
+    let _autoMode = 0; // 0 = off, 1 = prices only (15s), 2 = full (60s)
+
     function toggleAutoRefresh() {
-      const btn = document.getElementById("autoRefreshBtn");
-      if (autoRefreshTimer) {
-        clearInterval(autoRefreshTimer);
-        autoRefreshTimer = null;
+      const btn = $("autoRefreshBtn");
+      // Clear all timers
+      if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
+      if (_tickerTimer)     { clearInterval(_tickerTimer);     _tickerTimer = null; }
+
+      _autoMode = (_autoMode + 1) % 3;
+
+      if (_autoMode === 0) {
         btn.textContent = "⟳ Auto OFF";
         btn.style.color = "var(--muted)";
+      } else if (_autoMode === 1) {
+        // Prices-only: ticker every 15s
+        loadTickerStrip();
+        _tickerTimer = setInterval(loadTickerStrip, 15000);
+        btn.textContent = "⟳ Prices 15s";
+        btn.style.color = "var(--yellow)";
       } else {
-        autoRefreshTimer = setInterval(() => { refreshCurrent(); }, 60000);
-        btn.textContent = "⟳ Auto ON";
-        btn.style.color = "var(--green)";
+        // Full: ticker every 15s + full dashboard every 60s
+        loadTickerStrip();
         refreshCurrent();
+        _tickerTimer     = setInterval(loadTickerStrip, 15000);
+        autoRefreshTimer = setInterval(refreshCurrent, 60000);
+        btn.textContent = "⟳ Full 60s";
+        btn.style.color = "var(--green)";
       }
     }
 
@@ -2049,6 +2157,70 @@
           </div>
         </div>
       `).join("");
+
+      // Live Hard Rules panel
+      const hardEl = $("hardRulesLive");
+      if (hardEl) {
+        const nearStop = c.positions.filter(p => {
+          const entry = Number(p.avg_entry_price || 0);
+          const cur   = Number(p.current_price   || 0);
+          return entry ? (cur - entry) / entry * 100 <= -3 : false;
+        });
+        const atStop = nearStop.filter(p => {
+          const entry = Number(p.avg_entry_price || 0);
+          const cur   = Number(p.current_price   || 0);
+          return entry ? (cur - entry) / entry * 100 <= -5 : false;
+        });
+
+        const hRules = [
+          {
+            label: "Cash reserve ≥ 20%",
+            value: fmt(c.cashPct,1) + "% cash ($" + fmt(c.cash) + ")",
+            level: c.cashPct < 20 ? "red" : c.cashPct < 25 ? "yellow" : "green",
+            note:  c.cashPct < 20 ? "⚠ BREACH — no new entries allowed" : "OK"
+          },
+          {
+            label: "Daily loss ≤ " + L.maxDailyLossPct + "%",
+            value: pct(c.dayPct) + " today (" + plSign(c.dayPL) + ")",
+            level: c.dayPct <= -L.maxDailyLossPct ? "red" : c.dayPct <= -L.warningDailyLossPct ? "yellow" : "green",
+            note:  c.dayPct <= -L.maxDailyLossPct ? "⚠ STOP TRADING — daily limit hit" : "OK"
+          },
+          {
+            label: "Open risk ≤ " + L.maxOpenRiskPct + "% equity",
+            value: fmt(c.assumedOpenRiskPct,2) + "% ($" + fmt(c.assumedOpenRisk) + ")",
+            level: c.assumedOpenRiskPct >= L.maxOpenRiskPct ? "red" : c.assumedOpenRiskPct >= L.warningOpenRiskPct ? "yellow" : "green",
+            note:  c.assumedOpenRiskPct >= L.maxOpenRiskPct ? "⚠ BREACH — reduce exposure" : "OK"
+          },
+          {
+            label: "Current drawdown ≤ " + L.maxCurrentDrawdownPct + "%",
+            value: pct(c.dd.currentDDPct) + " from peak",
+            level: Math.abs(c.dd.currentDDPct) >= L.maxCurrentDrawdownPct ? "red" : Math.abs(c.dd.currentDDPct) >= L.warningCurrentDrawdownPct ? "yellow" : "green",
+            note:  Math.abs(c.dd.currentDDPct) >= L.maxCurrentDrawdownPct ? "⚠ BREACH — stop and review" : "OK"
+          },
+          {
+            label: "Stop-loss at −5%",
+            value: atStop.length ? atStop.length + " position(s) AT stop" : nearStop.length ? nearStop.length + " position(s) within 2% of stop" : "All positions clear",
+            level: atStop.length ? "red" : nearStop.length ? "yellow" : "green",
+            note:  atStop.length ? "⚠ IMMEDIATE CLOSE REQUIRED" : nearStop.length ? "⚠ Monitor closely — approaching stop" : "OK — no positions near −5%"
+          },
+          {
+            label: "Limit orders only",
+            value: c.openOrders.length + " open order(s)",
+            level: "green",
+            note:  "Policy enforced by scripts/trade.py"
+          }
+        ];
+
+        hardEl.innerHTML = hRules.map(r => `
+          <div class="rule-row">
+            <div class="rule-dot ${r.level}"></div>
+            <div>
+              <b>${r.label}</b> — <span style="color:var(--muted)">${r.value}</span><br>
+              <span class="small" style="color:${r.level === "red" ? "var(--red)" : r.level === "yellow" ? "var(--yellow)" : "var(--muted)"}">${r.note}</span>
+            </div>
+          </div>
+        `).join("");
+      }
     }
 
     function renderPerformance(c) {
@@ -2158,7 +2330,7 @@
               </tr>
             `;
           }).join("")
-        : '<tr><td colspan="6" class="placeholder">No open positions</td></tr>';
+        : '<tr><td colspan="7" class="placeholder">No open positions</td></tr>';
 
       renderDrawdownChart(c);
     }
@@ -2188,7 +2360,16 @@
             const stopPct = entry ? (current - entry) / entry * 100 : null;
             const stopDist = stopPct == null ? "–" : fmt(stopPct, 1) + "%";
             const stopRemainder = stopPct == null ? "" : fmt(-5 - stopPct, 1) + "% to stop";
-            const stopCls = stopPct != null && stopPct <= -3 ? "neg" : stopPct != null && stopPct <= -1.5 ? "" : "";
+            const stopCls = stopPct != null && stopPct <= -3 ? "neg" : "";
+
+            // Stop $, Target $, Live R:R
+            const stopPrice   = entry ? entry * 0.95  : null;
+            const targetPrice = entry ? entry * 1.10  : null;
+            const rrRaw = (stopPrice && targetPrice && current > stopPrice)
+              ? (targetPrice - current) / (current - stopPrice)
+              : null;
+            const rrStr  = rrRaw !== null ? fmt(rrRaw, 2) + ":1" : current && stopPrice && current <= stopPrice ? "AT STOP" : "–";
+            const rrCls  = rrRaw === null ? "neg" : rrRaw >= 2 ? "rr-good" : rrRaw >= 1 ? "rr-warn" : "rr-bad";
 
             return `
               <tr>
@@ -2201,6 +2382,9 @@
                 <td class="right ${plClass(unreal)}">${plSign(unreal)}</td>
                 <td class="right ${plClass(unrealPct)}">${pct(unrealPct)}</td>
                 <td class="right ${stopCls}" data-tip="Current P&L % vs −5% hard stop. Red = within 2% of stop.">${stopDist}<br><span class="small">${stopRemainder}</span></td>
+                <td class="right mono" data-tip="Hard stop = entry × 0.95 (−5% rule)">${stopPrice ? fmtPrice(stopPrice) : "–"}</td>
+                <td class="right mono" data-tip="Take-profit = entry × 1.10 (+10% rule)">${targetPrice ? fmtPrice(targetPrice) : "–"}</td>
+                <td class="right ${rrCls}" data-tip="Live R:R = (target − current) ÷ (current − stop)">${rrStr}</td>
                 <td>
                   <div class="trade-actions">
                     <button class="trade-action-btn" data-tip="Open a paper limit-order ticket to buy this symbol." onclick="openTradeModal('${orderSymbol}','${displaySymbol}','buy','',${current || 0})">Buy</button>
@@ -2210,7 +2394,7 @@
               </tr>
             `;
           }).join("")
-        : '<tr><td colspan="10" class="placeholder">No open positions</td></tr>';
+        : '<tr><td colspan="13" class="placeholder">No open positions</td></tr>';
     }
 
     function renderExecution(c) {
@@ -2785,6 +2969,8 @@
 
     if (getSettings().apiKey && getSettings().apiSecret) {
       loadDashboard();
+      loadTickerStrip();
+      _tickerTimer = setInterval(loadTickerStrip, 15000);
     } else {
       $("commandKpis").innerHTML = [
         kpi("Connection", "Not configured", "Go to Settings and add Alpaca credentials"),
@@ -3037,7 +3223,116 @@
     // ═══════════════════════════════════════════════════════════════════════
 
     const DATA_URL = "https://data.alpaca.markets";
-    let _signalCache = null;
+    let _signalCache  = null;
+    let _prevScoreMap = {};       // sym → previous scan score
+    let _corrCache    = null;     // correlation matrix populated by loadSignals
+    let _tickerTimer  = null;     // independent 15s ticker interval
+
+    // ── Live price ticker strip ──────────────────────────────────────────────
+
+    async function loadTickerStrip() {
+      const s = getSettings();
+      if (!s.apiKey || !s.apiSecret) return;
+      const WATCH = ["BTC/USD","ETH/USD","SOL/USD","AVAX/USD","LINK/USD","DOT/USD","LTC/USD","DOGE/USD","ADA/USD","AAVE/USD"];
+      const joined = WATCH.map(encodeURIComponent).join(",");
+      try {
+        const resp = await fetch(`${DATA_URL}/v1beta3/crypto/us/snapshots?symbols=${joined}`, { headers: getHeaders() });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        renderTickerStrip(data.snapshots || {}, WATCH);
+      } catch(e) { /* silent — ticker is best-effort */ }
+    }
+
+    function renderTickerStrip(snapshots, symbols) {
+      const el = $("tickerStrip");
+      if (!el) return;
+      const html = symbols.map(sym => {
+        const snap = snapshots[sym] || snapshots[sym.replace("/","")] || null;
+        const base = sym.replace("/USD","");
+        if (!snap) {
+          return `<div class="ticker-item"><div class="ticker-sym">${base}</div><div class="ticker-price" style="color:var(--muted)">–</div></div>`;
+        }
+        const price  = snap.latestTrade ? snap.latestTrade.p : (snap.dailyBar ? snap.dailyBar.c : null);
+        const ref    = snap.prevDailyBar ? snap.prevDailyBar.c : (snap.dailyBar ? snap.dailyBar.o : null);
+        const chgPct = (price && ref) ? (price - ref) / ref * 100 : null;
+        const cls    = chgPct === null ? "" : chgPct >= 0 ? "pos" : "neg";
+        const chgStr = chgPct === null ? "" : (chgPct >= 0 ? "+" : "") + fmt(chgPct, 2) + "%";
+        const dec    = price ? (price < 0.01 ? 6 : price < 1 ? 4 : price < 100 ? 2 : 0) : 2;
+        return `<div class="ticker-item" data-tip="${sym} · Last: $${price ? fmt(price,dec) : "–"} · 24h: ${chgStr || "–"}">
+          <div class="ticker-sym">${base}</div>
+          <div class="ticker-price">${price ? "$" + fmt(price, dec) : "–"}</div>
+          ${chgStr ? `<div class="ticker-chg ${cls}">${chgStr}</div>` : ""}
+        </div>`;
+      }).join("");
+      el.innerHTML = html;
+    }
+
+    // ── Correlation matrix helpers ───────────────────────────────────────────
+
+    function computeCorrelationMatrix(barsMap, symbols) {
+      const returns = {};
+      for (const sym of symbols) {
+        const bars = barsMap[sym] || barsMap[sym.replace("/","")] || [];
+        const closes = bars.map(b => b.c);
+        if (closes.length < 10) { returns[sym] = []; continue; }
+        const r = [];
+        for (let i = 1; i < closes.length; i++) r.push(Math.log(closes[i] / closes[i-1]));
+        returns[sym] = r;
+      }
+      const matrix = {};
+      for (const a of symbols) {
+        matrix[a] = {};
+        for (const b of symbols) {
+          if (a === b) { matrix[a][b] = 1; continue; }
+          const ra = returns[a], rb = returns[b];
+          const n = Math.min(ra.length, rb.length);
+          if (n < 10) { matrix[a][b] = null; continue; }
+          const xa = ra.slice(-n), xb = rb.slice(-n);
+          const ma = xa.reduce((s,v) => s+v, 0) / n;
+          const mb = xb.reduce((s,v) => s+v, 0) / n;
+          let num = 0, da = 0, db = 0;
+          for (let i = 0; i < n; i++) {
+            const ai = xa[i] - ma, bi = xb[i] - mb;
+            num += ai * bi; da += ai * ai; db += bi * bi;
+          }
+          matrix[a][b] = (da && db) ? num / Math.sqrt(da * db) : null;
+        }
+      }
+      return matrix;
+    }
+
+    function renderCorrelationHeatmap(matrix, symbols) {
+      const el = $("corrHeatmap");
+      if (!el) return;
+      const names = symbols.map(s => s.replace("/USD",""));
+      const colorFor = r => {
+        if (r === null) return "rgba(255,255,255,.06)";
+        if (r >= 0) { const a = (r * 0.75 + 0.12).toFixed(2); return `rgba(88,166,255,${a})`; }
+        const a = (Math.abs(r) * 0.75 + 0.12).toFixed(2); return `rgba(248,81,73,${a})`;
+      };
+      let html = `<div style="font-size:10px;color:var(--muted);margin-bottom:6px">Pairwise ρ of daily log-returns. Blue = positive, red = negative.</div>`;
+      html += `<div class="corr-wrap"><table><tr><td></td>`;
+      for (const n of names) html += `<td class="corr-head">${n.slice(0,4)}</td>`;
+      html += `</tr>`;
+      for (let i = 0; i < symbols.length; i++) {
+        html += `<tr><td class="corr-head" style="text-align:right;padding-right:4px">${names[i].slice(0,4)}</td>`;
+        for (let j = 0; j < symbols.length; j++) {
+          const r = (matrix[symbols[i]] || {})[symbols[j]];
+          const bg = colorFor(i === j ? 1 : r);
+          const val = i === j ? "1" : (r !== null ? (r >= 0 ? "+" : "") + fmt(r, 1).replace("-","−") : "–");
+          const tc  = Math.abs(r||0) > 0.5 || i === j ? "#fff" : "var(--text)";
+          html += `<td class="corr-cell" style="background:${bg}" data-tip="${symbols[i]} vs ${symbols[j]}: ρ = ${r !== null ? fmt(r,2) : 'n/a'}"><span style="color:${tc}">${val}</span></td>`;
+        }
+        html += `</tr>`;
+      }
+      html += `</table></div>`;
+      html += `<div style="display:flex;gap:12px;margin-top:6px;font-size:10px;color:var(--muted)">
+        <span><span style="display:inline-block;width:10px;height:10px;background:rgba(88,166,255,.75);border-radius:2px;vertical-align:middle;margin-right:3px"></span>High +ve</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:rgba(255,255,255,.1);border-radius:2px;vertical-align:middle;margin-right:3px"></span>Low</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:rgba(248,81,73,.75);border-radius:2px;vertical-align:middle;margin-right:3px"></span>Negative</span>
+      </div>`;
+      el.innerHTML = html;
+    }
 
     // Compute an ISO-8601 UTC start timestamp for the bar fetch.
     // ROOT CAUSE FIX (mirrors run_evaluation.py): Alpaca's crypto bar endpoint
@@ -3095,10 +3390,10 @@
     async function loadSignals() {
       const s = getSettings();
       if (!s.apiKey || !s.apiSecret) {
-        $("signalBody").innerHTML = '<tr><td colspan="11" class="placeholder">Configure API credentials in Settings first.</td></tr>';
+        $("signalBody").innerHTML = '<tr><td colspan="13" class="placeholder">Configure API credentials in Settings first.</td></tr>';
         return;
       }
-      $("signalBody").innerHTML = '<tr><td colspan="11" class="placeholder">Scanning all symbols…</td></tr>';
+      $("signalBody").innerHTML = '<tr><td colspan="13" class="placeholder">Scanning all symbols…</td></tr>';
       $("signalKpis").innerHTML = kpi("Status", "Scanning…", "Fetching bars from Alpaca Data API");
 
       const SYMBOLS = ["BTC/USD","ETH/USD","SOL/USD","AVAX/USD","LINK/USD","DOT/USD","LTC/USD","DOGE/USD","ADA/USD","AAVE/USD"];
@@ -3110,8 +3405,14 @@
           fetchBars(SYMBOLS, "1Day", 60)
         ]);
 
+        // Compute and cache correlation matrix from daily bars
+        if (barsD) {
+          _corrCache = computeCorrelationMatrix(barsD, SYMBOLS);
+          renderCorrelationHeatmap(_corrCache, SYMBOLS);
+        }
+
         if (!bars15) {
-          $("signalBody").innerHTML = '<tr><td colspan="11" class="placeholder">Error fetching bars — check API credentials.</td></tr>';
+          $("signalBody").innerHTML = '<tr><td colspan="13" class="placeholder">Error fetching bars — check API credentials.</td></tr>';
           return;
         }
 
@@ -3184,24 +3485,67 @@
           return "";
         };
 
+        // ATR qty helper (uses last loaded account equity if available)
+        const equity = lastContext ? lastContext.equity : 0;
+
         $("signalBody").innerHTML = rows.map(row => {
-          if (row.error) return `<tr><td><span class="symbol">${row.sym}</span></td><td colspan="10" style="color:var(--muted)">${row.error}</td></tr>`;
+          if (row.error) return `<tr><td><span class="symbol">${row.sym}</span></td><td colspan="12" style="color:var(--muted)">${row.error}</td></tr>`;
           const emaLabel = (row.ema20 > row.ema50) ? "Golden" : "Death";
           const regime4hLabel = (row.ema4h_20 > row.ema4h_50) ? "Golden" : "Death";
           const regime4hCls = (row.ema4h_20 > row.ema4h_50) ? "pos" : "neg";
+
+          // Trend arrow vs previous scan
+          const prevScore = _prevScoreMap[row.sym];
+          const trendHtml = prevScore === undefined
+            ? '<span class="trend-flat" data-tip="First scan — no previous score">–</span>'
+            : row.score > prevScore
+              ? `<span class="trend-up" data-tip="Improved from ${prevScore}">↑</span>`
+              : row.score < prevScore
+                ? `<span class="trend-down" data-tip="Weakened from ${prevScore}">↓</span>`
+                : '<span class="trend-flat" data-tip="Unchanged">→</span>';
+
+          // ATR-based suggested qty
+          let qtyHtml = "–";
+          if (equity && row.atr && row.lastClose) {
+            const ask     = row.lastClose;
+            const capPct  = (PORTFOLIO_CAPS[row.sym] || PORTFOLIO_CAPS[row.sym.replace("/","")] || 5) / 100;
+            const maxRisk = equity * 0.01;
+            const stopDist= row.atr * 1.5;
+            const rawQty  = maxRisk / stopDist;
+            const capQty  = (equity * capPct) / ask;
+            const sugQty  = Math.min(rawQty, capQty);
+            const notional= sugQty * ask;
+            const isCapLimited = capQty < rawQty;
+            qtyHtml = `<span class="small ${isCapLimited ? "" : ""}" data-tip="ATR qty: 1% risk → raw ${fmt(rawQty,4)} · cap-limited to ${fmt(capQty,4)} · notional ≈ $${fmt(notional,0)} · stop dist $${fmt(stopDist, ask<1?4:2)}">${fmt(sugQty, sugQty < 0.01 ? 6 : sugQty < 1 ? 4 : 2)}${isCapLimited ? " ⌐" : ""}</span>`;
+          }
+
+          // Quick BUY button — opens trade modal pre-filled with ATR qty
+          const quickFillQty = (equity && row.atr && row.lastClose) ? (() => {
+            const ask = row.lastClose;
+            const capPct = (PORTFOLIO_CAPS[row.sym] || 5) / 100;
+            const sugQty = Math.min(equity * 0.01 / (row.atr * 1.5), (equity * capPct) / ask);
+            return fmt(sugQty, sugQty < 0.01 ? 6 : sugQty < 1 ? 4 : 2).replace(/,/g,"");
+          })() : "";
+          const orderSym = row.sym.replace("/","");
+
           return `
             <tr>
               <td><span class="symbol">${row.sym}</span></td>
               <td class="right mono">${row.lastClose ? fmtPrice(row.lastClose) : "–"}</td>
               <td class="right">${scoreBar(row.score)}</td>
+              <td style="text-align:center">${trendHtml}</td>
               <td class="${emaCls(row)}">${emaLabel}</td>
-              <td class="right ${row.rsi >= 70 ? "neg" : row.rsi < 30 ? "pos" : ""}">${row.rsi !== null ? row.rsi : "–"}</td>
+              <td class="right ${row.rsi >= 70 ? "neg" : row.rsi < 30 ? "pos" : ""}">${row.rsi !== null ? fmt(row.rsi, 1) : "–"}</td>
               <td class="${macdCls(row)}">${row.signals && row.signals.macd ? row.signals.macd.replace(/[+−0]\s/, "") : "–"}</td>
               <td class="right ${row.bb && row.bb.pb < 0.25 ? "pos" : row.bb && row.bb.pb > 0.75 ? "neg" : ""}">${row.bb ? fmt(row.bb.pb, 2) : "–"}</td>
               <td class="right ${row.volRatio >= 1.2 ? "pos" : row.volRatio < 0.7 ? "neg" : ""}">${row.volRatio !== null ? fmt(row.volRatio, 2) + "×" : "–"}</td>
               <td class="${regime4hCls}">${regime4hLabel}</td>
               <td class="${regimeCls(row)}">${row.dailyRegime}</td>
-              <td>${actionPill(row)}</td>
+              <td class="right">${qtyHtml}</td>
+              <td>
+                ${actionPill(row)}
+                ${row.score >= 3 && row.lastClose ? `<button class="trade-action-btn" style="margin-top:3px;font-size:10px" data-tip="Open trade modal pre-filled with ATR-based qty" onclick="openTradeModal('${orderSym}','${row.sym}','buy','${quickFillQty}',${row.lastClose})">⚡ Fill</button>` : ""}
+              </td>
             </tr>
           `;
         }).join("");
@@ -3244,10 +3588,15 @@
           kpi("Avg Score", scores.length ? fmt(scores.reduce((a,b)=>a+b,0)/scores.length, 1) : "–", "Mean confluence score")
         ].join("");
 
+        // Save scores for next scan's trend arrows
+        const newMap = {};
+        rows.filter(r => r.score !== null).forEach(r => { newMap[r.sym] = r.score; });
+        _prevScoreMap = newMap;
+
         _signalCache = rows;
 
       } catch(e) {
-        $("signalBody").innerHTML = `<tr><td colspan="11" class="placeholder">Error: ${e.message}</td></tr>`;
+        $("signalBody").innerHTML = `<tr><td colspan="13" class="placeholder">Error: ${e.message}</td></tr>`;
       }
     }
 
@@ -3346,6 +3695,63 @@
 
         // Render P&L calendar heatmap
         renderPnlCalendar(_pnlTradeRows);
+
+        // ── P&L attribution by symbol ─────────────────────────────────────
+        const bySymbol = {};
+        _pnlTradeRows.filter(t => t.pnl !== null).forEach(t => {
+          if (!bySymbol[t.sym]) bySymbol[t.sym] = { wins: 0, losses: 0, totalPnl: 0, winPnl: 0, lossPnl: 0 };
+          bySymbol[t.sym].totalPnl += t.pnl;
+          if (t.pnl >= 0) { bySymbol[t.sym].wins++;   bySymbol[t.sym].winPnl  += t.pnl; }
+          else             { bySymbol[t.sym].losses++; bySymbol[t.sym].lossPnl += Math.abs(t.pnl); }
+        });
+        const symRows = Object.entries(bySymbol)
+          .sort((a,b) => b[1].totalPnl - a[1].totalPnl)
+          .map(([sym, d]) => {
+            const total  = d.wins + d.losses;
+            const wr     = total   ? d.wins / total * 100  : 0;
+            const pf     = d.lossPnl > 0 ? d.winPnl / d.lossPnl : null;
+            const avgW   = d.wins   ? d.winPnl / d.wins   : null;
+            const avgL   = d.losses ? d.lossPnl / d.losses : null;
+            return `<tr>
+              <td><span class="symbol">${toSlash(sym)}</span></td>
+              <td class="right">${total}</td>
+              <td class="right">${d.wins}W / ${d.losses}L</td>
+              <td class="right ${wr >= 50 ? "pos" : "neg"}">${fmt(wr,1)}%</td>
+              <td class="right ${plClass(d.totalPnl)}">${plSign(d.totalPnl)}</td>
+              <td class="right ${pf !== null && pf >= 1 ? "pos" : "neg"}">${pf !== null ? fmt(pf,2) : "–"}</td>
+              <td class="right pos">${avgW !== null ? "$" + fmt(avgW) : "–"}</td>
+              <td class="right neg">${avgL !== null ? "$" + fmt(avgL) : "–"}</td>
+            </tr>`;
+          }).join("");
+        if ($("pnlBySymbolBody")) {
+          $("pnlBySymbolBody").innerHTML = symRows || '<tr><td colspan="8" class="placeholder">No realized P&amp;L data.</td></tr>';
+        }
+
+        // ── Day-of-week analysis ──────────────────────────────────────────
+        const DOW_LABELS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+        const dowData = {};
+        _pnlTradeRows.filter(t => t.pnl !== null && t.date).forEach(t => {
+          const dow = new Date(t.date + "T12:00:00Z").getDay();
+          if (!dowData[dow]) dowData[dow] = { pnl: 0, trades: 0, wins: 0 };
+          dowData[dow].pnl += t.pnl; dowData[dow].trades++;
+          if (t.pnl >= 0) dowData[dow].wins++;
+        });
+        const maxDowAbs = Math.max(...Object.values(dowData).map(d => Math.abs(d.pnl)), 1);
+        const dowRows = [1,2,3,4,5,6,0].map(d => {
+          const row = dowData[d];
+          if (!row) return `<tr><td>${DOW_LABELS[d]}</td><td class="right" style="color:var(--muted)">–</td><td class="right" style="color:var(--muted)">–</td><td class="right" style="color:var(--muted)">–</td><td></td></tr>`;
+          const wr   = row.trades ? row.wins / row.trades * 100 : 0;
+          const barW = Math.round(Math.abs(row.pnl) / maxDowAbs * 100);
+          const barC = row.pnl >= 0 ? "#3fb950" : "#f85149";
+          return `<tr>
+            <td>${DOW_LABELS[d]}</td>
+            <td class="right">${row.trades}</td>
+            <td class="right ${wr >= 50 ? "pos" : "neg"}">${fmt(wr,1)}%</td>
+            <td class="right ${plClass(row.pnl)}">${plSign(row.pnl)}</td>
+            <td><span class="dow-bar" style="width:${barW}%;background:${barC}"></span></td>
+          </tr>`;
+        }).join("");
+        if ($("dowBody")) $("dowBody").innerHTML = dowRows;
 
         // Trade log
         $("pnlTradeBody").innerHTML = _pnlTradeRows.length
