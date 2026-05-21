@@ -3483,6 +3483,27 @@
       return allBars;
     }
 
+    // Fetches bars for a large symbol list by splitting into batches of batchSize.
+    // A single invalid symbol can cause the Alpaca API to reject the whole request,
+    // so batching ensures one bad symbol only silences its own batch of 10.
+    async function fetchBarsInBatches(symbols, timeframe, limit, batchSize = 10) {
+      const allBars = {};
+      let anySuccess = false;
+      for (let i = 0; i < symbols.length; i += batchSize) {
+        const batch = symbols.slice(i, i + batchSize);
+        try {
+          const result = await fetchBars(batch, timeframe, limit);
+          if (result) {
+            anySuccess = true;
+            Object.assign(allBars, result);
+          }
+        } catch(e) {
+          console.warn("fetchBarsInBatches: batch failed", batch, e);
+        }
+      }
+      return anySuccess ? allBars : null;
+    }
+
     async function loadSignals() {
       const s = getSettings();
       if (!s.apiKey || !s.apiSecret) {
@@ -4917,7 +4938,7 @@
         const joined = TOP30_SYMBOLS.map(encodeURIComponent).join(",");
         const [snapResp, dailyBars] = await Promise.all([
           fetch(DATA_URL + "/v1beta3/crypto/us/snapshots?symbols=" + joined, { headers: getHeaders() }),
-          fetchBars(TOP30_SYMBOLS, "1Day", 10)
+          fetchBarsInBatches(TOP30_SYMBOLS, "1Day", 10)
         ]);
         const snaps = snapResp.ok ? ((await snapResp.json()).snapshots || {}) : {};
 
@@ -4990,9 +5011,9 @@
 
       try {
         const [bars15, bars4h, barsD] = await Promise.all([
-          fetchBars(TOP30_SYMBOLS, "15Min", 120),
-          fetchBars(TOP30_SYMBOLS, "4Hour", 60),
-          fetchBars(TOP30_SYMBOLS, "1Day",  60)
+          fetchBarsInBatches(TOP30_SYMBOLS, "15Min", 120),
+          fetchBarsInBatches(TOP30_SYMBOLS, "4Hour", 60),
+          fetchBarsInBatches(TOP30_SYMBOLS, "1Day",  60)
         ]);
         if (!bars15) {
           document.getElementById("msTableBody").innerHTML =
