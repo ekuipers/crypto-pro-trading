@@ -58,6 +58,12 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | Correlation heatmap | 10×10 Pearson ρ matrix of daily log-returns; shown in Risk tab |
 | Trend arrow | ↑/↓/→ indicator in Signals tab comparing current confluence score to previous scan |
 | Quick-buy (⚡) | Signals tab button for setups scoring ≥ 3; pre-fills trade modal with ATR-sized qty |
+| TOP30_SYMBOLS | 30-element JS array in the dashboard covering the top crypto by market cap available on Alpaca (stablecoins and BNB excluded) |
+| TOP30_INFO | JS object keyed by symbol; stores `rank`, `tier` (Mega/Large/Mid/Small), `capLabel`, and `name` for each of the 30 symbols |
+| Market Overview tab | Dashboard tab showing live price, 24h%, 7d%, volume, trend and cap tier for all 30 symbols; auto-loads on open; includes momentum heatmap |
+| Market Signals tab | Dashboard tab running the full 6-point confluence scan across all 30 symbols on demand; same scoring engine as the watchlist Signals tab |
+| _msPrevScores | Dashboard JS cache (`{}` keyed by symbol) storing confluence scores from the last Market Signals scan; read by Market Overview to populate its Score column |
+| Cap tier | Classification of a crypto's market cap: Mega (>$100B), Large ($10B–$100B), Mid ($1B–$10B), Small (<$1B) |
 
 ---
 
