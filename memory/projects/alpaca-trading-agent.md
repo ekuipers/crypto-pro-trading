@@ -56,13 +56,21 @@ alpaca-trading-agent/
 
 ## Scheduled Tasks (Cowork)
 
-| Name | Cron | What it does |
-|------|------|-------------|
-| `morning-brief` | `0 7 * * *` | Runs verify.py + run_evaluation.py; writes ## Morning Brief block to journal; opens dashboard; gives Erik a short summary |
+| Name | Cron | Status | What it does |
+|------|------|--------|-------------|
+| `morning-brief` | `0 7 * * *` | enabled | Runs verify.py + run_evaluation.py; writes ## Morning Brief block to journal; opens dashboard; gives Erik a short summary |
+| `morning-evaluation` | `0 9 * * *` | **disabled** | Daily evaluation — compute signals for all watchlist symbols and execute trades where warranted |
+| `daily-journal` | `21 23 * * *` | enabled | Closing journal entry — summarise trades, P&L, and market observations |
 
 ---
 
 ## Session History
+
+### 2026-05-21 — Scheduled Task: morning-evaluation disabled
+
+- Disabled the `morning-evaluation` scheduled task (was: daily 09:02, enabled). No code changes; documentation updated only.
+
+---
 
 ### 2026-05-20 — Dashboard Professional: Ticker + Signals + Correlation + UX
 
