@@ -1487,6 +1487,7 @@
           <div class="section-title" style="margin-bottom:0">🔭 Market Signals — Top 30 Confluence Scanner</div>
           <span class="small">15-min bars · 4H regime · Daily gate</span>
           <button class="btn btn-green" onclick="loadMarketSignals()" style="margin-left:auto">▶ Scan All 30</button>
+          <button id="msHideBtn" class="btn" onclick="msToggleUnavailable()" data-tip="Hide symbols not available on Alpaca">👁 Show All</button>
         </div>
         <div id="msKpis" class="grid-3" style="margin-bottom:18px"></div>
         <div id="msLastUpdated" style="font-size:12px;color:var(--muted);margin-bottom:10px">Click "Scan All 30" to run full confluence analysis.</div>
@@ -5086,7 +5087,7 @@
         document.getElementById("msTableBody").innerHTML = rows.map(function(row) {
           const info = TOP30_INFO[row.sym] || { rank:"?" };
           if (row.error) {
-            return "<tr>" +
+            return '<tr data-unavailable="1">' +
               '<td style="color:var(--muted);font-size:12px">#' + info.rank + "</td>" +
               '<td><span class="symbol">' + row.sym.replace("/USD","") + "</span></td>" +
               '<td class="right mono" style="color:var(--muted)">' + moFmtPrice(row.livePrice) + "</td>" +
@@ -5167,6 +5168,16 @@
         if (upd) upd.textContent = "Error";
         console.error("loadMarketSignals:", e);
       }
+    }
+
+    let _msHideUnavailable = false;
+    function msToggleUnavailable() {
+      _msHideUnavailable = !_msHideUnavailable;
+      const btn = document.getElementById("msHideBtn");
+      document.querySelectorAll("#msTableBody tr[data-unavailable]").forEach(function(tr) {
+        tr.style.display = _msHideUnavailable ? "none" : "";
+      });
+      if (btn) btn.textContent = _msHideUnavailable ? "👁 Show All" : "👁 Hide Unavailable";
     }
 
   </script>
