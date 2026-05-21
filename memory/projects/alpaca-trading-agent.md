@@ -68,6 +68,12 @@ alpaca-trading-agent/
 
 ### 2026-05-21 — Dashboard: Market Overview + Market Signals tabs added
 
+### 2026-05-21 — Dashboard: Signals tab execute button
+
+- Added `▶ Execute` direct execution buttons to `docs/dashboard_professional.html` on Signals tab rows.
+- The button submits the existing ATR-based paper order quantity immediately in paper mode, while preserving the live-mode guard.
+
+
 **Two new tabs added to `docs/dashboard_professional.html` (now 12 tabs total):**
 
 - **🌍 Market Overview** — loads automatically on tab open. Fetches live price, 24h%, 7d% (from daily bars), USD volume, and trend direction for 30 crypto symbols ranked by market cap (`TOP30_SYMBOLS`). Sortable by rank, 24h% up/down, 7d%, or signal score. Includes a color-coded momentum heatmap below the table. Score column pulls from `_msPrevScores` cache set by a Market Signals scan.

@@ -277,7 +277,7 @@ Self-contained single-file HTML dashboard. Open locally in any browser — no se
 | Command tab | Live hard-rules panel (6 real-time checks), cash reserve gate, trade modal. |
 | Risk tab | Portfolio cap usage, 10×10 correlation heatmap (Pearson ρ, daily log-returns). |
 | Positions tab | P&L%, Stop $ (entry×0.95), Target $ (entry×1.10), Live R:R. |
-| Signals tab | Paginated bars fetch (follows `next_page_token`), trend arrows ↑↓→, ATR qty, ⚡ quick-buy. |
+| Signals tab | Paginated bars fetch (follows `next_page_token`), trend arrows ↑↓→, ATR qty, ⚡ quick-buy, and ▶ execute. |
 | P&L tab | FIFO P&L, calendar heatmap, attribution by symbol, day-of-week performance. |
 | Market Overview tab | Price, 24h%, 7d%, volume, trend and cap tier for 30 crypto symbols ranked by market cap. Sortable. Includes momentum heatmap. Score column auto-fills from last Market Signals scan. |
 | Market Signals tab | On-demand full 6-point confluence scanner for all 30 `TOP30_SYMBOLS`. Same scoring logic as Signals tab. Shows score distribution and Top Opportunities panel. Scores cached into `_msPrevScores` for cross-tab display. |

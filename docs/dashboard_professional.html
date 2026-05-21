@@ -2860,6 +2860,23 @@
       $("tradeModalBackdrop").style.display = "flex";
     }
 
+
+    function executeSignalTrade(orderSymbol, displaySymbol, side, qty, limitPrice) {
+      const settings = getSettings();
+
+      if (settings.mode === "live") {
+        alert("Live order execution is blocked by this dashboard. Switch to Paper Trading mode to submit a test order.");
+        return;
+      }
+
+      $("tradeSymbol").value = orderSymbol;
+      $("tradeSide").value = side || "buy";
+      $("tradeQty").value = qty || "";
+      $("tradeLimitPrice").value = limitPrice || "";
+
+      updateTradeSummary();
+      submitPaperTrade();
+    }
     function closeTradeModal() {
       $("tradeModalBackdrop").style.display = "none";
     }
@@ -3715,8 +3732,8 @@
               <td class="right">${qtyHtml}</td>
               <td>
                 ${actionPill(row)}
-                ${!down && row.score >= 3 && row.lastClose ? `<button class="trade-action-btn" style="margin-top:3px;font-size:10px" data-tip="Open BUY trade modal pre-filled with ATR-based qty" onclick="openTradeModal('${orderSym}','${row.sym}','buy','${quickFillQty}',${row.lastClose})">⚡ Buy</button>` : ""}
-                ${down && row.score <= -3 && row.lastClose ? `<button class="trade-close-btn" style="margin-top:3px;font-size:10px" data-tip="Open SHORT trade modal pre-filled with ATR-based qty" onclick="openTradeModal('${orderSym}','${row.sym}','sell','${quickFillQty}',${row.lastClose})">⚡ Short</button>` : ""}
+                ${!down && row.score >= 3 && row.lastClose ? `<button class="trade-action-btn" style="margin-top:3px;font-size:10px" data-tip="Open BUY trade modal pre-filled with ATR-based qty" onclick="openTradeModal('${orderSym}','${row.sym}','buy','${quickFillQty}',${row.lastClose})">⚡ Buy</button><button class="trade-action-btn" style="margin-top:3px;font-size:10px;margin-left:4px" data-tip="Execute BUY order immediately using this signal" onclick="executeSignalTrade('${orderSym}','${row.sym}','buy','${quickFillQty}',${row.lastClose})">▶ Execute</button>` : ""}
+                ${down && row.score <= -3 && row.lastClose ? `<button class="trade-close-btn" style="margin-top:3px;font-size:10px" data-tip="Open SHORT trade modal pre-filled with ATR-based qty" onclick="openTradeModal('${orderSym}','${row.sym}','sell','${quickFillQty}',${row.lastClose})">⚡ Short</button><button class="trade-action-btn" style="margin-top:3px;font-size:10px;margin-left:4px" data-tip="Execute SHORT order immediately using this signal" onclick="executeSignalTrade('${orderSym}','${row.sym}','sell','${quickFillQty}',${row.lastClose})">▶ Execute</button>` : ""}
               </td>
             </tr>
           `;

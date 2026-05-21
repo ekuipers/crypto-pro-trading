@@ -102,6 +102,7 @@ Key principles applied across both dashboards:
 - `barsStart()` helper computes ISO start date to cover the required bar count (mirrors `_bars_start()` in `run_evaluation.py`).
 - Scores EMA cross, MACD histogram, RSI, Bollinger %b, volume ratio, and 4H EMA regime.
 - Results table: symbol, score/6, individual signal breakdown, action (BUY/HOLD/SELL).
+- New ▶ execute button for BUY/SHORT rows that submits a paper order immediately using the signal's ATR qty and current price.
 - Browser notification fires when any symbol crosses score ≥ 4 (requires Notification API permission granted in Settings).
 
 #### P&L Tab

@@ -58,6 +58,7 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | Correlation heatmap | 10×10 Pearson ρ matrix of daily log-returns; shown in Risk tab |
 | Trend arrow | ↑/↓/→ indicator in Signals tab comparing current confluence score to previous scan |
 | Quick-buy (⚡) | Signals tab button for setups scoring ≥ 3; pre-fills trade modal with ATR-sized qty |
+| Execute button (▶) | Directly submits the signal row's ATR-sized paper order from the Signals tab without opening the trade modal |
 | TOP30_SYMBOLS | 30-element JS array in the dashboard covering the top crypto by market cap available on Alpaca (stablecoins and BNB excluded) |
 | TOP30_INFO | JS object keyed by symbol; stores `rank`, `tier` (Mega/Large/Mid/Small), `capLabel`, and `name` for each of the 30 symbols |
 | Market Overview tab | Dashboard tab showing live price, 24h%, 7d%, volume, trend and cap tier for all 30 symbols; auto-loads on open; includes momentum heatmap |
