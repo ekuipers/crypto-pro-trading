@@ -2,7 +2,7 @@
 
 **Status:** Active — paper trading only  
 **Account:** PA3EZEE1I9RS  
-**Root:** `C:\Users\An\OneDrive\Documenten\Claude\Projects\Alpaca\alpaca-trading-agent`  
+**Root:** `C:\Claude\Projects\alpaca-trading-agent`  
 **Owner:** Erik (the.eekman@gmail.com)  
 **Timezone:** GMT+2 (Europe/Amsterdam)
 
