@@ -14,11 +14,20 @@ Usage:
 Decision logic
 --------------
 For each symbol:
-  1. If we already hold it AND drawdown >= stop_loss_pct from entry  -> SELL (stop-loss)
-  2. If we already hold it AND signal score <= sell_score_threshold   -> SELL (bearish TA)
-  3. If we do NOT hold it AND signal score >= buy_score_threshold     -> BUY  (full size)
-  4. If we do NOT hold it AND signal score >= buy_score_half_size     -> BUY  (half size)
-  5. Otherwise                                                         -> HOLD
+  Long positions (qty > 0):
+  1. Drawdown >= stop_loss_pct from entry                              -> SELL (stop-loss)
+  2. Signal score <= sell_score_threshold                              -> SELL (bearish TA)
+
+  Short positions (qty < 0):
+  3. Adverse move >= stop_loss_pct from entry (price rose)            -> COVER (stop-loss)
+  4. Signal score >= cover_score_threshold (turned bullish)           -> COVER (TA cover)
+
+  No position:
+  5. Daily regime != downtrend AND score >= buy_score_threshold       -> BUY  (full size)
+  6. Daily regime != downtrend AND score >= buy_score_half_size       -> BUY  (half size)
+  7. Daily regime == downtrend AND score <= short_score_threshold     -> SHORT (full size)
+  8. Daily regime == downtrend AND score <= short_score_half_size     -> SHORT (half size)
+  9. Otherwise                                                         -> HOLD
 
 All thresholds are loaded from config.json at startup.
 
@@ -59,6 +68,7 @@ from risk import (
     LIMIT_BAND_PCT,
     STOP_LOSS_PCT,
     should_stop_out,
+    should_cover_short,
 )
 from trade import (
     DATA_URL,
@@ -92,12 +102,15 @@ _STRATEGY = _CFG.get("strategy", {})
 _DATA     = _CFG.get("data", {})
 
 # Strategy thresholds (all from config.json > strategy).
-BUY_SCORE_THRESHOLD  = float(_STRATEGY.get("buy_score_threshold",           4.0))
-BUY_SCORE_HALF_SIZE  = float(_STRATEGY.get("buy_score_half_size_threshold",  3.0))
-SELL_SCORE_THRESHOLD = float(_STRATEGY.get("sell_score_threshold",          -2.0))
-ATR_MULTIPLIER       = float(_STRATEGY.get("atr_multiplier",                 1.5))
-RISK_PER_TRADE_PCT   = float(_STRATEGY.get("risk_per_trade_pct",             0.01))
-FALLBACK_SIZE_PCT    = float(_STRATEGY.get("fallback_size_pct",              0.02))
+BUY_SCORE_THRESHOLD   = float(_STRATEGY.get("buy_score_threshold",            4.0))
+BUY_SCORE_HALF_SIZE   = float(_STRATEGY.get("buy_score_half_size_threshold",   3.0))
+SELL_SCORE_THRESHOLD  = float(_STRATEGY.get("sell_score_threshold",           -2.0))
+SHORT_SCORE_THRESHOLD = float(_STRATEGY.get("short_score_threshold",          -4.0))
+SHORT_SCORE_HALF_SIZE = float(_STRATEGY.get("short_score_half_size_threshold", -3.0))
+COVER_SCORE_THRESHOLD = float(_STRATEGY.get("cover_score_threshold",           2.0))
+ATR_MULTIPLIER        = float(_STRATEGY.get("atr_multiplier",                  1.5))
+RISK_PER_TRADE_PCT    = float(_STRATEGY.get("risk_per_trade_pct",              0.01))
+FALLBACK_SIZE_PCT     = float(_STRATEGY.get("fallback_size_pct",               0.02))
 
 # Bar-fetch sizes (all from config.json > data).
 BARS_FOR_INDICATORS  = int(_DATA.get("bars_15min",          200))
@@ -320,91 +333,141 @@ def evaluate_symbol(symbol: str, position_by_symbol: dict) -> dict:
         decision["entry_price"]   = entry
         decision["current_price"] = cur
 
-        # Hard stop — checked before TA, cannot be overridden.
-        if should_stop_out(entry, cur):
-            decision["action"]      = "SELL"
-            decision["qty"]         = qty_held
-            decision["limit_price"] = round(ask * (1 - LIMIT_BAND_PCT * 0.5), 4)
+        is_short = qty_held < 0
+
+        if is_short:
+            # ── Short position management ────────────────────────────────────
+            # Hard stop: cover if price rose >= stop_loss_pct above entry.
+            if should_cover_short(entry, cur):
+                decision["action"]      = "COVER"
+                decision["qty"]         = abs(qty_held)
+                decision["limit_price"] = round(ask * (1 + LIMIT_BAND_PCT * 0.5), 4)
+                decision["reason"] = (
+                    "COVER STOP-LOSS: entry $%.4f, current $%.4f (>= %d%% adverse move)"
+                    % (entry, cur, int(STOP_LOSS_PCT * 100))
+                )
+                return decision
+
+            # TA cover: score turned bullish enough to close the short.
+            if score >= COVER_SCORE_THRESHOLD:
+                decision["action"]      = "COVER"
+                decision["qty"]         = abs(qty_held)
+                decision["limit_price"] = round(ask * (1 + LIMIT_BAND_PCT * 0.5), 4)
+                decision["reason"] = (
+                    "TA COVER: score=%.1f >= %.1f" % (score, COVER_SCORE_THRESHOLD)
+                )
+                return decision
+
+            pct_from_entry = (entry - cur) / entry * 100 if entry else 0
             decision["reason"] = (
-                "STOP-LOSS: entry $%.4f, current $%.4f (>= %d%% drawdown)"
-                % (entry, cur, int(STOP_LOSS_PCT * 100))
+                "HOLD SHORT %.4f @ $%.4f (%.2f%% profit), score=%.1f"
+                % (abs(qty_held), entry, pct_from_entry, score)
             )
             return decision
 
-        # Discretionary exit on strongly bearish TA confluence.
-        if score <= SELL_SCORE_THRESHOLD:
-            decision["action"]      = "SELL"
-            decision["qty"]         = qty_held
-            decision["limit_price"] = round(ask * (1 - LIMIT_BAND_PCT * 0.5), 4)
+        else:
+            # ── Long position management ─────────────────────────────────────
+            # Hard stop — checked before TA, cannot be overridden.
+            if should_stop_out(entry, cur):
+                decision["action"]      = "SELL"
+                decision["qty"]         = qty_held
+                decision["limit_price"] = round(ask * (1 - LIMIT_BAND_PCT * 0.5), 4)
+                decision["reason"] = (
+                    "STOP-LOSS: entry $%.4f, current $%.4f (>= %d%% drawdown)"
+                    % (entry, cur, int(STOP_LOSS_PCT * 100))
+                )
+                return decision
+
+            # Discretionary exit on strongly bearish TA confluence.
+            if score <= SELL_SCORE_THRESHOLD:
+                decision["action"]      = "SELL"
+                decision["qty"]         = qty_held
+                decision["limit_price"] = round(ask * (1 - LIMIT_BAND_PCT * 0.5), 4)
+                decision["reason"] = (
+                    "TA SELL: score=%.1f <= %.1f" % (score, SELL_SCORE_THRESHOLD)
+                )
+                return decision
+
+            pct_from_entry = (cur - entry) / entry * 100 if entry else 0
             decision["reason"] = (
-                "TA SELL: score=%.1f <= %.1f" % (score, SELL_SCORE_THRESHOLD)
+                "HOLD %.4f @ $%.4f (%.2f%%), score=%.1f"
+                % (qty_held, entry, pct_from_entry, score)
             )
             return decision
 
-        pct_from_entry = (cur - entry) / entry * 100 if entry else 0
-        decision["reason"] = (
-            "HOLD %.4f @ $%.4f (%.2f%%), score=%.1f"
-            % (qty_held, entry, pct_from_entry, score)
-        )
-        return decision
+    # ── No position: evaluate new entry (long or short) ─────────────────────
 
-    # ── No position: evaluate new entry ─────────────────────────────────────
-    # Regime gate: block buys in a confirmed daily downtrend.
-    if decision["daily_regime"] == "downtrend":
-        decision["reason"] = (
-            "regime block: daily downtrend (last=%.4f < ma50=%.4f)"
-            % (decision.get("daily_last", 0), decision.get("daily_ma50", 0))
-        )
-        return decision
-
-    # Score gate: need at least buy_score_half_size to consider entry.
-    if score < BUY_SCORE_HALF_SIZE:
-        decision["reason"] = (
-            "no entry: score=%.1f < %.1f" % (score, BUY_SCORE_HALF_SIZE)
-        )
-        return decision
-
-    # Fetch account for sizing.
+    # Fetch account once — needed for sizing either direction.
     try:
         equity = float(get_account().get("equity") or 0)
     except Exception as e:
         decision["reason"] = "account fetch failed: " + repr(e)
         return decision
-    if ask <= 0:
-        decision["reason"] = "no live ask"
+    if ask <= 0 or bid <= 0:
+        decision["reason"] = "no live quote"
         return decision
 
-    # ATR-based sizing: risk RISK_PER_TRADE_PCT of equity per trade,
-    # stop = ATR_MULTIPLIER × ATR.  Hard cap: per-symbol cap from config.json > portfolio_caps.caps.
-    sym_cap_pct  = symbol_cap(symbol)
-    hard_cap_qty = round((equity * sym_cap_pct / ask) * 0.99, 4)
-    atr_val      = decision.get("atr")
-    if atr_val and atr_val > 0:
-        max_risk   = equity * RISK_PER_TRADE_PCT
-        stop_dist  = atr_val * ATR_MULTIPLIER
-        atr_qty    = round((max_risk / stop_dist) * 0.99, 4)
-        base_qty   = min(atr_qty, hard_cap_qty)
+    sym_cap_pct = symbol_cap(symbol)
+    atr_val     = decision.get("atr")
+
+    def _compute_qty(price: float) -> float:
+        """ATR-based sizing capped at the per-symbol cap, using given price."""
+        hard_cap = round((equity * sym_cap_pct / price) * 0.99, 4)
+        if atr_val and atr_val > 0:
+            max_risk  = equity * RISK_PER_TRADE_PCT
+            stop_dist = atr_val * ATR_MULTIPLIER
+            raw_qty   = round((max_risk / stop_dist) * 0.99, 4)
+            return min(raw_qty, hard_cap)
+        return min(round((equity * FALLBACK_SIZE_PCT / price) * 0.99, 4), hard_cap)
+
+    # ── Long entry ───────────────────────────────────────────────────────────
+    # Regime gate: block buys in a confirmed daily downtrend.
+    if decision["daily_regime"] != "downtrend" and score >= BUY_SCORE_HALF_SIZE:
+        base_qty = _compute_qty(ask)
+        if score < BUY_SCORE_THRESHOLD:
+            qty       = round(base_qty * 0.5, 4)
+            size_note = "half-size (score=%.1f)" % score
+        else:
+            qty       = base_qty
+            size_note = "full-size (score=%.1f)" % score
+
+        if qty > 0:
+            decision["action"]      = "BUY"
+            decision["qty"]         = qty
+            decision["limit_price"] = round(ask, 4)
+            decision["reason"]      = "TA BUY %s, atr=%.4f" % (size_note, atr_val or 0)
+            return decision
+
+    # ── Short entry ──────────────────────────────────────────────────────────
+    # Regime gate: only short into a confirmed daily downtrend.
+    # Score gate: need a strongly bearish signal (≤ short_score_half_size).
+    if decision["daily_regime"] == "downtrend" and score <= SHORT_SCORE_HALF_SIZE:
+        base_qty = _compute_qty(bid)
+        if score > SHORT_SCORE_THRESHOLD:
+            qty       = round(base_qty * 0.5, 4)
+            size_note = "half-size short (score=%.1f)" % score
+        else:
+            qty       = base_qty
+            size_note = "full-size short (score=%.1f)" % score
+
+        if qty > 0:
+            decision["action"]      = "SHORT"
+            decision["qty"]         = qty
+            decision["limit_price"] = round(bid, 4)
+            decision["reason"]      = "TA SHORT %s, atr=%.4f" % (size_note, atr_val or 0)
+            return decision
+
+    # ── No actionable signal ─────────────────────────────────────────────────
+    if decision["daily_regime"] == "downtrend":
+        decision["reason"] = (
+            "no short entry: score=%.1f > %.1f (need more bearish confluence)"
+            % (score, SHORT_SCORE_HALF_SIZE)
+        )
     else:
-        # Fallback: fixed fraction of equity when ATR unavailable.
-        base_qty = round((equity * FALLBACK_SIZE_PCT / ask) * 0.99, 4)
-        base_qty = min(base_qty, hard_cap_qty)
-
-    # Half-size for borderline confluence.
-    if score < BUY_SCORE_THRESHOLD:
-        qty       = round(base_qty * 0.5, 4)
-        size_note = "half-size (score=%.1f)" % score
-    else:
-        qty       = base_qty
-        size_note = "full-size (score=%.1f)" % score
-
-    if qty <= 0:
-        decision["reason"] = "computed qty <= 0 (equity=%.2f)" % equity
-        return decision
-
-    decision["action"]      = "BUY"
-    decision["qty"]         = qty
-    decision["limit_price"] = round(ask, 4)
-    decision["reason"]      = "TA BUY %s, atr=%.4f" % (size_note, atr_val or 0)
+        decision["reason"] = (
+            "no entry: score=%.1f (buy needs >= %.1f, regime=%s)"
+            % (score, BUY_SCORE_HALF_SIZE, decision.get("daily_regime", "n/a"))
+        )
     return decision
 
 
@@ -526,8 +589,13 @@ def main() -> int:
 
     print("Starting evaluation...")
     print(
-        "  thresholds: buy=%.1f  half=%.1f  sell=%.1f  stop=%.0f%%"
-        % (BUY_SCORE_THRESHOLD, BUY_SCORE_HALF_SIZE, SELL_SCORE_THRESHOLD, STOP_LOSS_PCT * 100)
+        "  thresholds: buy=%.1f  half=%.1f  sell=%.1f  "
+        "short=%.1f  short_half=%.1f  cover=%.1f  stop=%.0f%%"
+        % (
+            BUY_SCORE_THRESHOLD, BUY_SCORE_HALF_SIZE, SELL_SCORE_THRESHOLD,
+            SHORT_SCORE_THRESHOLD, SHORT_SCORE_HALF_SIZE, COVER_SCORE_THRESHOLD,
+            STOP_LOSS_PCT * 100,
+        )
     )
 
     symbols = [s for s in _CFG.get("watchlist", {}).get("symbols", []) if is_crypto(s)]
@@ -568,14 +636,18 @@ def main() -> int:
 
     actionable = [
         d for d in decisions
-        if d["action"] in ("BUY", "SELL") and d["qty"] and d["limit_price"]
+        if d["action"] in ("BUY", "SELL", "SHORT", "COVER") and d["qty"] and d["limit_price"]
     ]
 
     executed: list = []
     if args.execute and actionable:
         print("\nPlacing orders:")
         for d in actionable:
-            side = "buy" if d["action"] == "BUY" else "sell"
+            # BUY  = open long  → side "buy"
+            # SELL = close long → side "sell"
+            # SHORT = open short → side "sell"  (Alpaca opens a short when no position held)
+            # COVER = close short → side "buy"
+            side = "buy" if d["action"] in ("BUY", "COVER") else "sell"
             try:
                 result = place_order(d["symbol"], d["qty"], side, d["limit_price"])
                 print("  OK       %s %s %s @ $%.4f"

@@ -116,16 +116,29 @@ def check_limit_band(limit_price: float, ask: float) -> RiskCheck:
 
 
 def should_stop_out(entry_price: float, current_price: float) -> bool:
-    """True if position is down >= STOP_LOSS_PCT from entry — must be closed."""
+    """True if a long position is down >= STOP_LOSS_PCT from entry — must be closed."""
     if entry_price <= 0:
         return False
     drawdown = (entry_price - current_price) / entry_price
     return drawdown >= STOP_LOSS_PCT
 
 
+def should_cover_short(entry_price: float, current_price: float) -> bool:
+    """True if a short position has moved >= STOP_LOSS_PCT against us (price rose) — must cover."""
+    if entry_price <= 0:
+        return False
+    adverse_move = (current_price - entry_price) / entry_price
+    return adverse_move >= STOP_LOSS_PCT
+
+
 def stop_loss_price(entry_price: float) -> float:
-    """The price at which the stop-loss triggers."""
+    """The price at which a long stop-loss triggers."""
     return entry_price * (1 - STOP_LOSS_PCT)
+
+
+def short_stop_price(entry_price: float) -> float:
+    """The price at which a short stop-loss triggers (price rose above entry)."""
+    return entry_price * (1 + STOP_LOSS_PCT)
 
 
 # ---------------------------------------------------------------------------
@@ -158,7 +171,7 @@ if __name__ == "__main__":
     assert not check_limit_band(0, 100.0).ok
     assert not check_limit_band(100.0, 0).ok
 
-    # Stop-loss
+    # Stop-loss (long)
     assert not should_stop_out(100, 96)
     assert should_stop_out(100, 95)
     assert should_stop_out(100, 90)
@@ -166,6 +179,15 @@ if __name__ == "__main__":
 
     expected_stop = 100 * (1 - STOP_LOSS_PCT)
     assert abs(stop_loss_price(100) - expected_stop) < 1e-9
+
+    # Stop-loss (short — cover when price rises)
+    assert not should_cover_short(100, 104)
+    assert should_cover_short(100, 105)
+    assert should_cover_short(100, 110)
+    assert not should_cover_short(0, 105)  # guard against bad entry price
+
+    expected_short_stop = 100 * (1 + STOP_LOSS_PCT)
+    assert abs(short_stop_price(100) - expected_short_stop) < 1e-9
 
     print("risk.py: all self-checks passed")
     print("  MAX_POSITION_PCT =", MAX_POSITION_PCT)

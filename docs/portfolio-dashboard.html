@@ -729,7 +729,7 @@
       <table class="conf-table">
         <thead id="confHead"><tr>
           <th class="sortable"       data-key="sym"         data-tip="Watchlist symbol" onclick="sortConf('sym')">Symbol <span class="sort-icon">⇅</span></th>
-          <th class="sortable right" data-key="score"       data-tip="6-point confluence score: ≥4 = BUY, 3 = half-size buy, ≤−2 = TA SELL" onclick="sortConf('score')">Score <span class="sort-icon">⇅</span></th>
+          <th class="sortable right" data-key="score"       data-tip="6-point confluence score: ≥4 = BUY, 3 = half-size, ≤−4 = SHORT (downtrend only), ≤−2 = TA SELL (exit long)" onclick="sortConf('score')">Score <span class="sort-icon">⇅</span></th>
           <th data-tip="EMA 20 vs 50 on 15-min: golden cross = +1, death cross = −1">EMA×</th>
           <th data-tip="MACD histogram: green &amp; rising = +1, red &amp; falling = −1">MACD</th>
           <th data-tip="RSI: 40–65 rising = +1, oversold &lt;30 = +1, overbought &gt;70 = −1">RSI</th>
@@ -1370,22 +1370,29 @@ function renderPositions() {
     const dayPL     = parseFloat(p.unrealized_intraday_pl ?? 0);
     const mv        = parseFloat(p.market_value);
     const qty       = parseFloat(p.qty);
+    const isShort   = qty < 0;
     const sym       = toSlash(p.symbol);
     const current   = parseFloat(p.current_price) || 0;
     const orderSym  = p.symbol; // raw symbol for API (e.g. "BTCUSD")
+    const dirBadge  = isShort
+      ? `<span style="font-size:9px;padding:1px 4px;border-radius:3px;background:rgba(248,81,73,.15);color:var(--red);font-weight:700;margin-left:4px">SHORT</span>`
+      : "";
     return `<tr>
-      <td><span class="symbol">${sym}</span></td>
-      <td class="right">${fmt(qty, qty % 1 === 0 ? 0 : 6)}</td>
+      <td><span class="symbol">${sym}</span>${dirBadge}</td>
+      <td class="right">${fmt(Math.abs(qty), Math.abs(qty) % 1 === 0 ? 0 : 6)}</td>
       <td class="right mono">${fmtPrice(p.avg_entry_price)}</td>
       <td class="right mono">${fmtPrice(p.current_price)}</td>
-      <td class="right mono">$${fmt(mv)}</td>
+      <td class="right mono">$${fmt(Math.abs(mv))}</td>
       <td class="right ${plClass(unrPL)}">${plSign(unrPL)}</td>
       <td class="right ${plClass(unrPct)}">${pctFmt(unrPct, true)}</td>
       <td class="right ${plClass(dayPL)}">${plSign(dayPL)}</td>
       <td>
         <div class="trade-actions">
-          <button class="trade-action-btn" onclick="openTradeModal('${orderSym}','${sym}','buy','',${current})">Buy</button>
-          <button class="trade-close-btn"  onclick="openTradeModal('${orderSym}','${sym}','sell','${qty}',${current})">Sell / Close</button>
+          ${isShort
+            ? `<button class="trade-close-btn" onclick="openTradeModal('${orderSym}','${sym}','buy','${Math.abs(qty)}',${current})">Buy / Cover</button>`
+            : `<button class="trade-action-btn" onclick="openTradeModal('${orderSym}','${sym}','buy','',${current})">Buy</button>
+               <button class="trade-close-btn"  onclick="openTradeModal('${orderSym}','${sym}','sell','${qty}',${current})">Sell / Close</button>`
+          }
         </div>
       </td>
     </tr>`;
@@ -1775,21 +1782,32 @@ function renderBriefPos() {
     return;
   }
   $("briefPositions").innerHTML = data.map(p => {
-    const entry = parseFloat(p.avg_entry_price), cur = parseFloat(p.current_price);
-    const plPct = (cur - entry) / entry * 100;
-    const portPct = parseFloat(p.market_value) / equity * 100;
-    const stopPx = entry * 0.95;
-    const stopProg = Math.min(Math.max((plPct + 5) / 5 * 100, 0), 100);
-    const gainProg = Math.min(Math.max(plPct / 20 * 100, 0), 100);
+    const entry   = parseFloat(p.avg_entry_price), cur = parseFloat(p.current_price);
+    const qty     = parseFloat(p.qty);
+    const isShort = qty < 0;
+    // plPct from Alpaca's unrealized_plpc is correct for both longs and shorts
+    const plPct   = parseFloat(p.unrealized_plpc) * 100;
+    const portPct = Math.abs(parseFloat(p.market_value)) / equity * 100;
+    // Stop: long = entry×0.95, short = entry×1.05
+    const stopPx  = isShort ? entry * 1.05 : entry * 0.95;
+    // Distance to stop as a % of entry (positive = still room, negative = breached)
+    const distToStop = isShort
+      ? (stopPx - cur) / entry * 100   // positive = room before cover stop
+      : (cur - stopPx) / entry * 100;  // positive = room before sell stop
+    const stopProg = Math.min(Math.max((distToStop / 5) * 100, 0), 100);
+    const gainProg = Math.min(Math.max(Math.abs(plPct) / 20 * 100, 0), 100);
     const symCapPct = capFor(toSlash(p.symbol));
-    const portOver = portPct > symCapPct * 1.05;
-    const distStop = ((cur - stopPx) / entry * 100).toFixed(1);
+    const portOver  = portPct > symCapPct * 1.05;
+    const nearStop  = isShort ? (cur - entry) / entry * 100 >= 4 : plPct <= -4;
     let sc = `<span class="chip chip-muted">OK</span>`;
-    if (plPct <= -4)  sc = `<span class="chip chip-red">⚠ Near Stop</span>`;
+    if (nearStop)       sc = `<span class="chip chip-red">⚠ Near ${isShort ? "Cover" : ""} Stop</span>`;
     else if (plPct >= 15) sc = `<span class="chip chip-green">💰 Strong Gain</span>`;
-    else if (portOver) sc = `<span class="chip chip-red">⚠ Over ${symCapPct.toFixed(0)}% Cap</span>`;
+    else if (portOver)  sc = `<span class="chip chip-red">⚠ Over ${symCapPct.toFixed(0)}% Cap</span>`;
+    const dirBadge = isShort
+      ? `<span style="font-size:9px;padding:1px 4px;border-radius:3px;background:rgba(248,81,73,.15);color:var(--red);font-weight:700;margin-left:4px">SHORT</span>`
+      : "";
     return `<tr>
-      <td><span class="symbol">${toSlash(p.symbol)}</span></td>
+      <td><span class="symbol">${toSlash(p.symbol)}</span>${dirBadge}</td>
       <td class="right mono">${fmtPrice(entry)}</td>
       <td class="right mono">${fmtPrice(cur)}</td>
       <td class="right ${plClass(plPct)}" style="font-weight:700">${(plPct >= 0 ? "+" : "") + plPct.toFixed(2)}%</td>
@@ -1800,7 +1818,7 @@ function renderBriefPos() {
           <div style="height:100%;border-radius:2px;background:${portOver ? "var(--red)" : portPct / symCapPct >= 0.8 ? "var(--yellow)" : "var(--green)"};width:${Math.min(portPct / symCapPct * 100, 100).toFixed(0)}%"></div>
         </div>
       </td>
-      <td><div style="font-size:11px;color:var(--muted)">${fmtPrice(stopPx)} (${distStop >= 0 ? "+" : ""}${distStop}%)</div>
+      <td><div style="font-size:11px;color:var(--muted)">${fmtPrice(stopPx)} (${distToStop >= 0 ? "+" : ""}${distToStop.toFixed(1)}% room)</div>
         <div class="progress-bar"><div class="progress-fill" style="width:${stopProg}%;background:${stopProg < 30 ? "var(--red)" : "var(--green)"}"></div></div></td>
       <td>
         <div style="font-size:11px;color:${plPct >= 10 ? "var(--green)" : plPct >= 5 ? "var(--yellow)" : "var(--muted)"}">${(plPct >= 0 ? "+" : "") + plPct.toFixed(2)}% from entry</div>
@@ -1825,8 +1843,17 @@ function renderConf() {
     let va, vb;
     if (key === "score") { va = a.score ?? -99; vb = b.score ?? -99; }
     else if (key === "actionRank") {
-      const rank = s => s >= 4 ? 3 : s >= 3 ? 2 : s <= -2 ? 1 : 0;
-      va = rank(a.score ?? -99); vb = rank(b.score ?? -99);
+      // Rank: 4=BUY, 3=½BUY, 2=SHORT/COVER, 1=TA SELL, 0=HOLD
+      const rank = (s, r) => {
+        const down = r === "downtrend";
+        if (!down && s >= 4) return 4;
+        if (!down && s >= 3) return 3;
+        if (down && s <= -4) return 2;
+        if (down && s === -3) return 2;
+        if (s <= -2) return 1;
+        return 0;
+      };
+      va = rank(a.score ?? -99, a.dailyRegime); vb = rank(b.score ?? -99, b.dailyRegime);
     } else if (key === "dailyRegime") {
       const order = { uptrend: 2, mixed: 1, downtrend: 0 };
       va = order[a.dailyRegime] ?? -1; vb = order[b.dailyRegime] ?? -1;
@@ -2117,10 +2144,17 @@ function scoreBar(score) {
   return `<div class="score-bar">${pips.join("")}</div>`;
 }
 function actionChip(score,dailyRegime) {
-  if (dailyRegime==="downtrend"&&score>=3) return `<span class="chip chip-red">Regime Block</span>`;
-  if (score>=4)  return `<span class="chip chip-green">BUY ≥4/6</span>`;
-  if (score>=3)  return `<span class="chip chip-yellow">½ BUY 3/6</span>`;
-  if (score<=-2) return `<span class="chip chip-red">TA SELL</span>`;
+  const down = dailyRegime === "downtrend";
+  // Long signals (uptrend / mixed only)
+  if (!down && score >= 4)  return `<span class="chip chip-green">BUY ≥4/6</span>`;
+  if (!down && score >= 3)  return `<span class="chip chip-yellow">½ BUY 3/6</span>`;
+  // Block longs in downtrend
+  if (down && score >= 3)   return `<span class="chip chip-red">Regime Block</span>`;
+  // Short signals (downtrend only)
+  if (down && score <= -4)  return `<span class="chip chip-red">SHORT ≤−4/6</span>`;
+  if (down && score === -3) return `<span class="chip chip-red">½ SHORT −3/6</span>`;
+  // Exit existing long (any regime)
+  if (score <= -2)          return `<span class="chip chip-red">TA SELL</span>`;
   return `<span class="chip chip-muted">HOLD</span>`;
 }
 function regimeChip(r) {
@@ -2171,19 +2205,32 @@ async function loadBrief() {
     positions.forEach(p=>{
       const sym=toSlash(p.symbol);
       const entry=parseFloat(p.avg_entry_price), cur=parseFloat(p.current_price);
-      const plPct=(cur-entry)/entry*100, portPct=parseFloat(p.market_value)/equity*100;
-      const stopPx=entry*0.95;
+      const qty=parseFloat(p.qty);
+      const isShort=qty<0;
+      // Use Alpaca's unrealized_plpc so P&L sign is correct for both longs and shorts
+      const plPct=parseFloat(p.unrealized_plpc)*100;
+      const portPct=Math.abs(parseFloat(p.market_value))/equity*100;
+      const stopPx=isShort ? entry*1.05 : entry*0.95;
       const symCap = capFor(sym);
       if (portPct > symCap * 1.05)
         alerts.push({level:"red",   msg:`<b>${sym}</b> is <b>${portPct.toFixed(1)}%</b> of portfolio — exceeds ${symCap.toFixed(0)}% cap. Trim required.`});
-      if (plPct<=-4)
-        alerts.push({level:"red",   msg:`<b>${sym}</b> at <b>${plPct.toFixed(2)}%</b> — approaching stop-loss. Stop: $${fmtPrice(stopPx)}.`});
-      else if (plPct<=-3)
-        alerts.push({level:"yellow",msg:`<b>${sym}</b> at ${plPct.toFixed(2)}% — within 2% of stop-loss. Monitor closely.`});
+      // Stop proximity — direction-aware
+      if (isShort) {
+        const advPct=(cur-entry)/entry*100; // positive = adverse for short
+        if (advPct>=4)
+          alerts.push({level:"red",   msg:`<b>${sym} (SHORT)</b> — price up <b>+${advPct.toFixed(2)}%</b> from entry. Cover stop: $${fmtPrice(stopPx)}.`});
+        else if (advPct>=3)
+          alerts.push({level:"yellow",msg:`<b>${sym} (SHORT)</b> — price up +${advPct.toFixed(2)}% from entry. Within 2% of cover stop. Monitor closely.`});
+      } else {
+        if (plPct<=-4)
+          alerts.push({level:"red",   msg:`<b>${sym}</b> at <b>${plPct.toFixed(2)}%</b> — approaching stop-loss. Stop: $${fmtPrice(stopPx)}.`});
+        else if (plPct<=-3)
+          alerts.push({level:"yellow",msg:`<b>${sym}</b> at ${plPct.toFixed(2)}% — within 2% of stop-loss. Monitor closely.`});
+      }
       if (plPct>=15)
-        alerts.push({level:"green", msg:`<b>${sym}</b> at <b>+${plPct.toFixed(2)}%</b> — significant gain. Review TA signals for exit opportunity.`});
+        alerts.push({level:"green", msg:`<b>${sym}${isShort?" (SHORT)":""}</b> at <b>+${plPct.toFixed(2)}%</b> — significant gain. Review TA signals for exit opportunity.`});
       else if (plPct>=8)
-        alerts.push({level:"yellow",msg:`<b>${sym}</b> at +${plPct.toFixed(2)}% — healthy gain. Monitor TA signals for potential partial exit.`});
+        alerts.push({level:"yellow",msg:`<b>${sym}${isShort?" (SHORT)":""}</b> at +${plPct.toFixed(2)}% — healthy gain. Monitor TA signals for potential partial exit.`});
     });
     $("briefAlerts").innerHTML=alerts.length
       ? alerts.map(a=>`<div class="alert-row"><div class="alert-dot ${a.level}"></div><div class="alert-msg">${a.msg}</div></div>`).join("")

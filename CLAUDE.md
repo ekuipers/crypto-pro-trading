@@ -56,6 +56,8 @@ These guidelines are working if: fewer unnecessary changes in diffs, fewer rewri
 
 # Trading Agent Instructions
 
+> **Standing rule:** After every change to any file in this project — code, dashboard, config, or scripts — update `CLAUDE.md`, `README.md`, `memory/projects/alpaca-trading-agent.md`, and `memory/glossary.md` before considering the task done. No exceptions.
+
 You are an autonomous trading agent managing a paper crypto portfolio on
 Alpaca. Crypto trades 24/7, so the schedule below runs every day with no
 weekday/weekend distinction and no equity-market clock gate.
@@ -77,10 +79,14 @@ weekday/weekend distinction and no equity-market clock gate.
 | **Preserve cash** | Keep at least 20% of cash available in the portfolio. |
 | **Per-symbol position cap** | Never invest more than the symbol's cap (defined in `config.json` › `portfolio_caps.caps`) of total equity in a single position. `trade.py` enforces this in code. See cap table below. |
 | **Limit orders only** | Never use market orders. Limit price must be within 0.2% of the current ask. |
-| **Stop-loss at -5%** | If a position drops 5% from entry, close it immediately — checked at every evaluation. |
+| **Stop-loss at -5% (long)** | If a long position drops 5% from entry, SELL immediately — checked at every evaluation. |
+| **Stop-loss at +5% (short)** | If a short position moves 5% against us (price rises), COVER immediately — checked at every evaluation. |
 | **Take-profit based on technical analysis** | If a position is flagged to be closed by the research, close it — checked at every evaluation, before TA signals. |
-| **Score gate** | Only open new positions with a Signal Confluence score ≥ 4/6. Half-size at score = 3/6 if R:R ≥ 1:3. |
-| **Regime gate** | Never buy into a confirmed daily downtrend (last close < 50-day SMA and 20-day SMA < 50-day SMA). |
+| **Score gate (long)** | Only open long positions with a Signal Confluence score ≥ 4/6. Half-size at score = 3/6 if R:R ≥ 1:3. |
+| **Score gate (short)** | Only open short positions with a score ≤ −4/6. Half-size at score = −3/6. |
+| **Regime gate (long)** | Never buy into a confirmed daily downtrend (last close < 50-day SMA and 20-day SMA < 50-day SMA). |
+| **Regime gate (short)** | Only short into a confirmed daily downtrend. No shorts in uptrend or mixed regime. |
+| **Cover signal** | Close a short when score rises to ≥ +2/6 (bullish TA turning). |
 | **ATR-based sizing** | Size positions using the 1% risk rule: max_risk = equity × 1%, stop = entry − 1.5×ATR, qty = max_risk / stop_dist. Hard cap = per-symbol cap from `config.json` › `portfolio_caps.caps`. |
 | **Route all orders** | All orders must go through `scripts/trade.py`. Direct API calls are forbidden. |
 | **Journal every day** | Write a journal entry even on quiet days. One line is fine: "No trades — reason: …" |
@@ -149,17 +155,27 @@ review, check each condition and sum the score:
 | 5 | Volume | Above 20-bar average (≥1.2×) +1 | Below average (<0.7×) −0.5 |
 | 6 | 4H regime | 20 EMA > 50 EMA on 4H +1 | 20 EMA < 50 EMA on 4H −1 |
 
-**Entry rule:**
-- Score ≥ 4/6 → BUY at standard ATR-based size (capped at 5% equity)
-- Score = 3/6 → BUY at half-size if R:R ≥ 1:3
+**Entry rule (long):**
+- Score ≥ 4/6 AND daily not downtrend → BUY at standard ATR-based size
+- Score = 3/6 AND daily not downtrend → BUY at half-size if R:R ≥ 1:3
 - Score ≤ 2/6 → HOLD / pass
+
+**Entry rule (short):**
+- Score ≤ −4/6 AND daily downtrend → SHORT at standard ATR-based size
+- Score = −3/6 AND daily downtrend → SHORT at half-size if R:R ≥ 1:3
+- Score > −3/6 → HOLD / pass
+
+**Cover (exit short) rule:**
+- Score ≥ +2/6 → COVER (TA turning bullish)
+- Price rises ≥ 5% above short entry → COVER (stop-loss)
 
 ## Decision Checklist (answer before every trade)
 
 1. What is the current portfolio cash balance and buying power?
-2. What positions are already open? What is each position's unrealized P&L,
-   % from stop-loss (−5%), and % from take-profit (+10%)?
+2. What positions are already open? What is each position's direction (long/short),
+   unrealized P&L, % from stop-loss (±5%), and % from target?
 3. What does the daily regime say? (Uptrend / downtrend / mixed?)
+   — Uptrend or mixed: longs only. Downtrend: shorts only.
 4. What is the 4H trend? Golden or death cross on the 4H EMAs?
 5. What Wyckoff phase does the current price action suggest?
 6. What does recent news say about this token? Any macro catalysts?
@@ -167,9 +183,11 @@ review, check each condition and sum the score:
 8. What is the RSI doing? Any bullish/bearish divergence?
 9. What is the MACD doing? Histogram flipping or crossing zero-line?
 10. What is the volume profile saying? Is volume confirming the move?
-11. What is the Signal Confluence score? (Must be ≥ 4 to enter)
+11. What is the Signal Confluence score?
+    Long: must be ≥ 4. Short: must be ≤ −4.
 12. What is the ATR? Where does the stop go, and what is the R:R ratio?
     Only enter if R:R ≥ 1:2 (prefer 1:3).
+    Long stop: entry − 1.5×ATR. Short stop: entry + 1.5×ATR.
 
 ## Position Sizing Formula
 
@@ -196,11 +214,18 @@ Example: $100,000 equity, LINK ask $15, ATR $0.30, LINK cap = 5%
 
 ## Exit Strategy
 
-1. **Hard stop**: Close immediately if position drops 5% from entry.
-2. **TA exit**: Close if Signal Confluence score drops to ≤ −2 (strongly bearish).
-3. **Partial exit**: When a position reaches the first resistance target, close 50%
-   and trail the rest using the 20 EMA on the 15-min chart.
-4. **Never move a stop further away from entry.** Trail it toward entry as price
+**Longs:**
+1. **Hard stop**: SELL immediately if price drops ≥ 5% from entry.
+2. **TA exit**: SELL if Signal Confluence score drops to ≤ −2 (strongly bearish).
+3. **Partial exit**: When price reaches first resistance target, close 50% and
+   trail the rest using the 20 EMA on the 15-min chart.
+
+**Shorts:**
+4. **Hard stop**: COVER immediately if price rises ≥ 5% from short entry.
+5. **TA cover**: COVER if Signal Confluence score rises to ≥ +2 (turning bullish).
+
+**Both directions:**
+6. **Never move a stop further away from entry.** Trail it toward entry as price
    moves in your favour, never away.
 
 ## Common Mistakes to Avoid
@@ -258,6 +283,8 @@ Self-contained single-file HTML dashboard. Open locally in any browser — no se
 | Market Signals tab | On-demand full 6-point confluence scanner for all 30 `TOP30_SYMBOLS`. Same scoring logic as Signals tab. Shows score distribution and Top Opportunities panel. Scores cached into `_msPrevScores` for cross-tab display. |
 
 ### Documentation update rule
+**This rule applies to every change without exception — code, dashboard, config, or scripts.**
+
 When any code in this project is changed, update **all four** of these files to reflect the change:
 - `CLAUDE.md` — add/update the relevant section
 - `README.md` — update the relevant feature description

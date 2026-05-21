@@ -4,6 +4,9 @@
     "buy_score_threshold": 4.0,
     "buy_score_half_size_threshold": 3.0,
     "sell_score_threshold": -2.0,
+    "short_score_threshold": -4.0,
+    "short_score_half_size_threshold": -3.0,
+    "cover_score_threshold": 2.0,
     "atr_multiplier": 1.5,
     "risk_per_trade_pct": 0.01,
     "fallback_size_pct": 0.02

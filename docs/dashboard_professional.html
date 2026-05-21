@@ -1236,7 +1236,7 @@
               <tr>
                 <th data-tip="Crypto pair.">Symbol</th>
                 <th class="right" data-tip="Current ask price.">Price</th>
-                <th class="right" data-tip="6-point confluence score. ≥4 = BUY, 3 = half-size, ≤2 = HOLD.">Score</th>
+                <th class="right" data-tip="6-point confluence score. ≥4 = BUY, ≤−4 = SHORT (downtrend only), 3/−3 = half-size, else HOLD.">Score</th>
                 <th data-tip="Score trend vs previous scan. ↑ improving, ↓ worsening, → unchanged.">Trend</th>
                 <th data-tip="20/50 EMA cross on 15-min chart.">EMA Cross</th>
                 <th class="right" data-tip="RSI (14) on 15-min. 40–65 bullish, &lt;30 oversold +1, &gt;70 overbought −1.">RSI</th>
@@ -1262,7 +1262,7 @@
           </div>
           <div class="panel">
             <div class="panel-title">⚡ Setup Alerts</div>
-            <div class="small" style="margin-bottom:10px">Get a browser notification when any symbol hits score ≥ 4.</div>
+            <div class="small" style="margin-bottom:10px">Get a browser notification when any symbol hits score ≥ 4 (BUY) or ≤ −4 in downtrend (SHORT).</div>
             <div id="notifStatus" class="small" style="margin-bottom:10px;color:var(--muted)">Notifications: not enabled</div>
             <button class="btn btn-green" onclick="requestNotifications()">Enable Notifications</button>
           </div>
@@ -2263,12 +2263,21 @@
         const nearStop = c.positions.filter(p => {
           const entry = Number(p.avg_entry_price || 0);
           const cur   = Number(p.current_price   || 0);
-          return entry ? (cur - entry) / entry * 100 <= -3 : false;
+          const qty   = Number(p.qty || 0);
+          if (!entry) return false;
+          if (qty < 0) {
+            // Short: stop triggers when price RISES above entry
+            return (cur - entry) / entry * 100 >= 3;
+          }
+          return (cur - entry) / entry * 100 <= -3;
         });
         const atStop = nearStop.filter(p => {
           const entry = Number(p.avg_entry_price || 0);
           const cur   = Number(p.current_price   || 0);
-          return entry ? (cur - entry) / entry * 100 <= -5 : false;
+          const qty   = Number(p.qty || 0);
+          if (!entry) return false;
+          if (qty < 0) return (cur - entry) / entry * 100 >= 5;
+          return (cur - entry) / entry * 100 <= -5;
         });
 
         const hRules = [
@@ -2455,39 +2464,69 @@
             const displaySymbol = toSlash(p.symbol);
             const orderSymbol = p.symbol;
 
-            const entry = Number(p.avg_entry_price || 0);
-            const stopPct = entry ? (current - entry) / entry * 100 : null;
-            const stopDist = stopPct == null ? "–" : fmt(stopPct, 1) + "%";
-            const stopRemainder = stopPct == null ? "" : fmt(-5 - stopPct, 1) + "% to stop";
-            const stopCls = stopPct != null && stopPct <= -3 ? "neg" : "";
+            const entry   = Number(p.avg_entry_price || 0);
+            const isShort = qty < 0;
 
-            // Stop $, Target $, Live R:R
-            const stopPrice   = entry ? entry * 0.95  : null;
-            const targetPrice = entry ? entry * 1.10  : null;
-            const rrRaw = (stopPrice && targetPrice && current > stopPrice)
-              ? (targetPrice - current) / (current - stopPrice)
+            // Stop distance: longs stop at −5%, shorts stop at +5% (price rose)
+            const stopPct = entry
+              ? isShort
+                ? (current - entry) / entry * 100   // positive = adverse for shorts
+                : (current - entry) / entry * 100   // negative = adverse for longs
               : null;
-            const rrStr  = rrRaw !== null ? fmt(rrRaw, 2) + ":1" : current && stopPrice && current <= stopPrice ? "AT STOP" : "–";
-            const rrCls  = rrRaw === null ? "neg" : rrRaw >= 2 ? "rr-good" : rrRaw >= 1 ? "rr-warn" : "rr-bad";
+            const stopDistLabel = stopPct == null ? "–"
+              : isShort
+                ? fmt(stopPct, 1) + "%"             // show how far price has moved up
+                : fmt(stopPct, 1) + "%";
+            const stopRemLabel = stopPct == null ? ""
+              : isShort
+                ? fmt(5 - stopPct, 1) + "% to cover stop"
+                : fmt(-5 - stopPct, 1) + "% to stop";
+            const stopCls = stopPct != null && (isShort ? stopPct >= 3 : stopPct <= -3) ? "neg" : "";
+
+            // Stop $ and Target $
+            const stopPrice   = entry ? (isShort ? entry * 1.05 : entry * 0.95) : null;
+            const targetPrice = entry ? (isShort ? entry * 0.90 : entry * 1.10) : null;
+
+            // R:R
+            let rrRaw = null;
+            if (stopPrice && targetPrice) {
+              if (isShort && current < stopPrice) {
+                // Short: profit = entry − current, risk = stop − entry
+                rrRaw = (current - targetPrice) / (stopPrice - current);
+              } else if (!isShort && current > stopPrice) {
+                rrRaw = (targetPrice - current) / (current - stopPrice);
+              }
+            }
+            const atStopStr = isShort ? "AT COVER STOP" : "AT STOP";
+            const rrStr = rrRaw !== null ? fmt(rrRaw, 2) + ":1"
+              : (current && stopPrice && (isShort ? current >= stopPrice : current <= stopPrice)) ? atStopStr : "–";
+            const rrCls = rrRaw === null ? "neg" : rrRaw >= 2 ? "rr-good" : rrRaw >= 1 ? "rr-warn" : "rr-bad";
+
+            const dirBadge = isShort
+              ? `<span style="font-size:9px;padding:1px 4px;border-radius:3px;background:rgba(248,81,73,.15);color:var(--red);font-weight:700;margin-left:4px">SHORT</span>`
+              : "";
 
             return `
               <tr>
-                <td><span class="symbol">${displaySymbol}</span></td>
-                <td class="right">${fmt(qty, qty % 1 === 0 ? 0 : 6)}</td>
+                <td><span class="symbol">${displaySymbol}</span>${dirBadge}</td>
+                <td class="right">${fmt(Math.abs(qty), Math.abs(qty) % 1 === 0 ? 0 : 6)}</td>
                 <td class="right mono">${fmtPrice(p.avg_entry_price)}</td>
                 <td class="right mono">${fmtPrice(p.current_price)}</td>
                 <td class="right mono">$${fmt(mv)}</td>
                 <td class="right">${fmt(pctEq,1)}%</td>
                 <td class="right ${plClass(unreal)}">${plSign(unreal)}</td>
                 <td class="right ${plClass(unrealPct)}">${pct(unrealPct)}</td>
-                <td class="right ${stopCls}" data-tip="Current P&L % vs −5% hard stop. Red = within 2% of stop.">${stopDist}<br><span class="small">${stopRemainder}</span></td>
-                <td class="right mono" data-tip="Hard stop = entry × 0.95 (−5% rule)">${stopPrice ? fmtPrice(stopPrice) : "–"}</td>
-                <td class="right mono" data-tip="Take-profit = entry × 1.10 (+10% rule)">${targetPrice ? fmtPrice(targetPrice) : "–"}</td>
+                <td class="right ${stopCls}" data-tip="${isShort ? "Adverse move % for short. Red = price risen ≥3% above entry." : "Current P&L % vs −5% hard stop. Red = within 2% of stop."}">${stopDistLabel}<br><span class="small">${stopRemLabel}</span></td>
+                <td class="right mono" data-tip="${isShort ? "Cover stop = entry × 1.05 (+5% rule)" : "Hard stop = entry × 0.95 (−5% rule)"}">${stopPrice ? fmtPrice(stopPrice) : "–"}</td>
+                <td class="right mono" data-tip="${isShort ? "Short target = entry × 0.90 (−10%)" : "Take-profit = entry × 1.10 (+10% rule)"}">${targetPrice ? fmtPrice(targetPrice) : "–"}</td>
                 <td class="right ${rrCls}" data-tip="Live R:R = (target − current) ÷ (current − stop)">${rrStr}</td>
                 <td>
                   <div class="trade-actions">
-                    <button class="trade-action-btn" data-tip="Open a paper limit-order ticket to buy this symbol." onclick="openTradeModal('${orderSymbol}','${displaySymbol}','buy','',${current || 0})">Buy</button>
-                    <button class="trade-close-btn" data-tip="Open a paper sell ticket prefilled with current quantity." onclick="openTradeModal('${orderSymbol}','${displaySymbol}','sell','${qty}',${current || 0})">Sell / Close</button>
+                    ${isShort
+                      ? `<button class="trade-close-btn" data-tip="Open a paper buy ticket to cover this short position." onclick="openTradeModal('${orderSymbol}','${displaySymbol}','buy','${Math.abs(qty)}',${current || 0})">Buy / Cover</button>`
+                      : `<button class="trade-action-btn" data-tip="Open a paper limit-order ticket to buy this symbol." onclick="openTradeModal('${orderSymbol}','${displaySymbol}','buy','',${current || 0})">Buy</button>
+                         <button class="trade-close-btn" data-tip="Open a paper sell ticket prefilled with current quantity." onclick="openTradeModal('${orderSymbol}','${displaySymbol}','sell','${qty}',${current || 0})">Sell / Close</button>`
+                    }
                   </div>
                 </td>
               </tr>
@@ -3552,15 +3591,23 @@
           scores.push(res.score);
           rows.push({ sym, ...res });
 
-          // fire notification if score >= 4 and notifications are enabled
-          if (Notification.permission === "granted" && res.score >= 4) {
-            const action = res.score >= 4 ? "BUY signal" : "HALF-SIZE";
-            try {
-              new Notification(`🚀 ${sym} — Score ${res.score}/6`, {
-                body: `${action} · RSI ${res.rsi} · ${res.dailyRegime}`,
-                tag: sym
-              });
-            } catch(e) {}
+          // fire notification for strong BUY or SHORT signals
+          if (Notification.permission === "granted") {
+            if (res.score >= 4 && res.dailyRegime !== "downtrend") {
+              try {
+                new Notification(`🚀 ${sym} — Score ${res.score}/6`, {
+                  body: `BUY signal · RSI ${res.rsi} · ${res.dailyRegime}`,
+                  tag: sym
+                });
+              } catch(e) {}
+            } else if (res.score <= -4 && res.dailyRegime === "downtrend") {
+              try {
+                new Notification(`🔻 ${sym} — Score ${res.score}/6`, {
+                  body: `SHORT signal · RSI ${res.rsi} · downtrend`,
+                  tag: sym
+                });
+              } catch(e) {}
+            }
           }
         }
 
@@ -3580,10 +3627,15 @@
 
         const actionPill = (row) => {
           if (row.score === null) return pill("muted", "Error");
-          if (row.dailyRegime === "downtrend" && row.score >= 3) return pill("yellow", "Blocked");
-          if (row.score >= 4) return pill("green", "BUY");
-          if (row.score === 3) return pill("yellow", "HALF");
-          if (row.score <= -3) return pill("red", "SELL");
+          const down = row.dailyRegime === "downtrend";
+          // Long signals (uptrend / mixed only)
+          if (!down && row.score >= 4) return pill("green", "BUY");
+          if (!down && row.score === 3) return pill("yellow", "HALF");
+          // Block longs in downtrend
+          if (down && row.score >= 3) return pill("yellow", "Blocked");
+          // Short signals (downtrend only)
+          if (down && row.score <= -4) return pill("red", "SHORT");
+          if (down && row.score === -3) return pill("red", "SHORT ½");
           return pill("muted", "HOLD");
         };
 
@@ -3608,6 +3660,7 @@
 
         $("signalBody").innerHTML = rows.map(row => {
           if (row.error) return `<tr><td><span class="symbol">${row.sym}</span></td><td colspan="12" style="color:var(--muted)">${row.error}</td></tr>`;
+          const down = row.dailyRegime === "downtrend";
           const emaLabel = (row.ema20 > row.ema50) ? "Golden" : "Death";
           const regime4hLabel = (row.ema4h_20 > row.ema4h_50) ? "Golden" : "Death";
           const regime4hCls = (row.ema4h_20 > row.ema4h_50) ? "pos" : "neg";
@@ -3662,7 +3715,8 @@
               <td class="right">${qtyHtml}</td>
               <td>
                 ${actionPill(row)}
-                ${row.score >= 3 && row.lastClose ? `<button class="trade-action-btn" style="margin-top:3px;font-size:10px" data-tip="Open trade modal pre-filled with ATR-based qty" onclick="openTradeModal('${orderSym}','${row.sym}','buy','${quickFillQty}',${row.lastClose})">⚡ Fill</button>` : ""}
+                ${!down && row.score >= 3 && row.lastClose ? `<button class="trade-action-btn" style="margin-top:3px;font-size:10px" data-tip="Open BUY trade modal pre-filled with ATR-based qty" onclick="openTradeModal('${orderSym}','${row.sym}','buy','${quickFillQty}',${row.lastClose})">⚡ Buy</button>` : ""}
+                ${down && row.score <= -3 && row.lastClose ? `<button class="trade-close-btn" style="margin-top:3px;font-size:10px" data-tip="Open SHORT trade modal pre-filled with ATR-based qty" onclick="openTradeModal('${orderSym}','${row.sym}','sell','${quickFillQty}',${row.lastClose})">⚡ Short</button>` : ""}
               </td>
             </tr>
           `;
@@ -3685,7 +3739,7 @@
               ["= 3 (HALF)", dist["3"], "#d29922"],
               ["1–2 (HOLD)", dist["1to2"], "#58a6ff"],
               ["−2–0 (HOLD)", dist["-2to0"], "#8b949e"],
-              ["≤ −3 (SELL)", dist["-6to-3"], "#f85149"]
+              ["≤ −3 (SHORT)", dist["-6to-3"], "#f85149"]
             ].map(([label, count, color]) => `
               <div style="display:flex;align-items:center;gap:8px">
                 <span style="width:90px;font-size:11px;color:var(--muted)">${label}</span>
@@ -5061,7 +5115,7 @@
           kpi("BUY Signals", buys,  "Score >= 4/6", buys > 0 ? "pos" : "") +
           kpi("Half-Size",   halfs, "Score = 3/6") +
           kpi("HOLD",        holds, "Score -2 to +2") +
-          kpi("SELL/Avoid",  sells, "Score <= -3", sells > 0 ? "neg" : "") +
+          kpi("SHORT/Avoid", sells, "Score <= -3 (downtrend = SHORT signal)", sells > 0 ? "neg" : "") +
           kpi("Avg Score",   (avgSc >= 0 ? "+" : "") + fmt(avgSc,1) + "/6", "Market breadth", avgSc >= 2 ? "pos" : avgSc <= -1 ? "neg" : "");
 
         // Score bar renderer
@@ -5077,10 +5131,12 @@
 
         function msActionPill(row) {
           if (row.score === null) return pill("muted","N/A");
-          if (row.dailyRegime === "downtrend" && row.score >= 3) return pill("yellow","Blocked");
-          if (row.score >= 4)  return pill("green","BUY");
-          if (row.score === 3) return pill("yellow","HALF");
-          if (row.score <= -3) return pill("red","SELL");
+          const msDown = row.dailyRegime === "downtrend";
+          if (!msDown && row.score >= 4)  return pill("green","BUY");
+          if (!msDown && row.score === 3) return pill("yellow","HALF");
+          if (msDown && row.score >= 3)   return pill("yellow","Blocked");
+          if (msDown && row.score <= -4)  return pill("red","SHORT");
+          if (msDown && row.score === -3) return pill("red","SHORT ½");
           return pill("muted","HOLD");
         }
 
