@@ -66,6 +66,55 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-05-22 — Full Short-Selling Support Added
+
+**`config.json` — three short-side thresholds added to `strategy` block:**
+- `short_score_threshold: -4.0` — full-size short entry gate
+- `short_score_half_size_threshold: -3.0` — half-size short entry gate
+- `cover_score_threshold: 2.0` — cover a short when TA turns bullish
+
+**`scripts/risk.py` — two new functions:**
+- `should_cover_short(entry_price, current_price)` — returns True if price has risen ≥5% above short entry (symmetric inverse of `should_stop_out`)
+- `short_stop_price(entry_price)` — returns `entry_price × 1.05`
+
+**`scripts/run_evaluation.py` — full bidirectional trading:**
+- Detects open short via `qty < 0` from Alpaca positions API
+- Short stop-loss: `should_cover_short()` triggers immediate COVER
+- TA cover: score ≥ `COVER_SCORE_THRESHOLD` (+2) → COVER
+- Short entry: regime must be `downtrend`, score ≤ `SHORT_SCORE_HALF_SIZE` (−3); full size at ≤−4, half-size at −3
+- Sizing: uses `bid` as reference price for SHORT limit orders; COVER limit = `ask × (1 + limit_band × 0.5)`
+- Order routing: `side="sell"` for BUY→no wait, SHORT→sell; `side="buy"` for COVER→buy
+- Added constants: `SHORT_SCORE_THRESHOLD`, `SHORT_SCORE_HALF_SIZE`, `COVER_SCORE_THRESHOLD`
+
+**`docs/dashboard_professional.html` — short-aware UI updates:**
+- Hard Rules panel: adverse stop check now direction-aware (short: price rose ≥5%)
+- Positions tab: `isShort = qty < 0`; stop = `entry×1.05`, target = `entry×0.90` for shorts; SHORT badge; `Buy / Cover` button
+- `actionPill()`: regime-gated — SHORT/SHORT½ pills only appear in downtrend
+- `const down` variable declared inside `.map()` callback before use (bug fix)
+- Notifications: BUY alert gated on `!down`; SHORT alert for `score <= -4` in downtrend
+- ⚡ Quick-fill: `⚡ Buy` for longs; `⚡ Short` (side=`sell`) for shorts in downtrend
+- Score distribution label: "≤ −3 (SELL)" → "≤ −3 (SHORT)"
+- Market Signals `msActionPill`: same regime-aware logic; "SELL" → "SHORT"/"SHORT½"
+- KPI label: "SELL/Avoid" → "SHORT/Avoid"
+
+**`docs/portfolio-dashboard.html` — short-aware UI updates:**
+- `renderPositions` (Overview): `isShort = qty < 0`; direction-aware stop/target; SHORT badge; `Buy / Cover` button
+- `renderBriefPos` (Morning Brief): direction-aware stop price, distToStop, stopProg, nearStop; P&L from `unrealized_plpc` (pre-computed, direction-correct)
+- Alerts panel: short-specific proximity alerts mention `(SHORT)` and cover stop price
+- `actionChip()`: full regime-aware logic — SHORT ≤−4/6, ½ SHORT −3/6, TA SELL ≤−2 (exit long only)
+- `actionRank()`: updated to accept `(score, dailyRegime)` pair; 5-level ranking
+
+**`CLAUDE.md` — documentation standing rule added:**
+- Prominent callout at top of Trading Agent Instructions: update CLAUDE.md, README.md, memory/projects/alpaca-trading-agent.md, and memory/glossary.md after every change, no exceptions
+- Hard Rules table updated for short direction (stop-loss, score gate, regime gate, cover signal)
+- Signal Confluence entry/exit rules updated to include SHORT and COVER
+
+**Persistent memory (Cowork spaces):**
+- `feedback_doc_updates.md` created — feedback-type memory recording the documentation standing rule
+- `MEMORY.md` updated with pointer to the feedback memory
+
+---
+
 ### 2026-05-21 — Dashboard: Market Overview + Market Signals tabs added
 
 ### 2026-05-21 — Dashboard: Signals tab execute button

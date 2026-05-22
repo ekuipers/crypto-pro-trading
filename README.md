@@ -18,8 +18,8 @@ flowchart LR
     C -->|quotes & bars| B
     B --> D["indicators.py\nRSI/MACD/BB + signal_score"]
     B --> E["risk.py\nstop-loss/take-profit\nlimit band & position cap"]
-    B --> F{Action? BUY/SELL/HOLD}
-    F -->|BUY/SELL + --execute| G["trade.py\nplace_order + rule enforcement"]
+    B --> F{Action? BUY/SHORT/SELL/COVER/HOLD}
+    F -->|BUY/SHORT/COVER + --execute| G["trade.py\nplace_order + rule enforcement"]
     G --> C
     F -->|HOLD or dry-run| H[journal/YYYY-MM-DD.md]
     G --> H
@@ -96,7 +96,19 @@ filtered by 4H trend and daily regime. Full strategy detail lives in
 | 5 | Volume | ≥1.2× 20-bar avg +1 | <0.7× avg −0.5 |
 | 6 | 4H trend | 20 EMA > 50 EMA on 4H +1 | 20 EMA < 50 EMA on 4H −1 |
 
-**Entry rules:** score ≥ 4 → BUY full size · score = 3 → BUY half-size (R:R ≥ 1:3) · score ≤ 2 → HOLD
+**Long entry rules (uptrend or mixed regime):**
+- score ≥ 4 → BUY full size
+- score = 3 → BUY half-size (R:R ≥ 1:3)
+- score ≤ 2 → HOLD
+
+**Short entry rules (confirmed daily downtrend only):**
+- score ≤ −4 → SHORT full size
+- score = −3 → SHORT half-size (R:R ≥ 1:3)
+- score > −3 → HOLD
+
+**Exit rules:**
+- Long: TA SELL when score ≤ −2; hard stop at −5% from entry
+- Short: COVER when score ≥ +2 (TA turning bullish); hard stop at +5% from entry (price rose)
 
 All thresholds are configured in `config.json` — edit there, not in source files.
 
@@ -104,10 +116,13 @@ All thresholds are configured in `config.json` — edit there, not in source fil
 
 - **Limit orders only** — market orders are rejected by `trade.py`.
 - **Limit band** — limit price must be within 0.2% of current ask (`config.json > risk.limit_band_pct`).
-- **Stop-loss** — close immediately if a position drops 5% from entry (`config.json > risk.stop_loss_pct`).
-- **Take-profit** — TA-driven exit when Signal Confluence score drops to ≤ −2.
-- **Regime gate** — no new buys in a confirmed daily downtrend (last close < 50-day SMA and 20-day SMA < 50-day SMA).
-- **ATR-based sizing** — `qty = (equity × 1%) / (ATR × 1.5)`, hard-capped by `portfolio_caps.json`. Both multipliers configurable via `config.json`.
+- **Long stop-loss** — close immediately if a long position drops 5% from entry (`config.json > risk.stop_loss_pct`).
+- **Short stop-loss** — cover immediately if a short position rises 5% from entry (price moved against us). Enforced by `risk.should_cover_short()`.
+- **TA exit (long)** — SELL when Signal Confluence score drops to ≤ −2.
+- **TA cover (short)** — COVER when Signal Confluence score rises to ≥ +2 (bullish flip).
+- **Regime gate (long)** — no new BUY entries in a confirmed daily downtrend (last close < 50-day SMA and 20-day SMA < 50-day SMA).
+- **Regime gate (short)** — SHORT entries only in a confirmed daily downtrend. No shorts in uptrend or mixed regime.
+- **ATR-based sizing** — `qty = (equity × 1%) / (ATR × 1.5)`, hard-capped by `portfolio_caps.json`. Both multipliers configurable via `config.json`. Applied identically for long and short entries.
 
 ---
 
@@ -118,7 +133,7 @@ All thresholds are configured in `config.json` — edit there, not in source fil
 | `scripts/run_evaluation.py` | Core evaluation loop — fetches bars, scores signals, decides BUY/SELL/HOLD, optionally places orders, writes journal |
 | `scripts/trade.py` | Single gateway for all orders — enforces limit-only, limit-band, position-cap, and crypto 24/7 rules |
 | `scripts/indicators.py` | Pure-function TA library — EMA, SMA, RSI, MACD, Bollinger Bands, ATR, signal_score |
-| `scripts/risk.py` | Pure-function risk checks — position-cap, limit-band, stop-loss thresholds (loaded from `config.json`) |
+| `scripts/risk.py` | Pure-function risk checks — position-cap, limit-band, long stop-loss, short stop-loss/cover thresholds (loaded from `config.json`) |
 | `scripts/_api.py` | Shared HTTP helper — exponential-backoff retry (3 attempts, 5 s → 10 s → 20 s) for all Alpaca API calls |
 | `scripts/walkforward_evaluate.py` | Walk-forward backtester — signal at bar close, fill at next open, supports 1H/4H/1D timeframes |
 | `scripts/metrics.py` | Performance metrics — Sharpe, Sortino, max drawdown, profit factor |
@@ -264,11 +279,11 @@ Key features:
 - **3-mode auto-refresh button** — cycles: `Auto OFF` → `Prices 15s` (ticker only) → `Full 60s` (ticker + full dashboard).
 - **Hard Rules panel (live)** — Command tab shows all 6 hard rules with real-time portfolio status (cash %, daily loss, open risk, drawdown, stop-loss proximity, order type).
 - **Cash Reserve rule** — Command Center checks cash ≥ 20% of equity (red if breached, yellow below 25%).
-- **Stop Distance column** — Positions table shows Stop $ (`entry × 0.95`), Target $ (`entry × 1.10`), and Live R:R columns in addition to P&L%.
+- **Stop Distance column** — Positions table shows Stop $ and Target $ (direction-aware: longs use `entry × 0.95` / `entry × 1.10`; shorts use `entry × 1.05` / `entry × 0.90`), Live R:R, and a `SHORT` badge for short positions.
 - **Portfolio Cap Usage column** — Risk table shows current allocation vs each symbol's cap from `config.json`.
 - **Correlation heatmap** — Risk tab shows a 10×10 Pearson correlation matrix of daily log-returns across all watchlist symbols.
 - **ATR Position Sizer** — built into the trade modal: enter equity, ATR, ask and cap% to get the 1%-risk-rule quantity, stop price and R:R.
-- **📡 Signals tab** — live 6-point confluence scanner for all 10 watchlist symbols. Uses paginated `next_page_token` fetching to ensure all symbols receive enough bars. Includes trend arrows (↑/↓/→ vs previous scan), ATR-based suggested quantity, and a ⚡ quick-buy button and ▶ execute button for setups scoring ≥ 3.
+- **📡 Signals tab** — live 6-point confluence scanner for all 10 watchlist symbols. Uses paginated `next_page_token` fetching to ensure all symbols receive enough bars. Includes trend arrows (↑/↓/→ vs previous scan), ATR-based suggested quantity, regime-gated action pills (BUY/BUY½ in uptrend; SHORT/SHORT½ in downtrend), ⚡ quick-buy / ⚡ short buttons, and ▶ execute button for setups scoring ≥ 3 (long) or ≤ −3 (short).
 - **💰 P&L tab** — realized P&L from `/v2/account/activities` with FIFO matching, win rate, profit factor, calendar heatmap, P&L attribution by symbol, and day-of-week performance table.
 - **🔥 Breakout Scanner tab** — on-demand pre-session analysis for all 10 watchlist symbols: catalyst rating, market cap / supply risk, gap-and-go likelihood, 6-month range position, key S/R levels, historical gap behaviour, trade plan (strategy, entry, stop, T1, T2), and risk rating. All computed client-side from 6 months of daily bars + 8 days of hourly bars via the Alpaca crypto data API. Symbols ranked by conviction score.
 - **🌍 Market Overview tab** — live price, 24h%, 7d%, USD volume, trend direction, and market cap tier for the top 30 crypto symbols by market cap (stablecoins and BNB excluded as not available on Alpaca). Sortable by rank, 24h%, 7d%, or signal score. Includes a color-coded momentum heatmap. The Score column auto-fills from the most recent Market Signals scan.
@@ -276,7 +291,7 @@ Key features:
 
 ### `docs/portfolio-dashboard.html` *(legacy)*
 
-Original lighter dashboard — 3 tabs: Overview, Hot Symbols, Morning Brief.
+Original lighter dashboard — 3 tabs: Overview, Hot Symbols, Morning Brief. Updated to support short positions: direction-aware stop/target prices, SHORT badge, `Buy / Cover` button for shorts, regime-gated action chips (SHORT ≤−4/6, ½ SHORT −3/6), and correct P&L sign for shorts via Alpaca's `unrealized_plpc` field.
 
 ---
 
@@ -293,6 +308,9 @@ Scripts load this at startup; no restart needed between runs.
     "buy_score_threshold": 4.0,
     "buy_score_half_size_threshold": 3.0,
     "sell_score_threshold": -2.0,
+    "short_score_threshold": -4.0,
+    "short_score_half_size_threshold": -3.0,
+    "cover_score_threshold": 2.0,
     "atr_multiplier": 1.5,
     "risk_per_trade_pct": 0.01
   },

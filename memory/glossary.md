@@ -33,7 +33,7 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 | Term | Meaning |
 |------|---------|
-| Confluence score | 6-point TA signal score; ≥4 = buy, 3 = half-size, ≤2 = hold |
+| Confluence score | 6-point TA signal score; ≥4 = buy, 3 = half-size, ≤2 = hold; ≤−4 = short, −3 = half-size short, ≥+2 = cover |
 | Regime block | Daily downtrend detected → all new long entries blocked |
 | BB squeeze | Bollinger bandwidth in bottom 20% of last 60 bars → breakout pending |
 | Golden cross | 20 EMA crosses above 50 EMA → bullish |
@@ -59,6 +59,19 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | Trend arrow | ↑/↓/→ indicator in Signals tab comparing current confluence score to previous scan |
 | Quick-buy (⚡) | Signals tab button for setups scoring ≥ 3; pre-fills trade modal with ATR-sized qty |
 | Execute button (▶) | Directly submits the signal row's ATR-sized paper order from the Signals tab without opening the trade modal |
+| SHORT (action) | Open a new short position — sends `side="sell"` to Alpaca with no existing position. Triggered when score ≤ −4 in a confirmed daily downtrend |
+| COVER (action) | Close an existing short position — sends `side="buy"` to Alpaca. Triggered by stop-loss (+5%) or score ≥ +2 (bullish flip) |
+| Short stop-loss | COVER triggered when price rises ≥5% above short entry (`risk.should_cover_short()`). Inverse of long stop-loss |
+| Cover stop price | `entry × 1.05` — the hard stop price for a short position (`risk.short_stop_price()`) |
+| Short regime gate | SHORT entries only allowed in confirmed daily downtrend (close < 50-SMA AND 20-SMA < 50-SMA). No shorts in uptrend or mixed regime |
+| `should_cover_short()` | `risk.py` function: returns True if `(current - entry) / entry >= 0.05`. Short equivalent of `should_stop_out()` |
+| `short_stop_price()` | `risk.py` function: returns `entry_price × (1 + STOP_LOSS_PCT)` — the hard stop price for a short |
+| `SHORT_SCORE_THRESHOLD` | Constant in `run_evaluation.py` (= −4.0). Full-size short entry gate |
+| `SHORT_SCORE_HALF_SIZE` | Constant in `run_evaluation.py` (= −3.0). Half-size short entry gate if R:R ≥ 1:3 |
+| `COVER_SCORE_THRESHOLD` | Constant in `run_evaluation.py` (= +2.0). TA-based cover trigger when score turns bullish |
+| `isShort` | Dashboard JS pattern: `const isShort = qty < 0`. Alpaca returns negative `qty` for open short positions |
+| SHORT badge | Red `SHORT` label displayed next to symbol name in Positions tab for short positions (both dashboards) |
+| ⚡ Short button | Signals tab quick-fill button for short setups (`down && score <= -3`); pre-fills trade modal with `side='sell'` and ATR-sized qty |
 | TOP30_SYMBOLS | 30-element JS array in the dashboard covering the top crypto by market cap available on Alpaca (stablecoins and BNB excluded) |
 | TOP30_INFO | JS object keyed by symbol; stores `rank`, `tier` (Mega/Large/Mid/Small), `capLabel`, and `name` for each of the 30 symbols |
 | Market Overview tab | Dashboard tab showing live price, 24h%, 7d%, volume, trend and cap tier for all 30 symbols; auto-loads on open; includes momentum heatmap |
@@ -134,10 +147,14 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 |---|------|-------|
 | 1 | Position cap | ≤5% of equity per symbol |
 | 2 | Order type | Limit only; within 0.2% of ask |
-| 3 | Stop-loss | −5% from entry → immediate close |
-| 4 | Take-profit | +10% from entry → immediate close |
+| 3 | Long stop-loss | −5% from entry → immediate SELL |
+| 3b | Short stop-loss | +5% above entry → immediate COVER |
+| 4 | TA exit (long) | Score ≤ −2 → SELL |
+| 4b | TA cover (short) | Score ≥ +2 → COVER |
 | 5 | Buy gate | Score ≥4/6 full size; score=3/6 half-size if R:R≥1:3 |
-| 6 | Regime gate | No buys in daily downtrend (close < 50-SMA AND 20-SMA < 50-SMA) |
+| 5b | Short gate | Score ≤−4/6 full size; score=−3/6 half-size if R:R≥1:3; downtrend only |
+| 6 | Long regime gate | No buys in daily downtrend (close < 50-SMA AND 20-SMA < 50-SMA) |
+| 6b | Short regime gate | Shorts ONLY in confirmed daily downtrend; blocked in uptrend/mixed |
 | 7 | Sizing | ATR: qty=(equity×1%)/(ATR×1.5), cap at 5% equity |
 | 8 | Order routing | All via `scripts/trade.py`; direct API calls forbidden |
 | 9 | Journal | Every day, even quiet ones |
