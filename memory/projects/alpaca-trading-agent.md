@@ -157,6 +157,16 @@ python scripts/rebalance.py --execute # place orders
 
 ---
 
+### 2026-05-25 — Dashboards: TradingView symbol links added
+
+- Added `tvLink(sym, label)` helper to both `dashboard_professional.html` and `portfolio-dashboard.html`.
+- Converts any symbol form ("BTC/USD", "BTCUSD", "BTC") to a `https://www.tradingview.com/chart/?symbol=CRYPTO:BTCUSD` URL.
+- Every `<span class="symbol">` in both dashboards now wraps its text in the link — opens in a new tab (`target="_blank"`).
+- Added `.tv-link` CSS class: inherits colour, no underline at rest, underline + slight fade on hover.
+- 14 call-sites in the pro dashboard, 11 in the portfolio dashboard; zero unlinked symbol spans remain.
+
+---
+
 ### 2026-05-25 — Dashboards: Mobile portrait table horizontal scroll fixed
 
 **`dashboard_professional.html`**

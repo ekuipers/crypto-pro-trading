@@ -298,7 +298,7 @@ Key features:
 
 ### `docs/portfolio-dashboard.html` *(legacy)*
 
-Original lighter dashboard — 3 tabs: Overview, Hot Symbols, Morning Brief. Updated to support short positions: direction-aware stop/target prices, SHORT badge, `Buy / Cover` button for shorts, regime-gated action chips (SHORT ≤−4/6, ½ SHORT −3/6), and correct P&L sign for shorts via Alpaca's `unrealized_plpc` field. Mobile portrait: `.table-wrap` and `.conf-wrap` use `overflow-x:scroll` + `-webkit-overflow-scrolling:touch`, clamped to `calc(100vw - 24px)` in a `@media (max-width:700px)` block; all tables have `min-width:700px`.
+Original lighter dashboard — 3 tabs: Overview, Hot Symbols, Morning Brief. Updated to support short positions: direction-aware stop/target prices, SHORT badge, `Buy / Cover` button for shorts, regime-gated action chips (SHORT ≤−4/6, ½ SHORT −3/6), and correct P&L sign for shorts via Alpaca's `unrealized_plpc` field. Mobile portrait: `.table-wrap` and `.conf-wrap` use `overflow-x:scroll` + `-webkit-overflow-scrolling:touch`, clamped to `calc(100vw - 24px)` in a `@media (max-width:700px)` block; all tables have `min-width:700px`. Every symbol label is a `tvLink()` anchor opening the TradingView chart in a new tab.
 
 ---
 

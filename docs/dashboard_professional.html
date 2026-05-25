@@ -469,6 +469,15 @@
       color:var(--blue);
       font-weight:900;
     }
+    /* TradingView symbol links */
+    .tv-link {
+      color: inherit;
+      text-decoration: none;
+    }
+    .tv-link:hover {
+      text-decoration: underline;
+      opacity: .8;
+    }
 
     input,
     select,
@@ -1789,6 +1798,17 @@
       return (signed && v >= 0 ? "+" : "") + fmt(v, dec) + "%";
     }
 
+
+    // Opens TradingView chart for a crypto symbol in a new tab.
+    // Accepts "BTC/USD", "BTCUSD", or "BTC" — all map to CRYPTO:BTCUSD.
+    // label (optional) overrides the visible text; defaults to sym.
+    function tvLink(sym, label) {
+      var base = sym.replace(/\/USD$/i,"").replace(/USD$/i,"").replace("/","");
+      var url  = "https://www.tradingview.com/chart/?symbol=CRYPTO:" + base + "USD";
+      var txt  = (label !== undefined) ? label : sym;
+      return '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="tv-link">' + txt + '</a>';
+    }
+
     function toSlash(sym) {
       if (!sym) return "–";
       if (sym.includes("/")) return sym;
@@ -2441,7 +2461,7 @@
 
             return `
               <tr>
-                <td><span class="symbol">${sym}</span></td>
+                <td><span class="symbol">${tvLink(sym)}</span></td>
                 <td class="right mono">$${fmt(mv)}</td>
                 <td class="right">${fmt(pctEq,1)}%</td>
                 <td class="right ${capCls}" data-tip="Current allocation vs portfolio cap. Red = within 10% of cap limit.">${capText}</td>
@@ -2521,7 +2541,7 @@
 
             return `
               <tr>
-                <td><span class="symbol">${displaySymbol}</span>${dirBadge}</td>
+                <td><span class="symbol">${tvLink(displaySymbol)}</span>${dirBadge}</td>
                 <td class="right">${fmt(Math.abs(qty), Math.abs(qty) % 1 === 0 ? 0 : 6)}</td>
                 <td class="right mono">${fmtPrice(p.avg_entry_price)}</td>
                 <td class="right mono">${fmtPrice(p.current_price)}</td>
@@ -2575,7 +2595,7 @@
 
             return `
               <tr>
-                <td><span class="symbol">${toSlash(o.symbol)}</span></td>
+                <td><span class="symbol">${tvLink(toSlash(o.symbol))}</span></td>
                 <td class="${o.side === "buy" ? "pos" : "neg"}">${String(o.side || "").toUpperCase()}</td>
                 <td>${o.type || "–"}</td>
                 <td class="right">${fmt(Number(o.qty || 0), 6)}</td>
@@ -3712,7 +3732,7 @@
         const equity = lastContext ? lastContext.equity : 0;
 
         $("signalBody").innerHTML = rows.map(row => {
-          if (row.error) return `<tr><td><span class="symbol">${row.sym}</span></td><td colspan="12" style="color:var(--muted)">${row.error}</td></tr>`;
+          if (row.error) return `<tr><td><span class="symbol">${tvLink(row.sym)}</span></td><td colspan="12" style="color:var(--muted)">${row.error}</td></tr>`;
           const down = row.dailyRegime === "downtrend";
           const emaLabel = (row.ema20 > row.ema50) ? "Golden" : "Death";
           const regime4hLabel = (row.ema4h_20 > row.ema4h_50) ? "Golden" : "Death";
@@ -3754,7 +3774,7 @@
 
           return `
             <tr>
-              <td><span class="symbol">${row.sym}</span></td>
+              <td><span class="symbol">${tvLink(row.sym)}</span></td>
               <td class="right mono">${row.lastClose ? fmtPrice(row.lastClose) : "–"}</td>
               <td class="right">${scoreBar(row.score)}</td>
               <td style="text-align:center">${trendHtml}</td>
@@ -3938,7 +3958,7 @@
             const avgW   = d.wins   ? d.winPnl / d.wins   : null;
             const avgL   = d.losses ? d.lossPnl / d.losses : null;
             return `<tr>
-              <td><span class="symbol">${toSlash(sym)}</span></td>
+              <td><span class="symbol">${tvLink(toSlash(sym))}</span></td>
               <td class="right">${total}</td>
               <td class="right">${d.wins}W / ${d.losses}L</td>
               <td class="right ${wr >= 50 ? "pos" : "neg"}">${fmt(wr,1)}%</td>
@@ -3983,7 +4003,7 @@
           ? _pnlTradeRows.map(t => `
             <tr>
               <td style="color:var(--muted);white-space:nowrap">${t.date}</td>
-              <td><span class="symbol">${toSlash(t.sym)}</span></td>
+              <td><span class="symbol">${tvLink(toSlash(t.sym))}</span></td>
               <td class="${t.side === "BUY" ? "pos" : "neg"}">${t.side}</td>
               <td class="right mono">${fmt(t.qty, 6)}</td>
               <td class="right mono">${fmtPrice(t.price)}</td>
@@ -4118,7 +4138,7 @@
         const barColor = pct >= cap * 0.9 ? "#f85149" : pct >= cap * 0.7 ? "#d29922" : "#3fb950";
         return `
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
-            <span class="symbol" style="width:70px">${sym}</span>
+            <span class="symbol" style="width:70px">${tvLink(sym)}</span>
             <div style="flex:1;height:7px;background:rgba(255,255,255,.08);border-radius:4px">
               <div style="height:100%;width:${Math.min(pct/cap*100,100)}%;background:${barColor};border-radius:4px"></div>
             </div>
@@ -4149,7 +4169,7 @@
         const corrLabel = isBtc ? "Benchmark" : isEth ? "~0.85 BTC" : "~0.75–0.95 BTC";
         const corrColor = isBtc ? "var(--muted)" : isEth ? "var(--blue)" : "#d29922";
         return `<div style="display:flex;justify-content:space-between;margin-bottom:4px">
-          <span class="symbol">${s}</span>
+          <span class="symbol">${tvLink(s)}</span>
           <span style="font-size:12px;color:${corrColor}">${corrLabel}</span>
         </div>`;
       }).join("");
@@ -4992,7 +5012,7 @@
         }
         return "<tr>" +
           '<td style="color:var(--muted);font-weight:700;font-size:12px">#' + info.rank + "</td>" +
-          '<td><span class="symbol">' + row.sym.replace("/USD","") + "</span>" +
+          tvLink(row.sym, row.sym.replace("/USD","")) +
             '<span style="color:var(--muted);font-size:11px;margin-left:5px">' + info.name + "</span></td>" +
           '<td class="right mono">' + moFmtPrice(row.price) + "</td>" +
           '<td class="right">' + moChgHtml(row.chg24h) + "</td>" +
@@ -5194,7 +5214,7 @@
           if (row.error) {
             return '<tr data-unavailable="1">' +
               '<td style="color:var(--muted);font-size:12px">#' + info.rank + "</td>" +
-              '<td><span class="symbol">' + row.sym.replace("/USD","") + "</span></td>" +
+              '<td>' + tvLink(row.sym, row.sym.replace("/USD","")) + "</td>" +
               '<td class="right mono" style="color:var(--muted)">' + moFmtPrice(row.livePrice) + "</td>" +
               '<td colspan="10" style="color:var(--muted);font-size:12px">' + row.error + "</td>" +
               "</tr>";
@@ -5216,7 +5236,7 @@
           const pbFmt   = (row.bb_pb !== undefined && row.bb_pb !== null) ? fmt(row.bb_pb,2) : "–";
           return "<tr>" +
             '<td style="color:var(--muted);font-size:12px">#' + info.rank + "</td>" +
-            '<td><span class="symbol">' + row.sym.replace("/USD","") + "</span></td>" +
+            '<td>' + tvLink(row.sym, row.sym.replace("/USD","")) + "</td>" +
             '<td class="right mono">' + moFmtPrice(row.livePrice || row.lastClose) + "</td>" +
             '<td class="right">' + scoreBar(row.score) + "</td>" +
             "<td>" + trendHtml + "</td>" +
@@ -5255,36 +5275,6 @@
             ? buyRows.map(function(r) {
                 const inf = TOP30_INFO[r.sym] || {};
                 return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px">' +
-                  '<span class="symbol">' + r.sym.replace("/USD","") + "</span>" +
+                  tvLink(r.sym, r.sym.replace("/USD","")) +
                   '<span style="color:var(--muted);font-size:11px;flex:1">' + (inf.name||"") + "</span>" +
-                  '<span style="color:var(--green);font-weight:800">+' + r.score + "/6</span>" +
-                  '<span style="color:var(--muted);font-size:11px">' + (r.dailyRegime||"") + "</span>" +
-                  "</div>";
-              }).join("")
-            : '<span style="color:var(--muted)">No BUY setups currently — market breadth weak.</span>';
-        }
-
-        if (upd) upd.textContent = "Last scanned: " + new Date().toLocaleTimeString() +
-          " · " + valid.length + "/" + TOP30_SYMBOLS.length + " symbols analysed";
-
-      } catch(e) {
-        document.getElementById("msTableBody").innerHTML =
-          '<tr><td colspan="13" style="color:var(--red);padding:16px">❌ ' + e.message + "</td></tr>";
-        if (upd) upd.textContent = "Error";
-        console.error("loadMarketSignals:", e);
-      }
-    }
-
-    let _msHideUnavailable = false;
-    function msToggleUnavailable() {
-      _msHideUnavailable = !_msHideUnavailable;
-      const btn = document.getElementById("msHideBtn");
-      document.querySelectorAll("#msTableBody tr[data-unavailable]").forEach(function(tr) {
-        tr.style.display = _msHideUnavailable ? "none" : "";
-      });
-      if (btn) btn.textContent = _msHideUnavailable ? "👁 Show All" : "👁 Hide Unavailable";
-    }
-
-  </script>
-</body>
-</html>
+                  '<span style="color:var(--green);font-weight:800">+' + r.score + "/6<

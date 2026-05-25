@@ -192,6 +192,15 @@
     td.right { text-align: right; }
     td.mono  { font-family: monospace; font-size: 13px; }
     .symbol    { font-weight: 700; font-size: 14px; color: var(--blue); }
+    /* TradingView symbol links */
+    .tv-link {
+      color: inherit;
+      text-decoration: none;
+    }
+    .tv-link:hover {
+      text-decoration: underline;
+      opacity: .8;
+    }
     .side-buy  { color: var(--green); font-weight: 700; }
     .side-sell { color: var(--red);   font-weight: 700; }
     .status-badge {
@@ -1354,7 +1363,7 @@ function renderWatchlistNoPos() {
     const orderSym = sym.replace("/", "");
     const priceStr = price ? fmtPrice(price) : '<span style="color:var(--muted)">–</span>';
     return `<tr>
-      <td><span class="symbol">${sym}</span></td>
+      <td><span class="symbol">${tvLink(sym)}</span></td>
       <td class="right" style="color:var(--muted)">–</td>
       <td class="right" style="color:var(--muted)">–</td>
       <td class="right mono">${priceStr}</td>
@@ -1393,7 +1402,7 @@ function renderPositions() {
       ? `<span style="font-size:9px;padding:1px 4px;border-radius:3px;background:rgba(248,81,73,.15);color:var(--red);font-weight:700;margin-left:4px">SHORT</span>`
       : "";
     return `<tr>
-      <td><span class="symbol">${sym}</span>${dirBadge}</td>
+      <td><span class="symbol">${tvLink(sym)}</span>${dirBadge}</td>
       <td class="right">${fmt(Math.abs(qty), Math.abs(qty) % 1 === 0 ? 0 : 6)}</td>
       <td class="right mono">${fmtPrice(p.avg_entry_price)}</td>
       <td class="right mono">${fmtPrice(p.current_price)}</td>
@@ -1537,7 +1546,7 @@ function renderOrderRow(o) {
   const val = filledQty && o.filled_avg_price
     ? "$" + fmt(filledQty * parseFloat(o.filled_avg_price)) : "–";
   return `<tr>
-    <td><span class="symbol">${toSlash(o.symbol)}</span></td>
+    <td><span class="symbol">${tvLink(toSlash(o.symbol))}</span></td>
     <td class="side-${o.side}">${o.side.toUpperCase()}</td>
     <td style="color:var(--muted)">${o.type}</td>
     <td class="right">${fmt(qty, qty % 1 === 0 ? 0 : 6)}</td>
@@ -1701,6 +1710,17 @@ function refreshCurrent() {
 // ═══════════════════════════════════════════════════════════
 //  SYMBOL HELPER
 // ═══════════════════════════════════════════════════════════
+
+// Opens TradingView chart for a crypto symbol in a new tab.
+// Accepts "BTC/USD", "BTCUSD", or "BTC" — all map to CRYPTO:BTCUSD.
+// label (optional) overrides the visible text; defaults to sym.
+function tvLink(sym, label) {
+  var base = sym.replace(/\/USD$/i,"").replace(/USD$/i,"").replace("/","");
+  var url  = "https://www.tradingview.com/chart/?symbol=CRYPTO:" + base + "USD";
+  var txt  = (label !== undefined) ? label : sym;
+  return '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="tv-link">' + txt + '</a>';
+}
+
 function toSlash(sym) {
   if (!sym) return sym;
   if (sym.includes("/")) return sym;
@@ -1822,7 +1842,7 @@ function renderBriefPos() {
       ? `<span style="font-size:9px;padding:1px 4px;border-radius:3px;background:rgba(248,81,73,.15);color:var(--red);font-weight:700;margin-left:4px">SHORT</span>`
       : "";
     return `<tr>
-      <td><span class="symbol">${toSlash(p.symbol)}</span>${dirBadge}</td>
+      <td><span class="symbol">${tvLink(toSlash(p.symbol))}</span>${dirBadge}</td>
       <td class="right mono">${fmtPrice(entry)}</td>
       <td class="right mono">${fmtPrice(cur)}</td>
       <td class="right ${plClass(plPct)}" style="font-weight:700">${(plPct >= 0 ? "+" : "") + plPct.toFixed(2)}%</td>
@@ -1876,11 +1896,11 @@ function renderConf() {
     if (va < vb) return -dir; if (va > vb) return dir; return 0;
   });
   $("briefConfluence").innerHTML = data.map(row => {
-    if (!row.ok) return `<tr><td><span class="symbol">${toSlash(row.sym)}</span></td><td colspan="9" style="color:var(--muted)">Error: ${row.err}</td></tr>`;
+    if (!row.ok) return `<tr><td><span class="symbol">${tvLink(toSlash(row.sym))}</span></td><td colspan="9" style="color:var(--muted)">Error: ${row.err}</td></tr>`;
     const s = row.signals;
     const sc = row.score, scColor = sc >= 4 ? "var(--green)" : sc >= 3 ? "var(--yellow)" : sc <= -2 ? "var(--red)" : "var(--text)";
     return `<tr>
-      <td><span class="symbol">${toSlash(row.sym)}</span></td>
+      <td><span class="symbol">${tvLink(toSlash(row.sym))}</span></td>
       <td class="right"><span class="conf-score" style="color:${scColor}">${sc !== null ? (sc > 0 ? "+" : "") + sc : "n/a"}/6</span>${scoreBar(sc)}</td>
       <td>${s.ema  ? chipFor(s.ema.val,  s.ema.pts)  : "–"}</td>
       <td>${s.macd ? chipFor(s.macd.val, s.macd.pts) : "–"}</td>
@@ -1918,7 +1938,7 @@ function renderDistTable() {
         const cur = parseFloat(p.current_price);
         const unrPL = parseFloat(p.unrealized_pl), unrPct = parseFloat(p.unrealized_plpc);
         return `<tr>
-          <td><span class="symbol">${toSlash(p.symbol)}</span></td>
+          <td><span class="symbol">${tvLink(toSlash(p.symbol))}</span></td>
           <td class="right mono">$${fmt(mv)}</td>
           <td class="right" style="font-weight:700">${fmt(pct, 1)}%</td>
           <td class="right">${fmt(qty, qty % 1 === 0 ? 0 : 6)}</td>
@@ -1959,7 +1979,7 @@ function renderDistCap() {
           ? `<span class="status-badge" style="background:rgba(210,153,34,.15);color:var(--yellow)">Near Cap</span>`
           : `<span class="status-badge" style="background:rgba(63,185,80,.15);color:var(--green)">OK</span>`;
     return `<tr>
-      <td><span class="symbol">${sym}</span></td>
+      <td><span class="symbol">${tvLink(sym)}</span></td>
       <td class="right" style="font-weight:${hasPos ? 700 : 400};color:${!hasPos ? "var(--muted)" : "var(--text)"}">${hasPos ? fmt(curPct, 1) + "%" : "–"}</td>
       <td class="right">${fmt(capPct, 0)}%</td>
       <td class="right ${headroom < 1 && hasPos ? "neg" : ""}">${hasPos ? fmt(headroom, 1) + "%" : fmt(capPct, 0) + "%"}</td>
@@ -1991,13 +2011,13 @@ function renderHot() {
   $("cryptoRankBody").innerHTML = data.map((r, i) => {
     if (r.noData) return `<tr>
       <td class="rank">${i + 1}</td>
-      <td><span class="symbol">${r.sym}</span></td>
+      <td><span class="symbol">${tvLink(r.sym)}</span></td>
       <td colspan="8" style="color:var(--muted)">No data</td>
     </tr>`;
     const cls = plClass(r.change);
     return `<tr>
       <td class="rank">${i + 1}</td>
-      <td><span class="symbol">${r.sym}</span></td>
+      <td><span class="symbol">${tvLink(r.sym)}</span></td>
       <td class="right mono">${fmtPrice(r.price)}</td>
       <td class="right ${cls}">${plSign(r.change)}</td>
       <td class="right ${cls}" style="font-weight:700">${pctFmt(r.pct)}</td>
@@ -2441,23 +2461,4 @@ setInterval(() => {
   else if (activeTab === "dist") loadDist();
 }, 60_000);
 
-// ── Theme toggle ──────────────────────────────────────────────────────────
-(function initTheme() {
-  const saved = localStorage.getItem("dashTheme") || "dark";
-  applyTheme(saved);
-})();
-
-function applyTheme(theme) {
-  document.documentElement.setAttribute("data-theme", theme);
-  const btn = document.getElementById("themeBtn");
-  if (btn) btn.textContent = theme === "light" ? "🌙" : "☀️";
-  localStorage.setItem("dashTheme", theme);
-}
-
-function toggleTheme() {
-  const current = document.documentElement.getAttribute("data-theme") || "dark";
-  applyTheme(current === "dark" ? "light" : "dark");
-}
-</script>
-</body>
-</html>
+// ── Theme toggle ─────────────────────────────────────
