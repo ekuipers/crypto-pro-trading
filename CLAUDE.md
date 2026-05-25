@@ -285,7 +285,7 @@ python scripts/rebalance.py --execute # submit orders
 
 ## Dashboard (`docs/dashboard_professional.html`)
 
-Self-contained single-file HTML dashboard. Open locally in any browser — no server needed.
+Self-contained single-file HTML dashboard. Open locally in any browser — no server needed. Fully usable on mobile portrait: all tables scroll horizontally via `overflow-x:scroll` + `-webkit-overflow-scrolling:touch` on `.table-wrap`, clamped to `calc(100vw - 32px)` in the mobile media query so the wrapper can't expand past the viewport.
 
 | Feature | Detail |
 |---------|--------|

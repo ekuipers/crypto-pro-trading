@@ -401,7 +401,9 @@
       background:var(--surface);
       border:1px solid var(--border);
       border-radius:var(--radius);
-      overflow:auto;
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch; /* momentum scroll on iOS */
+      max-width:100%;                   /* prevent wrapper expanding past viewport */
     }
 
     table {
@@ -902,6 +904,17 @@
 
       .grid-2 {
         grid-template-columns:1fr;
+      }
+
+      /* Tables: clamp wrapper to viewport width so overflow-x:auto actually kicks in */
+      .table-wrap {
+        max-width:calc(100vw - 32px);
+        overflow-x:scroll; /* scroll (not auto) is more reliable on mobile Safari */
+      }
+
+      /* Also constrain the correlation matrix wrapper */
+      .corr-wrap {
+        max-width:calc(100vw - 32px);
       }
     }
 

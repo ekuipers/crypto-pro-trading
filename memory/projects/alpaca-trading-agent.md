@@ -157,6 +157,13 @@ python scripts/rebalance.py --execute # place orders
 
 ---
 
+### 2026-05-25 — Dashboard: Mobile portrait table horizontal scroll fixed
+
+- **Root cause**: `.table-wrap` used `overflow:auto` without an explicit width constraint. On mobile, block elements expand to fit content, so the wrapper grew to 760px+ alongside the table instead of staying at viewport width and scrolling.
+- **Fix**: Added `max-width:100%` and `-webkit-overflow-scrolling:touch` to `.table-wrap` globally. In the `@media (max-width:700px)` block, overrode to `overflow-x:scroll` (more reliable than `auto` on mobile Safari) and `max-width:calc(100vw - 32px)` to hard-clamp the wrapper. Same constraint applied to `.corr-wrap` (correlation heatmap).
+
+---
+
 ### 2026-05-25 — Dashboard: Market Overview snapshot fetch fixed
 
 - **Root cause**: `1INCH/USD` fails Alpaca's symbol regex (`^[A-Z]+x?/[A-Z]+$`) — starts with a digit. When included in the combined 30-symbol snapshot request it returned HTTP 400, wiping **all** price/24h%/volume columns for every row.
