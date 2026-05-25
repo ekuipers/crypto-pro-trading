@@ -3540,6 +3540,29 @@
       return allBars;
     }
 
+    // Fetches snapshots for a large symbol list in batches.
+    // A single invalid symbol (e.g. one starting with a digit) causes Alpaca to return 400
+    // for the whole request, so batching ensures one bad symbol only silences its own batch.
+    async function fetchSnapshotsInBatches(symbols, batchSize = 10) {
+      const allSnaps = {};
+      for (let i = 0; i < symbols.length; i += batchSize) {
+        const batch = symbols.slice(i, i + batchSize);
+        try {
+          const joined = batch.map(encodeURIComponent).join(",");
+          const r = await fetch(DATA_URL + "/v1beta3/crypto/us/snapshots?symbols=" + joined, { headers: getHeaders() });
+          if (r.ok) {
+            const d = await r.json();
+            Object.assign(allSnaps, d.snapshots || {});
+          } else {
+            console.warn("fetchSnapshotsInBatches: batch", batch, "returned", r.status);
+          }
+        } catch(e) {
+          console.warn("fetchSnapshotsInBatches: batch failed", batch, e);
+        }
+      }
+      return allSnaps;
+    }
+
     // Fetches bars for a large symbol list by splitting into batches of batchSize.
     // A single invalid symbol can cause the Alpaca API to reject the whole request,
     // so batching ensures one bad symbol only silences its own batch of 10.
@@ -4855,7 +4878,7 @@
       "LTC/USD","BCH/USD","UNI/USD","ATOM/USD","XLM/USD",
       "ALGO/USD","AAVE/USD","MKR/USD","GRT/USD","NEAR/USD",
       "FIL/USD","XTZ/USD","BAT/USD","CRV/USD","SUSHI/USD",
-      "COMP/USD","SNX/USD","1INCH/USD","ENS/USD","YFI/USD"
+      "COMP/USD","SNX/USD","MATIC/USD","ENS/USD","YFI/USD"
     ];
 
     // Approximate market cap rank + metadata (stablecoins & BNB excluded)
@@ -4887,7 +4910,7 @@
       "SUSHI/USD": { rank:25, tier:"Small",  capLabel:">$300M",  name:"SushiSwap" },
       "COMP/USD":  { rank:26, tier:"Small",  capLabel:">$300M",  name:"Compound" },
       "SNX/USD":   { rank:27, tier:"Small",  capLabel:">$300M",  name:"Synthetix" },
-      "1INCH/USD": { rank:28, tier:"Small",  capLabel:">$200M",  name:"1inch" },
+      "MATIC/USD": { rank:28, tier:"Small",  capLabel:">$500M",  name:"Polygon" },
       "ENS/USD":   { rank:29, tier:"Small",  capLabel:">$200M",  name:"Ethereum Name Svc" },
       "YFI/USD":   { rank:30, tier:"Small",  capLabel:">$200M",  name:"Yearn Finance" }
     };
@@ -5007,12 +5030,10 @@
       if (kEl) kEl.innerHTML  = kpi("Status", "Loading…", "Fetching snapshots + daily bars");
 
       try {
-        const joined = TOP30_SYMBOLS.map(encodeURIComponent).join(",");
-        const [snapResp, dailyBars] = await Promise.all([
-          fetch(DATA_URL + "/v1beta3/crypto/us/snapshots?symbols=" + joined, { headers: getHeaders() }),
+        const [snaps, dailyBars] = await Promise.all([
+          fetchSnapshotsInBatches(TOP30_SYMBOLS),
           fetchBarsInBatches(TOP30_SYMBOLS, "1Day", 10)
         ]);
-        const snaps = snapResp.ok ? ((await snapResp.json()).snapshots || {}) : {};
 
         const rows = TOP30_SYMBOLS.map(function(sym) {
           const info   = TOP30_INFO[sym] || { rank:99 };
@@ -5093,12 +5114,10 @@
           return;
         }
 
-        // Snapshot for live prices
-        const joined = TOP30_SYMBOLS.map(encodeURIComponent).join(",");
+        // Snapshot for live prices — batched so one invalid symbol can't kill the whole request
         let snaps = {};
         try {
-          const sr = await fetch(DATA_URL + "/v1beta3/crypto/us/snapshots?symbols=" + joined, { headers: getHeaders() });
-          if (sr.ok) snaps = (await sr.json()).snapshots || {};
+          snaps = await fetchSnapshotsInBatches(TOP30_SYMBOLS);
         } catch(e) { /* non-fatal */ }
 
         const rows   = [];

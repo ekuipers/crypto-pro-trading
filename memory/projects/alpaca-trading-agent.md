@@ -153,7 +153,15 @@ python scripts/rebalance.py --execute # place orders
 - New JS globals: `TOP30_SYMBOLS` (array), `TOP30_INFO` (metadata per symbol), `_moData` (cached overview rows), `_msPrevScores` (cross-tab score cache).
 - New functions: `loadMarketOverview()`, `loadMarketSignals()`, `moApplySort()`, `renderMoTable()`, `renderMoHeatmap()`, `moFmtPrice()`, `moFmtVol()`, `moChgHtml()`, `moTrendIcon()`, `moTierColor()`.
 - switchTab wired: `market-overview` auto-runs on open; `market-signals` is manual (same pattern as Breakout Scanner).
-- Note: smaller-cap symbols (1INCH, ENS, SNX, SUSHI, etc.) may return "Not available on Alpaca" — handled gracefully with an informational row.
+- Note: smaller-cap symbols (ATOM, XLM, COMP, SNX, ENS) have no data on Alpaca — show "–" gracefully. `1INCH/USD` replaced with `MATIC/USD` (see below).
+
+---
+
+### 2026-05-25 — Dashboard: Market Overview snapshot fetch fixed
+
+- **Root cause**: `1INCH/USD` fails Alpaca's symbol regex (`^[A-Z]+x?/[A-Z]+$`) — starts with a digit. When included in the combined 30-symbol snapshot request it returned HTTP 400, wiping **all** price/24h%/volume columns for every row.
+- **Fix 1**: Replaced `1INCH/USD` with `MATIC/USD` in `TOP30_SYMBOLS` and `TOP30_INFO`.
+- **Fix 2**: Added `fetchSnapshotsInBatches()` (mirrors `fetchBarsInBatches` pattern) — snapshots now fetched in batches of 10 so one unsupported symbol can never blank the entire table. Used in both `loadMarketOverview()` and the Market Signals scanner.
 
 ---
 
