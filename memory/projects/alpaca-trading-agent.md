@@ -34,7 +34,7 @@ alpaca-trading-agent/
 │   └── YYYY-MM-DD.md            ← Daily trading journals (append, never overwrite)
 ├── docs/
 │   ├── portfolio-dashboard.html       ← Legacy dashboard (5 tabs: Overview, Hot Symbols, Distribution, Morning Brief, Settings)
-│   ├── portfolio_dashboard.html       ← Primary dashboard (10 tabs — see dashboard_layout.md)
+│   ├── dashboard_professional.html       ← Primary dashboard (12 tabs — see dashboard_layout.md)
 │   └── dashboard_layout.md            ← Tab structure, feature notes, changelog
 └── skills/
     └── crypto-trader/
@@ -65,6 +65,29 @@ alpaca-trading-agent/
 ---
 
 ## Session History
+
+### 2026-05-25 — New Script: `scripts/rebalance.py`
+
+Added `scripts/rebalance.py` — a portfolio rebalancer that aligns positions to their caps in `config.json › portfolio_caps.caps`.
+
+**Logic:**
+- Loops over all watchlist crypto symbols.
+- **Over-cap** positions: trims the excess immediately (no signal gate needed — reducing risk).
+- **Under-cap** positions: tops up only when signal gate passes (score ≥ 4 full-size, score = 3 half-size) AND daily regime is not downtrend.
+- Stop-loss checks (`should_stop_out`) always fire regardless of cap status.
+- ATR-based sizing applies; hard cap = remaining gap to target cap.
+
+**Order routing:** uses `trade.place_order()` — all hard rules enforced.
+
+**Journal:** appends a `## Rebalance HH:MM GMT+2` block to the day's journal with a per-symbol table (current%, cap%, score, action).
+
+**Usage:**
+```bash
+python scripts/rebalance.py           # dry-run
+python scripts/rebalance.py --execute # place orders
+```
+
+---
 
 ### 2026-05-22 — Full Short-Selling Support Added
 
@@ -146,7 +169,7 @@ alpaca-trading-agent/
 - Root cause: Alpaca multi-symbol bars API paginates by *total bars across all symbols*, not per-symbol. With 10 symbols × 100 bars, the first page only returned ~10 bars for the first symbol, leaving the rest empty.
 - Fix: Rewrote `fetchBars()` in the dashboard to follow `next_page_token` pagination (up to 20 pages), accumulating all bars before returning. Pattern mirrors the `ggFetchBarsAllPages` function already in the file.
 
-**Dashboard improvements implemented (all in `docs/portfolio_dashboard.html`):**
+**Dashboard improvements implemented (all in `docs/dashboard_professional.html`):**
 
 1. **Live ticker strip** — new top-of-page bar showing price + 24h% for all 10 symbols. Fetches `/v1beta3/crypto/us/snapshots`. Initially broken due to JavaScript TDZ (see below); fixed.
 2. **Correlation heatmap** — new 10×10 matrix in Risk tab. Computes Pearson ρ from daily log-returns. Red = high positive correlation, blue = negative.
@@ -238,7 +261,7 @@ alpaca-trading-agent/
 
 ---
 
-## Portfolio Dashboard (`portfolio_dashboard.html`)
+## Portfolio Dashboard (`dashboard_professional.html`)
 
 10 tabs (key `1`–`9` + Settings):
 

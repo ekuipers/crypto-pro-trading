@@ -69,6 +69,9 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | `SHORT_SCORE_THRESHOLD` | Constant in `run_evaluation.py` (= −4.0). Full-size short entry gate |
 | `SHORT_SCORE_HALF_SIZE` | Constant in `run_evaluation.py` (= −3.0). Half-size short entry gate if R:R ≥ 1:3 |
 | `COVER_SCORE_THRESHOLD` | Constant in `run_evaluation.py` (= +2.0). TA-based cover trigger when score turns bullish |
+| Rebalance script | `scripts/rebalance.py` — trims over-cap positions, tops up under-cap positions (signal-gated). Run with `--execute` to submit orders |
+| Over-cap trim | Position value > cap% of equity → sell excess to bring back to cap. No signal gate; always fires |
+| Under-cap top-up | Position value < cap% → buy to close the gap, subject to signal gate (score ≥ 3) and regime gate (no downtrend) |
 | `isShort` | Dashboard JS pattern: `const isShort = qty < 0`. Alpaca returns negative `qty` for open short positions |
 | SHORT badge | Red `SHORT` label displayed next to symbol name in Positions tab for short positions (both dashboards) |
 | ⚡ Short button | Signals tab quick-fill button for short setups (`down && score <= -3`); pre-fills trade modal with `side='sell'` and ATR-sized qty |
@@ -138,6 +141,8 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | `_bars_start(limit, timeframe, buffer=1.6)` | `run_evaluation.py` | Computes start datetime string |
 | `evaluate_symbol(symbol, positions, equity, buying_power)` | `run_evaluation.py` | Full eval + ATR sizing + journal write |
 | `place_order(symbol, side, qty, ask)` | `trade.py` | Limit order; enforces hard rules |
+| `evaluate_rebalance(symbol, pos, equity, caps_data)` | `rebalance.py` | Returns rebalance decision (HOLD/BUY/SELL) with qty, limit_price, reason |
+| `append_rebalance_journal(timestamp, decisions, executed)` | `rebalance.py` | Appends `## Rebalance HH:MM GMT+2` block to daily journal |
 
 ---
 

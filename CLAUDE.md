@@ -266,6 +266,23 @@ all decisions are HOLD.
 
 ---
 
+## Portfolio Rebalancer (`scripts/rebalance.py`)
+
+Aligns every watchlist symbol's position to its cap in `config.json › portfolio_caps.caps`.
+
+- **Over-cap** → SELL the excess immediately (no signal gate).
+- **Under-cap** → BUY to close the gap, subject to signal gate (score ≥ 3) and daily regime gate (no downtrend).
+- Hard stop-loss (`should_stop_out`) fires before cap logic for any open position.
+- All orders go through `scripts/trade.py` — hard rules always enforced.
+- Appends a `## Rebalance HH:MM GMT+2` block to the daily journal.
+
+```bash
+python scripts/rebalance.py           # dry-run
+python scripts/rebalance.py --execute # submit orders
+```
+
+---
+
 ## Dashboard (`docs/dashboard_professional.html`)
 
 Self-contained single-file HTML dashboard. Open locally in any browser — no server needed.

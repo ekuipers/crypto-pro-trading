@@ -137,6 +137,7 @@ All thresholds are configured in `config.json` — edit there, not in source fil
 | `scripts/_api.py` | Shared HTTP helper — exponential-backoff retry (3 attempts, 5 s → 10 s → 20 s) for all Alpaca API calls |
 | `scripts/walkforward_evaluate.py` | Walk-forward backtester — signal at bar close, fill at next open, supports 1H/4H/1D timeframes |
 | `scripts/metrics.py` | Performance metrics — Sharpe, Sortino, max drawdown, profit factor |
+| `scripts/rebalance.py` | Portfolio rebalancer — trims over-cap positions and tops up under-cap ones using signal-confluence gate + ATR sizing; logs to journal |
 | `scripts/verify.py` | Credential and connectivity verification |
 | `scripts/_env.py` | Loads `.env` into `os.environ` at import time |
 
@@ -161,6 +162,12 @@ python scripts/walkforward_evaluate.py \
 python scripts/trade.py status
 python scripts/trade.py quote BTC/USD
 python scripts/trade.py order BTC/USD 0.001 buy 95000.00
+
+# Rebalance portfolio to caps (dry-run)
+python scripts/rebalance.py
+
+# Rebalance and execute orders
+python scripts/rebalance.py --execute
 
 # Run the test suite
 pytest tests/
@@ -270,7 +277,7 @@ Latest report (`walkforward_20260514T103155Z`) summary — 23 windows, 2024-01-0
 
 Two self-contained HTML dashboards live in `docs/`. Open either locally in a browser — no server required.
 
-### `docs/portfolio_dashboard.html` *(primary)*
+### `docs/dashboard_professional.html` *(primary)*
 
 Professional trader decision cockpit with 12 tabs: **Command**, **Performance**, **Risk**, **Positions**, **Execution**, **Signals**, **P&L**, **Backtest vs Live**, **Breakout Scanner**, **Market Overview**, **Market Signals**, **Settings**.
 
@@ -367,7 +374,7 @@ alpaca-trading-agent/
 │   └── forward.yml            # Daily walk-forward analysis
 ├── docs/
 │   ├── portfolio-dashboard.html        # Legacy dashboard (3 tabs)
-│   ├── portfolio_dashboard.html        # Professional dashboard (10 tabs, primary)
+│   ├── dashboard_professional.html     # Professional dashboard (12 tabs, primary)
 │   └── dashboard_layout.md            # Dashboard design notes
 ├── journal/
 │   ├── _template.md           # Journal entry template
@@ -383,6 +390,7 @@ alpaca-trading-agent/
 │   ├── _env.py                # .env loader
 │   ├── indicators.py          # Pure-function TA (EMA/RSI/MACD/BB/ATR)
 │   ├── metrics.py             # Performance metrics (Sharpe/MDD/PF)
+│   ├── rebalance.py           # Portfolio rebalancer (trim over-cap, top-up under-cap)
 │   ├── research.py            # Market research helper
 │   ├── risk.py                # Risk rule enforcement (reads config.json)
 │   ├── run_evaluation.py      # Main evaluation + order placement
