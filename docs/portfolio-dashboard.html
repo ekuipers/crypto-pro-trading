@@ -193,14 +193,8 @@
     td.mono  { font-family: monospace; font-size: 13px; }
     .symbol    { font-weight: 700; font-size: 14px; color: var(--blue); }
     /* TradingView symbol links */
-    .tv-link {
-      color: inherit;
-      text-decoration: none;
-    }
-    .tv-link:hover {
-      text-decoration: underline;
-      opacity: .8;
-    }
+    .tv-link { color:inherit; text-decoration:none; }
+    .tv-link:hover { text-decoration:underline; opacity:.8; }
     .side-buy  { color: var(--green); font-weight: 700; }
     .side-sell { color: var(--red);   font-weight: 700; }
     .status-badge {
@@ -1711,12 +1705,11 @@ function refreshCurrent() {
 //  SYMBOL HELPER
 // ═══════════════════════════════════════════════════════════
 
-// Opens TradingView chart for a crypto symbol in a new tab.
-// Accepts "BTC/USD", "BTCUSD", or "BTC" — all map to CRYPTO:BTCUSD.
-// label (optional) overrides the visible text; defaults to sym.
+// tvLink: wraps a symbol in a TradingView chart anchor (opens new tab).
+// Accepts BTC/USD, BTCUSD, or BTC -- all map to CRYPTO:BTCUSD.
 function tvLink(sym, label) {
-  var base = sym.replace(/\/USD$/i,"").replace(/USD$/i,"").replace("/","");
-  var url  = "https://www.tradingview.com/chart/?symbol=CRYPTO:" + base + "USD";
+  var base = sym.replace(/\/USD$/i,'').replace(/USD$/i,'').replace('/','');
+  var url  = 'https://www.tradingview.com/chart/?symbol=CRYPTO:' + base + 'USD';
   var txt  = (label !== undefined) ? label : sym;
   return '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="tv-link">' + txt + '</a>';
 }
@@ -2461,4 +2454,23 @@ setInterval(() => {
   else if (activeTab === "dist") loadDist();
 }, 60_000);
 
-// ── Theme toggle ─────────────────────────────────────
+// ── Theme toggle ──────────────────────────────────────────────────────────
+(function initTheme() {
+  const saved = localStorage.getItem("dashTheme") || "dark";
+  applyTheme(saved);
+})();
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  const btn = document.getElementById("themeBtn");
+  if (btn) btn.textContent = theme === "light" ? "🌙" : "☀️";
+  localStorage.setItem("dashTheme", theme);
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute("data-theme") || "dark";
+  applyTheme(current === "dark" ? "light" : "dark");
+}
+</script>
+</body>
+</html>

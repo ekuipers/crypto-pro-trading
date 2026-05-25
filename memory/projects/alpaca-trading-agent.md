@@ -163,7 +163,8 @@ python scripts/rebalance.py --execute # place orders
 - Converts any symbol form ("BTC/USD", "BTCUSD", "BTC") to a `https://www.tradingview.com/chart/?symbol=CRYPTO:BTCUSD` URL.
 - Every `<span class="symbol">` in both dashboards now wraps its text in the link — opens in a new tab (`target="_blank"`).
 - Added `.tv-link` CSS class: inherits colour, no underline at rest, underline + slight fade on hover.
-- 14 call-sites in the pro dashboard, 11 in the portfolio dashboard; zero unlinked symbol spans remain.
+- 15 call-sites in the pro dashboard, 12 in the portfolio dashboard; zero unlinked symbol spans remain.
+- **IMPORTANT — file write pattern for large HTML files**: Never use Python `open(path,'w').write(html)` directly on the Windows-mounted path (`/sessions/.../mnt/`). Large writes on the FUSE/SMB mount are silently truncated. Always write to `/tmp/` first, verify `</html>` is present, then `cp` to the mounted path.
 
 ---
 

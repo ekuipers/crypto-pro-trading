@@ -470,14 +470,8 @@
       font-weight:900;
     }
     /* TradingView symbol links */
-    .tv-link {
-      color: inherit;
-      text-decoration: none;
-    }
-    .tv-link:hover {
-      text-decoration: underline;
-      opacity: .8;
-    }
+    .tv-link { color:inherit; text-decoration:none; }
+    .tv-link:hover { text-decoration:underline; opacity:.8; }
 
     input,
     select,
@@ -1799,12 +1793,11 @@
     }
 
 
-    // Opens TradingView chart for a crypto symbol in a new tab.
-    // Accepts "BTC/USD", "BTCUSD", or "BTC" — all map to CRYPTO:BTCUSD.
-    // label (optional) overrides the visible text; defaults to sym.
+    // tvLink: wraps a symbol in a TradingView chart anchor (opens new tab).
+    // Accepts BTC/USD, BTCUSD, or BTC -- all map to CRYPTO:BTCUSD.
     function tvLink(sym, label) {
-      var base = sym.replace(/\/USD$/i,"").replace(/USD$/i,"").replace("/","");
-      var url  = "https://www.tradingview.com/chart/?symbol=CRYPTO:" + base + "USD";
+      var base = sym.replace(/\/USD$/i,'').replace(/USD$/i,'').replace('/','');
+      var url  = 'https://www.tradingview.com/chart/?symbol=CRYPTO:' + base + 'USD';
       var txt  = (label !== undefined) ? label : sym;
       return '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="tv-link">' + txt + '</a>';
     }
@@ -5277,4 +5270,34 @@
                 return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px">' +
                   tvLink(r.sym, r.sym.replace("/USD","")) +
                   '<span style="color:var(--muted);font-size:11px;flex:1">' + (inf.name||"") + "</span>" +
-                  '<span style="color:var(--green);font-weight:800">+' + r.score + "/6<
+                  '<span style="color:var(--green);font-weight:800">+' + r.score + "/6</span>" +
+                  '<span style="color:var(--muted);font-size:11px">' + (r.dailyRegime||"") + "</span>" +
+                  "</div>";
+              }).join("")
+            : '<span style="color:var(--muted)">No BUY setups currently — market breadth weak.</span>';
+        }
+
+        if (upd) upd.textContent = "Last scanned: " + new Date().toLocaleTimeString() +
+          " · " + valid.length + "/" + TOP30_SYMBOLS.length + " symbols analysed";
+
+      } catch(e) {
+        document.getElementById("msTableBody").innerHTML =
+          '<tr><td colspan="13" style="color:var(--red);padding:16px">❌ ' + e.message + "</td></tr>";
+        if (upd) upd.textContent = "Error";
+        console.error("loadMarketSignals:", e);
+      }
+    }
+
+    let _msHideUnavailable = false;
+    function msToggleUnavailable() {
+      _msHideUnavailable = !_msHideUnavailable;
+      const btn = document.getElementById("msHideBtn");
+      document.querySelectorAll("#msTableBody tr[data-unavailable]").forEach(function(tr) {
+        tr.style.display = _msHideUnavailable ? "none" : "";
+      });
+      if (btn) btn.textContent = _msHideUnavailable ? "👁 Show All" : "👁 Hide Unavailable";
+    }
+
+  </script>
+</body>
+</html>
