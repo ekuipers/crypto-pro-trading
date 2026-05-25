@@ -172,8 +172,13 @@
     .period-btn.active { background: rgba(88,166,255,.15); border-color: rgba(88,166,255,.4); color: var(--blue); }
 
     /* ── TABLES ── */
-    .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-    table { width: 100%; border-collapse: collapse; }
+    .table-wrap {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      overflow-x: auto;                  /* scroll horizontally instead of clipping */
+      -webkit-overflow-scrolling: touch; /* momentum scroll on iOS */
+      max-width: 100%;                   /* prevent wrapper expanding past its parent */
+    }
+    table { width: 100%; border-collapse: collapse; min-width: 700px; }
     thead th {
       background: var(--surface2); padding: 10px 14px; text-align: left;
       font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase;
@@ -392,6 +397,16 @@
       margin-left: 12px; opacity: 0; transition: opacity .3s;
     }
     .settings-saved.show { opacity: 1; }
+
+    /* ── Mobile portrait ── */
+    @media (max-width: 700px) {
+      main, .container { padding: 12px; }
+      /* Hard-clamp table wrappers so overflow-x:scroll always kicks in */
+      .table-wrap, .conf-wrap {
+        max-width: calc(100vw - 24px);
+        overflow-x: scroll;
+      }
+    }
   </style>
 </head>
 <body>
@@ -651,8 +666,8 @@
 
       /* Confluence table */
       .conf-wrap { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
-                   overflow:hidden; margin-bottom:24px; }
-      .conf-table { width:100%; border-collapse:collapse; font-size:13px; }
+                   overflow-x:auto; -webkit-overflow-scrolling:touch; max-width:100%; margin-bottom:24px; }
+      .conf-table { width:100%; border-collapse:collapse; font-size:13px; min-width:700px; }
       .conf-table th { padding:10px 12px; text-align:left; color:var(--muted); font-size:11px;
                        text-transform:uppercase; letter-spacing:.4px; border-bottom:1px solid var(--border);
                        background:var(--surface2); }

@@ -157,10 +157,15 @@ python scripts/rebalance.py --execute # place orders
 
 ---
 
-### 2026-05-25 — Dashboard: Mobile portrait table horizontal scroll fixed
+### 2026-05-25 — Dashboards: Mobile portrait table horizontal scroll fixed
 
+**`dashboard_professional.html`**
 - **Root cause**: `.table-wrap` used `overflow:auto` without an explicit width constraint. On mobile, block elements expand to fit content, so the wrapper grew to 760px+ alongside the table instead of staying at viewport width and scrolling.
-- **Fix**: Added `max-width:100%` and `-webkit-overflow-scrolling:touch` to `.table-wrap` globally. In the `@media (max-width:700px)` block, overrode to `overflow-x:scroll` (more reliable than `auto` on mobile Safari) and `max-width:calc(100vw - 32px)` to hard-clamp the wrapper. Same constraint applied to `.corr-wrap` (correlation heatmap).
+- **Fix**: Added `max-width:100%` and `-webkit-overflow-scrolling:touch` to `.table-wrap` globally. In the `@media (max-width:700px)` block, overrode to `overflow-x:scroll` and `max-width:calc(100vw - 32px)`. Same constraint applied to `.corr-wrap`.
+
+**`portfolio-dashboard.html`**
+- **Root cause**: `.table-wrap` and `.conf-wrap` both used `overflow:hidden` — actively clipping tables with no scroll at all. No `@media` query existed. Tables had no `min-width` so they compressed instead of scrolling.
+- **Fix**: Changed both wrappers to `overflow-x:auto` + `-webkit-overflow-scrolling:touch` + `max-width:100%`. Added `min-width:700px` to all tables. Added `@media (max-width:700px)` block clamping both wrappers to `calc(100vw - 24px)` with `overflow-x:scroll`.
 
 ---
 
