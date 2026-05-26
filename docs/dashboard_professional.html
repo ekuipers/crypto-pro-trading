@@ -3174,16 +3174,17 @@
     //  TA LIBRARY — pure functions for client-side signal computation
     // ═══════════════════════════════════════════════════════════════════════
 
-    /** Exponential moving average array — returns same length as input (NaN-filled head). */
+    /** Exponential moving average array — returns same length as input (NaN-filled head).
+     *  Seeded with the SMA of the first `period` values, matching Python indicators.py. */
     function emaArr(src, period) {
       const k = 2 / (period + 1);
       const out = new Array(src.length).fill(NaN);
-      // seed with first non-NaN
-      let i = 0;
-      while (i < src.length && isNaN(src[i])) i++;
-      if (i >= src.length) return out;
-      out[i] = src[i];
-      for (let j = i + 1; j < src.length; j++) {
+      if (src.length < period) return out;
+      // Seed with SMA of first `period` values (matches Python indicators.ema_series)
+      let seed = 0;
+      for (let i = 0; i < period; i++) seed += src[i];
+      out[period - 1] = seed / period;
+      for (let j = period; j < src.length; j++) {
         out[j] = src[j] * k + out[j - 1] * (1 - k);
       }
       return out;
@@ -3222,22 +3223,37 @@
       return 100 - 100 / (1 + rs);
     }
 
-    /** MACD(12,26,9) — returns {macdLine, signalLine, histogram} last values. */
+    /** RSI direction check: true if RSI(now) > RSI(lookback bars ago), matches Python rsi_rising(lookback=3). */
+    function calcRSIRising(closes, period = 14, lookback = 3) {
+      if (closes.length < period + 1 + lookback) return null;
+      const rNow  = calcRSI(closes, period);
+      const rPrev = calcRSI(closes.slice(0, -lookback), period);
+      if (rNow === null || rPrev === null) return null;
+      return rNow > rPrev;
+    }
+
+    /** MACD(12,26,9) — returns {macdLine, signalLine, histogram, prevHistogram, prevHistogram2}.
+     *  prevHistogram2 is the histogram 2 bars ago, used for the 2-bar rising check
+     *  that matches Python indicators.macd_hist_rising(lookback=2). */
     function calcMACD(closes) {
       if (closes.length < 35) return null;
       const ema12 = emaArr(closes, 12);
       const ema26 = emaArr(closes, 26);
       const macdLine = ema12.map((v, i) => isNaN(v) || isNaN(ema26[i]) ? NaN : v - ema26[i]);
-      const validMacd = macdLine.filter(v => !isNaN(v));
       const macdForSignal = macdLine.map(v => isNaN(v) ? NaN : v);
       const signalLine = emaArr(macdForSignal, 9);
       const last = closes.length - 1;
       const prev = last - 1;
+      const prev2 = last - 2;
+      const hist  = macdLine[last]  - signalLine[last];
+      const hist1 = (!isNaN(macdLine[prev])  && !isNaN(signalLine[prev]))  ? macdLine[prev]  - signalLine[prev]  : NaN;
+      const hist2 = (!isNaN(macdLine[prev2]) && !isNaN(signalLine[prev2])) ? macdLine[prev2] - signalLine[prev2] : NaN;
       return {
         macdLine: macdLine[last],
         signalLine: signalLine[last],
-        histogram: macdLine[last] - signalLine[last],
-        prevHistogram: isNaN(macdLine[prev]) || isNaN(signalLine[prev]) ? NaN : macdLine[prev] - signalLine[prev]
+        histogram: hist,
+        prevHistogram: hist1,
+        prevHistogram2: hist2
       };
     }
 
@@ -3299,6 +3315,7 @@
       const ema50 = ema50arr[ema50arr.length - 1];
 
       const rsi = calcRSI(closes);
+      const rsiRising = calcRSIRising(closes);
       const macdData = calcMACD(closes);
       const bb = calcBB(closes);
       const volRatio = calcVolRatio(vols);
@@ -3310,7 +3327,6 @@
       const e4_50 = emaArr(c4, 50);
       const ema4h_20 = e4_20[e4_20.length - 1];
       const ema4h_50 = e4_50[e4_50.length - 1];
-      const is4hGolden = ema4h_20 > ema4h_50;
 
       // Daily regime
       let dailyRegime = "mixed";
@@ -3328,30 +3344,39 @@
       const signals = {};
       let score = 0;
 
-      // 1. EMA cross (15-min)
+      // 1. EMA cross (15-min) — ±0.05% dead zone matches Python indicators.ema_cross_state()
       if (!isNaN(ema20) && !isNaN(ema50)) {
-        if (ema20 > ema50) { score += 1; signals.ema_cross = "+1 Golden"; }
-        else { score -= 1; signals.ema_cross = "−1 Death"; }
+        if (ema20 > ema50 * 1.0005)      { score += 1; signals.ema_cross = "+1 Golden"; }
+        else if (ema20 < ema50 * 0.9995) { score -= 1; signals.ema_cross = "−1 Death"; }
+        else                             { signals.ema_cross = "0 Neutral"; }
       } else {
         signals.ema_cross = "0 Neutral";
       }
 
-      // 2. MACD histogram
+      // 2. MACD histogram — partial credits match Python indicators.signal_score()
+      //    +1 green & strictly rising 2 bars, +0.5 green but not rising
+      //    −1 red & strictly falling 2 bars, −0.5 red but improving
       if (macdData) {
-        const rising = macdData.histogram > macdData.prevHistogram;
-        if (macdData.histogram > 0 && rising) { score += 1; signals.macd = "+1 Green↑"; }
-        else if (macdData.histogram < 0 && !rising) { score -= 1; signals.macd = "−1 Red↓"; }
-        else { signals.macd = "0 Flat"; }
+        const hasPrev2 = !isNaN(macdData.prevHistogram2);
+        const strictlyRising  = hasPrev2 && macdData.histogram > macdData.prevHistogram && macdData.prevHistogram > macdData.prevHistogram2;
+        const strictlyFalling = hasPrev2 && !strictlyRising;   // has data but not strictly rising
+        if (macdData.histogram > 0 && strictlyRising)       { score += 1;   signals.macd = "+1 Green↑"; }
+        else if (macdData.histogram < 0 && strictlyFalling) { score -= 1;   signals.macd = "−1 Red↓"; }
+        else if (macdData.histogram > 0)                    { score += 0.5; signals.macd = "+0.5 Green→"; }
+        else if (macdData.histogram < 0)                    { score -= 0.5; signals.macd = "−0.5 Red↑"; }
+        else                                                { signals.macd = "0 Flat"; }
       } else {
         signals.macd = "0 –";
       }
 
-      // 3. RSI
+      // 3. RSI — must be rising in 40–65 zone; partial −0.5 for weak+falling
+      //    Matches Python indicators.signal_score() RSI logic exactly.
       if (rsi !== null) {
-        if (rsi >= 40 && rsi <= 65) { score += 1; signals.rsi = "+1 Bullish zone"; }
-        else if (rsi < 30) { score += 1; signals.rsi = "+1 Oversold"; }
-        else if (rsi > 70) { score -= 1; signals.rsi = "−1 Overbought"; }
-        else { signals.rsi = "0 Neutral"; }
+        if (rsi < 30)                              { score += 1;   signals.rsi = "+1 Oversold"; }
+        else if (rsi > 70)                         { score -= 1;   signals.rsi = "−1 Overbought"; }
+        else if (rsi >= 40 && rsi <= 65 && rsiRising === true)  { score += 1;   signals.rsi = "+1 Bullish zone↑"; }
+        else if (rsi < 40 && rsiRising === false)  { score -= 0.5; signals.rsi = "−0.5 Weak↓"; }
+        else                                       { signals.rsi = "0 Neutral"; }
       } else {
         signals.rsi = "0 –";
       }
@@ -3374,10 +3399,11 @@
         signals.volume = "0 –";
       }
 
-      // 6. 4H regime
+      // 6. 4H regime — same ±0.05% dead zone as Signal 1, matching Python ema_cross_state()
       if (!isNaN(ema4h_20) && !isNaN(ema4h_50)) {
-        if (is4hGolden) { score += 1; signals.regime4h = "+1 Golden"; }
-        else { score -= 1; signals.regime4h = "−1 Death"; }
+        if (ema4h_20 > ema4h_50 * 1.0005)      { score += 1; signals.regime4h = "+1 Golden"; }
+        else if (ema4h_20 < ema4h_50 * 0.9995) { score -= 1; signals.regime4h = "−1 Death"; }
+        else                                    { signals.regime4h = "0 Neutral"; }
       } else {
         signals.regime4h = "0 –";
       }

@@ -66,6 +66,22 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-05-26 — Dashboard: Signal Confluence scoring fixed to match indicators.py exactly
+
+**Root cause:** Four discrepancies between `docs/dashboard_professional.html`'s `calcSignalScore()` and `scripts/indicators.py`'s `signal_score()` caused significantly different scores between the journal and the Signals/Market Signals tabs.
+
+**Fixes applied to `docs/dashboard_professional.html`:**
+
+1. **EMA seeding (`emaArr`):** Dashboard was seeding with the first raw value; Python seeds with the SMA of the first `period` values. Fixed to match, affecting all EMA-derived signals (1, 6).
+
+2. **EMA dead zone (Signals 1 & 6):** Dashboard had no dead zone — EMAs equal or very close gave -1. Python uses ±0.05% band (`ema20 > ema50 * 1.0005` = golden, `< 0.9995` = death, else neutral = 0). Fixed for both the 15-min EMA cross and the 4H regime.
+
+3. **MACD partial credits (Signal 2):** Dashboard had only +1/-1/0. Python gives +0.5 for green-but-not-rising histogram and -0.5 for red-but-improving. Also upgraded from 1-bar to 2-bar rising lookback (matching `macd_hist_rising(lookback=2)`). Added `prevHistogram2` to `calcMACD()` and `calcRSIRising()` helper.
+
+4. **RSI direction check (Signal 3):** Dashboard gave +1 for RSI 40–65 regardless of direction. Python requires RSI to be rising (3-bar lookback). Also added -0.5 partial credit for RSI < 40 AND falling. Added `calcRSIRising()` helper function.
+
+---
+
 ### 2026-05-25 — New Script: `scripts/rebalance.py`
 
 Added `scripts/rebalance.py` — a portfolio rebalancer that aligns positions to their caps in `config.json › portfolio_caps.caps`.
