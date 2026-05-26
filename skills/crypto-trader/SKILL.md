@@ -24,8 +24,8 @@ higher timeframe down to your execution frame:
 
 | Timeframe | Purpose |
 |-----------|---------|
-| Daily / 4H | Determine trend direction and key S/R levels |
-| 1H | Confirm structure (higher-highs / higher-lows or opposite) |
+| Daily | Establish macro trend; 20-day SMA vs 50-day SMA regime |
+| 4H | Confirm structure (higher-highs / higher-lows or opposite); 20 EMA vs 50 EMA trend filter |
 | 15-min | Entry and exit execution (per CLAUDE.md) |
 
 **Rule:** Only take trades in the direction of the higher-timeframe trend.
@@ -179,23 +179,34 @@ strong volume shifts bias bullish.
 
 ### 4.8 ATR (Average True Range — Volatility Sizing)
 - Use 14-period ATR to set stop-loss distances and measure risk.
-- Stop-loss = entry price ± 1.5–2× ATR (tighter in trends, wider in
-  ranging/volatile markets).
+- Stop-loss = entry price ± **1.5× ATR** (fixed multiplier — do not widen).
 - If ATR is very high (crypto in a panic or euphoria), reduce position
   size to keep dollar-risk constant.
 
 ---
 
-## 5. Entry Checklist
+## 5. Entry Rules
 
-Before entering any position, confirm **at least 4 of these 6**:
+### Long entries
+- **Score ≥ 4/6** AND daily regime is not downtrend → BUY at standard ATR-based size.
+- **Score = 3/6** AND daily regime is not downtrend → BUY at half-size if R:R ≥ 1:3.
+- **Score ≤ 2/6** → HOLD / pass.
 
-- [ ] Higher-timeframe (4H/Daily) trend is aligned with trade direction.
-- [ ] Price is in a Wyckoff Mark-Up or has completed a clear Accumulation.
-- [ ] MACD histogram is green (for longs) and crossing or above signal.
-- [ ] RSI is not yet overbought (< 70 for longs) and rising.
-- [ ] Price has bounced off a key MA (20 or 50 EMA) or Fibonacci level.
-- [ ] Volume is above the 20-period average on the breakout or bounce candle.
+### Short entries
+- **Score ≤ −4/6** AND daily regime is a confirmed downtrend → SHORT at standard ATR-based size.
+- **Score = −3/6** AND daily regime is a confirmed downtrend → SHORT at half-size if R:R ≥ 1:3.
+- **Score > −3/6** → HOLD / pass.
+- **Never short into an uptrend or mixed regime.**
+
+### Entry checklist (use before every trade)
+Confirm **at least 4 of these 6** using the Signal Confluence Table below:
+
+- [ ] 4H regime: 20 EMA > 50 EMA on 4H (long) or < 50 EMA (short).
+- [ ] 15-min EMA cross: golden (long) or death (short).
+- [ ] MACD histogram: green and rising (long) or red and falling (short).
+- [ ] RSI: 40–65 and rising (long), or < 30 oversold (long); > 70 overbought (short).
+- [ ] Bollinger %b: near lower band (< 0.25, long) or near upper band (> 0.75, short).
+- [ ] Volume: above 20-bar average (≥ 1.2×) confirms the move.
 
 If fewer than 4 conditions are met, **pass on the trade**.
 
@@ -203,23 +214,26 @@ If fewer than 4 conditions are met, **pass on the trade**.
 
 ## 6. Exit Strategy
 
-### Take-Profit Rules
-1. **Primary target** = next significant resistance level (swing high,
-   POC, VAH, or round number).
-2. **Partial exit** at the primary target (take 50%), let the rest run.
-3. **Trail the remainder** using the 20 EMA on the 15-min chart — exit
-   when price closes below it.
-4. **Hard rule:** If a position gains 10% from entry, close it per CLAUDE.md.
+### Long exits
+1. **Hard stop:** SELL immediately if price drops ≥ 5% from entry.
+2. **TA exit:** SELL if Signal Confluence score drops to ≤ −2 (strongly bearish).
+3. **Partial exit:** When price reaches the first resistance target, close 50%
+   and trail the remainder using the 20 EMA on the 15-min chart.
 
-### Stop-Loss Rules
-1. Place stop below the most recent swing low (for longs) or 1.5× ATR
-   below entry — whichever is closer.
-2. **Never move a stop further away** from entry. You may trail it
-   *toward* entry as price moves in your favour.
-3. **Hard rule:** If a position drops 5% from entry, close it per CLAUDE.md.
+### Short exits (cover)
+4. **Hard stop:** COVER immediately if price rises ≥ 5% above the short entry.
+5. **TA cover:** COVER if Signal Confluence score rises to ≥ +2 (TA turning bullish).
+
+### Both directions
+6. **Never move a stop further away from entry.** Trail it *toward* entry as
+   price moves in your favour, never away.
+
+### Stop placement
+- Long stop: entry − 1.5× ATR (or last swing low, whichever is closer).
+- Short stop: entry + 1.5× ATR.
 
 ### Risk-to-Reward Filter
-- Only enter if the distance to target ≥ 2× the distance to stop (1:2 R:R).
+- Only enter if the distance to target ≥ 2× the distance to stop (R:R ≥ 1:2).
 - A 1:2 R:R means you only need to be right ~40% of the time to be profitable.
 - Prefer 1:3 setups when available; they require only a 30% win rate.
 
@@ -239,9 +253,10 @@ Example: $10,000 portfolio, entry at $100, stop at $97.
 - Stop distance = $3
 - Position size = $100 ÷ $3 = 33.3 units
 
-**Hard cap:** Never exceed 5% of portfolio in a single position (per CLAUDE.md).
-The 1% risk rule will naturally keep positions well below this unless the
-stop is extremely tight.
+**Hard cap:** Never exceed the per-symbol cap defined in `config.json › portfolio_caps.caps`
+(e.g. BTC/USD = 30%, ETH/USD = 15%, most altcoins = 5–10%). See the full cap table in
+CLAUDE.md. The 1% risk rule naturally keeps positions well within cap for most symbols;
+always verify the cap before sizing.
 
 ---
 
@@ -296,18 +311,29 @@ reversion strategy in a strong trend — both are common causes of losses.
 
 ## Quick Reference — Signal Confluence Table
 
-Use this at the start of each hourly evaluation to score the setup:
+Use this at the start of each hourly evaluation to score the setup. Scores are summed;
+partial credits apply to MACD and Volume (see notes below).
 
-| Indicator | Check | Score (+1 each) |
-|-----------|-------|----------------|
-| 4H trend aligned | Yes / No | |
-| 20 EMA > 50 EMA | Yes / No | |
-| MACD histogram green & rising | Yes / No | |
-| RSI 40–65 and rising (longs) | Yes / No | |
-| Price above Ichimoku cloud | Yes / No | |
-| Volume above 20-period avg | Yes / No | |
-| **Total** | | **/6** |
+| # | Condition | Bullish | Bearish |
+|---|-----------|---------|---------|
+| 1 | 20 EMA vs 50 EMA (15-min) | Golden cross +1 | Death cross −1 |
+| 2 | MACD histogram | Green & rising +1; green not-rising +0.5 | Red & falling −1; red improving −0.5 |
+| 3 | RSI | 40–65 and rising +1, or < 30 oversold +1 | > 70 overbought −1; < 40 and falling −0.5 |
+| 4 | Bollinger %b | Near lower band (< 0.25) +1 | Near upper band (> 0.75) −1 |
+| 5 | Volume | ≥ 1.2× 20-bar average +1 | < 0.7× 20-bar average −0.5 |
+| 6 | 4H regime | 20 EMA > 50 EMA on 4H +1 | 20 EMA < 50 EMA on 4H −1 |
+| **Total** | | | **/6** |
 
-**Score ≥ 4:** Enter with standard size.
-**Score = 3:** Enter with half size if risk:reward ≥ 1:3.
-**Score ≤ 2:** Pass. Log reason in journal.
+**Long entry:**
+- Score ≥ 4 AND daily not downtrend → standard size.
+- Score 3–3.9 AND daily not downtrend → half size if R:R ≥ 1:3.
+- Score ≤ 2 → pass.
+
+**Short entry:**
+- Score ≤ −4 AND daily downtrend → standard size.
+- Score −3 to −3.9 AND daily downtrend → half size if R:R ≥ 1:3.
+- Score > −3 → pass.
+
+**Exit signals:**
+- Long: TA exit when score ≤ −2. Hard stop at −5% from entry.
+- Short cover: TA cover when score ≥ +2. Hard stop at +5% from entry.
