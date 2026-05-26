@@ -299,6 +299,17 @@ Self-contained single-file HTML dashboard. Open locally in any browser — no se
 | Market Overview tab | Price, 24h%, 7d%, volume, trend and cap tier for 30 crypto symbols ranked by market cap. Sortable. Includes momentum heatmap. Score column auto-fills from last Market Signals scan. `TOP30_SYMBOLS` uses `MATIC/USD` (not `1INCH/USD` — invalid on Alpaca, starts with digit). Snapshots fetched via `fetchSnapshotsInBatches` so one bad symbol can't kill the whole request. |
 | Market Signals tab | On-demand full 6-point confluence scanner for all 30 `TOP30_SYMBOLS`. Same scoring logic as Signals tab. Shows score distribution and Top Opportunities panel. Scores cached into `_msPrevScores` for cross-tab display. |
 
+### Dashboard scoring parity with `indicators.py`
+
+The dashboard's `calcSignalScore()` implements **identical** logic to Python's `indicators.signal_score()`. Keep these in sync on every change:
+
+| Rule | Detail |
+|------|--------|
+| EMA seeding | `emaArr()` seeds with SMA of first `period` values (not the first raw value). |
+| EMA dead zone | ±0.05% band: `ema20 > ema50 * 1.0005` = golden (+1), `< 0.9995` = death (−1), else neutral (0). Applies to both 15-min (Signal 1) and 4H (Signal 6). |
+| MACD partial credits | +0.5 green-not-rising; −0.5 red-improving. Uses 2-bar lookback (`prevHistogram2`). |
+| RSI direction | +1 only if RSI 40–65 AND rising (3-bar lookback via `calcRSIRising()`). −0.5 for RSI < 40 AND falling. |
+
 ### Documentation update rule
 **This rule applies to every change without exception — code, dashboard, config, or scripts.**
 
