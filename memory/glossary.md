@@ -146,6 +146,21 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## Python ↔ Dashboard Parity Notes
+
+Critical implementation details to keep `indicators.py` and `dashboard_professional.html` in sync:
+
+| Concern | Detail |
+|---------|--------|
+| MACD NaN prefix | `macdLine` has NaN for indices 0–24 (ema26 only valid from index 25). Must strip NaN before calling `emaArr` for signal EMA, then re-pad to original length. Otherwise signal line = NaN always (MACD always 0). |
+| Half-size threshold | Python: `score >= 3.0` → half-size. Dashboard pills: `score >= 3 && score < 4` (NOT `=== 3`). Scores of 3.5 are valid half-size entries. |
+| EMA seeding | Both sides seed with SMA of first `period` values (not first raw value). |
+| EMA dead zone | Both sides use ±0.05% band: `ema20 > ema50 * 1.0005` = golden; `< 0.9995` = death; else neutral. Applies to 15-min (Signal 1) and 4H (Signal 6). |
+| Volume average | `current / avg(prev-20 bars)` — prev-20 excludes current bar: Python `volumes[-21:-1]`; JS `volumes.slice(-21,-1)`. |
+| Daily regime | SMA (not EMA) for both sides. `last > SMA50 && SMA20 > SMA50` = uptrend. |
+
+---
+
 ## Hard Rules Quick Reference
 
 | # | Rule | Value |

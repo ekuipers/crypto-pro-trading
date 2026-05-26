@@ -308,8 +308,29 @@ The dashboard's `calcSignalScore()` implements **identical** logic to Python's `
 | EMA seeding | `emaArr()` seeds with SMA of first `period` values (not the first raw value). |
 | EMA dead zone | ±0.05% band: `ema20 > ema50 * 1.0005` = golden (+1), `< 0.9995` = death (−1), else neutral (0). Applies to both 15-min (Signal 1) and 4H (Signal 6). |
 | MACD partial credits | +0.5 green-not-rising; −0.5 red-improving. Uses 2-bar lookback (`prevHistogram2`). |
+| MACD signal line alignment | `calcMACD()` must strip the NaN prefix from `macdLine` before passing to `emaArr()` for the 9-bar signal EMA. If the NaN-prefixed array is passed directly, `emaArr()` seeds on NaN and the entire signal line becomes NaN (histogram always NaN, MACD always 0). Fixed: filter to `validMacd = macdLine.filter(!isNaN)`, compute compact signal, then re-pad. |
 | RSI direction | +1 only if RSI 40–65 AND rising (3-bar lookback via `calcRSIRising()`). −0.5 for RSI < 40 AND falling. |
+| Score pill thresholds | Half-size buy fires at `score >= 3 && score < 4` (not `score === 3`) to catch 3.5. Half-size short fires at `score <= -3 && score > -4`. Python uses `score >= BUY_SCORE_HALF_SIZE` (3.0) so 3.5 is a valid half-size entry. |
 | Bar completeness | Both `get_crypto_bars()` (Python) and `fetchBars()` (dashboard) pass `end = now − 1 bar period` to exclude the currently-forming bar. Without this, the partial bar has near-zero volume and skews every indicator. |
+
+### Python ↔ Dashboard consistency check
+
+**Run this check whenever any indicator logic is modified in either `indicators.py` or `dashboard_professional.html`.**
+
+Compare the following point-by-point before committing:
+
+1. **EMA formula** — seeding (SMA of first `period` values), multiplier `k = 2/(period+1)`, no NaN contamination.
+2. **MACD alignment** — `macdLine` has a NaN prefix (first `slow-1` = 25 values). The signal EMA must be computed on the compact (NaN-stripped) MACD series, then re-padded. Any change to MACD must verify the signal line is not NaN.
+3. **RSI formula** — Wilder's smoothing, `avgLoss == 0 && avgGain == 0` returns 50 in Python; dashboard must match.
+4. **Score thresholds** — Buy: `>= 4` full, `>= 3 && < 4` half. Short: `<= -4` full, `<= -3 && > -4` half. Sell/cover: `<= -2` / `>= +2`. Never use `=== 3` / `=== -3`.
+5. **Bollinger bands** — population std-dev (divide by `period`, not `period-1`), `pb < 0.25` = +1, `pb > 0.75` = -1.
+6. **Volume ratio** — `current / avg(prev 20 bars)` where prev-20 excludes the current bar (Python: `volumes[-(period+1):-1]`; JS: `volumes.slice(-21, -1)`). Threshold: `>= 1.2` = +1, `< 0.7` = -0.5.
+7. **4H dead zone** — same ±0.05% band as the 15-min EMA cross.
+8. **Daily regime** — `last > SMA50 && SMA20 > SMA50` = uptrend; `last < SMA50 && SMA20 < SMA50` = downtrend. Uses SMA, not EMA.
+9. **ATR sizing** — `equity × 0.01 / (ATR × 1.5)`, capped at `(equity × cap_pct) / ask`.
+10. **Bar completeness** — both sides pass `end = now − 1 bar period`.
+
+**Note on the Forward Analysis scoring** — The Forward Analysis tab uses a *different* scoring system (daily bars, gap magnitude, volume tier, range position). It is intentionally separate from the execution 6-point score and should not be kept in sync with `indicators.py`.
 
 ### Documentation update rule
 **This rule applies to every change without exception — code, dashboard, config, or scripts.**

@@ -66,6 +66,22 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-05-26 — Python ↔ Dashboard consistency audit + two bug fixes
+
+**Scope:** Full parity check between `scripts/indicators.py`, `scripts/run_evaluation.py`, `scripts/trade.py`, `scripts/risk.py` and `docs/dashboard_professional.html`.
+
+**Bugs found and fixed:**
+
+1. **MACD signal line always NaN (critical)** — `calcMACD()` in the dashboard built `macdLine` with NaN for its first 25 positions (ema26 only valid from index 25), then passed this NaN-prefixed array to `emaArr(macdForSignal, 9)`. The EMA seed computation (`seed += src[0..8]`, all NaN) produces NaN, making the entire signal line NaN. Therefore `histogram = macdLine − NaN = NaN` always. The MACD signal was always "0 Flat" regardless of market conditions (max achievable score was ±5 not ±6). **Fix:** strip NaN prefix before computing signal EMA, then re-pad to full length.
+
+2. **Half-size score pill used strict equality** — Pills for "HALF" (`score === 3`) and "SHORT ½" (`score === -3`) missed scores of 3.5 and -3.5 respectively. Python fires at `score >= 3.0` (half-size). **Fix:** changed to `>= 3 && < 4` and `<= -3 && > -4` across Signals tab, Market Signals tab, KPI counters, and score distribution chart.
+
+**Confirmed correct (no change needed):** EMA seeding, EMA ±0.05% dead zone, ATR formula, ATR multiplier (1.5×), position sizing formula, Bollinger bands (population std-dev), BB thresholds (0.25/0.75), volume ratio formula (prev-20 average), volume thresholds (1.2×/0.7×), daily regime (SMA20/SMA50), MACD 2-bar rising check, stop-loss trigger (5%), bar completeness (end=now−1 bar).
+
+**CLAUDE.md updated:** Added `Python ↔ Dashboard consistency check` section with a 10-point checklist to run after any indicator logic change.
+
+---
+
 ### 2026-05-26 — Bar fetch: exclude in-progress bar from all indicator calculations
 
 **Root cause:** Neither `run_evaluation.py` nor the dashboard's `fetchBars` passed an `end` parameter to the Alpaca bars API. Alpaca returns the currently-forming bar in responses with no `end`. This partial bar has near-zero volume (only trades since bar open), causing `volume_ratio ≈ 0.00×` and unstable RSI / MACD / BB values that shift wildly depending on the exact second the page loads or the script runs.

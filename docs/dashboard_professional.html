@@ -3234,14 +3234,27 @@
 
     /** MACD(12,26,9) — returns {macdLine, signalLine, histogram, prevHistogram, prevHistogram2}.
      *  prevHistogram2 is the histogram 2 bars ago, used for the 2-bar rising check
-     *  that matches Python indicators.macd_hist_rising(lookback=2). */
+     *  that matches Python indicators.macd_hist_rising(lookback=2).
+     *
+     *  FIX: macdLine has NaN for the first 25 positions (ema26 only valid from index 25).
+     *  Passing this NaN-prefixed array directly to emaArr() would seed the 9-bar signal
+     *  EMA with NaN, making the entire signal line NaN and therefore histogram always NaN.
+     *  We strip the NaN prefix, compute the compact signal EMA, then re-pad it back to
+     *  full length — matching how Python _macd_components() aligns its series. */
     function calcMACD(closes) {
       if (closes.length < 35) return null;
       const ema12 = emaArr(closes, 12);
       const ema26 = emaArr(closes, 26);
       const macdLine = ema12.map((v, i) => isNaN(v) || isNaN(ema26[i]) ? NaN : v - ema26[i]);
-      const macdForSignal = macdLine.map(v => isNaN(v) ? NaN : v);
-      const signalLine = emaArr(macdForSignal, 9);
+
+      // Strip NaN prefix so emaArr seeds on real MACD values (matches Python alignment).
+      const validMacd = macdLine.filter(v => !isNaN(v));
+      const signalCompact = emaArr(validMacd, 9);
+      // Re-pad to full length so index arithmetic below (last, prev, prev2) still works.
+      const signalLine = new Array(macdLine.length).fill(NaN);
+      const sigOffset = macdLine.length - signalCompact.length;
+      signalCompact.forEach((v, i) => { signalLine[sigOffset + i] = v; });
+
       const last = closes.length - 1;
       const prev = last - 1;
       const prev2 = last - 2;
@@ -3738,12 +3751,12 @@
           const down = row.dailyRegime === "downtrend";
           // Long signals (uptrend / mixed only)
           if (!down && row.score >= 4) return pill("green", "BUY");
-          if (!down && row.score === 3) return pill("yellow", "HALF");
+          if (!down && row.score >= 3) return pill("yellow", "HALF");   // 3.0–3.9 = half-size
           // Block longs in downtrend
           if (down && row.score >= 3) return pill("yellow", "Blocked");
           // Short signals (downtrend only)
           if (down && row.score <= -4) return pill("red", "SHORT");
-          if (down && row.score === -3) return pill("red", "SHORT ½");
+          if (down && row.score <= -3) return pill("red", "SHORT ½");   // −3.0 to −3.9 = half-size short
           return pill("muted", "HOLD");
         };
 
@@ -3836,7 +3849,7 @@
           if (s <= -3) dist["-6to-3"]++;
           else if (s <= 0) dist["-2to0"]++;
           else if (s <= 2) dist["1to2"]++;
-          else if (s === 3) dist["3"]++;
+          else if (s >= 3 && s < 4) dist["3"]++;  // 3.0–3.9 = half-size
           else dist["4plus"]++;
         });
         const total = scores.length || 1;
@@ -3844,7 +3857,7 @@
           <div style="display:grid;gap:6px;margin-top:8px">
             ${[
               ["≥ 4 (BUY)", dist["4plus"], "#3fb950"],
-              ["= 3 (HALF)", dist["3"], "#d29922"],
+              ["3–3.9 (HALF)", dist["3"], "#d29922"],
               ["1–2 (HOLD)", dist["1to2"], "#58a6ff"],
               ["−2–0 (HOLD)", dist["-2to0"], "#8b949e"],
               ["≤ −3 (SHORT)", dist["-6to-3"], "#f85149"]
@@ -3861,10 +3874,10 @@
         `;
 
         const buys = scores.filter(s => s >= 4).length;
-        const halfs = scores.filter(s => s === 3).length;
+        const halfs = scores.filter(s => s >= 3 && s < 4).length;  // 3.0–3.9 = half-size
         $("signalKpis").innerHTML = [
           kpi("BUY Signals", String(buys), "Score ≥ 4 across all symbols", buys > 0 ? "pos" : ""),
-          kpi("HALF Signals", String(halfs), "Score = 3 (half-size if R:R ≥ 1:3)", halfs > 0 ? "" : ""),
+          kpi("HALF Signals", String(halfs), "Score 3–3.9 (half-size if R:R ≥ 1:3)", halfs > 0 ? "" : ""),
           kpi("Avg Score", scores.length ? fmt(scores.reduce((a,b)=>a+b,0)/scores.length, 1) : "–", "Mean confluence score")
         ].join("");
 
@@ -5211,7 +5224,7 @@
         // KPIs
         const valid = rows.filter(function(r){ return r.score !== null; });
         const buys  = valid.filter(function(r){ return r.score >= 4; }).length;
-        const halfs = valid.filter(function(r){ return r.score === 3; }).length;
+        const halfs = valid.filter(function(r){ return r.score >= 3 && r.score < 4; }).length;
         const holds = valid.filter(function(r){ return r.score <= 2 && r.score >= -2; }).length;
         const sells = valid.filter(function(r){ return r.score <= -3; }).length;
         const avgSc = valid.length ? valid.reduce(function(s,r){ return s+r.score; },0) / valid.length : 0;
@@ -5237,10 +5250,10 @@
           if (row.score === null) return pill("muted","N/A");
           const msDown = row.dailyRegime === "downtrend";
           if (!msDown && row.score >= 4)  return pill("green","BUY");
-          if (!msDown && row.score === 3) return pill("yellow","HALF");
+          if (!msDown && row.score >= 3)  return pill("yellow","HALF");   // 3.0–3.9 = half-size
           if (msDown && row.score >= 3)   return pill("yellow","Blocked");
           if (msDown && row.score <= -4)  return pill("red","SHORT");
-          if (msDown && row.score === -3) return pill("red","SHORT ½");
+          if (msDown && row.score <= -3)  return pill("red","SHORT ½");   // −3.0 to −3.9 = half-size short
           return pill("muted","HOLD");
         }
 
