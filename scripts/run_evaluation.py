@@ -170,6 +170,26 @@ def _bars_start(limit: int, timeframe: str, buffer: float = 1.6) -> str:
     return start_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _bars_end(timeframe: str) -> str:
+    """
+    Return an ISO-8601 UTC end timestamp that excludes the current
+    in-progress bar.
+
+    Alpaca returns the currently-forming bar in bar requests when no end
+    date is supplied.  That partial bar has near-zero volume (only trades
+    since the bar opened), which causes volume_ratio to show ~0× and
+    produces unstable RSI/MACD/BB values that change mid-bar.  Subtracting
+    one full bar-period ensures only fully-closed bars are included.
+
+    Example: if it is 09:23 on a 15-min timeframe, end = 09:08.
+    The current bar opened at 09:15 (timestamp > 09:08) so it is excluded.
+    The last returned bar opened at 09:00 and closed at 09:15 — fully complete.
+    """
+    minutes = _TF_MINUTES.get(timeframe, 60)
+    end_dt = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+    return end_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def get_crypto_bars(
     symbol: str,
     limit: int = BARS_FOR_INDICATORS,
@@ -186,6 +206,7 @@ def get_crypto_bars(
         "symbols":   symbol,
         "timeframe": timeframe,
         "start":     _bars_start(limit, timeframe),
+        "end":       _bars_end(timeframe),   # exclude current in-progress bar
         "limit":     limit,
     }
     url = DATA_URL + "/v1beta3/crypto/us/bars"

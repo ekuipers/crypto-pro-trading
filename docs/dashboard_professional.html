@@ -3551,6 +3551,18 @@
       return new Date(Date.now() - ms).toISOString().replace(/\.\d+Z$/, "Z");
     }
 
+    // Compute an ISO-8601 UTC end timestamp that cuts off BEFORE the current
+    // in-progress bar.  Subtracting one full bar-period ensures Alpaca only
+    // returns bars whose open-time is before the current bar started, i.e. only
+    // fully-closed bars are included.  Without this the current partial bar is
+    // returned with near-zero volume, causing volume_ratio ≈ 0.00× and unstable
+    // RSI / MACD / BB values that change wildly depending on when the page loads.
+    function barsEnd(timeframe) {
+      const TF_MINUTES = { "15Min": 15, "1H": 60, "4Hour": 240, "1Day": 1440 };
+      const minutes = TF_MINUTES[timeframe] || 60;
+      return new Date(Date.now() - minutes * 60 * 1000).toISOString().replace(/\.\d+Z$/, "Z");
+    }
+
     // fetchBars follows next_page_token until all symbols have their full bar
     // history.  The Alpaca multi-symbol endpoint paginates by *total* bars across
     // all symbols (not per-symbol), so a single request for 10 symbols × 120 bars
@@ -3567,9 +3579,13 @@
       let pages = 0;
       const MAX_PAGES = 20; // safety cap
 
+      const end = barsEnd(timeframe);  // exclude the currently-forming bar
+
       do {
         // Correct endpoint: /v1beta3/crypto/us/bars  (not the old /v2/crypto/bars)
-        let url = `${DATA_URL}/v1beta3/crypto/us/bars?symbols=${joined}&timeframe=${timeframe}&start=${encodeURIComponent(start)}&limit=${limit}&sort=asc`;
+        // end= is required to exclude the in-progress bar (which has near-zero
+        // volume and skews every indicator depending on when the page loads).
+        let url = `${DATA_URL}/v1beta3/crypto/us/bars?symbols=${joined}&timeframe=${timeframe}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&limit=${limit}&sort=asc`;
         if (pageToken) url += `&page_token=${encodeURIComponent(pageToken)}`;
 
         const resp = await fetch(url, { headers: getHeaders() });

@@ -66,6 +66,18 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-05-26 — Bar fetch: exclude in-progress bar from all indicator calculations
+
+**Root cause:** Neither `run_evaluation.py` nor the dashboard's `fetchBars` passed an `end` parameter to the Alpaca bars API. Alpaca returns the currently-forming bar in responses with no `end`. This partial bar has near-zero volume (only trades since bar open), causing `volume_ratio ≈ 0.00×` and unstable RSI / MACD / BB values that shift wildly depending on the exact second the page loads or the script runs.
+
+**Fix:** Added `_bars_end(timeframe)` to `scripts/run_evaluation.py` and `barsEnd(timeframe)` to the dashboard, both computing `now − 1 bar period`. Wired `end=` into:
+- `scripts/run_evaluation.py` → `get_crypto_bars()` params
+- `docs/dashboard_professional.html` → `fetchBars()` URL
+
+**Effect:** Both now always use only fully-closed bars. Results are stable within a bar period and consistent between Python and the dashboard when checked at the same time.
+
+---
+
 ### 2026-05-26 — Dashboard: Signal Confluence scoring fixed to match indicators.py exactly
 
 **Root cause:** Four discrepancies between `docs/dashboard_professional.html`'s `calcSignalScore()` and `scripts/indicators.py`'s `signal_score()` caused significantly different scores between the journal and the Signals/Market Signals tabs.
