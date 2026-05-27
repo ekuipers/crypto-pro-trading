@@ -15,19 +15,27 @@ Decision logic
 --------------
 For each symbol:
   Long positions (qty > 0):
-  1. Drawdown >= stop_loss_pct from entry                              -> SELL (stop-loss)
-  2. Signal score <= sell_score_threshold                              -> SELL (bearish TA)
+  1. Existing stop order check (deduplication):
+       - If a stop order is pending and within escalation_cycles: skip (no duplicate).
+       - If pending past escalation_cycles: cancel and replace with wider band.
+       - If the order ID is gone (filled/expired): clear position state, done.
+  2. Trailing stop triggered (active after +2.5% gain, trails 3% below HWM) -> SELL
+  3. Drawdown >= stop_loss_pct from entry (fixed hard stop)                  -> SELL (stop-loss)
+  4. Signal score <= sell_score_threshold                                     -> SELL (bearish TA)
 
   Short positions (qty < 0):
-  3. Adverse move >= stop_loss_pct from entry (price rose)            -> COVER (stop-loss)
-  4. Signal score >= cover_score_threshold (turned bullish)           -> COVER (TA cover)
+  5. Existing cover order check (deduplication) — same logic as above.
+  6. Adverse move >= stop_loss_pct from entry (price rose)            -> COVER (stop-loss)
+  7. Signal score >= cover_score_threshold (turned bullish)           -> COVER (TA cover)
 
   No position:
-  5. Daily regime != downtrend AND score >= buy_score_threshold       -> BUY  (full size)
-  6. Daily regime != downtrend AND score >= buy_score_half_size       -> BUY  (half size)
-  7. Daily regime == downtrend AND score <= short_score_threshold     -> SHORT (full size)
-  8. Daily regime == downtrend AND score <= short_score_half_size     -> SHORT (half size)
-  9. Otherwise                                                         -> HOLD
+  8.  Capital preservation mode (daily drawdown gate fired)            -> BLOCK new entries
+  9.  Correlation budget: max 3 positions, max 2 per tier (BTC/ETH vs alts) -> BLOCK if exceeded
+  10. Daily regime != downtrend AND score >= buy_score_threshold       -> BUY  (full size)
+  11. Daily regime != downtrend AND score >= buy_score_half_size       -> BUY  (half size)
+  12. Daily regime == downtrend AND score <= short_score_threshold     -> SHORT (full size)
+  13. Daily regime == downtrend AND score <= short_score_half_size     -> SHORT (half size)
+  14. Otherwise                                                         -> HOLD
 
 All thresholds are loaded from config.json at startup.
 
@@ -50,6 +58,13 @@ Sizing
 
 All orders are routed through scripts/trade.py, which still does the final
 rule enforcement (per-symbol cap, limit band, limit-only, crypto routing).
+
+State persistence
+-----------------
+Position metadata (high-water mark, stop order IDs, cycle counters) is stored
+in data/positions_state.json via position_state.py.  This state survives
+across evaluation cycles so trailing stops and stop-loss deduplication work
+correctly over multiple hourly runs.
 """
 
 from __future__ import annotations
@@ -63,19 +78,28 @@ from zoneinfo import ZoneInfo
 
 import _env  # noqa: F401  -- load .env into os.environ
 import indicators as ind
+import position_state as ps
 from _api import api_get
 from risk import (
     LIMIT_BAND_PCT,
     STOP_LOSS_PCT,
+    STOP_LOSS_ESCALATION_CYCLES,
     should_stop_out,
     should_cover_short,
+    should_trail_stop_out,
+    correlation_budget_allows,
+    daily_drawdown_gate_triggered,
+    stop_loss_limit_price,
+    cover_limit_price,
 )
 from trade import (
     DATA_URL,
     TradeRejected,
     _headers,
+    cancel_order,
     get_account,
     get_latest_quote,
+    get_open_orders,
     get_positions,
     is_crypto,
     place_order,
@@ -228,8 +252,20 @@ def get_crypto_bars_daily(symbol: str, limit: int = DAILY_BARS_LOOKBACK) -> list
 # Per-symbol evaluation
 # ---------------------------------------------------------------------------
 
-def evaluate_symbol(symbol: str, position_by_symbol: dict) -> dict:
-    """Return a decision dict for one symbol."""
+def evaluate_symbol(
+    symbol: str,
+    position_by_symbol: dict,
+    state: dict,
+    open_symbols: list,
+) -> dict:
+    """Return a decision dict for one symbol.
+
+    *state* is the mutable position-state dict from position_state.load_state().
+    It is updated in-place when stop orders are deduplicated or cleared.
+
+    *open_symbols* is the list of symbols with currently open positions,
+    used for the correlation budget check on new entries.
+    """
     decision: dict = {
         "symbol":              symbol,
         "action":              "HOLD",
@@ -255,6 +291,7 @@ def evaluate_symbol(symbol: str, position_by_symbol: dict) -> dict:
         "regime_4h":           None,
         "entry_price":         None,
         "current_price":       None,
+        "is_stop_loss":        False,   # True when place_order needs wider limit band
     }
 
     # Live quote — needed for sizing, stop-loss, and limit pricing.
@@ -355,14 +392,51 @@ def evaluate_symbol(symbol: str, position_by_symbol: dict) -> dict:
         decision["current_price"] = cur
 
         is_short = qty_held < 0
+        ps_pos   = ps.get_position(state, symbol)
 
         if is_short:
             # ── Short position management ────────────────────────────────────
+
+            # Deduplication: check for an existing pending cover order.
+            existing_cover_id = ps_pos.get("stop_order_id")
+            if existing_cover_id:
+                cycles = ps.increment_stop_order_cycles(state, symbol)
+                try:
+                    open_orders = get_open_orders(symbol)
+                    still_open  = any(o.get("id") == existing_cover_id for o in open_orders)
+                except Exception:
+                    still_open = True  # assume still open on fetch error (fail safe)
+
+                if still_open:
+                    if cycles < STOP_LOSS_ESCALATION_CYCLES:
+                        # Order is pending within the grace window — do not duplicate.
+                        decision["reason"] = (
+                            "COVER pending (order …%s, cycle %d/%d)"
+                            % (existing_cover_id[-8:], cycles, STOP_LOSS_ESCALATION_CYCLES)
+                        )
+                        return decision
+                    else:
+                        # Time-escalation: cancel stale order, fall through to re-place.
+                        cancel_order(existing_cover_id)
+                        ps.clear_stop_order(state, symbol)
+                else:
+                    # Order gone — filled or expired. Clear position state.
+                    ps.clear_stop_order(state, symbol)
+                    ps.clear_position(state, symbol)
+                    decision["reason"] = (
+                        "cover order …%s filled/gone — position cleared"
+                        % existing_cover_id[-8:]
+                    )
+                    return decision
+
             # Hard stop: cover if price rose >= stop_loss_pct above entry.
             if should_cover_short(entry, cur):
-                decision["action"]      = "COVER"
-                decision["qty"]         = abs(qty_held)
-                decision["limit_price"] = round(ask * (1 + LIMIT_BAND_PCT * 0.5), 4)
+                cycles_open = ps_pos.get("stop_order_cycles", 0)
+                lim = cover_limit_price(ask, cycles_open)
+                decision["action"]       = "COVER"
+                decision["qty"]          = abs(qty_held)
+                decision["limit_price"]  = lim
+                decision["is_stop_loss"] = True
                 decision["reason"] = (
                     "COVER STOP-LOSS: entry $%.4f, current $%.4f (>= %d%% adverse move)"
                     % (entry, cur, int(STOP_LOSS_PCT * 100))
@@ -388,11 +462,63 @@ def evaluate_symbol(symbol: str, position_by_symbol: dict) -> dict:
 
         else:
             # ── Long position management ─────────────────────────────────────
+            hwm              = ps_pos.get("high_water_mark") or entry
+            existing_stop_id = ps_pos.get("stop_order_id")
+
+            # Deduplication: check for an existing pending stop order.
+            if existing_stop_id:
+                cycles = ps.increment_stop_order_cycles(state, symbol)
+                try:
+                    open_orders = get_open_orders(symbol)
+                    still_open  = any(o.get("id") == existing_stop_id for o in open_orders)
+                except Exception:
+                    still_open = True  # fail safe: assume pending
+
+                if still_open:
+                    if cycles < STOP_LOSS_ESCALATION_CYCLES:
+                        # Pending within grace window — do not duplicate.
+                        decision["reason"] = (
+                            "stop-loss pending (order …%s, cycle %d/%d)"
+                            % (existing_stop_id[-8:], cycles, STOP_LOSS_ESCALATION_CYCLES)
+                        )
+                        return decision
+                    else:
+                        # Time-escalation: cancel and re-place with wider band.
+                        cancel_order(existing_stop_id)
+                        ps.clear_stop_order(state, symbol)
+                        # fall through to fresh stop evaluation below
+                else:
+                    # Order gone — filled or expired. Clear position state.
+                    ps.clear_stop_order(state, symbol)
+                    ps.clear_position(state, symbol)
+                    decision["reason"] = (
+                        "stop order …%s filled/gone — position cleared"
+                        % existing_stop_id[-8:]
+                    )
+                    return decision
+
+            # Trailing stop (supersedes hard stop once activated).
+            if should_trail_stop_out(entry, hwm, cur):
+                cycles_open = ps_pos.get("stop_order_cycles", 0)
+                lim = stop_loss_limit_price(ask, cycles_open)
+                decision["action"]       = "SELL"
+                decision["qty"]          = qty_held
+                decision["limit_price"]  = lim
+                decision["is_stop_loss"] = True
+                decision["reason"] = (
+                    "TRAILING STOP: entry $%.4f HWM $%.4f current $%.4f trail_lim $%.4f"
+                    % (entry, hwm, cur, lim)
+                )
+                return decision
+
             # Hard stop — checked before TA, cannot be overridden.
             if should_stop_out(entry, cur):
-                decision["action"]      = "SELL"
-                decision["qty"]         = qty_held
-                decision["limit_price"] = round(ask * (1 - LIMIT_BAND_PCT * 0.5), 4)
+                cycles_open = ps_pos.get("stop_order_cycles", 0)
+                lim = stop_loss_limit_price(ask, cycles_open)
+                decision["action"]       = "SELL"
+                decision["qty"]          = qty_held
+                decision["limit_price"]  = lim
+                decision["is_stop_loss"] = True
                 decision["reason"] = (
                     "STOP-LOSS: entry $%.4f, current $%.4f (>= %d%% drawdown)"
                     % (entry, cur, int(STOP_LOSS_PCT * 100))
@@ -417,6 +543,17 @@ def evaluate_symbol(symbol: str, position_by_symbol: dict) -> dict:
             return decision
 
     # ── No position: evaluate new entry (long or short) ─────────────────────
+
+    # Gate 1: capital preservation mode (daily drawdown gate fired).
+    if ps.is_capital_preservation_mode(state):
+        decision["reason"] = "BLOCKED: capital preservation mode active (daily drawdown gate)"
+        return decision
+
+    # Gate 2: correlation budget — max open positions and per-tier limits.
+    allowed, budget_reason = correlation_budget_allows(symbol, open_symbols)
+    if not allowed:
+        decision["reason"] = "BLOCKED: " + budget_reason
+        return decision
 
     # Fetch account once — needed for sizing either direction.
     try:
@@ -619,6 +756,9 @@ def main() -> int:
         )
     )
 
+    # ── Load persistent position state ──────────────────────────────────────
+    state = ps.load_state()
+
     symbols = [s for s in _CFG.get("watchlist", {}).get("symbols", []) if is_crypto(s)]
     if not symbols:
         sys.stderr.write("FAIL: no crypto symbols in config.json > watchlist.symbols\n")
@@ -629,6 +769,26 @@ def main() -> int:
     except Exception as e:
         sys.stderr.write("FAIL: positions fetch: " + repr(e) + "\n")
         return 1
+
+    try:
+        account = get_account()
+        equity  = float(account.get("equity") or 0)
+    except Exception as e:
+        sys.stderr.write("FAIL: account fetch: " + repr(e) + "\n")
+        return 1
+
+    # ── Daily drawdown gate ───────────────────────────────────────────────────
+    state = ps.check_and_refresh_day_open(state, equity)
+    day_equity = state.get("day_open_equity") or equity
+    if daily_drawdown_gate_triggered(day_equity, equity):
+        ps.activate_capital_preservation(state)
+        print(
+            "WARNING: daily drawdown gate triggered "
+            "(day_open=$%.2f current=$%.2f) — capital preservation mode ON"
+            % (day_equity, equity)
+        )
+    elif ps.is_capital_preservation_mode(state):
+        print("INFO: capital preservation mode is active (set earlier today)")
 
     # Alpaca returns crypto symbols without a slash (e.g. "BTCUSD") in the
     # positions response.  Index both forms so holds are found regardless
@@ -644,12 +804,25 @@ def main() -> int:
     pos_by_symbol: dict = {}
     for p in positions:
         raw = p.get("symbol", "")
-        pos_by_symbol[raw]          = p   # keep no-slash form too
+        pos_by_symbol[raw]           = p   # keep no-slash form too
         pos_by_symbol[_to_slash(raw)] = p  # canonical slash form for lookups
 
+    # Build the list of open symbols (slash form) for the correlation budget.
+    open_symbols = [_to_slash(p.get("symbol", "")) for p in positions]
+
+    # ── Evaluate all symbols ──────────────────────────────────────────────────
     decisions = []
     for sym in symbols:
-        decisions.append(evaluate_symbol(sym, pos_by_symbol))
+        decisions.append(evaluate_symbol(sym, pos_by_symbol, state, open_symbols))
+
+    # ── Update high-water marks for held long positions ───────────────────────
+    for d in decisions:
+        if d["action"] == "HOLD":
+            pos = pos_by_symbol.get(d["symbol"])
+            if pos and float(pos.get("qty") or 0) > 0:
+                cur = d.get("current_price") or 0
+                if cur > 0:
+                    ps.update_high_water_mark(state, d["symbol"], cur)
 
     print("\nEvaluation results:")
     for d in decisions:
@@ -664,15 +837,36 @@ def main() -> int:
     if args.execute and actionable:
         print("\nPlacing orders:")
         for d in actionable:
-            # BUY  = open long  → side "buy"
-            # SELL = close long → side "sell"
-            # SHORT = open short → side "sell"  (Alpaca opens a short when no position held)
+            # BUY   = open long   → side "buy"
+            # SELL  = close long  → side "sell"
+            # SHORT = open short  → side "sell"  (Alpaca shorts when no position held)
             # COVER = close short → side "buy"
-            side = "buy" if d["action"] in ("BUY", "COVER") else "sell"
+            side         = "buy" if d["action"] in ("BUY", "COVER") else "sell"
+            is_stop_loss = d.get("is_stop_loss", False)
             try:
-                result = place_order(d["symbol"], d["qty"], side, d["limit_price"])
-                print("  OK       %s %s %s @ $%.4f"
-                      % (d["symbol"], side, str(d["qty"]), d["limit_price"]))
+                result = place_order(
+                    d["symbol"], d["qty"], side, d["limit_price"],
+                    is_stop_loss=is_stop_loss,
+                )
+                order_id = result.get("id", "")
+                print("  OK       %s %s %s @ $%.4f  id=%s"
+                      % (d["symbol"], side, str(d["qty"]), d["limit_price"], order_id[:8]))
+
+                # Update position state based on what we just submitted.
+                if d["action"] == "BUY":
+                    # New long opened: initialise tracking.
+                    ps.init_position(state, d["symbol"], d["limit_price"])
+                elif d["action"] == "SHORT":
+                    # New short opened: initialise tracking.
+                    ps.init_position(state, d["symbol"], d["limit_price"])
+                elif d["action"] in ("SELL", "COVER") and is_stop_loss:
+                    # Stop-loss order submitted (may not have filled yet): record it.
+                    if order_id:
+                        ps.set_stop_order(state, d["symbol"], order_id, d["limit_price"])
+                elif d["action"] in ("SELL", "COVER") and not is_stop_loss:
+                    # TA-driven exit: assume fills at market; clear state.
+                    ps.clear_position(state, d["symbol"])
+
                 executed.append({"symbol": d["symbol"], "action": d["action"], "result": result})
             except TradeRejected as e:
                 print("  REJECTED %s: %s" % (d["symbol"], str(e)))
@@ -691,6 +885,9 @@ def main() -> int:
         print("Re-run with --execute to actually submit them.")
     else:
         print("\nNo actionable decisions.")
+
+    # ── Persist state ─────────────────────────────────────────────────────────
+    ps.save_state(state)
 
     journal_path = append_journal_block(
         datetime.now(ZoneInfo("Europe/Amsterdam")), decisions, executed

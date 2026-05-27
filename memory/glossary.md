@@ -69,6 +69,21 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | `SHORT_SCORE_THRESHOLD` | Constant in `run_evaluation.py` (= −4.0). Full-size short entry gate |
 | `SHORT_SCORE_HALF_SIZE` | Constant in `run_evaluation.py` (= −3.0). Half-size short entry gate if R:R ≥ 1:3 |
 | `COVER_SCORE_THRESHOLD` | Constant in `run_evaluation.py` (= +2.0). TA-based cover trigger when score turns bullish |
+| Trailing stop | Activates once a long position is ≥2.5% in profit. Trails 3% below the high-water mark (HWM). Supersedes the hard 5% stop once active |
+| HWM | High-water mark — the highest close price seen since entry. Ratchets up only, never down. Persisted in `data/positions_state.json` |
+| Stop-loss deduplication | Before placing any SELL/COVER stop-loss order, `get_open_orders(symbol)` is called. If a pending order exists within the escalation window, the duplicate is suppressed |
+| Time-escalation | When a stop-loss order has been pending for `stop_loss_escalation_cycles` (2) evaluation cycles without filling, it is cancelled and replaced with a wider limit (base 0.5% + extra 0.3%) |
+| `stop_loss_limit_price(ask, cycles_open)` | `risk.py` function: returns the limit price for a SELL stop. Uses 0.5% band; widens after 2 unfilled cycles |
+| `cover_limit_price(ask, cycles_open)` | `risk.py` function: mirror of `stop_loss_limit_price` for COVER (short) orders; limit is placed above ask |
+| `is_stop_loss` | `place_order()` bool param — when True, uses 0.5% limit band instead of 0.2% to allow stop-loss fills in volatile markets |
+| Correlation budget | Max 3 open positions total; max 2 per tier (Tier-1: BTC/USD+ETH/USD; Tier-2: alts). New entries blocked when either limit is reached. Checked by `correlation_budget_allows()` in `risk.py` |
+| Tier-1 symbols | BTC/USD and ETH/USD — most liquid, highest correlation. Separate per-tier budget from Tier-2 alts |
+| Daily drawdown gate | If portfolio equity drops ≥3% vs day-open equity, capital preservation mode activates: all new entries blocked, existing stops tighten to 3%. Resets at midnight UTC |
+| Capital preservation mode | State flag in `data/positions_state.json`. Set by `activate_capital_preservation()`, cleared by `check_and_refresh_day_open()` at start of each new day |
+| `position_state.py` | New module (2026-05-27): manages `data/positions_state.json`. Stores HWM, stop order IDs + cycle counts per symbol, plus day-open equity and capital preservation flag |
+| `positions_state.json` | Persistent JSON state file in `data/`. Survives evaluation cycles. Atomic writes via temp-file + os.replace() |
+| `correlation_budget_allows(symbol, open_symbols)` | `risk.py` function: returns `(allowed, reason)`. Checks total position count and per-tier count |
+| `daily_drawdown_gate_triggered(day_open, current)` | `risk.py` function: returns True if drawdown ≥ 3% (configurable via `config.json > risk.daily_drawdown_gate_pct`) |
 | Rebalance script | `scripts/rebalance.py` — trims over-cap positions, tops up under-cap positions (signal-gated). Run with `--execute` to submit orders |
 | Over-cap trim | Position value > cap% of equity → sell excess to bring back to cap. No signal gate; always fires |
 | Under-cap top-up | Position value < cap% → buy to close the gap, subject to signal gate (score ≥ 3) and regime gate (no downtrend) |
@@ -137,6 +152,22 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | `ema_cross_state(closes, fast=20, slow=50)` | `indicators.py` | "golden" / "death" / "neutral" |
 | `atr(highs, lows, closes, period=14)` | `indicators.py` | Wilder ATR |
 | `volume_ratio(volumes, period=20)` | `indicators.py` | Current / 20-bar avg |
+| `should_trail_stop_out(entry, hwm, cur)` | `risk.py` | True when trailing stop fires (HWM gain ≥2.5%, current ≤ HWM×0.97) |
+| `correlation_budget_allows(symbol, open_symbols)` | `risk.py` | Returns `(bool, reason)` — checks total + per-tier limits |
+| `daily_drawdown_gate_triggered(day_open, current)` | `risk.py` | True if today's drawdown ≥ 3% |
+| `stop_loss_limit_price(ask, cycles_open)` | `risk.py` | Limit price for stop-loss SELL; widens after 2 unfilled cycles |
+| `cover_limit_price(ask, cycles_open)` | `risk.py` | Limit price for stop-loss COVER; mirrors above, price above ask |
+| `get_open_orders(symbol)` | `trade.py` | Fetch pending orders for a symbol; normalises BTCUSD→BTC/USD |
+| `cancel_order(order_id)` | `trade.py` | Cancel single order by ID; returns True on 200/204, no-raises on 404 |
+| `place_order(..., is_stop_loss=False)` | `trade.py` | Place limit order; `is_stop_loss=True` uses wider 0.5% band |
+| `load_state()` / `save_state(state)` | `position_state.py` | Load/atomically-write `data/positions_state.json` |
+| `check_and_refresh_day_open(state, equity)` | `position_state.py` | Reset daily snapshot if new day; clears capital preservation mode |
+| `update_high_water_mark(state, symbol, price)` | `position_state.py` | Ratchet HWM up, never down |
+| `set_stop_order(state, symbol, order_id, price)` | `position_state.py` | Record a placed stop-loss order ID + limit price in state |
+| `increment_stop_order_cycles(state, symbol)` | `position_state.py` | Increment + return the cycle counter for the pending stop order |
+| `clear_stop_order(state, symbol)` | `position_state.py` | Null out stop_order_id + related fields (order filled or cancelled) |
+| `init_position(state, symbol, entry_price)` | `position_state.py` | Called on new BUY/SHORT fill; sets entry_price, HWM, clears stop fields |
+| `clear_position(state, symbol)` | `position_state.py` | Remove symbol from state (SELL/COVER fully filled) |
 | `get_crypto_bars(symbol, limit, timeframe)` | `run_evaluation.py` | Fetches bars with correct start date |
 | `_bars_start(limit, timeframe, buffer=1.6)` | `run_evaluation.py` | Computes start datetime string |
 | `evaluate_symbol(symbol, positions, equity, buying_power)` | `run_evaluation.py` | Full eval + ATR sizing + journal write |

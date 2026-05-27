@@ -30,6 +30,7 @@ from pathlib import Path
 import _env  # noqa: F401  -- side-effect: load .env into os.environ
 from _api import api_delete, api_get, api_post
 from risk import (
+    STOP_LOSS_LIMIT_BAND_PCT,
     check_limit_band,
     check_position_size,
 )
@@ -58,11 +59,7 @@ _CAPS_DATA = _load_caps()
 
 
 def _symbol_cap(symbol: str) -> float:
-    """Return the position cap fraction for *symbol* from config.json > portfolio_caps.caps.
-
-    Both the config and incoming symbols use the canonical slash form
-    (e.g. "BTC/USD").
-    """
+    """Return the position cap fraction for *symbol* from config.json > portfolio_caps.caps."""
     return _CAPS_DATA["caps"].get(symbol, _CAPS_DATA.get("default_cap", 0.05))
 
 
@@ -70,7 +67,7 @@ def _symbol_cap(symbol: str) -> float:
 # HTTP helpers
 # ---------------------------------------------------------------------------
 
-def _headers(json_body: bool = False) -> dict[str, str]:
+def _headers(json_body: bool = False) -> dict:
     h = {
         "APCA-API-KEY-ID":     ALPACA_KEY or "",
         "APCA-API-SECRET-KEY": ALPACA_SECRET or "",
@@ -113,12 +110,10 @@ def get_latest_quote(symbol: str) -> dict:
     which endpoint was hit.
     """
     if is_crypto(symbol):
-        # /v1beta3/crypto/us/latest/quotes?symbols=BTC%2FUSD
         url = DATA_URL + "/v1beta3/crypto/us/latest/quotes"
         r = api_get(url, headers=_headers(), params={"symbols": symbol}, timeout=15)
         return r.json().get("quotes", {}).get(symbol, {})
 
-    # Equities: /v2/stocks/{symbol}/quotes/latest
     sym_q = urllib.parse.quote(symbol, safe="")
     url = DATA_URL + "/v2/stocks/" + sym_q + "/quotes/latest"
     r = api_get(url, headers=_headers(), timeout=15)
@@ -134,7 +129,11 @@ class TradeRejected(Exception):
 
 
 def place_order(
-    symbol: str, qty: float | int, side: str, limit_price: float
+    symbol: str,
+    qty,
+    side: str,
+    limit_price: float,
+    is_stop_loss: bool = False,
 ) -> dict:
     """
     Place a limit order. Will refuse to send anything that violates the
@@ -144,10 +143,15 @@ def place_order(
     For crypto symbols (slash-form, e.g. "BTC/USD"): trades 24/7, fractional
     qty allowed, time_in_force is "gtc" (Alpaca requires gtc/ioc for crypto).
     For equities: time_in_force is "day", clock gate enforced, integer qty.
+
+    *is_stop_loss* -- when True, the limit-band check uses the wider
+    stop_loss_limit_band_pct (default 0.5%) instead of the normal
+    limit_band_pct (0.2%). This allows the stop-loss price to be set far
+    enough below the ask to guarantee execution in fast-moving markets.
     """
     if not limit_price or float(limit_price) <= 0:
         raise TradeRejected(
-            "limit_price is required — market orders are forbidden by CLAUDE.md"
+            "limit_price is required -- market orders are forbidden by CLAUDE.md"
         )
     if side not in ("buy", "sell"):
         raise TradeRejected("side must be 'buy' or 'sell', got " + repr(side))
@@ -163,36 +167,50 @@ def place_order(
             raise TradeRejected(
                 "equity market is closed (next_open="
                 + str(clock.get("next_open"))
-                + ") — no trades allowed"
+                + ") -- no trades allowed"
             )
 
     # Rule: limit must be within the configured band of ask.
+    # Stop-loss orders use a wider band to ensure they fill in volatile markets.
     quote = get_latest_quote(symbol)
     ask = float(quote.get("ap") or 0)
     if ask <= 0:
         raise TradeRejected(
             symbol + ": no live ask available, cannot validate limit band"
         )
-    band_check = check_limit_band(limit_price, ask)
+    if is_stop_loss:
+        from risk import RiskCheck
+        band = ask * STOP_LOSS_LIMIT_BAND_PCT
+        diff = abs(limit_price - ask)
+        if diff > band:
+            band_check = RiskCheck(
+                False,
+                "limit outside stop-loss {:.1%} band (ask={:.4f} limit={:.4f})".format(
+                    STOP_LOSS_LIMIT_BAND_PCT, ask, limit_price
+                ),
+            )
+        else:
+            band_check = RiskCheck(True, "ok")
+    else:
+        band_check = check_limit_band(limit_price, ask)
     if not band_check.ok:
         raise TradeRejected(symbol + ": " + band_check.reason)
 
-    # Rule: per-symbol position cap (buys only — closing a position never
-    # creates new exposure, so we skip the size check on sells).
+    # Rule: per-symbol position cap (buys only).
     if side == "buy":
-        equity   = float(get_account().get("equity") or 0)
-        cap_pct  = _symbol_cap(symbol)
+        equity     = float(get_account().get("equity") or 0)
+        cap_pct    = _symbol_cap(symbol)
         size_check = check_position_size(equity, qty, limit_price, cap_pct)
         if not size_check.ok:
             raise TradeRejected(symbol + ": " + size_check.reason)
 
     order_data = {
-        "symbol":         symbol,
-        "qty":            str(qty),
-        "side":           side,
-        "type":           "limit",
-        "time_in_force":  "gtc" if crypto else "day",
-        "limit_price":    str(limit_price),
+        "symbol":        symbol,
+        "qty":           str(qty),
+        "side":          side,
+        "type":          "limit",
+        "time_in_force": "gtc" if crypto else "day",
+        "limit_price":   str(limit_price),
     }
     r = api_post(
         BASE_URL + "/v2/orders",
@@ -201,6 +219,62 @@ def place_order(
         timeout=20,
     )
     return r.json()
+
+
+# ---------------------------------------------------------------------------
+# Order queries
+# ---------------------------------------------------------------------------
+
+def get_open_orders(symbol=None) -> list:
+    """
+    Return all open (pending) orders, optionally filtered to *symbol*.
+
+    Alpaca returns crypto symbols without a slash in the orders response
+    (e.g. "BTCUSD" instead of "BTC/USD"), so this function normalises both
+    the stored and compared values to slash form for consistent matching.
+    """
+    params = {"status": "open", "limit": 100}
+    r = api_get(BASE_URL + "/v2/orders", headers=_headers(), params=params, timeout=15)
+    orders = r.json() if isinstance(r.json(), list) else []
+
+    if symbol is None:
+        return orders
+
+    def _slash(s: str) -> str:
+        if "/" in s:
+            return s
+        if s.endswith("USD"):
+            return s[:-3] + "/USD"
+        return s
+
+    target = _slash(symbol).upper()
+    return [o for o in orders if _slash(o.get("symbol", "")).upper() == target]
+
+
+def get_order(order_id: str) -> dict:
+    """Fetch a single order by ID."""
+    r = api_get(
+        BASE_URL + "/v2/orders/" + order_id,
+        headers=_headers(),
+        timeout=15,
+    )
+    return r.json()
+
+
+def cancel_order(order_id: str) -> bool:
+    """
+    Cancel a single order by ID. Returns True if the cancellation was accepted
+    (204 or 200), False otherwise. Does not raise on 404 (already filled/gone).
+    """
+    try:
+        r = api_delete(
+            BASE_URL + "/v2/orders/" + order_id,
+            headers=_headers(),
+            timeout=15,
+        )
+        return r.status_code in (200, 204)
+    except Exception:
+        return False
 
 
 # ---------------------------------------------------------------------------

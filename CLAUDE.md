@@ -78,9 +78,13 @@ weekday/weekend distinction and no equity-market clock gate.
 |------|--------|
 | **Preserve cash** | Keep at least 20% of cash available in the portfolio. |
 | **Per-symbol position cap** | Never invest more than the symbol's cap (defined in `config.json` › `portfolio_caps.caps`) of total equity in a single position. `trade.py` enforces this in code. See cap table below. |
-| **Limit orders only** | Never use market orders. Limit price must be within 0.2% of the current ask. |
+| **Limit orders only** | Never use market orders. Limit price must be within 0.2% of the current ask (0.5% for stop-loss orders). |
 | **Stop-loss at -5% (long)** | If a long position drops 5% from entry, SELL immediately — checked at every evaluation. |
 | **Stop-loss at +5% (short)** | If a short position moves 5% against us (price rises), COVER immediately — checked at every evaluation. |
+| **Stop-loss deduplication** | Before placing any stop-loss SELL/COVER, check `get_open_orders(symbol)`. If a pending order exists and is within `stop_loss_escalation_cycles` (2), skip. After that, cancel and replace with a wider band (time-escalation). |
+| **Trailing stop** | Once a long position is +2.5% in profit, a trailing stop activates and trails 3% below the high-water mark (HWM). HWM is persisted in `data/positions_state.json` across evaluation cycles. |
+| **Correlation budget** | Max 3 open positions total. Max 2 in Tier-1 (BTC/USD, ETH/USD) and max 2 in Tier-2 (all other alts). New entries are blocked when either limit is reached. |
+| **Daily drawdown gate** | If portfolio equity drops ≥ 3% vs. day-open equity, capital preservation mode activates: all new entries blocked, existing stops tighten to 3%. Resets at midnight UTC. |
 | **Take-profit based on technical analysis** | If a position is flagged to be closed by the research, close it — checked at every evaluation, before TA signals. |
 | **Score gate (long)** | Only open long positions with a Signal Confluence score ≥ 4/6. Half-size at score = 3/6 if R:R ≥ 1:3. |
 | **Score gate (short)** | Only open short positions with a score ≤ −4/6. Half-size at score = −3/6. |
@@ -215,17 +219,24 @@ Example: $100,000 equity, LINK ask $15, ATR $0.30, LINK cap = 5%
 ## Exit Strategy
 
 **Longs:**
-1. **Hard stop**: SELL immediately if price drops ≥ 5% from entry.
-2. **TA exit**: SELL if Signal Confluence score drops to ≤ −2 (strongly bearish).
-3. **Partial exit**: When price reaches first resistance target, close 50% and
-   trail the rest using the 20 EMA on the 15-min chart.
+1. **Trailing stop** (supersedes hard stop once active): Activates when position
+   is ≥ 2.5% in profit. Trails 3% below the high-water mark (HWM). HWM is
+   persisted across cycles in `data/positions_state.json`.
+2. **Hard stop**: SELL immediately if price drops ≥ 5% from entry (while trailing
+   stop is not yet active).
+3. **TA exit**: SELL if Signal Confluence score drops to ≤ −2 (strongly bearish).
+4. **Stop-loss deduplication**: Before placing any SELL stop, call
+   `get_open_orders(symbol)`. If an order exists and cycle count <
+   `stop_loss_escalation_cycles` (2), skip. Otherwise cancel-replace with a
+   wider limit (`stop_loss_limit_price()` with time-escalation).
 
 **Shorts:**
-4. **Hard stop**: COVER immediately if price rises ≥ 5% from short entry.
-5. **TA cover**: COVER if Signal Confluence score rises to ≥ +2 (turning bullish).
+5. **Hard stop**: COVER immediately if price rises ≥ 5% from short entry.
+6. **TA cover**: COVER if Signal Confluence score rises to ≥ +2 (turning bullish).
+7. **Stop-loss deduplication** applies to COVER orders the same way as SELL.
 
 **Both directions:**
-6. **Never move a stop further away from entry.** Trail it toward entry as price
+8. **Never move a stop further away from entry.** Trail it toward entry as price
    moves in your favour, never away.
 
 ## Common Mistakes to Avoid

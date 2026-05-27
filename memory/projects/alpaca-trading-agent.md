@@ -66,6 +66,44 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-05-27 — Risk Management Chapter 2: five improvements implemented
+
+**Scope:** Full implementation of all five Chapter 2 risk improvements identified in the `reports/trading-analysis-2026-05-27.md` performance review.
+
+**Files changed:** `scripts/risk.py`, `scripts/trade.py`, `scripts/run_evaluation.py` (new logic), `scripts/position_state.py` (new file), `config.json` (13 new risk parameters), `CLAUDE.md`, `README.md`, this file, `memory/glossary.md`.
+
+**2.1 — Stop-loss order deduplication (`run_evaluation.py` + `trade.py`)**
+- Added `get_open_orders(symbol)`, `get_order(order_id)`, `cancel_order(order_id)` to `trade.py`.
+- Before placing any SELL/COVER stop-loss order, `run_evaluation.py` now fetches open orders for the symbol. If a pending order is found within `stop_loss_escalation_cycles` (2) cycles, it skips placing a duplicate. Fixes the ADA infinite-loop bug (30+ duplicate orders).
+
+**2.2 — Wider stop-loss limit band + time-escalation (`risk.py` + `config.json`)**
+- New constants: `STOP_LOSS_LIMIT_BAND_PCT` (0.5%), `STOP_LOSS_ESCALATION_CYCLES` (2), `STOP_LOSS_ESCALATION_EXTRA_PCT` (0.3%).
+- New functions: `stop_loss_limit_price(ask, cycles_open)`, `cover_limit_price(ask, cycles_open)`.
+- `place_order()` gains `is_stop_loss: bool` param — when True, uses 0.5% band instead of 0.2%.
+- After 2 unfilled cycles, the band widens by an extra 0.3% to force execution.
+
+**2.3 — Trailing stops (`risk.py` + `position_state.py` + `run_evaluation.py`)**
+- New file `scripts/position_state.py`: atomic JSON state manager for `data/positions_state.json`.
+  - Per-symbol: `entry_price`, `high_water_mark`, `stop_order_id`, `stop_order_cycles`.
+  - Portfolio: `day_open_equity`, `capital_preservation_mode`.
+- New functions in `risk.py`: `trailing_stop_price()`, `should_trail_stop_out()`, `effective_stop_pct()`.
+- Trailing stop activates at +2.5% gain (`trailing_stop_activation_pct`), trails 3% below HWM (`trailing_stop_trail_pct`). HWM updated each HOLD cycle in `main()`.
+
+**2.4 — Correlation budget (`risk.py` + `run_evaluation.py`)**
+- New functions: `correlation_budget_allows(symbol, open_symbols)`, `tier_count(symbol, open_symbols)`.
+- Tier-1: BTC/USD, ETH/USD. Tier-2: all other alts. Max 3 total, max 2 per tier.
+- New entries blocked at the `open_symbols` gate in `run_evaluation.py` before any sizing.
+
+**2.5 — Portfolio-level daily drawdown gate (`risk.py` + `position_state.py` + `run_evaluation.py`)**
+- New functions: `daily_drawdown_pct()`, `daily_drawdown_gate_triggered()`.
+- `main()` calls `check_and_refresh_day_open(state, equity)` at startup to snapshot opening equity.
+- If daily drop ≥ 3%, `activate_capital_preservation()` sets flag in state; all new entries blocked.
+- State resets automatically at midnight UTC via `check_and_refresh_day_open`.
+
+**Verification:** All `risk.py` self-checks pass. All `position_state.py` smoke tests pass. All four script files parse clean (667 / 379 / 324 / 206 lines). Import chain verified via `ast` inspection.
+
+---
+
 ### 2026-05-26 — Python ↔ Dashboard consistency audit + two bug fixes
 
 **Scope:** Full parity check between `scripts/indicators.py`, `scripts/run_evaluation.py`, `scripts/trade.py`, `scripts/risk.py` and `docs/dashboard_professional.html`.

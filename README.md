@@ -115,14 +115,18 @@ All thresholds are configured in `config.json` — edit there, not in source fil
 ### Risk Rules (hard — cannot be overridden)
 
 - **Limit orders only** — market orders are rejected by `trade.py`.
-- **Limit band** — limit price must be within 0.2% of current ask (`config.json > risk.limit_band_pct`).
+- **Limit band** — limit price must be within 0.2% of current ask for normal orders, 0.5% for stop-loss orders (`config.json > risk.limit_band_pct` / `stop_loss_limit_band_pct`).
 - **Long stop-loss** — close immediately if a long position drops 5% from entry (`config.json > risk.stop_loss_pct`).
-- **Short stop-loss** — cover immediately if a short position rises 5% from entry (price moved against us). Enforced by `risk.should_cover_short()`.
+- **Trailing stop** — activates at +2.5% profit, then trails 3% below the high-water mark (HWM). HWM is persisted in `data/positions_state.json` and survives evaluation cycles. Once active, the trailing stop supersedes the hard 5% stop.
+- **Stop-loss deduplication** — before placing any SELL/COVER stop order, `get_open_orders(symbol)` is called. If a pending order exists, re-sending is skipped. After `stop_loss_escalation_cycles` (2) unfilled cycles, the stale order is cancelled and replaced with a slightly wider limit (time-escalation via `stop_loss_limit_price(ask, cycles_open)`).
+- **Short stop-loss** — cover immediately if a short position rises 5% from entry. Enforced by `risk.should_cover_short()`.
 - **TA exit (long)** — SELL when Signal Confluence score drops to ≤ −2.
 - **TA cover (short)** — COVER when Signal Confluence score rises to ≥ +2 (bullish flip).
 - **Regime gate (long)** — no new BUY entries in a confirmed daily downtrend (last close < 50-day SMA and 20-day SMA < 50-day SMA).
 - **Regime gate (short)** — SHORT entries only in a confirmed daily downtrend. No shorts in uptrend or mixed regime.
-- **ATR-based sizing** — `qty = (equity × 1%) / (ATR × 1.5)`, hard-capped by `portfolio_caps.json`. Both multipliers configurable via `config.json`. Applied identically for long and short entries.
+- **Correlation budget** — max 3 open positions total; max 2 per tier (Tier-1: BTC/USD + ETH/USD; Tier-2: all other alts). New entries are blocked when either limit is hit. Enforced by `risk.correlation_budget_allows()`.
+- **Daily drawdown gate** — if equity drops ≥ 3% vs. day-open equity, capital preservation mode activates: all new entries are blocked and existing stops tighten to 3%. State persists in `data/positions_state.json` and resets at midnight UTC.
+- **ATR-based sizing** — `qty = (equity × 1%) / (ATR × 1.5)`, hard-capped by per-symbol cap in `config.json > portfolio_caps.caps`. Applied identically for long and short entries.
 
 ---
 
@@ -130,10 +134,11 @@ All thresholds are configured in `config.json` — edit there, not in source fil
 
 | Script | Purpose |
 |--------|---------|
-| `scripts/run_evaluation.py` | Core evaluation loop — fetches bars, scores signals, decides BUY/SELL/HOLD, optionally places orders, writes journal |
-| `scripts/trade.py` | Single gateway for all orders — enforces limit-only, limit-band, position-cap, and crypto 24/7 rules |
+| `scripts/run_evaluation.py` | Core evaluation loop — fetches bars, scores signals, decides BUY/SELL/HOLD, applies trailing stop + dedup + correlation budget + drawdown gate, places orders, writes journal |
+| `scripts/trade.py` | Single gateway for all orders — enforces limit-only, limit-band (wider for stop-loss), position-cap, and crypto 24/7 rules. Exposes `get_open_orders()`, `cancel_order()`, `get_order()`. |
 | `scripts/indicators.py` | Pure-function TA library — EMA, SMA, RSI, MACD, Bollinger Bands, ATR, signal_score |
-| `scripts/risk.py` | Pure-function risk checks — position-cap, limit-band, long stop-loss, short stop-loss/cover thresholds (loaded from `config.json`) |
+| `scripts/risk.py` | Pure-function risk checks — position-cap, limit-band, stop-loss, trailing stop, correlation budget, daily drawdown gate, stop-loss limit-price helpers (all loaded from `config.json`) |
+| `scripts/position_state.py` | Persistent state manager — per-symbol HWM, stop order ID + cycle count; portfolio-level day-open equity, capital preservation mode. Atomic writes to `data/positions_state.json`. |
 | `scripts/_api.py` | Shared HTTP helper — exponential-backoff retry (3 attempts, 5 s → 10 s → 20 s) for all Alpaca API calls |
 | `scripts/walkforward_evaluate.py` | Walk-forward backtester — signal at bar close, fill at next open, supports 1H/4H/1D timeframes |
 | `scripts/metrics.py` | Performance metrics — Sharpe, Sortino, max drawdown, profit factor |
@@ -331,7 +336,17 @@ Scripts load this at startup; no restart needed between runs.
   "risk": {
     "stop_loss_pct": 0.05,
     "limit_band_pct": 0.002,
-    "default_position_cap_pct": 0.05
+    "stop_loss_limit_band_pct": 0.005,
+    "default_position_cap_pct": 0.05,
+    "trailing_stop_activation_pct": 0.025,
+    "trailing_stop_trail_pct": 0.03,
+    "stop_loss_escalation_cycles": 2,
+    "stop_loss_escalation_extra_pct": 0.003,
+    "max_open_positions": 3,
+    "tier1_symbols": ["BTC/USD", "ETH/USD"],
+    "max_positions_per_tier": 2,
+    "daily_drawdown_gate_pct": 0.03,
+    "capital_preservation_stop_pct": 0.03
   },
   "indicators": {
     "ema_fast": 20, "ema_slow": 50,
@@ -392,11 +407,14 @@ alpaca-trading-agent/
 │       └── alpaca-trading-agent.md
 ├── reports/
 │   └── walkforward_*.json/md  # Walk-forward backtest results
+├── data/
+│   └── positions_state.json   # Persistent per-position state (HWM, stop order IDs, drawdown gate)
 ├── scripts/
 │   ├── _api.py                # HTTP retry helper (exponential backoff)
 │   ├── _env.py                # .env loader
 │   ├── indicators.py          # Pure-function TA (EMA/RSI/MACD/BB/ATR)
 │   ├── metrics.py             # Performance metrics (Sharpe/MDD/PF)
+│   ├── position_state.py      # Persistent state manager (HWM, stop order dedup, drawdown gate)
 │   ├── rebalance.py           # Portfolio rebalancer (trim over-cap, top-up under-cap)
 │   ├── research.py            # Market research helper
 │   ├── risk.py                # Risk rule enforcement (reads config.json)
