@@ -66,6 +66,9 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-05 — Dashboard: new 🔗 Markov tab (BTC/ETH transition-matrix analysis)
+Added a `Markov` tab to `docs/dashboard_professional.html`. For `MK_SYMBOLS` (BTC/USD, ETH/USD) across `MK_INTERVALS` (30/60/90/180/365-day windows) it classifies each daily close-to-close return into Up/Flat/Down via a ±`MK_THRESH` (1%) band (`mkClassify`), then `mkBuild()` computes the 3×3 transition matrix `P(next|current)`, the stationary distribution (power iteration with self-loop fallback for unseen rows), the current-state next-day forecast, and the mean daily return. `mkIntervalCard()` renders one heatmap-shaded matrix per window (< 3 transitions → "Insufficient data"); KPI tiles show each symbol's 90-day next-day-up probability. Single `fetchBars(MK_SYMBOLS, "1Day", maxDays+5)` call per run feeds all five windows. User-triggered via `loadMarkov()` (▶ Run Markov Analysis); not auto-run on tab switch. Analysis-only — places no orders, separate from the 6-point execution score. Verified: JS `node --check` passes; standalone test confirms transition rows and stationary vectors sum to 1 and the < 3-transition edge case is gated.
+
 ### 2026-06-05 — Dashboard: executable Morning Brief + Daily Journal header buttons
 
 **Scope:** Added top-row "execute" buttons to both dashboards that generate the daily artifacts client-side from live Alpaca data, preview them in a modal, and offer a `.md` download.
@@ -398,6 +401,7 @@ python scripts/rebalance.py --execute # place orders
 | 7 | 💰 P&L | FIFO-matched realized P&L, calendar heatmap, P&L attribution by symbol, day-of-week performance, CSV export |
 | 8 | 🧪 Backtest vs Live | Walk-forward report loader, strategy health indicator |
 | 9 | 🔥 Gap & Go | Pre-session analysis: catalyst rating, supply risk, 6M range, key levels, historical gap-and-go rate, trade plan (entry/stop/T1/T2), risk rating — all 10 symbols ranked by conviction score |
+| — | 🔗 Markov | First-order Markov chain analysis for BTC/USD & ETH/USD over 30/60/90/180/365-day windows: 3-state (Up/Flat/Down) transition matrix, stationary distribution, next-day forecast, mean daily return. Analysis-only |
 | — | ⚙ Settings | API keys, mode toggle, notification permission |
 
 **Top-of-page live ticker strip** — shows all 10 symbols with price + 24h change. Auto-refreshes every 15 s via `setInterval`. Uses `/v1beta3/crypto/us/snapshots` endpoint.
