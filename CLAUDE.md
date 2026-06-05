@@ -309,6 +309,13 @@ Self-contained single-file HTML dashboard. Open locally in any browser — no se
 | P&L tab | FIFO P&L, calendar heatmap, attribution by symbol, day-of-week performance. |
 | Market Overview tab | Price, 24h%, 7d%, volume, trend and cap tier for 30 crypto symbols ranked by market cap. Sortable. Includes momentum heatmap. Score column auto-fills from last Market Signals scan. `TOP30_SYMBOLS` uses `MATIC/USD` (not `1INCH/USD` — invalid on Alpaca, starts with digit). Snapshots fetched via `fetchSnapshotsInBatches` so one bad symbol can't kill the whole request. |
 | Market Signals tab | On-demand full 6-point confluence scanner for all 30 `TOP30_SYMBOLS`. Same scoring logic as Signals tab. Shows score distribution and Top Opportunities panel. Scores cached into `_msPrevScores` for cross-tab display. |
+| 📓 Daily Journal button (header) | `generateDailyJournal()` builds today's closing journal from live data (`/v2/account`, `/v2/positions`, `/v2/account/activities?activity_type=FILL`) plus a 10-symbol `JOURNAL_WL` confluence scan via `calcSignalScore`. Sections: Summary, Trades Today (FILL fills filtered to the GMT+2 day), Open Positions, Market Observations. Preview modal (`#journalDocBackdrop`) with Copy + Download `.md` (`daily-journal-YYYY-MM-DD.md`). Day filtering and timestamps use the `Etc/GMT-2` timezone. |
+
+### Portfolio dashboard (`docs/portfolio-dashboard.html`)
+
+| Feature | Detail |
+|---------|--------|
+| 🌅 Morning Brief button (header) | `generateMorningBrief()` generates the morning brief as a downloadable Markdown doc matching the `journal/` format: Portfolio Health (+ per-position table), direction-aware Alerts, Signal Confluence table (10 watchlist symbols via the existing `confluenceScore`/`fetchBars` engine), and a templated Market Notes paragraph. Preview modal (`#briefDocBackdrop`) with Copy + Download `.md` (`morning-brief-YYYY-MM-DD.md`). Timestamps use the `Etc/GMT-2` timezone. |
 
 ### Dashboard scoring parity with `indicators.py`
 

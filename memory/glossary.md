@@ -96,6 +96,10 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | Market Signals tab | Dashboard tab running the full 6-point confluence scan across all 30 symbols on demand; same scoring engine as the watchlist Signals tab |
 | _msPrevScores | Dashboard JS cache (`{}` keyed by symbol) storing confluence scores from the last Market Signals scan; read by Market Overview to populate its Score column |
 | Cap tier | Classification of a crypto's market cap: Mega (>$100B), Large ($10B–$100B), Mid ($1B–$10B), Small (<$1B) |
+| `generateMorningBrief()` | Portfolio dashboard header-button handler. Builds the morning brief Markdown (Portfolio Health, Alerts, Signal Confluence, Market Notes) from live data + the `confluenceScore`/`fetchBars` engine; shows modal `#briefDocBackdrop`; downloads `morning-brief-YYYY-MM-DD.md` |
+| `generateDailyJournal()` | Professional dashboard header-button handler. Builds the closing journal Markdown (Summary, Trades Today, Open Positions, Market Observations) from account/positions/FILL activities + a `JOURNAL_WL` `calcSignalScore` scan; shows modal `#journalDocBackdrop`; downloads `daily-journal-YYYY-MM-DD.md` |
+| `JOURNAL_WL` | 10-symbol watchlist array in the professional dashboard, used only by `generateDailyJournal()` for the closing Market Observations confluence scan (same 10 symbols as the core caps watchlist) |
+| `Etc/GMT-2` | IANA timezone string used by the brief/journal generators for GMT+2 timestamps and day filtering. Note the inverted sign: `Etc/GMT-2` == UTC+2 == GMT+2 |
 
 ---
 

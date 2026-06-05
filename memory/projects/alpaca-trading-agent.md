@@ -66,6 +66,15 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-05 — Dashboard: executable Morning Brief + Daily Journal header buttons
+
+**Scope:** Added top-row "execute" buttons to both dashboards that generate the daily artifacts client-side from live Alpaca data, preview them in a modal, and offer a `.md` download.
+
+- **`docs/portfolio-dashboard.html`** — new header button `🌅 Morning Brief` → `generateMorningBrief()`. Fetches `/v2/account` + `/v2/positions`, runs the existing `confluenceScore`/`fetchBars` engine over the 10-symbol `CRYPTO_WL`, and builds Markdown matching the `journal/` morning-brief format: Portfolio Health (+ per-position table with direction-aware stop/target), Alerts, Signal Confluence table, templated Market Notes. Preview modal `#briefDocBackdrop` with Copy + Download `.md` (`morning-brief-YYYY-MM-DD.md`).
+- **`docs/dashboard_professional.html`** — new header button `📓 Daily Journal` → `generateDailyJournal()`. Fetches account, positions, and `/v2/account/activities?activity_type=FILL`; filters fills to the GMT+2 calendar day; FIFO-computes today's realized P&L; runs a closing 10-symbol `JOURNAL_WL` scan via `calcSignalScore`. Sections: Summary, Trades Today, Open Positions, Market Observations. Preview modal `#journalDocBackdrop` with Copy + Download `.md` (`daily-journal-YYYY-MM-DD.md`).
+- Both use the `Etc/GMT-2` IANA timezone for GMT+2 timestamps and day filtering. No backend/server required — fully client-side, reusing each dashboard's existing helpers.
+- **Verification:** extracted both JS blocks into standalone files and ran `node --check` + execution with mocked helpers — both parse and run clean. (Note: the bash mount lagged the file-tool writes during this session; validation was done on freshly-written standalone copies.)
+
 ### 2026-05-27 — Risk Management Chapter 2: five improvements implemented
 
 **Scope:** Full implementation of all five Chapter 2 risk improvements identified in the `reports/trading-analysis-2026-05-27.md` performance review.

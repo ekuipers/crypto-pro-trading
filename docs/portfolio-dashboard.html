@@ -432,6 +432,7 @@
       </select>
     </div>
     <span class="last-updated" id="lastUpdated">—</span>
+    <button class="refresh-btn" onclick="generateMorningBrief()" title="Generate today's morning brief as a downloadable Markdown document">🌅 Morning Brief</button>
     <button class="refresh-btn" onclick="refreshCurrent()">⟳ Refresh</button>
     <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Toggle light / dark theme">🌙</button>
   </div>
@@ -936,6 +937,27 @@
     <div class="modal-footer">
       <button class="btn" onclick="closeTradeModal()">Cancel</button>
       <button class="btn btn-green" onclick="submitPaperTrade()">Submit Paper Order</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ MORNING BRIEF MODAL ══════════════ -->
+<div id="briefDocBackdrop" class="modal-backdrop">
+  <div class="modal" style="width:min(820px,100%);max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">🌅 Morning Brief</div>
+        <div class="small" id="briefDocSub" style="margin-top:3px;color:var(--muted)"></div>
+      </div>
+      <button class="btn" onclick="closeBriefDoc()" style="padding:5px 10px;font-size:18px;line-height:1">×</button>
+    </div>
+    <div class="modal-body" style="overflow-y:auto;flex:1">
+      <pre id="briefDocText" style="white-space:pre-wrap;word-break:break-word;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.5;margin:0;color:var(--text)"></pre>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="copyBriefDoc()">📋 Copy</button>
+      <button class="btn" onclick="closeBriefDoc()">Close</button>
+      <button class="btn btn-green" onclick="downloadBriefDoc()">↓ Download .md</button>
     </div>
   </div>
 </div>
@@ -2293,6 +2315,174 @@ async function loadBrief() {
     $("briefTs").textContent="Error";
     console.error(e);
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MORNING BRIEF — DOCUMENT GENERATOR (executable button)
+// ═══════════════════════════════════════════════════════════
+let _briefDocMarkdown = "";
+let _briefDocFilename = "";
+
+function gmt2Now() {
+  // Render current time in GMT+2 (Etc/GMT-2 == UTC+2)
+  const t = new Date().toLocaleTimeString("en-GB", { timeZone: "Etc/GMT-2", hour: "2-digit", minute: "2-digit" });
+  return t;
+}
+function gmt2DateISO() {
+  const d = new Date().toLocaleDateString("en-CA", { timeZone: "Etc/GMT-2" }); // YYYY-MM-DD
+  return d;
+}
+function mdNum(n, dec = 2) { return Number(n).toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec }); }
+function mdSign(n) { return (n >= 0 ? "+$" : "−$") + mdNum(Math.abs(n)); }
+function mdPct(n) { return (n >= 0 ? "+" : "−") + Math.abs(n).toFixed(2) + "%"; }
+
+function briefActionText(score, dailyRegime) {
+  const down = dailyRegime === "downtrend";
+  if (!down && score >= 4)  return "BUY ≥4/6";
+  if (!down && score >= 3)  return "½ BUY 3/6";
+  if (down && score >= 3)   return "HOLD — regime block";
+  if (down && score <= -4)  return "SHORT ≤−4/6";
+  if (down && score === -3) return "½ SHORT −3/6";
+  if (score <= -2)          return "TA SELL";
+  if (score >= 2)           return "HOLD — score below threshold";
+  return "HOLD";
+}
+
+async function generateMorningBrief() {
+  const backdrop = $("briefDocBackdrop");
+  $("briefDocSub").textContent = "Generating from live Alpaca data…";
+  $("briefDocText").textContent = "⏳ Fetching account, positions and computing signal confluence…";
+  backdrop.style.display = "flex";
+  try {
+    const [acct, positions] = await Promise.all([
+      apiFetch(getBaseUrl() + "/v2/account"),
+      apiFetch(getBaseUrl() + "/v2/positions"),
+    ]);
+    const equity   = parseFloat(acct.equity);
+    const cash     = parseFloat(acct.cash);
+    const lastEq   = parseFloat(acct.last_equity);
+    const unrealPL = positions.reduce((s, p) => s + parseFloat(p.unrealized_pl || 0), 0);
+    const unrealPct= equity ? (unrealPL / (equity - unrealPL)) * 100 : 0;
+    const cashPct  = equity ? cash / equity * 100 : 0;
+
+    const time = gmt2Now();
+    let md = `## Morning Brief ${time} GMT+2\n\n`;
+
+    // ── Portfolio Health ──
+    md += `### Portfolio Health\n`;
+    md += `- **Total equity**: $${mdNum(equity)}\n`;
+    const cashNote = cashPct < 20 ? " — below the 20% minimum" : " — above the 20% minimum";
+    md += `- **Cash**: $${mdNum(cash)} (${cashPct.toFixed(1)}% of equity)${cashNote}\n`;
+    md += `- **Total unrealized P&L**: ${mdSign(unrealPL)} (${mdPct(unrealPct)})\n`;
+    md += `- **Open positions**: ${positions.length}\n\n`;
+
+    if (positions.length) {
+      md += `| Symbol | Side | Qty | Entry | Mkt Val | % Equity | Unrl P&L | Stop | Target |\n`;
+      md += `|--------|------|-----|-------|---------|----------|----------|------|--------|\n`;
+      positions.forEach(p => {
+        const sym = toSlash(p.symbol);
+        const qty = parseFloat(p.qty);
+        const isShort = qty < 0;
+        const entry = parseFloat(p.avg_entry_price);
+        const mv = Math.abs(parseFloat(p.market_value));
+        const portPct = equity ? mv / equity * 100 : 0;
+        const pl = parseFloat(p.unrealized_pl || 0);
+        const plPct = parseFloat(p.unrealized_plpc || 0) * 100;
+        const stopPx = isShort ? entry * 1.05 : entry * 0.95;
+        const tgtPx  = isShort ? entry * 0.90 : entry * 1.10;
+        md += `| ${sym} | ${isShort ? "short" : "long"} | ${mdNum(Math.abs(qty), 4)} | $${fmtPrice(entry)} | $${mdNum(mv)} | ${portPct.toFixed(1)}% | ${mdSign(pl)} (${mdPct(plPct)}) | $${fmtPrice(stopPx)} | $${fmtPrice(tgtPx)} |\n`;
+      });
+      md += `\n`;
+    }
+
+    // ── Alerts ──
+    md += `### 🚨 Alerts\n`;
+    const alerts = [];
+    if (cashPct < 2)      alerts.push(`Cash critically low — $${mdNum(cash)} (${cashPct.toFixed(1)}%). No room for new signals.`);
+    else if (cashPct < 5) alerts.push(`Low cash — $${mdNum(cash)} (${cashPct.toFixed(1)}%). Consider rebalancing.`);
+    positions.forEach(p => {
+      const sym = toSlash(p.symbol);
+      const qty = parseFloat(p.qty);
+      const isShort = qty < 0;
+      const entry = parseFloat(p.avg_entry_price), cur = parseFloat(p.current_price);
+      const plPct = parseFloat(p.unrealized_plpc || 0) * 100;
+      const portPct = Math.abs(parseFloat(p.market_value)) / equity * 100;
+      const stopPx = isShort ? entry * 1.05 : entry * 0.95;
+      const symCap = capFor(sym);
+      if (portPct > symCap * 1.05) alerts.push(`${sym} is ${portPct.toFixed(1)}% of portfolio — exceeds ${symCap.toFixed(0)}% cap. Trim required.`);
+      if (isShort) {
+        const advPct = (cur - entry) / entry * 100;
+        if (advPct >= 4)      alerts.push(`${sym} (SHORT) — price up +${advPct.toFixed(2)}% from entry. Cover stop: $${fmtPrice(stopPx)}.`);
+        else if (advPct >= 3) alerts.push(`${sym} (SHORT) — price up +${advPct.toFixed(2)}% from entry. Within 2% of cover stop.`);
+      } else {
+        if (plPct <= -4)      alerts.push(`${sym} at ${plPct.toFixed(2)}% — approaching stop-loss. Stop: $${fmtPrice(stopPx)}.`);
+        else if (plPct <= -3) alerts.push(`${sym} at ${plPct.toFixed(2)}% — within 2% of stop-loss. Monitor closely.`);
+      }
+      if (plPct >= 15)      alerts.push(`${sym}${isShort ? " (SHORT)" : ""} at +${plPct.toFixed(2)}% — significant gain. Review TA signals for exit.`);
+      else if (plPct >= 8) alerts.push(`${sym}${isShort ? " (SHORT)" : ""} at +${plPct.toFixed(2)}% — healthy gain. Monitor for partial exit.`);
+    });
+    md += alerts.length ? alerts.map(a => `- ${a}`).join("\n") + "\n\n" : `No alerts — portfolio within all risk parameters.\n\n`;
+
+    // ── Signal Confluence ──
+    $("briefDocText").textContent = "⏳ Computing signal confluence for the watchlist…";
+    md += `### 📡 Signal Confluence\n\n`;
+    md += `| Symbol | Score | 4H Regime | Daily Regime | Action |\n`;
+    md += `|--------|-------|-----------|--------------|--------|\n`;
+    const confRows = await Promise.all(CRYPTO_WL.map(async sym => {
+      try {
+        const [b15, b4h, bD] = await Promise.all([
+          fetchBars(sym, "15Min", 6), fetchBars(sym, "4Hour", 25), fetchBars(sym, "1Day", 120),
+        ]);
+        const c15 = b15.map(b => b.c), v15 = b15.map(b => b.v), c4h = b4h.map(b => b.c), cD = bD.map(b => b.c);
+        const { score, signals, dailyRegime } = confluenceScore(c15, v15, c4h, cD);
+        return { sym, score, tf4h: signals.tf4h ? signals.tf4h.val : "n/a", dailyRegime, ok: true };
+      } catch (e) { return { sym, score: null, tf4h: "n/a", dailyRegime: "n/a", ok: false }; }
+    }));
+    confRows.forEach(r => {
+      if (!r.ok || r.score === null) { md += `| ${r.sym} | n/a | n/a | n/a | data error |\n`; return; }
+      const scoreStr = (r.score >= 0 ? "+" : "−") + Math.abs(r.score).toFixed(1) + "/6";
+      md += `| ${r.sym} | ${scoreStr} | ${r.tf4h} | ${r.dailyRegime} | ${briefActionText(r.score, r.dailyRegime)} |\n`;
+    });
+    md += `\n`;
+
+    // ── Market Notes (templated summary) ──
+    md += `### 📝 Market Notes\n`;
+    const valid = confRows.filter(r => r.ok && r.score !== null);
+    const top = valid.slice().sort((a, b) => b.score - a.score)[0];
+    const bottom = valid.slice().sort((a, b) => a.score - b.score)[0];
+    const upN = valid.filter(r => r.dailyRegime === "uptrend").length;
+    const downN = valid.filter(r => r.dailyRegime === "downtrend").length;
+    const mixedN = valid.filter(r => r.dailyRegime === "mixed").length;
+    let notes = `Cash sits at ${cashPct.toFixed(1)}% of equity with ${positions.length} open position${positions.length === 1 ? "" : "s"}. `;
+    if (top) notes += `Strongest watchlist setup is ${top.sym} at ${(top.score >= 0 ? "+" : "−") + Math.abs(top.score).toFixed(1)}/6; weakest is ${bottom.sym} at ${(bottom.score >= 0 ? "+" : "−") + Math.abs(bottom.score).toFixed(1)}/6. `;
+    notes += `Daily regimes across the watchlist: ${upN} uptrend, ${downN} downtrend, ${mixedN} mixed. `;
+    const actionable = valid.filter(r => (r.dailyRegime !== "downtrend" && r.score >= 3) || (r.dailyRegime === "downtrend" && r.score <= -3));
+    notes += actionable.length ? `${actionable.length} symbol${actionable.length === 1 ? " clears" : "s clear"} the entry gate: ${actionable.map(r => r.sym).join(", ")}.` : `No symbol clears the entry gate (long ≥3 in non-downtrend, short ≤−3 in downtrend) — hold and wait for higher-conviction confluence.`;
+    md += notes + `\n\n---\n`;
+
+    _briefDocMarkdown = md;
+    _briefDocFilename = `morning-brief-${gmt2DateISO()}.md`;
+    $("briefDocSub").textContent = `Generated ${time} GMT+2 · ${_briefDocFilename}`;
+    $("briefDocText").textContent = md;
+  } catch (e) {
+    $("briefDocSub").textContent = "Error";
+    $("briefDocText").textContent = "⚠ Failed to generate brief: " + e.message;
+    console.error(e);
+  }
+}
+
+function closeBriefDoc() { $("briefDocBackdrop").style.display = "none"; }
+function downloadBriefDoc() {
+  if (!_briefDocMarkdown) return;
+  const blob = new Blob([_briefDocMarkdown], { type: "text/markdown" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = _briefDocFilename; a.click();
+  URL.revokeObjectURL(url);
+}
+function copyBriefDoc() {
+  if (!_briefDocMarkdown) return;
+  navigator.clipboard && navigator.clipboard.writeText(_briefDocMarkdown);
 }
 
 // ═══════════════════════════════════════════════════════════
