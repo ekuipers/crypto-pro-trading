@@ -2,7 +2,7 @@ name: Forward Analysis
 
 on:
   schedule:
-    - cron: '11 8 * * *'   # once per hour
+    - cron: '8 4 * * *'   # once per day in the morning
   workflow_dispatch:    
       
 # Voorkom gelijktijdige runs die allebei naar main proberen te pushen.
@@ -27,7 +27,7 @@ jobs:
     # Run voor manual dispatch, als event is schedule dan voer schedule uit) 
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'schedule' && github.event.schedule ==  '11 8 * * *')
+      (github.event_name == 'schedule' && github.event.schedule ==   '8 4 * * *')
 
     # Environment for walk forward is always paper
     environment: 'paper'
