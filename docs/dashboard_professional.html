@@ -1974,7 +1974,8 @@
           ["mode","paperApiKey","paperApiSecret","liveApiKey","liveApiSecret"].forEach(function(k){
             if (cfg[k] !== undefined && cfg[k] !== "") merged[k] = cfg[k];
           });
-          merged.limits = Object.assign({}, existing.limits || {}, cfg.limits || {});
+          // localStorage (user-saved limits) wins; config.json only fills gaps.
+          merged.limits = Object.assign({}, cfg.limits || {}, existing.limits || {});
           localStorage.setItem("proDashboardSettings", JSON.stringify(merged));
           if (document.getElementById("setPaperApiKey")) loadSettingsForm();
           return true;

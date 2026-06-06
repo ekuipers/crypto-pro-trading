@@ -66,6 +66,10 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-06 — Fix: Max Symbols setting reset to 30 on refresh
+`maxSignalSymbols` (and any other `limits` value) reset to the `config.json` default on every reload. Cause: `loadConfigFromFile()` merged `config.json`'s `limits` *over* the user's saved `localStorage` limits (`Object.assign({}, existing.limits, cfg.limits)`), so config.json (30) always won. API keys were unaffected only because config.json's key fields are blank. Fix: flipped the limits merge to `Object.assign({}, cfg.limits, existing.limits)` so saved `localStorage` values win and `config.json` only fills gaps (seed/fallback for a fresh browser). Validated with `node --check`. Updated CLAUDE.md, README.md, glossary.
+
+
 ### 2026-06-06 — Dashboard: removed config.json save-to-file
 Per request, dropped the write-to-`config.json` path. Removed `saveConfigToFile()` and the `_configFileHandle` var; `saveSettings()` is no longer `async` and persists to `localStorage` only (alert back to "Settings saved locally in this browser."). `loadConfigFromFile()` is unchanged — `config.json` is still fetched on page open to seed settings (load-only). To change on-disk defaults, edit `docs/config.json` directly. Validated with `node --check`. Updated CLAUDE.md, README.md, glossary.
 
