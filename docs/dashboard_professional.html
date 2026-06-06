@@ -147,14 +147,24 @@
       font-size:12px;
     }
 
+    .layout {
+      display:flex;
+      align-items:flex-start;
+    }
+
     nav {
       background:var(--surface);
-      border-bottom:1px solid var(--border);
-      padding:0 22px;
+      border-right:1px solid var(--border);
+      padding:14px 10px;
       display:flex;
-      overflow-x:auto;
+      flex-direction:column;
+      gap:2px;
+      width:210px;
+      flex:0 0 210px;
       position:sticky;
       top:57px;
+      max-height:calc(100vh - 57px);
+      overflow-y:auto;
       z-index:99;
     }
 
@@ -163,26 +173,33 @@
       border:none;
       color:var(--muted);
       cursor:pointer;
-      padding:12px 16px;
+      padding:10px 14px;
       font-size:13px;
       font-weight:850;
-      border-bottom:2px solid transparent;
+      border-left:3px solid transparent;
+      border-radius:0 var(--radius) var(--radius) 0;
       white-space:nowrap;
       display:flex;
       align-items:center;
-      gap:7px;
+      gap:9px;
+      text-align:left;
+      width:100%;
     }
 
     .tab-btn:hover {
       color:var(--text);
+      background:var(--border);
     }
 
     .tab-btn.active {
       color:var(--blue);
-      border-bottom-color:var(--blue);
+      border-left-color:var(--blue);
+      background:rgba(88,166,255,.10);
     }
 
     main {
+      flex:1;
+      min-width:0;
       padding:24px;
       max-width:1500px;
       margin:0 auto;
@@ -893,8 +910,36 @@
         gap:12px;
       }
 
+      .layout {
+        flex-direction:column;
+      }
+
       nav {
         top:104px;
+        flex-direction:row;
+        width:auto;
+        flex:0 0 auto;
+        max-height:none;
+        overflow-x:auto;
+        overflow-y:hidden;
+        border-right:none;
+        border-bottom:1px solid var(--border);
+        padding:0 14px;
+        position:sticky;
+      }
+
+      .tab-btn {
+        width:auto;
+        border-left:none;
+        border-radius:0;
+        border-bottom:3px solid transparent;
+        padding:12px 14px;
+      }
+
+      .tab-btn.active {
+        border-left-color:transparent;
+        border-bottom-color:var(--blue);
+        background:transparent;
       }
 
       main {
@@ -999,6 +1044,7 @@
     </div>
   </header>
 
+  <div class="layout">
   <nav>
     <button class="tab-btn active" onclick="switchTab('command',this)">🧭 Command</button>
     <button class="tab-btn" onclick="switchTab('performance',this)">📈 Performance</button>
@@ -1624,6 +1670,7 @@
       </section>
     </div>
   </main>
+  </div>
 
   <div id="tradeModalBackdrop" class="modal-backdrop">
     <div class="modal">

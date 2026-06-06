@@ -291,7 +291,7 @@ Two self-contained HTML dashboards live in `docs/`. Open either locally in a bro
 
 ### `docs/dashboard_professional.html` *(primary)*
 
-Professional trader decision cockpit with 12 tabs: **Command**, **Performance**, **Risk**, **Positions**, **Execution**, **Signals**, **P&L**, **Backtest vs Live**, **Breakout Scanner**, **Market Overview**, **Market Signals**, **Settings**.
+Professional trader decision cockpit with 13 tabs in a **left sidebar navigation** (sticky 210px vertical column beside the content; collapses to a horizontal scroll bar on mobile ≤700px): **Command**, **Performance**, **Risk**, **Positions**, **Execution**, **Signals**, **P&L**, **Backtest vs Live**, **Breakout Scanner**, **Market Overview**, **Market Signals**, **Markov**, **Settings**.
 
 Key features:
 - **Live ticker strip** — top-of-page price bar for all 10 watchlist symbols. Fetches from Alpaca `/v1beta3/crypto/us/snapshots`, auto-refreshes every 15 seconds independently of the main dashboard.

@@ -296,7 +296,7 @@ python scripts/rebalance.py --execute # submit orders
 
 ## Dashboard (`docs/dashboard_professional.html`)
 
-Self-contained single-file HTML dashboard. Open locally in any browser — no server needed. Fully usable on mobile portrait: all tables scroll horizontally via `overflow-x:scroll` + `-webkit-overflow-scrolling:touch` on `.table-wrap`, clamped to `calc(100vw - 32px)` in the mobile media query so the wrapper can't expand past the viewport. Every symbol label is a `tvLink()` anchor that opens the TradingView chart (`CRYPTO:BTCUSD` format) in a new tab.
+Self-contained single-file HTML dashboard. Open locally in any browser — no server needed. **Navigation is a left sidebar** (`.layout` flex wrapper wrapping `<nav>` + `<main>`; `nav` is a 210px sticky vertical column, active tab marked by a left blue border + tint). On mobile (≤700px) the `.layout` switches to a column and `nav` collapses back to a horizontal scrolling bar with a bottom-border active marker. Fully usable on mobile portrait: all tables scroll horizontally via `overflow-x:scroll` + `-webkit-overflow-scrolling:touch` on `.table-wrap`, clamped to `calc(100vw - 32px)` in the mobile media query so the wrapper can't expand past the viewport. Every symbol label is a `tvLink()` anchor that opens the TradingView chart (`CRYPTO:BTCUSD` format) in a new tab.
 
 | Feature | Detail |
 |---------|--------|

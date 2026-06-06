@@ -66,6 +66,12 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-06 — Daily closing journal (scheduled pass)
+Wrote `journal/2026-06-06.md` Daily Close block. Equity $95,623.28, 100% cash, 0 open positions, flat vs prior day (last_equity unchanged), $0 realized/unrealized. No orders today (Alpaca `/v2/orders` after 2026-06-06T00:00Z returned 0). All watchlist symbols scored below the buy gate during the concurrent 14:04 evaluation pass — EMA death crosses across the board, oversold RSI on alts but no confluence ≥ 3 and regimes mixed/uptrend, so the agent stayed flat. Rule compliance clean: cash reserve 100% (≥20%), no caps breached, no missed stops. Write-only pass — no orders placed.
+
+### 2026-06-05 — Dashboard: tab nav moved to left sidebar
+Converted `docs/dashboard_professional.html`'s top horizontal tab bar into a left vertical sidebar. Wrapped `<nav>` + `<main>` in a new `.layout` flex container; `nav` is now a 210px sticky column (`flex:0 0 210px`, `top:57px`, own `overflow-y`). `.tab-btn` restyled to full-width left-aligned rows with a left blue border + tint for the active state. Mobile media query (≤700px) sets `.layout{flex-direction:column}` and reverts `nav` to a horizontal scrolling bar with a bottom-border active marker, so phone layout is unchanged. Pure layout/CSS change — no JS or scoring logic touched. Verified div balance and `node --check` on the script block.
+
 ### 2026-06-05 — Dashboard: new 🔗 Markov tab (BTC/ETH transition-matrix analysis)
 Added a `Markov` tab to `docs/dashboard_professional.html`. For `MK_SYMBOLS` (BTC/USD, ETH/USD) across `MK_INTERVALS` (30/60/90/180/365-day windows) it classifies each daily close-to-close return into Up/Flat/Down via a ±`MK_THRESH` (1%) band (`mkClassify`), then `mkBuild()` computes the 3×3 transition matrix `P(next|current)`, the stationary distribution (power iteration with self-loop fallback for unseen rows), the current-state next-day forecast, and the mean daily return. `mkIntervalCard()` renders one heatmap-shaded matrix per window (< 3 transitions → "Insufficient data"); KPI tiles show each symbol's 90-day next-day-up probability. Single `fetchBars(MK_SYMBOLS, "1Day", maxDays+5)` call per run feeds all five windows. User-triggered via `loadMarkov()` (▶ Run Markov Analysis); not auto-run on tab switch. Analysis-only — places no orders, separate from the 6-point execution score. Verified: JS `node --check` passes; standalone test confirms transition rows and stationary vectors sum to 1 and the < 3-transition edge case is gated.
 
