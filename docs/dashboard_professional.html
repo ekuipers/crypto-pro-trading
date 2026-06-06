@@ -3829,8 +3829,7 @@
       for (let i = 0; i < 3; i++) {
         let cells = "";
         for (let j = 0; j < 3; j++) cells += mkCell(m.P[i][j], j);
-        const cur = i === m.currentState ? ' style="font-weight:700;color:var(--blue)"' : '';
-        rows += `<tr><td${cur}>${MK_STATES[i]}${i === m.currentState ? ' ◀' : ''}</td>${cells}<td class="right small">${m.rowSums[i]}</td></tr>`;
+        rows += `<tr><td>${MK_STATES[i]}</td>${cells}<td class="right small">${m.rowSums[i]}</td></tr>`;
       }
       return `<table class="mk-matrix" style="width:100%;font-size:12px"><thead><tr>
           <th style="text-align:left">from \\ to</th>
