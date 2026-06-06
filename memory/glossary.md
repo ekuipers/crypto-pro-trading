@@ -140,6 +140,7 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | Multi-symbol pagination | Bars API paginates by *total bars*, not per-symbol. Must follow `next_page_token` until `null`. |
 | Dashboard Settings inputs | `#page-settings` field IDs: `setPaperApiKey` / `setPaperApiSecret` (📄 Paper), `setLiveApiKey` / `setLiveApiSecret` (🔴 Live), `setStopLoss` / `setMaxDailyLoss` / `setMaxOpenRisk` (🛡 Risk Limits), `setMaxSignalSymbols` (🔭 Signals Analysis). Laid out in labelled 2-column `form-grid` blocks; key+secret pairs side by side, risk-limit and signals inputs in their own blocks below the API keys. Persisted to `localStorage` key `proDashboardSettings`. |
 | `maxSignalSymbols` | `getSettings().limits.maxSignalSymbols` — caps how many of the 30 cap-ranked `TOP30_SYMBOLS` the Market Signals scanner analyses. Default 30, clamped 1–30. `loadMarketSignals()` uses `SCAN_SYMBOLS = TOP30_SYMBOLS.slice(0, n)`. Does not affect the watchlist Signals tab or Market Overview. |
+| `updateScanBtnLabel()` | Sets the Market Signals scan button (`#msScanBtn`) text to `▶ Scan Top N` from `maxSignalSymbols`. Called on page init, after `saveSettings()`, and at the start of `loadMarketSignals()`. Gives a live, visible indicator of the active symbol cap. |
 
 ---
 

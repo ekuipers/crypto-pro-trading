@@ -1560,13 +1560,13 @@
     <div id="page-market-signals" class="page">
       <section>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
-          <div class="section-title" style="margin-bottom:0">🔭 Market Signals — Top 30 Confluence Scanner</div>
+          <div class="section-title" style="margin-bottom:0">🔭 Market Signals — Confluence Scanner</div>
           <span class="small">15-min bars · 4H regime · Daily gate</span>
-          <button class="btn btn-green" onclick="loadMarketSignals()" style="margin-left:auto">▶ Scan All 30</button>
+          <button id="msScanBtn" class="btn btn-green" onclick="loadMarketSignals()" style="margin-left:auto" title="Symbol count set in Settings › Signals Analysis">▶ Scan</button>
           <button id="msHideBtn" class="btn" onclick="msToggleUnavailable()" data-tip="Hide symbols not available on Alpaca">👁 Show All</button>
         </div>
         <div id="msKpis" class="grid-3" style="margin-bottom:18px"></div>
-        <div id="msLastUpdated" style="font-size:12px;color:var(--muted);margin-bottom:10px">Click "Scan All 30" to run full confluence analysis.</div>
+        <div id="msLastUpdated" style="font-size:12px;color:var(--muted);margin-bottom:10px">Click "Scan" to run confluence analysis. Symbol count is set in Settings › Signals Analysis.</div>
         <div class="table-wrap">
           <table>
             <thead>
@@ -2915,6 +2915,7 @@
 
       localStorage.setItem("proDashboardSettings", JSON.stringify(saved));
       renderMode();
+      if (typeof updateScanBtnLabel === "function") updateScanBtnLabel();
       $("lastUpdated").textContent = "Settings saved";
       alert("Settings saved locally in this browser.");
     }
@@ -3317,6 +3318,7 @@
     renderMode();
     loadBacktestForm();
     enhanceTables();
+    updateScanBtnLabel();
 
     if (getSettings().apiKey && getSettings().apiSecret) {
       loadDashboard();
@@ -5613,6 +5615,13 @@
 
     // ── Market Signals scanner for Top 30 ──────────────────────────────────
 
+    function updateScanBtnLabel() {
+      const btn = document.getElementById("msScanBtn");
+      if (!btn) return;
+      const n = Math.max(1, Math.min(TOP30_SYMBOLS.length, Math.round(getSettings().limits.maxSignalSymbols || TOP30_SYMBOLS.length)));
+      btn.textContent = "▶ Scan Top " + n;
+    }
+
     async function loadMarketSignals() {
       const s = getSettings();
       if (!s.apiKey || !s.apiSecret) {
@@ -5622,6 +5631,7 @@
       }
       const maxSyms = Math.max(1, Math.min(TOP30_SYMBOLS.length, Math.round(s.limits.maxSignalSymbols || TOP30_SYMBOLS.length)));
       const SCAN_SYMBOLS = TOP30_SYMBOLS.slice(0, maxSyms);
+      updateScanBtnLabel();
       document.getElementById("msTableBody").innerHTML =
         '<tr><td colspan="13" class="placeholder">Scanning ' + SCAN_SYMBOLS.length + ' symbols — fetching 15-min, 4H and daily bars… this may take a moment.</td></tr>';
       const upd = document.getElementById("msLastUpdated");

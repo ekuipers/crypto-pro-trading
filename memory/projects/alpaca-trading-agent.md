@@ -66,6 +66,9 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-06 — Dashboard: Market Signals scan-button label made dynamic
+Follow-up after user reported the Market Signals tab "still scans 30 / ignores the setting." The scan logic (`loadMarketSignals` → `SCAN_SYMBOLS = TOP30_SYMBOLS.slice(0, maxSignalSymbols)`) was already correct in the file, so the report was almost certainly a cached-JS / stale-browser issue (the bash workspace mount was also serving a truncated copy cut off at line 5400 — file tools showed the complete file). To make the cap unmistakable and provide a version-check tell: renamed the static "▶ Scan All 30" button to a dynamic `#msScanBtn` updated by new `updateScanBtnLabel()` → `▶ Scan Top N`; called on page init, after `saveSettings()`, and at the start of each scan. Also dropped "Top 30" from the panel title and the initial `msLastUpdated` hint. Advised user to hard-refresh (Ctrl/Cmd+Shift+R) and re-save settings. Updated CLAUDE.md, README.md, glossary.
+
 ### 2026-06-06 — Dashboard: Max Symbols setting for Market Signals scan
 Added a **🔭 Signals Analysis** section to the Settings tab with one input, **Max Symbols in Market Signals scan** (`setMaxSignalSymbols`). Persisted as `limits.maxSignalSymbols` (default 30, clamped 1–30) — added to `DEFAULT_LIMITS`, wired through `getSettings()`, `loadSettingsForm()`, and `saveSettings()`. `loadMarketSignals()` now derives `SCAN_SYMBOLS = TOP30_SYMBOLS.slice(0, maxSignalSymbols)` (top-N by market cap, since `TOP30_SYMBOLS` is cap-ranked) and uses it for all bar/snapshot fetches, the scan loop, and the "N/M symbols analysed" footer. Watchlist Signals tab (fixed 10) and Market Overview (full 30) are unaffected — confirmed with the user this should apply only to the Market Signals scanner. Updated CLAUDE.md, README.md, glossary.
 
