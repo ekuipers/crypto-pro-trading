@@ -66,6 +66,9 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-06 — Fix: Backtest vs Live tab — broken Win Rate & Profit Factor
+The Backtest tab's "Strategy Health" comparison had two non-functional metrics. **Win Rate Proxy** compared each filled order's `filled_avg_price` against its `limit_price` (`fill <= limit` for buys, `fill >= limit` for sells) — but limit orders by definition always fill at or better than the limit, so the proxy was permanently ~100% and always green regardless of actual profitability. **Profit Factor** was hardcoded to `null` → permanently `n/a`. Meanwhile the P&L tab already computed correct realized win rate and profit factor via FIFO matching. Fix: extracted that FIFO engine into a shared `computeFifoStats(activities)` helper (long-only buy→sell matching, identical behaviour to the P&L tab's original inline code). `loadContext()` now fetches `/v2/account/activities?activity_type=FILL` and attaches `c.fifoStats`; `renderBacktest()` reads `c.fifoStats.winRate` / `.profitFactor` for both the comparison table and the KPI tiles. `loadPnl()` refactored to call the same helper (single source of truth). Removed the now-orphaned "Filled Order Sample" KPI. Verified the helper with a unit test (1 win / 1 loss → winRate 50%, PF 0.5). Updated CLAUDE.md, README.md, glossary.
+
 ### 2026-06-06 — Fix: Markov matrices overlapping in dashboard
 The Markov tab's transition matrices were overflowing their `grid-3` panels and overlapping. Root cause: the global `table { min-width:760px }` rule (needed for the wide data tables elsewhere) applied to the small 5-column matrix tables sitting in ≥230px grid columns. Fix: added a `.mk-matrix` class (`min-width:0; table-layout:fixed; th/td padding 6px 7px; white-space:nowrap`) and tagged the `mkMatrixTable()` `<table>` with it. Tables now constrain to their card width. Updated CLAUDE.md, README.md, glossary.
 

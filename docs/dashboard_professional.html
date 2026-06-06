@@ -1840,8 +1840,7 @@
       "Live Sharpe": "Sharpe ratio calculated from live account-history returns.",
       "Live Max DD": "Maximum drawdown calculated from live account-history equity.",
       "Avg Daily Return": "Average daily or period return from live account history.",
-      "Filled Order Sample": "Number of filled orders used for execution-quality proxy.",
-      "Profit Factor": "Requires realized closed-trade P&L. Shown as n/a if unavailable.",
+      "Profit Factor": "Gross realized wins ÷ gross realized losses, from FIFO-matched fills. n/a until there is at least one losing trade.",
       "Cash Reserve": "Available cash as % of equity. Hard rule: must stay ≥ 20% at all times.",
       "Connection": "Whether Alpaca API credentials are configured.",
       "Mode": "Paper or live account mode selected in Settings.",
@@ -2205,14 +2204,71 @@
       return annualReturn(returns, tradingDays) / Math.abs(maxDDPct / 100);
     }
 
+    // FIFO realized-P&L matching. Single source of truth shared by the P&L tab
+    // (loadPnl) and the Backtest tab (renderBacktest) so their realized win-rate
+    // and profit-factor numbers can never diverge. Long-only matching (buy → sell),
+    // identical to the engine the P&L tab originally shipped with.
+    function computeFifoStats(activities) {
+      const list = Array.isArray(activities) ? activities : [];
+      const queues = {}; // symbol -> [{qty, price}]
+      const trades = [];
+      let totalPnl = 0, wins = 0, losses = 0, winPnl = 0, lossPnl = 0;
+
+      // Alpaca returns activities most-recent-first; reverse for chronological FIFO.
+      const sorted = [...list].reverse();
+
+      for (const act of sorted) {
+        const sym = act.symbol;
+        const side = act.side;
+        const qty = Math.abs(Number(act.qty || 0));
+        const price = Number(act.price || 0);
+        const date = (act.transaction_time || act.date || "").slice(0, 10);
+
+        if (!queues[sym]) queues[sym] = [];
+
+        if (side === "buy") {
+          queues[sym].push({ qty, price });
+          trades.push({ date, sym, side: "BUY", qty, price, pnl: null, status: act.order_status || "filled" });
+        } else if (side === "sell") {
+          let remaining = qty;
+          let realizedPnl = 0;
+          while (remaining > 0 && queues[sym] && queues[sym].length > 0) {
+            const entry = queues[sym][0];
+            const matched = Math.min(remaining, entry.qty);
+            realizedPnl += matched * (price - entry.price);
+            entry.qty -= matched;
+            remaining -= matched;
+            if (entry.qty < 0.000001) queues[sym].shift();
+          }
+          totalPnl += realizedPnl;
+          if (realizedPnl >= 0) { wins++; winPnl += realizedPnl; }
+          else { losses++; lossPnl += Math.abs(realizedPnl); }
+          trades.push({ date, sym, side: "SELL", qty, price, pnl: realizedPnl, status: act.order_status || "filled" });
+        }
+      }
+
+      const totalTrades = wins + losses;
+      return {
+        totalPnl, wins, losses, winPnl, lossPnl,
+        winRate: totalTrades ? wins / totalTrades * 100 : null,
+        profitFactor: lossPnl > 0 ? winPnl / lossPnl : null,
+        avgWin: wins > 0 ? winPnl / wins : null,
+        avgLoss: losses > 0 ? lossPnl / losses : null,
+        tradeRows: [...trades].reverse() // most-recent-first (matches loadPnl ordering)
+      };
+    }
+
     async function loadContext() {
-      const [acct, positions, openOrders, closedOrders, hist] = await Promise.all([
+      const [acct, positions, openOrders, closedOrders, hist, activities] = await Promise.all([
         apiFetch("/v2/account"),
         apiFetch("/v2/positions"),
         apiFetch("/v2/orders?status=open&limit=100&direction=desc"),
         apiFetch("/v2/orders?status=closed&limit=100&direction=desc"),
-        apiFetch("/v2/account/portfolio/history?period=3M&timeframe=1D&intraday_reporting=continuous&extended_hours=true")
+        apiFetch("/v2/account/portfolio/history?period=3M&timeframe=1D&intraday_reporting=continuous&extended_hours=true"),
+        apiFetch("/v2/account/activities?activity_type=FILL&page_size=100&sort=desc")
       ]);
+
+      const fifoStats = computeFifoStats(activities);
 
       const s = getSettings();
       const L = s.limits;
@@ -2291,6 +2347,7 @@
         timestamps,
         returns,
         dd,
+        fifoStats,
         invested,
         investedPct,
         cashPct,
@@ -2746,16 +2803,12 @@
       const liveMaxDD = Math.abs(c.dd.maxDDPct);
       const avgDaily = mean(c.returns) * 100;
 
-      const filled = c.filledOrders.length;
-      const winningProxy = c.filledOrders.filter(o => {
-        const fill = Number(o.filled_avg_price || 0);
-        const limit = Number(o.limit_price || 0);
-        if (!fill || !limit) return false;
-        return o.side === "buy" ? fill <= limit : fill >= limit;
-      }).length;
-
-      const winRateProxy = filled ? winningProxy / filled * 100 : null;
-      const profitFactorLive = null;
+      // Realized win rate and profit factor from FIFO-matched fills — the same
+      // engine the P&L tab uses, so the two tabs always agree.
+      const fs = c.fifoStats || {};
+      const closedTrades = (fs.wins || 0) + (fs.losses || 0);
+      const liveWinRate = fs.winRate != null ? fs.winRate : null;
+      const profitFactorLive = fs.profitFactor != null ? fs.profitFactor : null;
 
       function metricStatus(live, expected, higherIsBetter) {
         if (live == null || isNaN(live)) return ["yellow", "Need data"];
@@ -2770,8 +2823,8 @@
       const rows = [
         ["Sharpe", liveSharpe, b.expectedSharpe, true, fmt(liveSharpe,2), fmt(b.expectedSharpe,2)],
         ["Max Drawdown %", liveMaxDD, b.expectedMaxDrawdownPct, false, fmt(liveMaxDD,2) + "%", fmt(b.expectedMaxDrawdownPct,2) + "%"],
-        ["Win Rate Proxy %", winRateProxy, b.expectedWinRatePct, true, winRateProxy == null ? "n/a" : fmt(winRateProxy,1) + "%", fmt(b.expectedWinRatePct,1) + "%"],
-        ["Profit Factor", profitFactorLive, b.expectedProfitFactor, true, "n/a", fmt(b.expectedProfitFactor,2)],
+        ["Win Rate %", liveWinRate, b.expectedWinRatePct, true, liveWinRate == null ? "n/a" : fmt(liveWinRate,1) + "%", fmt(b.expectedWinRatePct,1) + "%"],
+        ["Profit Factor", profitFactorLive, b.expectedProfitFactor, true, profitFactorLive == null ? "n/a" : fmt(profitFactorLive,2), fmt(b.expectedProfitFactor,2)],
         ["Avg Daily Return %", avgDaily, b.expectedAvgDailyReturnPct, true, fmt(avgDaily,3) + "%", fmt(b.expectedAvgDailyReturnPct,3) + "%"]
       ];
 
@@ -2785,8 +2838,8 @@
         kpi("Live Sharpe", fmt(liveSharpe,2), "Risk-adjusted live performance"),
         kpi("Live Max DD", fmt(liveMaxDD,2) + "%", "Loaded account history", "neg"),
         kpi("Avg Daily Return", fmt(avgDaily,3) + "%", "Loaded account history", avgDaily >= 0 ? "pos" : "neg"),
-        kpi("Filled Order Sample", String(filled), "Used for execution-quality proxy"),
-        kpi("Profit Factor", "n/a", "Needs realized closed-trade P&L")
+        kpi("Win Rate", liveWinRate == null ? "n/a" : fmt(liveWinRate,1) + "%", `${fs.wins || 0}W / ${fs.losses || 0}L (FIFO)`, liveWinRate != null && liveWinRate >= 50 ? "pos" : "neg"),
+        kpi("Profit Factor", profitFactorLive == null ? "n/a" : fmt(profitFactorLive,2), `${closedTrades} closed trades`, profitFactorLive != null && profitFactorLive >= 1 ? "pos" : "neg")
       ].join("");
 
       $("backtestCompareBody").innerHTML = rows.map(r => {
@@ -4170,51 +4223,10 @@
         const activities = await resp.json();
         _pnlActivities = Array.isArray(activities) ? activities : [];
 
-        // FIFO P&L matching per symbol
-        const queues = {}; // symbol -> [{qty, price}]
-        const trades = [];
-        let totalPnl = 0, wins = 0, losses = 0, winPnl = 0, lossPnl = 0;
-
-        // Activities are desc; reverse for FIFO
-        const sorted = [..._pnlActivities].reverse();
-
-        for (const act of sorted) {
-          const sym = act.symbol;
-          const side = act.side; // "buy" or "sell"
-          const qty = Math.abs(Number(act.qty || 0));
-          const price = Number(act.price || 0);
-          const date = (act.transaction_time || act.date || "").slice(0, 10);
-
-          if (!queues[sym]) queues[sym] = [];
-
-          if (side === "buy") {
-            queues[sym].push({ qty, price });
-            trades.push({ date, sym, side: "BUY", qty, price, pnl: null, status: act.order_status || "filled" });
-          } else if (side === "sell") {
-            let remaining = qty;
-            let realizedPnl = 0;
-            while (remaining > 0 && queues[sym] && queues[sym].length > 0) {
-              const entry = queues[sym][0];
-              const matched = Math.min(remaining, entry.qty);
-              realizedPnl += matched * (price - entry.price);
-              entry.qty -= matched;
-              remaining -= matched;
-              if (entry.qty < 0.000001) queues[sym].shift();
-            }
-            totalPnl += realizedPnl;
-            if (realizedPnl >= 0) { wins++; winPnl += realizedPnl; }
-            else { losses++; lossPnl += Math.abs(realizedPnl); }
-            trades.push({ date, sym, side: "SELL", qty, price, pnl: realizedPnl, status: act.order_status || "filled" });
-          }
-        }
-
-        _pnlTradeRows = trades.reverse(); // most recent first
-
-        const totalTrades = wins + losses;
-        const winRate = totalTrades ? wins / totalTrades * 100 : null;
-        const profitFactor = lossPnl > 0 ? winPnl / lossPnl : null;
-        const avgWin = wins > 0 ? winPnl / wins : null;
-        const avgLoss = losses > 0 ? lossPnl / losses : null;
+        // FIFO P&L matching (shared engine — see computeFifoStats)
+        const stats = computeFifoStats(_pnlActivities);
+        const { totalPnl, wins, losses, winRate, profitFactor, avgWin, avgLoss } = stats;
+        _pnlTradeRows = stats.tradeRows; // most recent first
 
         $("pnlKpis").innerHTML = [
           kpi("Total Realized P&L", plSign(totalPnl), "FIFO matched fills", plClass(totalPnl) === "pos" ? "pos" : "neg"),

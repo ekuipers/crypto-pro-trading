@@ -181,6 +181,7 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | `place_order(symbol, side, qty, ask)` | `trade.py` | Limit order; enforces hard rules |
 | `evaluate_rebalance(symbol, pos, equity, caps_data)` | `rebalance.py` | Returns rebalance decision (HOLD/BUY/SELL) with qty, limit_price, reason |
 | `append_rebalance_journal(timestamp, decisions, executed)` | `rebalance.py` | Appends `## Rebalance HH:MM GMT+2` block to daily journal |
+| `computeFifoStats(activities)` | `dashboard_professional.html` | Shared FIFO realized-P&L engine. Returns `{totalPnl, wins, losses, winPnl, lossPnl, winRate, profitFactor, avgWin, avgLoss, tradeRows}`. Long-only buy→sell matching. Single source of truth for both the P&L tab (`loadPnl`) and Backtest tab (`renderBacktest` via `c.fifoStats`). |
 
 ---
 
