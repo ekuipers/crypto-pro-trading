@@ -66,6 +66,9 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-06 — Fix: Markov matrices overlapping in dashboard
+The Markov tab's transition matrices were overflowing their `grid-3` panels and overlapping. Root cause: the global `table { min-width:760px }` rule (needed for the wide data tables elsewhere) applied to the small 5-column matrix tables sitting in ≥230px grid columns. Fix: added a `.mk-matrix` class (`min-width:0; table-layout:fixed; th/td padding 6px 7px; white-space:nowrap`) and tagged the `mkMatrixTable()` `<table>` with it. Tables now constrain to their card width. Updated CLAUDE.md, README.md, glossary.
+
 ### 2026-06-06 — Daily closing journal (scheduled pass)
 Wrote `journal/2026-06-06.md` Daily Close block. Equity $95,623.28, 100% cash, 0 open positions, flat vs prior day (last_equity unchanged), $0 realized/unrealized. No orders today (Alpaca `/v2/orders` after 2026-06-06T00:00Z returned 0). All watchlist symbols scored below the buy gate during the concurrent 14:04 evaluation pass — EMA death crosses across the board, oversold RSI on alts but no confluence ≥ 3 and regimes mixed/uptrend, so the agent stayed flat. Rule compliance clean: cash reserve 100% (≥20%), no caps breached, no missed stops. Write-only pass — no orders placed.
 

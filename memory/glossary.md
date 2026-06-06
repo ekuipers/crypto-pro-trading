@@ -34,7 +34,7 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | Term | Meaning |
 |------|---------|
 | Confluence score | 6-point TA signal score; ≥4 = buy, 3 = half-size, ≤2 = hold; ≤−4 = short, −3 = half-size short, ≥+2 = cover |
-| Markov analysis | Dashboard Markov tab. First-order Markov chain over daily close-to-close returns. 3 states via ±1% band (`MK_THRESH`): Up (r>+1%), Flat (|r|≤1%), Down (r<−1%). Builds transition matrix `P(next\|current)`, stationary distribution (power iteration), and next-day forecast from current state. Run for BTC/USD & ETH/USD over 30/60/90/180/365-day windows. Analysis-only, no order routing. |
+| Markov analysis | Dashboard Markov tab. First-order Markov chain over daily close-to-close returns. 3 states via ±1% band (`MK_THRESH`): Up (r>+1%), Flat (|r|≤1%), Down (r<−1%). Builds transition matrix `P(next\|current)`, stationary distribution (power iteration), and next-day forecast from current state. Run for BTC/USD & ETH/USD over 30/60/90/180/365-day windows. Analysis-only, no order routing. Matrix tables use the `.mk-matrix` CSS class (`min-width:0; table-layout:fixed`) to override the global 760px table min-width so they fit their narrow grid panels without overlapping. |
 | Transition matrix | 3×3 matrix where cell (i,j) = empirical probability of moving from state i to state j on the next day. Rows sum to 1. |
 | Stationary distribution | Long-run state probabilities π satisfying π = πP; computed via power iteration. The Markov tab shows it alongside the empirical state frequencies. |
 | Regime block | Daily downtrend detected → all new long entries blocked |
