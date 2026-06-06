@@ -66,6 +66,10 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-06 — Dashboard: removed config.json save-to-file
+Per request, dropped the write-to-`config.json` path. Removed `saveConfigToFile()` and the `_configFileHandle` var; `saveSettings()` is no longer `async` and persists to `localStorage` only (alert back to "Settings saved locally in this browser."). `loadConfigFromFile()` is unchanged — `config.json` is still fetched on page open to seed settings (load-only). To change on-disk defaults, edit `docs/config.json` directly. Validated with `node --check`. Updated CLAUDE.md, README.md, glossary.
+
+
 ### 2026-06-06 — Fix: dashboard TDZ crash + config.json settings persistence
 **Two issues reported:** (1) Market Signals scan button dead and Market Overview throwing `Cannot access 'TOP30_SYMBOLS' before initialization`; (2) request to persist all Settings-tab values to a `config.json` next to the HTML and load them on open.
 

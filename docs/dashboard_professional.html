@@ -1960,9 +1960,7 @@
       `;
     }
 
-    // ── config.json persistence (same directory as this HTML) ────────────
-    let _configFileHandle = null;   // File System Access API handle, if granted
-
+    // ── config.json load (same directory as this HTML) ───────────────────
     async function loadConfigFromFile() {
       // config.json is the source of truth on page load. Falls back to
       // browser-stored settings if the file is missing or fetch is blocked.
@@ -1985,33 +1983,6 @@
         console.info("config.json not loaded (using browser-stored settings):", e.message);
       }
       return false;
-    }
-
-    async function saveConfigToFile(obj) {
-      const json = JSON.stringify(obj, null, 2);
-      if (window.showSaveFilePicker) {
-        try {
-          if (!_configFileHandle) {
-            _configFileHandle = await window.showSaveFilePicker({
-              suggestedName: "config.json",
-              types: [{ description: "JSON", accept: { "application/json": [".json"] } }]
-            });
-          }
-          const w = await _configFileHandle.createWritable();
-          await w.write(json);
-          await w.close();
-          return "file";
-        } catch (e) {
-          if (e && e.name === "AbortError") return "cancelled";
-        }
-      }
-      const blob = new Blob([json], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = "config.json";
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      return "download";
     }
 
     function getSettings() {
@@ -2943,7 +2914,7 @@
       $("lastUpdated").textContent = "Settings loaded";
     }
 
-    async function saveSettings() {
+    function saveSettings() {
       const current = getSettings();
 
       const maxDaily = Number($("setMaxDailyLoss").value || DEFAULT_LIMITS.maxDailyLossPct);
@@ -2971,10 +2942,7 @@
       renderMode();
       if (typeof updateScanBtnLabel === "function") updateScanBtnLabel();
       $("lastUpdated").textContent = "Settings saved";
-      const how = await saveConfigToFile(saved);
-      if (how === "file")            alert("Settings saved to config.json.");
-      else if (how === "download")   alert("Settings saved. config.json was downloaded \u2014 place it in the same folder as this dashboard so it loads automatically next time.");
-      else if (how === "cancelled")  alert("Settings saved in this browser, but config.json was not written (save cancelled).");
+      alert("Settings saved locally in this browser.");
     }
 
     function clearSettings() {
