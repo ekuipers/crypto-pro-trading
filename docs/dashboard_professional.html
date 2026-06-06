@@ -1642,7 +1642,7 @@
           </div>
 
           <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">🔴 Live Trading</div>
-          <div class="form-grid">
+          <div class="form-grid" style="margin-bottom:20px">
             <div>
               <label>Live API Key</label>
               <input id="setLiveApiKey" placeholder="PK...">
@@ -1651,8 +1651,10 @@
               <label>Live API Secret</label>
               <input id="setLiveApiSecret" type="password" placeholder="Secret">
             </div>
+          </div>
 
-
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">🛡 Risk Limits</div>
+          <div class="form-grid" style="margin-bottom:20px">
             <div>
               <label>Assumed Stop Loss %</label>
               <input id="setStopLoss" type="number" step="0.1">
@@ -1666,6 +1668,14 @@
             <div>
               <label>Max Open Risk %</label>
               <input id="setMaxOpenRisk" type="number" step="0.1">
+            </div>
+          </div>
+
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">🔭 Signals Analysis</div>
+          <div class="form-grid" style="margin-bottom:20px">
+            <div>
+              <label>Max Symbols in Market Signals scan</label>
+              <input id="setMaxSignalSymbols" type="number" step="1" min="1" max="30">
             </div>
           </div>
 
@@ -1792,7 +1802,8 @@
       maxSinglePositionPct: 30.0,
       warningSinglePositionPct: 20.0,
       assumedStopLossPct: 5.0,
-      tradingDaysPerYear: 252
+      tradingDaysPerYear: 252,
+      maxSignalSymbols: 30
     };
 
     const DEFAULT_BACKTEST = {
@@ -2873,6 +2884,7 @@
       $("setStopLoss").value = s.limits.assumedStopLossPct;
       $("setMaxDailyLoss").value = s.limits.maxDailyLossPct;
       $("setMaxOpenRisk").value = s.limits.maxOpenRiskPct;
+      $("setMaxSignalSymbols").value = s.limits.maxSignalSymbols;
 
       $("lastUpdated").textContent = "Settings loaded";
     }
@@ -2882,6 +2894,8 @@
 
       const maxDaily = Number($("setMaxDailyLoss").value || DEFAULT_LIMITS.maxDailyLossPct);
       const maxOpenRisk = Number($("setMaxOpenRisk").value || DEFAULT_LIMITS.maxOpenRiskPct);
+      let maxSignalSymbols = Math.round(Number($("setMaxSignalSymbols").value || DEFAULT_LIMITS.maxSignalSymbols));
+      maxSignalSymbols = Math.max(1, Math.min(30, maxSignalSymbols || DEFAULT_LIMITS.maxSignalSymbols));
 
       const saved = {
         paperApiKey:    $("setPaperApiKey").value.trim(),
@@ -2894,7 +2908,8 @@
           maxDailyLossPct: maxDaily,
           warningDailyLossPct: maxDaily / 2,
           maxOpenRiskPct: maxOpenRisk,
-          warningOpenRiskPct: maxOpenRisk * 0.6
+          warningOpenRiskPct: maxOpenRisk * 0.6,
+          maxSignalSymbols: maxSignalSymbols
         })
       };
 
@@ -5605,8 +5620,10 @@
           '<tr><td colspan="13" class="placeholder">Configure API credentials in Settings first.</td></tr>';
         return;
       }
+      const maxSyms = Math.max(1, Math.min(TOP30_SYMBOLS.length, Math.round(s.limits.maxSignalSymbols || TOP30_SYMBOLS.length)));
+      const SCAN_SYMBOLS = TOP30_SYMBOLS.slice(0, maxSyms);
       document.getElementById("msTableBody").innerHTML =
-        '<tr><td colspan="13" class="placeholder">Scanning 30 symbols — fetching 15-min, 4H and daily bars… this may take a moment.</td></tr>';
+        '<tr><td colspan="13" class="placeholder">Scanning ' + SCAN_SYMBOLS.length + ' symbols — fetching 15-min, 4H and daily bars… this may take a moment.</td></tr>';
       const upd = document.getElementById("msLastUpdated");
       const kEl = document.getElementById("msKpis");
       if (upd) upd.textContent = "Loading…";
@@ -5614,9 +5631,9 @@
 
       try {
         const [bars15, bars4h, barsD] = await Promise.all([
-          fetchBarsInBatches(TOP30_SYMBOLS, "15Min", 120),
-          fetchBarsInBatches(TOP30_SYMBOLS, "4Hour", 60),
-          fetchBarsInBatches(TOP30_SYMBOLS, "1Day",  60)
+          fetchBarsInBatches(SCAN_SYMBOLS, "15Min", 120),
+          fetchBarsInBatches(SCAN_SYMBOLS, "4Hour", 60),
+          fetchBarsInBatches(SCAN_SYMBOLS, "1Day",  60)
         ]);
         if (!bars15) {
           document.getElementById("msTableBody").innerHTML =
@@ -5627,13 +5644,13 @@
         // Snapshot for live prices — batched so one invalid symbol can't kill the whole request
         let snaps = {};
         try {
-          snaps = await fetchSnapshotsInBatches(TOP30_SYMBOLS);
+          snaps = await fetchSnapshotsInBatches(SCAN_SYMBOLS);
         } catch(e) { /* non-fatal */ }
 
         const rows   = [];
         const scores = [];
 
-        for (const sym of TOP30_SYMBOLS) {
+        for (const sym of SCAN_SYMBOLS) {
           const alpSym = sym.replace("/","");
           const b15 = (bars15[sym] || bars15[alpSym] || []).map(function(b){ return {c:b.c,h:b.h,l:b.l,v:b.v}; });
           const b4h = (bars4h[sym] || bars4h[alpSym] || []).map(function(b){ return {c:b.c,h:b.h,l:b.l,v:b.v}; });
@@ -5762,7 +5779,7 @@
         }
 
         if (upd) upd.textContent = "Last scanned: " + new Date().toLocaleTimeString() +
-          " · " + valid.length + "/" + TOP30_SYMBOLS.length + " symbols analysed";
+          " · " + valid.length + "/" + SCAN_SYMBOLS.length + " symbols analysed";
 
       } catch(e) {
         document.getElementById("msTableBody").innerHTML =
