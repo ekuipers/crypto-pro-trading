@@ -66,6 +66,21 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-06 — Fix: dashboard TDZ crash + config.json settings persistence
+**Two issues reported:** (1) Market Signals scan button dead and Market Overview throwing `Cannot access 'TOP30_SYMBOLS' before initialization`; (2) request to persist all Settings-tab values to a `config.json` next to the HTML and load them on open.
+
+**Root cause of (1):** the `updateScanBtnLabel()` call I had added to the early top-level init ran *before* `const TOP30_SYMBOLS` (declared much later in the same script). `const` has a temporal dead zone, so the access threw at top level and aborted the entire script — the const never initialized, so every later consumer (scan, Market Overview) failed. (Also discovered the working-tree HTML + all four doc files had been truncated mid-file by earlier file-tool writes; restored each from `git show HEAD:` via in-place overwrite, since `git checkout` couldn't unlink on the mount.)
+
+**Fixes (all applied through the shell, not the file editor, to avoid re-truncation):**
+- Removed the early `updateScanBtnLabel()` call. Wrapped the credential-dependent bootstrap in an `(async function bootstrapDashboard(){ await loadConfigFromFile(); renderMode(); updateScanBtnLabel(); ... })()` IIFE. Because it awaits, the synchronous remainder of the script (incl. the `TOP30_SYMBOLS` const) finishes first, so the label call is safe.
+- Added `loadConfigFromFile()` — `fetch('./config.json')` on load, merges into `localStorage` (empty strings don't clobber stored keys; `limits` merged), then `loadSettingsForm()`.
+- Added `saveConfigToFile(obj)` — writes `config.json` via File System Access API (`showSaveFilePicker`, handle cached in `_configFileHandle`); falls back to an `<a download>`. `saveSettings()` is now `async` and awaits it, with mode-aware alerts.
+- Created `docs/config.json` (mode, 4 API fields, `limits` incl. `maxSignalSymbols`).
+- Validated the inline script with `node --check` after every change. Note: `fetch('./config.json')` works when the dashboard is served over HTTP (GitHub Pages / local server); on bare `file://` Chrome blocks it and the dashboard falls back to `localStorage`.
+
+Updated CLAUDE.md, README.md, glossary.
+
+
 ### 2026-06-06 — Dashboard: Market Signals scan-button label made dynamic
 Follow-up after user reported the Market Signals tab "still scans 30 / ignores the setting." The scan logic (`loadMarketSignals` → `SCAN_SYMBOLS = TOP30_SYMBOLS.slice(0, maxSignalSymbols)`) was already correct in the file, so the report was almost certainly a cached-JS / stale-browser issue (the bash workspace mount was also serving a truncated copy cut off at line 5400 — file tools showed the complete file). To make the cap unmistakable and provide a version-check tell: renamed the static "▶ Scan All 30" button to a dynamic `#msScanBtn` updated by new `updateScanBtnLabel()` → `▶ Scan Top N`; called on page init, after `saveSettings()`, and at the start of each scan. Also dropped "Top 30" from the panel title and the initial `msLastUpdated` hint. Advised user to hard-refresh (Ctrl/Cmd+Shift+R) and re-save settings. Updated CLAUDE.md, README.md, glossary.
 
