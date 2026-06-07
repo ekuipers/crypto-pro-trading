@@ -84,6 +84,7 @@ Key principles applied across both dashboards:
 | 2026-06-07 | **Removed the 30-symbol cap on both Market Signals and Market Overview** — both now use the shared `getCryptoUniverse()` sliced by Max Symbols. Hardened the universe parser to accept `BTC/USD` and bare `BTCUSD`; converted `loadMarketOverview()` off the hardcoded `TOP30_SYMBOLS`. |
 | 2026-06-07 | **Real ranks for every symbol** — added `_universeRank` + `symbolInfo()`; symbols outside `TOP30_INFO` now get a contiguous rank from their universe position instead of `#?`. |
 | 2026-06-07 | **Risk tab panel order** — swapped the "Portfolio Concentration & Correlation Risk" grid so the 🔗 Live Correlation Matrix is the left column and 📊 Effective Exposure the right. |
+| 2026-06-07 | **Correlation matrix left whitespace fix** — `.corr-wrap table` now sets `min-width:0; width:auto` to override the global `table{min-width:760px}` rule; the matrix sizes to its content and aligns left instead of being shoved right by a stretched label column. |
 
 ---
 

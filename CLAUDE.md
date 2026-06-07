@@ -305,7 +305,7 @@ Self-contained single-file HTML dashboard. Open locally in any browser — no se
 | Live ticker strip | Top-of-page, 10 symbols, price + 24h%. Auto-refreshes every 15 s via `/v1beta3/crypto/us/snapshots`. |
 | Auto-refresh button | 3 modes: `Auto OFF` → `Prices 15s` → `Full 60s`. |
 | Command tab | Live hard-rules panel (6 real-time checks), cash reserve gate, trade modal. |
-| Risk tab | Portfolio cap usage, 10×10 correlation heatmap (Pearson ρ, daily log-returns). In the "Portfolio Concentration & Correlation Risk" grid, the 🔗 Live Correlation Matrix is the left column and 📊 Effective Exposure the right. |
+| Risk tab | Portfolio cap usage, 10×10 correlation heatmap (Pearson ρ, daily log-returns). In the "Portfolio Concentration & Correlation Risk" grid, the 🔗 Live Correlation Matrix is the left column and 📊 Effective Exposure the right. The `.corr-wrap table` sets `min-width:0; width:auto` to override the global `table{min-width:760px}` so the matrix sizes to its content and stays left-aligned (no large left whitespace). |
 | Positions tab | P&L%, Stop $ (entry×0.95), Target $ (entry×1.10), Live R:R. |
 | Signals tab | Paginated bars fetch (follows `next_page_token`), trend arrows ↑↓→, ATR qty, ⚡ quick-buy, and ▶ execute. Bar fetch always passes `end = now − 1 bar period` (via `barsEnd()`) to exclude the in-progress bar and ensure stable, complete-bar-only indicators. |
 | P&L tab | FIFO P&L, calendar heatmap, attribution by symbol, day-of-week performance. Realized stats come from the shared `computeFifoStats()` helper. |

@@ -66,6 +66,9 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-07 — Fix correlation matrix left whitespace
+The Live Correlation Matrix rendered with a large blank area on its left (matrix shoved right). Root cause: the global `table { min-width:760px }` rule forced the corr table to 760px, and since the data cells are fixed 28px but the row-label column had no fixed width, that label column stretched to absorb the slack, pushing the whole grid right. Fix: `.corr-wrap table` now sets `min-width:0; width:auto` (same pattern as the `.mk-matrix` override) so the table sizes to its content and aligns left. Pure CSS, no logic change. Updated CLAUDE.md, README.md, dashboard_layout.md.
+
 ### 2026-06-07 — Risk tab: move Live Correlation Matrix to the left column
 Per user request, swapped the two panels in the "Portfolio Concentration & Correlation Risk" `grid-2` on the Risk page of `dashboard_professional.html` so the 🔗 Live Correlation Matrix is now the **left** column and 📊 Effective Exposure the right (previously reversed). Pure markup reorder; no logic change. Updated CLAUDE.md, README.md, dashboard_layout.md (no new glossary terms).
 
