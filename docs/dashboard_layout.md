@@ -1,7 +1,13 @@
 # Dashboard Layout & Changelog
 
 This file documents the design, tab structure, and feature history of both dashboards.
-It serves as the **changelog** for all future dashboard changes.
+It serves as the **changelog** for all future dashboard changes and is one of the files
+covered by the project's documentation-update rule (see `CLAUDE.md`).
+
+There are two dashboards, each a self-contained single-file HTML page (no server needed):
+
+1. **Professional Dashboard** — `docs/dashboard_professional.html` (primary, 13 tabs, sidebar nav)
+2. **Portfolio Dashboard** — `docs/portfolio-dashboard.html` (lightweight, 5 tabs)
 
 ---
 
@@ -17,134 +23,101 @@ Key principles applied across both dashboards:
 - **Colour grammar** — green = within limits, yellow = approaching a limit, red = rule breached or action required.
 - **No server needed** — both dashboards are self-contained HTML files; open locally in any browser.
 - **Alpaca API** — all live data is fetched directly from the Alpaca paper/live API using credentials entered in Settings.
+- **Python ↔ dashboard parity** — the in-browser scoring (`calcSignalScore`) mirrors `indicators.signal_score()` exactly (see the parity table in `CLAUDE.md`).
 
 ---
 
-## 1. Portfolio Dashboard (legacy) — `docs/portfolio-dashboard.html`
-
-**Status:** Legacy (still maintained, lighter-weight alternative)
-**Tabs:** 5 — Overview · Hot Symbols · Distribution · Morning Brief · Settings
-
-### Tabs
-
-| Tab | Purpose |
-|-----|---------|
-| **📊 Overview** | Account equity, cash, buying power, P&L today, open positions table, equity curve (Chart.js line chart using `/v2/account/portfolio/history`) |
-| **🔥 Hot Symbols** | Fetches latest quotes for all watchlist symbols; displays ask price, spread, and bid; highlights symbols with recent price movement |
-| **🥧 Distribution** | Donut chart of portfolio allocation across open positions; shows invested vs cash breakdown; largest position highlight |
-| **🌅 Morning Brief** | Narrative summary of current market regime, open positions, and suggested focus areas; generated from account + position data |
-| **⚙ Settings** | API key / secret / base URL input fields; persisted in `localStorage`; mode toggle (paper / live) |
-
-### Key Features
-
-- Paper / Live mode badge with animated pulse dot; toggleable via dropdown in header.
-- Auto-refresh every 60 seconds when on Overview tab.
-- Equity curve rendered with Chart.js from `/v2/account/portfolio/history`.
-- Positions table: symbol, qty, current price, market value, unrealized P&L ($ and %).
-- Distribution donut auto-colours each symbol; shows cash as a separate slice.
-- All API calls use the mode-selected base URL (paper vs live).
-
-### Changelog
-
-| Date | Change |
-|------|--------|
-| 2026-05-09 | Initial version created — 3 tabs: Overview, Hot Symbols, Morning Brief |
-| 2026-05-10 | Added Distribution tab (donut chart) and Settings tab |
-| 2026-05-11 | Equity curve added to Overview using Chart.js + portfolio history endpoint |
-| 2026-05-12 | Paper/live toggle added to header badge; localStorage persistence for credentials |
-
----
-
-## 2. Portfolio Dashboard (primary) — `docs/portfolio_dashboard.html`
+## 1. Professional Dashboard — `docs/dashboard_professional.html`
 
 **Status:** Primary (recommended)
-**Tabs:** 10 — Command · Performance · Risk · Positions · Execution · Signals · P&L · Backtest vs Live · Gap & Go · Settings
+**Title:** "Professional Trader Dashboard"
+**Tabs:** 13 — Command · Performance · Risk · Positions · Execution · Signals · P&L · Backtest vs Live · Breakout Scanner · Market Overview · Market Signals · Markov · Settings
+
+### Navigation & layout
+
+- **Left sidebar navigation** — a `.layout` flex wrapper holds `<nav>` + `<main>`; `nav` is a 210px sticky vertical column, the active tab marked by a left blue border + tint.
+- **Mobile (≤700px)** — `.layout` switches to a column and `nav` collapses to a horizontal scrolling bar with a bottom-border active marker. All tables scroll horizontally (`overflow-x` on `.table-wrap`, clamped to `calc(100vw - 32px)`), so the page is fully usable in portrait.
+- **Tab deep-linking + refresh memory** — the active tab is reflected in the URL hash (e.g. `dashboard_professional.html#signals`). `switchTab()` writes the tab id to the hash (`history.replaceState`) and to `localStorage.lastTab`; on load `applyTabFromUrl()` (end of `bootstrapDashboard()`) restores the tab from the hash first, then `localStorage`. A `hashchange` listener switches tabs live. Valid ids are derived from the nav buttons via `validTabIds()`, so routing never drifts. So you can bookmark/share a direct link to any tab, and a browser refresh reopens the last tab instead of defaulting to Command.
+- **Live ticker strip** — top-of-page, 10 symbols, price + 24h%, auto-refreshes every 15 s via `/v1beta3/crypto/us/snapshots`.
+- **Auto-refresh button** — 3 modes: `Auto OFF` → `Prices 15s` → `Full 60s`.
+- **📓 Daily Journal button (header)** — `generateDailyJournal()` builds today's closing journal from live data plus a 10-symbol confluence scan; preview modal with Copy + Download `.md`.
 
 ### Tabs
 
 | Tab | Key | Purpose |
 |-----|-----|---------|
-| **🧭 Command** | `command` | Trading permission cockpit: equity, cash reserve, open risk, drawdown, daily P&L, hard rules panel, trade modal |
-| **📈 Performance** | `performance` | Equity curve (3M history), win rate, profit factor, expectancy, rolling 30D/90D Sharpe, period selector (1M/3M/6M/1Y) |
-| **⚠️ Risk** | `risk` | Max drawdown, Sharpe, Sortino, Calmar, VaR, portfolio cap usage per symbol (from `config.json`), concentration panel, BTC-correlation note |
-| **📂 Positions** | `positions` | Open positions table: symbol, qty, entry price, current price, market value, unrealised P&L ($ and %), stop distance (% from −5% hard stop), position cap usage |
-| **🎯 Execution** | `execution` | Open and recent orders table; cancel-all button; order fill status; limit-band compliance indicator; ATR Position Sizer widget |
-| **📡 Signals** | `signals` | Live 6-point Signal Confluence scanner for all 10 watchlist symbols; scores computed in-browser from Alpaca Data API bars; browser notification on score ≥ 4 |
-| **💰 P&L** | `pnl` | Realized P&L from `/v2/account/activities`; FIFO-matched fills per symbol; win rate, profit factor, total realized P&L; P&L calendar heatmap; trade log table; CSV export |
-| **🧪 Backtest vs Live** | `backtest` | Walk-forward report summary (latest `reports/*.json`); live Sharpe vs backtest Sharpe; drawdown comparison; strategy health indicator (green/yellow/red) |
-| **🔥 Gap & Go** | `gapgo` | On-demand pre-session analysis for all 10 watchlist symbols ranked by conviction score. Fetches 6M daily bars + 8D hourly bars from `data.alpaca.markets`. Per-symbol sections: Catalyst (quality + news links), Market Cap & Supply Risk, Gap & Go Likelihood (signal confluence breakdown), 6-Month Range Position (visual bar), Daily Chart Key Levels (5 S/R levels), Historical Gap Behaviour (back-tested gap-and-go rate from 6M data), Trade Plan (strategy, entry, stop, T1, T2, sizing), Risk Rating (ATR%, cap tier). Symbols ranked highest-to-lowest conviction; downtrend + negative-gap tickers flagged AVOID. |
-| **⚙ Settings** | `settings` | API credentials input; paper/live mode toggle; notification permission toggle; thresholds display (loaded from `config.json` values shown for reference) |
+| 🧭 **Command** | `command` | Trading-permission cockpit: live hard-rules panel (6 real-time checks), cash-reserve gate, equity/cash/open-risk/drawdown KPIs, trade modal (limit-only). |
+| 📈 **Performance** | `performance` | Equity curve, win rate, profit factor, expectancy, rolling 30D/90D Sharpe, period selector (1M/3M/6M/1Y). |
+| ⚠️ **Risk** | `risk` | Portfolio cap usage per symbol (from `config.json`), 10×10 correlation heatmap (Pearson ρ, daily log-returns), drawdown/Sharpe/Sortino/Calmar/VaR. |
+| 📂 **Positions** | `positions` | Open positions with P&L%, Stop $ (entry×0.95), Target $ (entry×1.10), live R:R, position cap usage. |
+| 🎯 **Execution** | `execution` | Open/recent orders, cancel-all, limit-band compliance, ATR Position Sizer widget. |
+| 📡 **Signals** | `signals` | Live 6-point Signal Confluence scanner for the 10 watchlist symbols; paginated bar fetch (`barsEnd()` excludes the in-progress bar); trend arrows, ATR qty, ⚡ quick-buy, ▶ execute. |
+| 💰 **P&L** | `pnl` | FIFO realized P&L (shared `computeFifoStats()`), calendar heatmap, attribution by symbol, day-of-week performance, CSV export. |
+| 🧪 **Backtest vs Live** | `backtest` | Compares live metrics to saved expected metrics (Sharpe, max DD, win rate, profit factor, avg daily return). Win Rate & Profit Factor use the same realized FIFO stats as the P&L tab. |
+| 📊 **Breakout Scanner** | `gapgo` | On-demand pre-session breakout/gap analysis per watchlist symbol: catalyst, supply risk, likelihood, 6-month range position, key levels, historical gap behaviour, trade plan, risk rating. Uses a separate Forward-Analysis scoring system (not the 6-point execution score). |
+| 🌍 **Market Overview** | `market-overview` | Price, 24h%, 7d%, volume, trend and cap tier per symbol, sortable, with momentum heatmap. Scan universe = the shared `getCryptoUniverse()` (full tradable Alpaca crypto list) sliced by the **Max Symbols** setting — no longer hardcoded to 30. Score column auto-fills from the last Market Signals scan. |
+| 🔭 **Market Signals** | `market-signals` | On-demand full 6-point confluence scan over `getCryptoUniverse()`, sliced by the **Max Symbols** setting (no upper clamp). Score distribution + Top Opportunities panel. Scores cached into `_msPrevScores` for cross-tab display. |
+| 🔗 **Markov** | `markov` | On-demand first-order Markov chain analysis for BTC/USD & ETH/USD across 30/60/90/180/365-day windows. 3×3 transition matrix, stationary distribution, next-day forecast. Analysis-only — places no orders. |
+| ⚙ **Settings** | `settings` | Grouped sections: Paper credentials, Live credentials, Risk Limits, and Signals Analysis (**Max Symbols**, default 30, minimum 1, no upper clamp). Seeds from `./config.json` (load-only fallback); saves to `localStorage`. |
 
-### Key Features
+### Shared crypto universe (Market Overview + Market Signals)
 
-#### Command Tab
-- **Hard Rules panel** — all CLAUDE.md hard rules listed in a styled table; permanent reminder at the top of every session.
-- **Cash Reserve indicator** — checks `cash / equity ≥ 20%`. Red if breached, yellow if below 25%.
-- **Trading Allowed status** — composite signal: red = stop / yellow = reduce / green = trade. Driven by cash reserve, largest position concentration, and drawdown thresholds.
-- **Trade modal** — enter symbol, qty, side, limit price; submits via `trade.py` rules (limit-only enforced).
+- `getCryptoUniverse()` fetches the full tradable-crypto list once (`/v2/assets?asset_class=crypto&status=active`), caches it in `_cryptoUniverse`, and orders it as the still-tradable `TOP30_SYMBOLS` first then every other USD pair alphabetically. Falls back to `TOP30_SYMBOLS` only if the call fails or yields nothing.
+- **Robust to symbol format** — accepts both `BTC/USD` and bare `BTCUSD`, normalizes to `BASE/USD`, drops non-USD quotes (USDT/USDC/BTC).
+- **Max Symbols setting** (`maxSignalSymbols`) drives how many symbols *both* pages scan (`universe.slice(0, n)`). It has **no upper limit** — the only ceiling is how many USD pairs the account can trade.
+- **Contiguous ranks** — `rebuildUniverseRank()` builds `_universeRank` (sym → 1-based universe position); the shared `symbolInfo(sym)` helper returns curated `TOP30_INFO` when known, else a fallback whose `rank` is the universe position. So ranks are 1–30 (cap ranks) then 31+ (universe order) instead of `#?`. Symbols beyond the top 30 still show cap tier `?`.
 
-#### Performance Tab
-- Rolling 30D and 90D Sharpe ratio computed from `/v2/account/portfolio/history`.
-- Period selector: 1M / 3M / 6M / 1Y buttons filter the equity curve and metrics.
-- Win rate and profit factor derived from closed-position activities.
+### Keyboard shortcuts
 
-#### Risk Tab
-- **Portfolio Cap Usage** — table of all 10 symbols showing current position value vs cap from `config.json` › `portfolio_caps.caps`; colour-coded (green/yellow/red).
-- **Concentration panel** — text summary of largest-position concentration risk.
-- **Correlation note** — heuristic BTC-dominance check: high altcoin % → warns of correlated drawdown risk.
-- Stop Distance column: shows each position's current P&L% relative to the −5% hard stop.
-
-#### Execution Tab
-- **ATR Position Sizer** — built-in calculator: enter equity, ATR, ask, and cap%; returns recommended qty, stop price, and R:R ratio using the 1%-risk rule (`qty = (equity × 1%) / (ATR × 1.5)`).
-
-#### Signals Tab
-- Fetches 15-min bars for all 10 watchlist symbols from `/v1beta3/crypto/us/bars`.
-- `barsStart()` helper computes ISO start date to cover the required bar count (mirrors `_bars_start()` in `run_evaluation.py`).
-- Scores EMA cross, MACD histogram, RSI, Bollinger %b, volume ratio, and 4H EMA regime.
-- Results table: symbol, score/6, individual signal breakdown, action (BUY/HOLD/SELL).
-- New ▶ execute button for BUY/SHORT rows that submits a paper order immediately using the signal's ATR qty and current price.
-- Browser notification fires when any symbol crosses score ≥ 4 (requires Notification API permission granted in Settings).
-
-#### P&L Tab
-- FIFO cost-basis matching from `/v2/account/activities?activity_type=FILL`.
-- Shows realized P&L per symbol, total, win rate, profit factor.
-- Calendar heatmap: each day coloured by net P&L (green/red intensity).
-- CSV export of the full trade log.
-
-### Keyboard Shortcuts
-
-| Key | Action |
-|-----|--------|
-| `1` | Command |
-| `2` | Performance |
-| `3` | Risk |
-| `4` | Positions |
-| `5` | Execution |
-| `6` | Signals |
-| `7` | P&L |
-| `8` | Backtest vs Live |
-| `9` | Gap & Go |
-| `R` | Refresh current tab |
+`1`–`9` select the first nine tabs (Command…Settings order); `R` refreshes the current tab.
 
 ### Changelog
 
 | Date | Change |
 |------|--------|
-| 2026-05-12 | Initial version — 8 tabs: Command, Performance, Risk, Positions, Execution, Signals, Journal, Settings |
-| 2026-05-13 | Added Backtest vs Live tab; walk-forward report JSON loader |
-| 2026-05-14 | Added Portfolio Cap Usage table to Risk tab (per-symbol cap from `config.json`) |
-| 2026-05-14 | Added ATR Position Sizer widget to Execution tab |
-| 2026-05-14 | Added Stop Distance column to Positions tab |
-| 2026-05-14 | Added Cash Reserve hard-rule indicator to Command tab (red < 20%, yellow < 25%) |
-| 2026-05-15 | Added P&L tab (FIFO matching, calendar heatmap, CSV export); replaced Journal tab |
-| 2026-05-15 | Added rolling 30D/90D Sharpe to Performance tab |
-| 2026-05-15 | Added period selector (1M/3M/6M/1Y) to Performance and P&L tabs |
-| 2026-05-15 | Added keyboard shortcuts (1–9 = tabs, R = refresh) |
-| 2026-05-15 | Added browser notification support for score ≥ 4 events (Signals tab) |
-| 2026-05-15 | Added concentration panel and BTC-correlation note to Risk tab |
-| 2026-05-16 | Journal tab removed (journal is now written by the agent; no manual UI needed) |
-| 2026-05-16 | **Signals tab fix** — corrected `fetchBars()` endpoint from non-existent `/v2/crypto/bars` to `/v1beta3/crypto/us/bars`; added `barsStart()` helper to supply mandatory `start` date parameter (Alpaca crypto bar endpoint ignores bare `limit` without `start`); added `console.error()` logging for failed fetches |
-| 2026-05-17 | **Gap & Go tab added** — new 10th tab (`gapgo`, keyboard shortcut `9`). On-demand pre-session analysis engine for all 10 watchlist symbols. Fetches 6M daily + 8D hourly bars from `data.alpaca.markets` in parallel. Client-side TA engine computes: EMA (20/50 daily + simulated 4H), RSI, ATR, Bollinger Bands, MACD, volume ratio, 6M range position, swing-high/low + round-number key levels, historical gap-and-go rate (back-tested over 6M data). Conviction score from −7 to +7 drives ranking and likelihood rating. Each card has 8 sections: Catalyst, Market Cap & Supply Risk, Gap & Go Likelihood, 6-Month Range Position, Daily Chart Key Levels, Historical Gap Behaviour, Trade Plan, Risk Rating. Symbols in confirmed daily downtrend with negative gap flagged AVOID. |
+| 2026-05-12 → 2026-05-17 | Built the 8→10-tab cockpit (Command, Performance, Risk, Positions, Execution, Signals, P&L, Backtest vs Live, Breakout Scanner) — see prior history. |
+| (later) | Added **Market Overview**, **Market Signals**, and **Markov** tabs; converted the top nav to a **left sidebar**; added the live ticker strip, auto-refresh modes, and the 📓 Daily Journal generator. |
+| 2026-06-06 | Removed the 30-symbol hard clamp on the **Max Symbols** setting (no upper bound; minimum 1). |
+| 2026-06-06 | Fixed Max Symbols resetting to 30 on refresh — `config.json` limits now seed only as a fallback; saved `localStorage` values win. |
+| 2026-06-07 | **Tab deep-linking + last-tab restore** — active tab stored in the URL hash and `localStorage.lastTab`; `applyTabFromUrl()` restores it on load and on `hashchange`. |
+| 2026-06-07 | **Market Overview symbol-column fix** — added the missing opening `<td>` so the symbol/name lines up next to the Rank column instead of overflowing to the next row. |
+| 2026-06-07 | **Removed the 30-symbol cap on both Market Signals and Market Overview** — both now use the shared `getCryptoUniverse()` sliced by Max Symbols. Hardened the universe parser to accept `BTC/USD` and bare `BTCUSD`; converted `loadMarketOverview()` off the hardcoded `TOP30_SYMBOLS`. |
+| 2026-06-07 | **Real ranks for every symbol** — added `_universeRank` + `symbolInfo()`; symbols outside `TOP30_INFO` now get a contiguous rank from their universe position instead of `#?`. |
+
+---
+
+## 2. Portfolio Dashboard — `docs/portfolio-dashboard.html`
+
+**Status:** Lightweight alternative (still maintained)
+**Title:** "Portfolio Dashboard"
+**Tabs:** 5 — Overview · Hot Symbols · Allocation · Morning Brief · Settings
+
+### Tabs
+
+| Tab | Key | Purpose |
+|-----|-----|---------|
+| 📊 **Overview** | `overview` | Account equity, cash, buying power, P&L today, open positions table (sortable), equity curve (Chart.js from `/v2/account/portfolio/history`). |
+| 🔥 **Hot Symbols** | `hot` | Latest quotes for all watchlist symbols (sortable): ask, bid, spread; highlights recent movers. |
+| 🥧 **Allocation** | `dist` | Donut chart of portfolio allocation across open positions; invested-vs-cash breakdown; largest-position highlight. |
+| 🌅 **Morning Brief** | `brief` | Narrative summary of current regime, open positions, and suggested focus areas, generated from account + position data. |
+| ⚙️ **Settings** | `settings` | API key / secret / base URL; paper/live mode toggle; persisted in `localStorage`. |
+
+### Key features
+
+- Paper/Live mode badge with animated pulse dot; toggleable from the header.
+- Auto-refresh every 60 s on the Overview tab.
+- Sortable Positions, Orders, and Hot Symbols tables (`sortPos` / `sortOrd` / `sortHot`).
+- **🌅 Morning Brief button (header)** — `generateMorningBrief()` produces a downloadable Markdown brief matching the `journal/` format: Portfolio Health (+ per-position table), direction-aware Alerts, a 10-symbol Signal Confluence table (via the existing `confluenceScore`/`fetchBars` engine), and a templated Market Notes paragraph. Preview modal (`#briefDocBackdrop`) with Copy + Download `.md` (`morning-brief-YYYY-MM-DD.md`). Timestamps use the `Etc/GMT-2` timezone.
+
+### Changelog
+
+| Date | Change |
+|------|--------|
+| 2026-05-09 | Initial version — 3 tabs: Overview, Hot Symbols, Morning Brief. |
+| 2026-05-10 | Added Allocation (donut) and Settings tabs. |
+| 2026-05-11 | Equity curve added to Overview (Chart.js + portfolio-history endpoint). |
+| 2026-05-12 | Paper/live toggle in header badge; `localStorage` credential persistence. |
+| (later) | Added the 🌅 Morning Brief downloadable-document generator (`generateMorningBrief()`) matching the journal format. |
 
 ---
 

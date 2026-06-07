@@ -402,9 +402,9 @@ alpaca-trading-agent/
 │   ├── trade.yml              # Hourly trading + daily summary
 │   └── forward.yml            # Daily walk-forward analysis
 ├── docs/
-│   ├── portfolio-dashboard.html        # Legacy dashboard (3 tabs)
-│   ├── dashboard_professional.html     # Professional dashboard (12 tabs, primary)
-│   └── dashboard_layout.md            # Dashboard design notes
+│   ├── portfolio-dashboard.html        # Portfolio dashboard (5 tabs, lightweight)
+│   ├── dashboard_professional.html     # Professional dashboard (13 tabs, primary)
+│   └── dashboard_layout.md            # Dashboard layout & changelog (Professional + Portfolio sections)
 ├── journal/
 │   ├── _template.md           # Journal entry template
 │   └── YYYY-MM-DD.md          # One file per calendar day
