@@ -66,6 +66,9 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-07 — Dashboard: tab deep-linking + last-tab restore on refresh
+Added hash-based routing to `dashboard_professional.html`. `switchTab()` now writes the active tab id to the URL hash (`history.replaceState(null,"","#"+id)`) and to `localStorage.lastTab`. New helpers near `openSettings`: `tabBtnFor(id)`, `validTabIds()` (derives valid ids from the nav buttons' `switchTab('<id>',…)` onclick, so it never drifts as tabs change), and `applyTabFromUrl()` which resolves the target tab from the URL hash first, then `localStorage.lastTab`, and activates it (no-op if it's already active). A `hashchange` listener calls `applyTabFromUrl` so editing the `#tab` anchor or following a deep link switches tabs live. `applyTabFromUrl()` is called at the end of the `bootstrapDashboard()` IIFE (after initial render, in both the configured and not-configured branches) so a refresh or a `…/dashboard_professional.html#signals` link lands on the right tab instead of always Command. The switchTab loader dispatch already runs after the active-class swap, so even if a loader throws without credentials the tab still visually switches. Validated by parsing the script block via `new Function` (0 errors). Updated CLAUDE.md, README.md, glossary.
+
 ### 2026-06-07 — Fix: Market Overview symbol column overflowing to next row
 In `renderMarketOverview` (dashboard_professional.html ~line 5538), the symbol cell was missing its opening `<td>`: the rank `<td>` closed, then `tvLink()` emitted a bare `<a>` + name `<span>` followed by a stray `</td>`. With no opening cell tag, the browser hoisted the symbol/name content out of the table grid, so it rendered on a separate line instead of beside the Rank column. Fix: prepended `"<td>"` before `tvLink(...)`. Other tables (Market Signals ~5751, ~5773) already wrap their symbol in a proper `<td>`. Validated with `node --check`. Updated CLAUDE.md, README.md, glossary.
 

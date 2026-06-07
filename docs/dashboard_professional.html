@@ -2124,6 +2124,14 @@
 
       activeTab = id;
 
+      // Persist the active tab to the URL hash (deep-linkable) and localStorage
+      // (restored on browser refresh). See applyTabFromUrl().
+      try { localStorage.setItem("lastTab", id); } catch (e) {}
+      if (location.hash !== "#" + id) {
+        try { history.replaceState(null, "", "#" + id); }
+        catch (e) { location.hash = id; }
+      }
+
       if (id === "settings") loadSettingsForm();
       else if (id === "backtest") {
         loadBacktestForm();
@@ -2149,6 +2157,34 @@
       const btn = Array.from(document.querySelectorAll(".tab-btn")).find(b => b.textContent.includes("Settings"));
       switchTab("settings", btn);
     }
+
+    // ── Tab deep-linking & last-tab restore ───────────────────────────────
+    // Valid tab ids are derived from the nav buttons' switchTab('<id>',…) calls
+    // so this never drifts when tabs are added/removed.
+    function tabBtnFor(id) {
+      return Array.from(document.querySelectorAll(".tab-btn")).find(b =>
+        (b.getAttribute("onclick") || "").includes("'" + id + "'"));
+    }
+    function validTabIds() {
+      return Array.from(document.querySelectorAll(".tab-btn")).map(b => {
+        const m = (b.getAttribute("onclick") || "").match(/switchTab\('([^']+)'/);
+        return m ? m[1] : null;
+      }).filter(Boolean);
+    }
+    // Resolve the target tab from (1) the URL hash, else (2) the last tab saved
+    // in localStorage, and activate it. Used on page load and on hashchange so
+    // a refresh or a direct #tab link lands on the right tab instead of Command.
+    function applyTabFromUrl() {
+      const ids = validTabIds();
+      const hash = (location.hash || "").replace(/^#/, "");
+      let stored = null;
+      try { stored = localStorage.getItem("lastTab"); } catch (e) {}
+      const target = ids.includes(hash) ? hash
+                   : (ids.includes(stored) ? stored : null);
+      if (!target || target === activeTab) return;
+      try { switchTab(target, tabBtnFor(target)); } catch (e) {}
+    }
+    window.addEventListener("hashchange", applyTabFromUrl);
 
     function refreshCurrent() {
       if (activeTab === "settings") {
@@ -3371,6 +3407,10 @@
         </div>
       `;
     }
+
+    // Restore the tab from the URL hash (deep link) or the last-opened tab
+    // (browser refresh). Runs after initial render so loaders fire correctly.
+    applyTabFromUrl();
     })();
 
     // ═══════════════════════════════════════════════════════════════════════
