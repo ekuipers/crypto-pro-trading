@@ -66,6 +66,9 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-07 — Fix: Market Overview symbol column overflowing to next row
+In `renderMarketOverview` (dashboard_professional.html ~line 5538), the symbol cell was missing its opening `<td>`: the rank `<td>` closed, then `tvLink()` emitted a bare `<a>` + name `<span>` followed by a stray `</td>`. With no opening cell tag, the browser hoisted the symbol/name content out of the table grid, so it rendered on a separate line instead of beside the Rank column. Fix: prepended `"<td>"` before `tvLink(...)`. Other tables (Market Signals ~5751, ~5773) already wrap their symbol in a proper `<td>`. Validated with `node --check`. Updated CLAUDE.md, README.md, glossary.
+
 ### 2026-06-06 — Dashboard: removed 30-symbol hard clamp on Max Symbols
 `maxSignalSymbols` was clamped to 1–30 in three places (`saveSettings`, `updateScanBtnLabel`, `loadMarketSignals`). Per request, removed the `Math.min(30 / TOP30_SYMBOLS.length, ...)` upper bound; now `Math.max(1, Math.round(value))` — the entered number is used as-is (minimum 1). Note the scan universe is still the 30 `TOP30_SYMBOLS`, so a value above 30 just scans all of them (`TOP30_SYMBOLS.slice(0, n)` caps at array length). Validated with `node --check`. Updated CLAUDE.md, README.md, glossary.
 
