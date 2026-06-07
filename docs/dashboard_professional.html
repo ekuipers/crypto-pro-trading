@@ -2921,7 +2921,7 @@
       const maxDaily = Number($("setMaxDailyLoss").value || DEFAULT_LIMITS.maxDailyLossPct);
       const maxOpenRisk = Number($("setMaxOpenRisk").value || DEFAULT_LIMITS.maxOpenRiskPct);
       let maxSignalSymbols = Math.round(Number($("setMaxSignalSymbols").value || DEFAULT_LIMITS.maxSignalSymbols));
-      maxSignalSymbols = Math.max(1, Math.min(30, maxSignalSymbols || DEFAULT_LIMITS.maxSignalSymbols));
+      maxSignalSymbols = Math.max(1, maxSignalSymbols || DEFAULT_LIMITS.maxSignalSymbols);
 
       const saved = {
         paperApiKey:    $("setPaperApiKey").value.trim(),
@@ -5649,7 +5649,7 @@
     function updateScanBtnLabel() {
       const btn = document.getElementById("msScanBtn");
       if (!btn) return;
-      const n = Math.max(1, Math.min(TOP30_SYMBOLS.length, Math.round(getSettings().limits.maxSignalSymbols || TOP30_SYMBOLS.length)));
+      const n = Math.max(1, Math.round(getSettings().limits.maxSignalSymbols || TOP30_SYMBOLS.length));
       btn.textContent = "▶ Scan Top " + n;
     }
 
@@ -5660,7 +5660,7 @@
           '<tr><td colspan="13" class="placeholder">Configure API credentials in Settings first.</td></tr>';
         return;
       }
-      const maxSyms = Math.max(1, Math.min(TOP30_SYMBOLS.length, Math.round(s.limits.maxSignalSymbols || TOP30_SYMBOLS.length)));
+      const maxSyms = Math.max(1, Math.round(s.limits.maxSignalSymbols || TOP30_SYMBOLS.length));
       const SCAN_SYMBOLS = TOP30_SYMBOLS.slice(0, maxSyms);
       updateScanBtnLabel();
       document.getElementById("msTableBody").innerHTML =

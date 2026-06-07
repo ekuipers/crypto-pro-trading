@@ -66,6 +66,10 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-06 — Dashboard: removed 30-symbol hard clamp on Max Symbols
+`maxSignalSymbols` was clamped to 1–30 in three places (`saveSettings`, `updateScanBtnLabel`, `loadMarketSignals`). Per request, removed the `Math.min(30 / TOP30_SYMBOLS.length, ...)` upper bound; now `Math.max(1, Math.round(value))` — the entered number is used as-is (minimum 1). Note the scan universe is still the 30 `TOP30_SYMBOLS`, so a value above 30 just scans all of them (`TOP30_SYMBOLS.slice(0, n)` caps at array length). Validated with `node --check`. Updated CLAUDE.md, README.md, glossary.
+
+
 ### 2026-06-06 — Fix: Max Symbols setting reset to 30 on refresh
 `maxSignalSymbols` (and any other `limits` value) reset to the `config.json` default on every reload. Cause: `loadConfigFromFile()` merged `config.json`'s `limits` *over* the user's saved `localStorage` limits (`Object.assign({}, existing.limits, cfg.limits)`), so config.json (30) always won. API keys were unaffected only because config.json's key fields are blank. Fix: flipped the limits merge to `Object.assign({}, cfg.limits, existing.limits)` so saved `localStorage` values win and `config.json` only fills gaps (seed/fallback for a fresh browser). Validated with `node --check`. Updated CLAUDE.md, README.md, glossary.
 
