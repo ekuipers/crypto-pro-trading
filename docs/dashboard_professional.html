@@ -5565,7 +5565,7 @@
       var tbody = document.getElementById("moTableBody");
       if (!tbody) return;
       tbody.innerHTML = rows.map(function(row) {
-        var info      = TOP30_INFO[row.sym] || { rank:"?", tier:"?", capLabel:"?", name:row.sym };
+        var info      = symbolInfo(row.sym);
         var tierColor = moTierColor(info.tier);
         var scoreStr;
         if (row.score !== null && row.score !== undefined) {
@@ -5637,7 +5637,7 @@
         ]);
 
         const rows = MO_SYMBOLS.map(function(sym) {
-          const info   = TOP30_INFO[sym] || { rank:99 };
+          const info   = symbolInfo(sym);
           const alpSym = sym.replace("/","");
           const snap   = snaps[sym] || snaps[alpSym] || null;
           let price = null, chg24h = null, vol24h = null;
@@ -5700,6 +5700,19 @@
     // bare "BTCUSD". Both are normalized to "BASE/USD"; non-USD quotes
     // (USDT/USDC/BTC pairs) are dropped.
     let _cryptoUniverse = null;
+    // sym -> 1-based position in the ordered universe. Used as the rank fallback
+    // for symbols outside TOP30_INFO so every row shows a real number, not "?".
+    let _universeRank = {};
+    function rebuildUniverseRank() {
+      _universeRank = {};
+      (_cryptoUniverse || []).forEach(function(s, i) { _universeRank[s] = i + 1; });
+    }
+    // Full info for a symbol: the curated TOP30_INFO when known, otherwise a
+    // fallback whose rank is the symbol's position in the universe ordering.
+    function symbolInfo(sym) {
+      if (TOP30_INFO[sym]) return TOP30_INFO[sym];
+      return { rank: _universeRank[sym] || 99, tier: "?", capLabel: "?", name: sym.replace("/USD", "") };
+    }
     async function getCryptoUniverse() {
       if (_cryptoUniverse) return _cryptoUniverse;
       try {
@@ -5726,6 +5739,7 @@
         console.warn("getCryptoUniverse:", e);
         _cryptoUniverse = TOP30_SYMBOLS.slice();
       }
+      rebuildUniverseRank();
       return _cryptoUniverse;
     }
 
@@ -5829,7 +5843,7 @@
         }
 
         document.getElementById("msTableBody").innerHTML = rows.map(function(row) {
-          const info = TOP30_INFO[row.sym] || { rank:"?" };
+          const info = symbolInfo(row.sym);
           if (row.error) {
             return '<tr data-unavailable="1">' +
               '<td style="color:var(--muted);font-size:12px">#' + info.rank + "</td>" +
@@ -5892,7 +5906,7 @@
             .sort(function(a,b){ return b.score - a.score; }).slice(0,5);
           oppsEl.innerHTML = buyRows.length
             ? buyRows.map(function(r) {
-                const inf = TOP30_INFO[r.sym] || {};
+                const inf = symbolInfo(r.sym);
                 return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px">' +
                   tvLink(r.sym, r.sym.replace("/USD","")) +
                   '<span style="color:var(--muted);font-size:11px;flex:1">' + (inf.name||"") + "</span>" +
