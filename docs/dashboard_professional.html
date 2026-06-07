@@ -5684,7 +5684,32 @@
       }
     }
 
-    // ── Market Signals scanner for Top 30 ──────────────────────────────────
+    // ── Market Signals scanner ─────────────────────────────────────────────
+
+    // Full tradable-crypto universe for the Market Signals scan. Fetched once
+    // from Alpaca's assets endpoint and cached, so the Max Symbols setting is no
+    // longer capped at the 30 hardcoded TOP30_SYMBOLS. Ordering: the known
+    // market-cap-ranked TOP30 first (those still tradable), then every other
+    // tradable USD pair alphabetically. Falls back to TOP30_SYMBOLS if the
+    // assets call fails.
+    let _cryptoUniverse = null;
+    async function getCryptoUniverse() {
+      if (_cryptoUniverse) return _cryptoUniverse;
+      try {
+        const assets = await apiFetch("/v2/assets?asset_class=crypto&status=active");
+        const usd = (assets || [])
+          .filter(a => a && a.tradable && typeof a.symbol === "string" && a.symbol.endsWith("/USD"))
+          .map(a => a.symbol);
+        const known = TOP30_SYMBOLS.filter(s => usd.includes(s));
+        const extra = usd.filter(s => !TOP30_SYMBOLS.includes(s)).sort();
+        _cryptoUniverse = known.concat(extra);
+        if (!_cryptoUniverse.length) _cryptoUniverse = TOP30_SYMBOLS.slice();
+      } catch (e) {
+        console.warn("getCryptoUniverse:", e);
+        _cryptoUniverse = TOP30_SYMBOLS.slice();
+      }
+      return _cryptoUniverse;
+    }
 
     function updateScanBtnLabel() {
       const btn = document.getElementById("msScanBtn");
@@ -5700,8 +5725,9 @@
           '<tr><td colspan="13" class="placeholder">Configure API credentials in Settings first.</td></tr>';
         return;
       }
-      const maxSyms = Math.max(1, Math.round(s.limits.maxSignalSymbols || TOP30_SYMBOLS.length));
-      const SCAN_SYMBOLS = TOP30_SYMBOLS.slice(0, maxSyms);
+      const universe = await getCryptoUniverse();
+      const maxSyms = Math.max(1, Math.round(s.limits.maxSignalSymbols || universe.length));
+      const SCAN_SYMBOLS = universe.slice(0, maxSyms);
       updateScanBtnLabel();
       document.getElementById("msTableBody").innerHTML =
         '<tr><td colspan="13" class="placeholder">Scanning ' + SCAN_SYMBOLS.length + ' symbols — fetching 15-min, 4H and daily bars… this may take a moment.</td></tr>';
