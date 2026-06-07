@@ -66,6 +66,9 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-07 — Risk tab: move Live Correlation Matrix to the left column
+Per user request, swapped the two panels in the "Portfolio Concentration & Correlation Risk" `grid-2` on the Risk page of `dashboard_professional.html` so the 🔗 Live Correlation Matrix is now the **left** column and 📊 Effective Exposure the right (previously reversed). Pure markup reorder; no logic change. Updated CLAUDE.md, README.md, dashboard_layout.md (no new glossary terms).
+
 ### 2026-06-07 — Add docs/dashboard_layout.md to the doc-update rule; rewrite it
 Per user request, `docs/dashboard_layout.md` is now part of the project documentation-update rule (it was previously a standalone, stale design-notes file). Updated the rule in **both** places in `CLAUDE.md` (the top "Standing rule" and the bottom "Documentation update rule" — now "all five"), the `feedback_doc_updates.md` memory + its `MEMORY.md` index hook, and the README file-tree comment. Rewrote `dashboard_layout.md` itself: it was badly out of date (wrong file names, pre-sidebar nav, only 10 tabs, no Market Overview/Signals/Markov). Now structured as two clear sections — **1. Professional Dashboard** (`dashboard_professional.html`, 13 tabs, sidebar nav, hash routing, shared `getCryptoUniverse()`/`symbolInfo()`, Daily Journal) and **2. Portfolio Dashboard** (`portfolio-dashboard.html`, 5 tabs: Overview/Hot Symbols/Allocation/Morning Brief/Settings, Morning Brief generator) — each with tabs table, key features, and a dated changelog. Kept the Design Philosophy and Original Design Reference. Going forward, dashboard changes must add a changelog entry to the matching section here. Updated CLAUDE.md, README.md, glossary, MEMORY.md.
 
