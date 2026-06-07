@@ -1517,7 +1517,7 @@
     <div id="page-market-overview" class="page">
       <section>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
-          <div class="section-title" style="margin-bottom:0">🌍 Market Overview — Top 30 Crypto</div>
+          <div class="section-title" style="margin-bottom:0" title="Symbol count set in Settings › Signals Analysis › Max Symbols">🌍 Market Overview — Crypto</div>
           <button class="btn" onclick="loadMarketOverview()" style="margin-left:auto">⟳ Refresh</button>
           <select id="moSortSelect" class="btn" style="color:var(--text);background:var(--surface2)" onchange="moApplySort()">
             <option value="rank">Sort: Market Cap Rank</option>
@@ -5468,7 +5468,7 @@
       }
     }
 
-    // ── Market Overview & Market Signals — Top 30 Crypto ──────────────────
+    // ── Market Overview & Market Signals — tradable crypto universe ───────
 
     const TOP30_SYMBOLS = [
       "BTC/USD","ETH/USD","XRP/USD","SOL/USD","DOGE/USD",
@@ -5620,8 +5620,11 @@
           '<tr><td colspan="9" class="placeholder">Configure API credentials in Settings first.</td></tr>';
         return;
       }
+      const universe = await getCryptoUniverse();
+      const maxSyms  = Math.max(1, Math.round(s.limits.maxSignalSymbols || universe.length));
+      const MO_SYMBOLS = universe.slice(0, maxSyms);
       document.getElementById("moTableBody").innerHTML =
-        '<tr><td colspan="9" class="placeholder">Fetching market data for 30 symbols…</td></tr>';
+        '<tr><td colspan="9" class="placeholder">Fetching market data for ' + MO_SYMBOLS.length + ' symbols…</td></tr>';
       const upd = document.getElementById("moLastUpdated");
       const kEl = document.getElementById("moKpis");
       if (upd) upd.textContent = "Loading…";
@@ -5629,11 +5632,11 @@
 
       try {
         const [snaps, dailyBars] = await Promise.all([
-          fetchSnapshotsInBatches(TOP30_SYMBOLS),
-          fetchBarsInBatches(TOP30_SYMBOLS, "1Day", 10)
+          fetchSnapshotsInBatches(MO_SYMBOLS),
+          fetchBarsInBatches(MO_SYMBOLS, "1Day", 10)
         ]);
 
-        const rows = TOP30_SYMBOLS.map(function(sym) {
+        const rows = MO_SYMBOLS.map(function(sym) {
           const info   = TOP30_INFO[sym] || { rank:99 };
           const alpSym = sym.replace("/","");
           const snap   = snaps[sym] || snaps[alpSym] || null;
@@ -5686,20 +5689,35 @@
 
     // ── Market Signals scanner ─────────────────────────────────────────────
 
-    // Full tradable-crypto universe for the Market Signals scan. Fetched once
-    // from Alpaca's assets endpoint and cached, so the Max Symbols setting is no
-    // longer capped at the 30 hardcoded TOP30_SYMBOLS. Ordering: the known
-    // market-cap-ranked TOP30 first (those still tradable), then every other
-    // tradable USD pair alphabetically. Falls back to TOP30_SYMBOLS if the
-    // assets call fails.
+    // Full tradable-crypto universe used by BOTH the Market Signals scan and the
+    // Market Overview table. Fetched once from Alpaca's assets endpoint and
+    // cached, so neither page is capped at the 30 hardcoded TOP30_SYMBOLS.
+    // Ordering: the known market-cap-ranked TOP30 first (those still tradable),
+    // then every other tradable USD pair alphabetically. Falls back to
+    // TOP30_SYMBOLS if the assets call fails or returns nothing usable.
+    //
+    // Robust to symbol format: Alpaca may return crypto symbols as "BTC/USD" or
+    // bare "BTCUSD". Both are normalized to "BASE/USD"; non-USD quotes
+    // (USDT/USDC/BTC pairs) are dropped.
     let _cryptoUniverse = null;
     async function getCryptoUniverse() {
       if (_cryptoUniverse) return _cryptoUniverse;
       try {
         const assets = await apiFetch("/v2/assets?asset_class=crypto&status=active");
-        const usd = (assets || [])
-          .filter(a => a && a.tradable && typeof a.symbol === "string" && a.symbol.endsWith("/USD"))
-          .map(a => a.symbol);
+        const seen = {};
+        const usd = [];
+        (assets || []).forEach(function(a) {
+          if (!a || !a.tradable || typeof a.symbol !== "string") return;
+          let sym = a.symbol.toUpperCase();
+          if (!sym.includes("/")) {
+            if (!/USD$/.test(sym)) return;          // only USD-quoted bare symbols
+            sym = sym.slice(0, -3) + "/USD";         // BTCUSD -> BTC/USD
+          }
+          if (!sym.endsWith("/USD")) return;         // drop USDT/USDC/BTC quotes
+          if (seen[sym]) return;
+          seen[sym] = 1;
+          usd.push(sym);
+        });
         const known = TOP30_SYMBOLS.filter(s => usd.includes(s));
         const extra = usd.filter(s => !TOP30_SYMBOLS.includes(s)).sort();
         _cryptoUniverse = known.concat(extra);
