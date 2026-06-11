@@ -277,6 +277,31 @@ all decisions are HOLD.
 
 ---
 
+## Market Researcher Agent (`.claude/agents/market-researcher.md`)
+
+Independent research-desk subagent ("market-researcher"). A professional crypto
+spot-market trader persona that **analyses and verifies but never trades**.
+
+Two missions:
+
+1. **Market research** — verify strategy assumptions, risk parameters, and
+   profitability against current Alpaca spot-market conditions (regime, ATR vs.
+   stop width, correlation budget, realized vs. backtest performance).
+2. **Project verification** — invoke after every strategy change (rules,
+   `indicators.py`, `risk.py`, `trade.py`, `run_evaluation.py`, `rebalance.py`,
+   `config.json`, or dashboard scoring) to check rule consistency across
+   Python/dashboard/docs, soundness vs. hard rules, supporting evidence in
+   `reports/`, and that `tests/` pass.
+
+Every run writes a timestamped Markdown report (GMT+2) to
+`data/market_research/` (`YYYY-MM-DD-HHMM-market.md` or
+`…-project-verification.md`) for historical analysis. Reports follow a fixed
+structure: Scope, Findings, Verdict (PASS / PASS WITH WARNINGS / FAIL),
+Recommendations, Data sources. The agent is read-only toward the market and
+must not modify code or config.
+
+---
+
 ## Portfolio Rebalancer (`scripts/rebalance.py`)
 
 Aligns every watchlist symbol's position to its cap in `config.json › portfolio_caps.caps`.
@@ -335,6 +360,7 @@ The dashboard's `calcSignalScore()` implements **identical** logic to Python's `
 | RSI direction | +1 only if RSI 40–65 AND rising (3-bar lookback via `calcRSIRising()`). −0.5 for RSI < 40 AND falling. |
 | Score pill thresholds | Half-size buy fires at `score >= 3 && score < 4` (not `score === 3`) to catch 3.5. Half-size short fires at `score <= -3 && score > -4`. Python uses `score >= BUY_SCORE_HALF_SIZE` (3.0) so 3.5 is a valid half-size entry. |
 | Bar completeness | Both `get_crypto_bars()` (Python) and `fetchBars()` (dashboard) pass `end = now − 1 bar period` to exclude the currently-forming bar. Without this, the partial bar has near-zero volume and skews every indicator. |
+| Bar recency | Python `get_crypto_bars()` passes `sort=desc` and reverses to chronological so it gets the **newest** N bars. Without it, Alpaca returns the *oldest* N bars of the `start…end` window (default ascending sort + 1.6× lookback buffer), leaving daily bars up to ~54 days stale and inverting the regime gate. The dashboard achieves recency via `next_page_token` pagination instead. |
 
 ### Python ↔ Dashboard consistency check
 
@@ -352,6 +378,7 @@ Compare the following point-by-point before committing:
 8. **Daily regime** — `last > SMA50 && SMA20 > SMA50` = uptrend; `last < SMA50 && SMA20 < SMA50` = downtrend. Uses SMA, not EMA.
 9. **ATR sizing** — `equity × 0.01 / (ATR × 1.5)`, capped at `(equity × cap_pct) / ask`.
 10. **Bar completeness** — both sides pass `end = now − 1 bar period`.
+11. **Bar recency** — Python passes `sort=desc` (then reverses to chronological); dashboard paginates via `next_page_token`. Both must end at the latest complete bar — verify last bar timestamp ≈ now − 1 period.
 
 **Note on the Forward Analysis scoring** — The Forward Analysis tab uses a *different* scoring system (daily bars, gap magnitude, volume tier, range position). It is intentionally separate from the execution 6-point score and should not be kept in sync with `indicators.py`.
 

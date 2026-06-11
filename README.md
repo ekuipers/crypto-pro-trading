@@ -134,7 +134,7 @@ All thresholds are configured in `config.json` — edit there, not in source fil
 
 | Script | Purpose |
 |--------|---------|
-| `scripts/run_evaluation.py` | Core evaluation loop — fetches bars, scores signals, decides BUY/SELL/HOLD, applies trailing stop + dedup + correlation budget + drawdown gate, places orders, writes journal |
+| `scripts/run_evaluation.py` | Core evaluation loop — fetches bars, scores signals, decides BUY/SELL/HOLD, applies trailing stop + dedup + correlation budget + drawdown gate, places orders, writes journal. Bar fetch passes explicit `start`, `end = now − 1 period` (exclude in-progress bar) and `sort=desc` then reverses to chronological — without `sort=desc` Alpaca returns the *oldest* N bars of the window (daily bars were 54 d stale until 2026-06-11). `rebalance.py` and `research.py` reuse this fetcher. |
 | `scripts/trade.py` | Single gateway for all orders — enforces limit-only, limit-band (wider for stop-loss), position-cap, and crypto 24/7 rules. Exposes `get_open_orders()`, `cancel_order()`, `get_order()`. |
 | `scripts/indicators.py` | Pure-function TA library — EMA, SMA, RSI, MACD, Bollinger Bands, ATR, signal_score |
 | `scripts/risk.py` | Pure-function risk checks — position-cap, limit-band, stop-loss, trailing stop, correlation budget, daily drawdown gate, stop-loss limit-price helpers (all loaded from `config.json`) |
@@ -391,11 +391,25 @@ Grants the agent permission to stage files for git commits:
 
 ---
 
+## Market Researcher Agent
+
+`.claude/agents/market-researcher.md` defines an analysis-only subagent acting as a
+professional crypto spot trader. It (1) verifies strategy assumptions, risks, and
+profitability against current Alpaca spot-market conditions, and (2) reviews the project
+after every strategy change (rule consistency Python ↔ dashboard ↔ docs, hard-rule
+soundness, walk-forward evidence, test suite). Each run logs a timestamped Markdown
+report to `data/market_research/` (GMT+2) with a PASS / PASS WITH WARNINGS / FAIL
+verdict. It never places, cancels, or modifies orders.
+
+---
+
 ## Repository Structure
 
 ```
 alpaca-trading-agent/
 ├── .claude/
+│   ├── agents/
+│   │   └── market-researcher.md  # Research-desk subagent (analysis only, no trading)
 │   ├── routines.json          # Cowork agent routine definitions
 │   └── settings.local.json    # Agent permission grants
 ├── .github/workflows/
@@ -415,6 +429,7 @@ alpaca-trading-agent/
 ├── reports/
 │   └── walkforward_*.json/md  # Walk-forward backtest results
 ├── data/
+│   ├── market_research/       # Timestamped market-researcher agent reports
 │   └── positions_state.json   # Persistent per-position state (HWM, stop order IDs, drawdown gate)
 ├── scripts/
 │   ├── _api.py                # HTTP retry helper (exponential backoff)

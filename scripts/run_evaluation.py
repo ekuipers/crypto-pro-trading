@@ -225,6 +225,13 @@ def get_crypto_bars(
     Always includes a computed `start` date so Alpaca returns the full
     historical window (a bare `limit` without `start` returns only the
     current day's partial bars).
+
+    STALE-BARS FIX: Alpaca returns bars oldest-first by default. With
+    `start` set ~1.6x the needed window back and `limit=N`, the response
+    was the *first* N bars of the window — ending up to 60% of the window
+    in the past (daily bars were 54 days stale). `sort=desc` makes Alpaca
+    return the *most recent* N bars before `end`; we then reverse back to
+    chronological (oldest->newest) order, which all indicator code expects.
     """
     params = {
         "symbols":   symbol,
@@ -232,10 +239,12 @@ def get_crypto_bars(
         "start":     _bars_start(limit, timeframe),
         "end":       _bars_end(timeframe),   # exclude current in-progress bar
         "limit":     limit,
+        "sort":      "desc",                 # newest N bars, not oldest N
     }
     url = DATA_URL + "/v1beta3/crypto/us/bars"
     r = api_get(url, headers=_headers(), params=params, timeout=20)
-    return r.json().get("bars", {}).get(symbol, [])
+    bars = r.json().get("bars", {}).get(symbol, [])
+    return bars[::-1]  # back to chronological order for indicators
 
 
 def get_crypto_bars_4h(symbol: str, limit: int = BARS_4H_LOOKBACK) -> list:

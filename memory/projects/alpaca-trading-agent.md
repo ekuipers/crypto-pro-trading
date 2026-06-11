@@ -66,6 +66,12 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-11 — Fix critical stale-bars bug in get_crypto_bars (sort=desc)
+First market-researcher run (reports in `data/market_research/2026-06-11-1023-*.md`, both FAIL) found the live evaluation path was trading on stale data: `get_crypto_bars()` passed `start` (1.6× buffer) + `limit=N` without `sort`, and Alpaca returns ascending by default → the *first* N bars of the window. Daily bars ended 2026-04-18 (54 d stale), 4H 2026-05-17, 15-min ~30 h stale. Consequence: daily regime read "uptrend" from April data while all 10 watchlist symbols were in confirmed downtrend — longs permitted in mark-down, shorts blocked. Fix in `scripts/run_evaluation.py`: add `"sort": "desc"` to params and return `bars[::-1]` (chronological for indicators). `rebalance.py` delegated already; `research.py` had its own bare-`limit` `get_bars()` (found by the post-fix verification run) and now delegates its crypto path to `run_evaluation.get_crypto_bars` too — one fetcher for all Python paths; dashboard already paginated correctly. Verified live: 15-min/4H/daily last bars now current. Added `tests/test_bars_fetch.py` (3 regression tests, mocked api_get); suite 78/78 green. Note: during editing the mounted file was once truncated mid-write by a sync race — restored from `git show HEAD` and re-applied; verify `python -m py_compile` after edits in Cowork sessions. Updated CLAUDE.md (parity table + consistency check #11), README.md (API notes), glossary.
+
+### 2026-06-11 — Add market-researcher subagent
+Created `.claude/agents/market-researcher.md`: an analysis-only "research desk" subagent (professional crypto spot trader persona). Mission 1: verify strategy assumptions/risk/profitability vs. current Alpaca spot-market conditions. Mission 2: verify the project after every strategy change (rule consistency across CLAUDE.md/README/config/indicators.py/risk.py/dashboard, hard-rule soundness, walk-forward evidence, pytest run). Logs every run as a timestamped Markdown report in the new `data/market_research/` folder (GMT+2; `-market.md` / `-project-verification.md` suffixes; Scope/Findings/Verdict/Recommendations/Data sources structure). Hard limits: never trades, never mutates account state, never edits strategy code. Updated CLAUDE.md, README.md, glossary.
+
 ### 2026-06-07 — Fix correlation matrix left whitespace
 The Live Correlation Matrix rendered with a large blank area on its left (matrix shoved right). Root cause: the global `table { min-width:760px }` rule forced the corr table to 760px, and since the data cells are fixed 28px but the row-label column had no fixed width, that label column stretched to absorb the slack, pushing the whole grid right. Fix: `.corr-wrap table` now sets `min-width:0; width:auto` (same pattern as the `.mk-matrix` override) so the table sizes to its content and aligns left. Pure CSS, no logic change. Updated CLAUDE.md, README.md, dashboard_layout.md.
 
@@ -518,6 +524,7 @@ Final qty  = min(1.892, 0.048) × 0.99 = 0.0475 BTC
 - **Data URL**: `https://data.alpaca.markets/v1beta3/crypto/us/bars`
 - **Auth**: `APCA-API-KEY-ID` and `APCA-API-SECRET-KEY` headers
 - **Critical**: Always pass `start` param; `limit` alone returns partial data
+- **Critical**: Also pass `sort=desc` and reverse to chronological; default ascending sort returns the *oldest* N bars of the window (fixed 2026-06-11)
 - **Crypto**: No market hours — 24/7 trading
 
 ---

@@ -128,6 +128,13 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## Agents
+
+| Term | Meaning | Context |
+|------|---------|---------|
+| market-researcher | Analysis-only subagent in `.claude/agents/market-researcher.md` | Pro spot-trader persona; verifies strategy/risk/profitability and reviews the project after strategy changes; logs timestamped reports to `data/market_research/`; never trades |
+| `data/market_research/` | Historical research log folder | `YYYY-MM-DD-HHMM-market.md` and `…-project-verification.md`, GMT+2 timestamps |
+
 ## API & Environment
 
 | Key | Value / Detail |
@@ -141,6 +148,7 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | Account ID | PA3EZEE1I9RS |
 | Crypto hours | 24/7 — no market clock gate |
 | Critical bug (fixed) | `limit` param alone → 1 bar; must pass explicit `start` date |
+| Critical bug (fixed 2026-06-11) | default sort is ascending: `start`+`limit=N` → *oldest* N bars (daily 54 d stale, regime gate inverted); must pass `sort=desc` and reverse to chronological |
 | `_bars_start()` | Computes: `now − (limit × tf_minutes × 1.6)` to ensure enough history |
 | Multi-symbol pagination | Bars API paginates by *total bars*, not per-symbol. Must follow `next_page_token` until `null`. |
 | Dashboard Settings inputs | `#page-settings` field IDs: `setPaperApiKey` / `setPaperApiSecret` (📄 Paper), `setLiveApiKey` / `setLiveApiSecret` (🔴 Live), `setStopLoss` / `setMaxDailyLoss` / `setMaxOpenRisk` (🛡 Risk Limits), `setMaxSignalSymbols` (🔭 Signals Analysis). Laid out in labelled 2-column `form-grid` blocks; key+secret pairs side by side, risk-limit and signals inputs in their own blocks below the API keys. Persisted to `localStorage` key `proDashboardSettings`. |

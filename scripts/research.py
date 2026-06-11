@@ -49,12 +49,11 @@ def get_positions():
 def get_bars(symbol, timeframe="15Min", limit=100):
     """Crypto bars by default. Auto-detects asset class from the symbol."""
     if "/" in symbol:
-        # crypto
-        params = {"symbols": symbol, "timeframe": timeframe, "limit": limit}
-        url = DATA_URL + "/v1beta3/crypto/us/bars"
-        r = requests.get(url, headers=_hdr(), params=params, timeout=20)
-        r.raise_for_status()
-        return r.json().get("bars", {}).get(symbol, [])
+        # crypto — delegate to run_evaluation.get_crypto_bars so all Python
+        # paths share the stale-bars fix (sort=desc + chronological reverse,
+        # explicit start, end excludes the in-progress bar).
+        from run_evaluation import get_crypto_bars
+        return get_crypto_bars(symbol, limit=limit, timeframe=timeframe)
     # equities path -- still works if you want to inspect a stock
     sym_q = urllib.parse.quote(symbol, safe="")
     params = {"timeframe": timeframe, "limit": limit, "adjustment": "raw"}
