@@ -183,14 +183,23 @@ def place_order(
         band = ask * STOP_LOSS_LIMIT_BAND_PCT
         diff = abs(limit_price - ask)
         if diff > band:
-            band_check = RiskCheck(
-                False,
-                "limit outside stop-loss {:.1%} band (ask={:.4f} limit={:.4f})".format(
-                    STOP_LOSS_LIMIT_BAND_PCT, ask, limit_price
-                ),
+            # SELF-REJECTION FIX (2026-06-11): the limit was computed from a
+            # quote fetched earlier in the evaluation cycle; if price moved
+            # more than the band since then, rejecting leaves the position
+            # exposed for another full cycle (journals show repeated
+            # "limit outside stop-loss 0.5% band" rejections). A stop-loss
+            # exists to exit -- clamp the limit to the nearest band edge of
+            # the FRESH ask instead of failing. The hard rule (limit within
+            # 0.5% of ask) still holds: the clamped price sits exactly on
+            # the band boundary.
+            clamped = min(max(limit_price, ask - band), ask + band)
+            print(
+                "%s: stop-loss limit %.4f outside %.1f%% band of ask %.4f "
+                "-- clamped to %.4f"
+                % (symbol, limit_price, STOP_LOSS_LIMIT_BAND_PCT * 100, ask, clamped)
             )
-        else:
-            band_check = RiskCheck(True, "ok")
+            limit_price = round(clamped, 6)
+        band_check = RiskCheck(True, "ok")
     else:
         band_check = check_limit_band(limit_price, ask)
     if not band_check.ok:

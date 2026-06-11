@@ -1070,6 +1070,7 @@
     <button class="tab-btn" onclick="switchTab('market-overview',this)">🌍 Market Overview</button>
     <button class="tab-btn" onclick="switchTab('market-signals',this)">🔭 Market Signals</button>
     <button class="tab-btn" onclick="switchTab('markov',this)">🔗 Markov</button>
+    <button class="tab-btn" onclick="switchTab('edge',this)">🔬 Edge</button>
     <button class="tab-btn" onclick="switchTab('settings',this)">⚙ Settings</button>
   </nav>
 
@@ -1099,6 +1100,34 @@
             <div class="panel-title">📌 Hard Rules — Live Status</div>
             <div id="hardRulesLive"><div class="small" style="color:var(--muted)">Load data to check live rule status.</div></div>
           </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="panel">
+          <div class="panel-title">🤖 Autopilot</div>
+          <div class="small" style="color:var(--muted);margin-bottom:10px">
+            Automated <b>long-only</b> execution of the 6-point confluence strategy on the 10-symbol watchlist
+            (entry score ≥ 4, regime gate, correlation budget, per-symbol caps, ATR sizing, −5% hard stop,
+            +2.5%/3% trailing stop, TA exit at ≤ −2). Paper mode only. <b>Always OFF on page load.</b>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+            <button id="apToggleBtn" class="btn" onclick="apToggle()" data-tip="Start/stop the autopilot loop. Never auto-resumes after a reload.">▶ Autopilot OFF</button>
+            <label class="small" style="color:var(--muted)">Interval
+              <select id="apInterval" onchange="apIntervalChanged()" style="margin-left:4px">
+                <option value="15">15 min</option>
+                <option value="30">30 min</option>
+                <option value="60" selected>60 min</option>
+              </select>
+            </label>
+            <button class="btn btn-red" style="margin-left:auto" onclick="apKillSwitch()" data-tip="Stop the autopilot loop AND cancel all open orders.">⛔ Kill switch</button>
+          </div>
+          <div id="apStatus" class="small" style="color:var(--muted);margin-bottom:12px">Autopilot is OFF. Cycles run: 0 · orders placed: 0.</div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">Activity Log</div>
+            <button class="btn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="apClearLog()">Clear</button>
+          </div>
+          <div id="apLog" class="small" style="max-height:260px;overflow-y:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.6"><span style="color:var(--muted)">No autopilot activity yet.</span></div>
         </div>
       </section>
     </div>
@@ -1312,7 +1341,7 @@
               <tr>
                 <th data-tip="Crypto pair.">Symbol</th>
                 <th class="right" data-tip="Current ask price.">Price</th>
-                <th class="right" data-tip="6-point confluence score. ≥4 = BUY, ≤−4 = SHORT (downtrend only), 3/−3 = half-size, else HOLD.">Score</th>
+                <th class="right" data-tip="6-point confluence score. ≥4 = BUY, 3 = half-size; ≤−3 shown as BEAR (shorts unsupported on Alpaca spot).">Score</th>
                 <th data-tip="Score trend vs previous scan. ↑ improving, ↓ worsening, → unchanged.">Trend</th>
                 <th data-tip="20/50 EMA cross on 15-min chart.">EMA Cross</th>
                 <th class="right" data-tip="RSI (14) on 15-min. 40–65 bullish, &lt;30 oversold +1, &gt;70 overbought −1.">RSI</th>
@@ -1338,7 +1367,7 @@
           </div>
           <div class="panel">
             <div class="panel-title">⚡ Setup Alerts</div>
-            <div class="small" style="margin-bottom:10px">Get a browser notification when any symbol hits score ≥ 4 (BUY) or ≤ −4 in downtrend (SHORT).</div>
+            <div class="small" style="margin-bottom:10px">Get a browser notification when any symbol hits score ≥ 4 (BUY) or ≤ −4 in downtrend (BEAR — informational, no short on spot venue).</div>
             <div id="notifStatus" class="small" style="margin-bottom:10px;color:var(--muted)">Notifications: not enabled</div>
             <button class="btn btn-green" onclick="requestNotifications()">Enable Notifications</button>
           </div>
@@ -1619,6 +1648,52 @@
         <div id="markovKpis" class="grid-3" style="margin-bottom:18px"></div>
         <div id="markovLastUpdated" style="font-size:12px;color:var(--muted);margin-bottom:10px">Click "Run Markov Analysis" to compute transition matrices.</div>
         <div id="markovContent"></div>
+      </section>
+    </div>
+
+    <div id="page-edge" class="page">
+      <section>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
+          <div class="section-title" style="margin-bottom:0">🔬 Edge Analysis — Realized Round-Trips</div>
+          <span class="small">All FILL activities · FIFO round-trip matching · expectancy &amp; time attribution (GMT+2)</span>
+          <button class="btn btn-green" onclick="loadEdge()" style="margin-left:auto">▶ Analyze</button>
+        </div>
+        <div id="edgeKpis" class="grid-3" style="margin-bottom:14px"></div>
+        <div id="edgeTakeaway" class="small" style="color:var(--muted);margin-bottom:6px">Click "▶ Analyze" to fetch every FILL activity and compute realized edge statistics.</div>
+      </section>
+
+      <section>
+        <div class="section-title">Per-Symbol Expectancy</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-tip="Trading pair.">Symbol</th>
+                <th class="right" data-tip="Completed FIFO round-trips (sell matched against earlier buys).">Round-Trips</th>
+                <th class="right" data-tip="Share of round-trips with P&amp;L ≥ 0.">Win Rate</th>
+                <th class="right" data-tip="Average realized profit of winning round-trips.">Avg Win $</th>
+                <th class="right" data-tip="Average realized loss of losing round-trips.">Avg Loss $</th>
+                <th class="right" data-tip="Gross wins ÷ gross losses. n/a until at least one losing trade.">Profit Factor</th>
+                <th class="right" data-tip="Total realized P&amp;L for this symbol.">Net P&amp;L $</th>
+                <th class="right" data-tip="Average time from first FIFO entry fill to exit fill.">Avg Hold</th>
+              </tr>
+            </thead>
+            <tbody id="edgeSymBody"><tr><td colspan="8" class="placeholder">Run the analysis to populate this table.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-title">⏰ Realized P&amp;L by Hour of Day (GMT+2)</div>
+            <div id="edgeHourChart" class="small" style="color:var(--muted)">Run the analysis to see the hour-of-day breakdown.</div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">📅 Realized P&amp;L by Day of Week</div>
+            <div id="edgeDowChart" class="small" style="color:var(--muted)">Run the analysis to see the day-of-week breakdown.</div>
+          </div>
+        </div>
       </section>
     </div>
 
@@ -2148,6 +2223,8 @@
         // don't auto-run — user clicks "Scan Top N"
       } else if (id === "markov") {
         // don't auto-run — user clicks "Run Markov Analysis"
+      } else if (id === "edge") {
+        // don't auto-run — user clicks "▶ Analyze"
       } else {
         refreshCurrent();
       }
@@ -3385,6 +3462,7 @@
     await loadConfigFromFile();
     renderMode();
     try { updateScanBtnLabel(); } catch (e) {}
+    try { apInit(); } catch (e) {}
 
     if (getSettings().apiKey && getSettings().apiSecret) {
       loadDashboard();
@@ -4104,7 +4182,7 @@
             } else if (res.score <= -4 && res.dailyRegime === "downtrend") {
               try {
                 new Notification(`🔻 ${sym} — Score ${res.score}/6`, {
-                  body: `SHORT signal · RSI ${res.rsi} · downtrend`,
+                  body: `BEAR signal (no short — spot venue) · RSI ${res.rsi} · downtrend`,
                   tag: sym
                 });
               } catch(e) {}
@@ -4135,8 +4213,7 @@
           // Block longs in downtrend
           if (down && row.score >= 3) return pill("yellow", "Blocked");
           // Short signals (downtrend only)
-          if (down && row.score <= -4) return pill("red", "SHORT");
-          if (down && row.score <= -3) return pill("red", "SHORT ½");   // −3.0 to −3.9 = half-size short
+          if (down && row.score <= -3) return pill("red", "BEAR");    // informational — shorts unsupported on Alpaca spot
           return pill("muted", "HOLD");
         };
 
@@ -4217,7 +4294,6 @@
               <td>
                 ${actionPill(row)}
                 ${!down && row.score >= 3 && row.lastClose ? `<button class="trade-action-btn" style="margin-top:3px;font-size:10px" data-tip="Open BUY trade modal pre-filled with ATR-based qty" onclick="openTradeModal('${orderSym}','${row.sym}','buy','${quickFillQty}',${row.lastClose})">⚡ Buy</button><button class="trade-action-btn" style="margin-top:3px;font-size:10px;margin-left:4px" data-tip="Execute BUY order immediately using this signal" onclick="executeSignalTrade('${orderSym}','${row.sym}','buy','${quickFillQty}',${row.lastClose})">▶ Execute</button>` : ""}
-                ${down && row.score <= -3 && row.lastClose ? `<button class="trade-close-btn" style="margin-top:3px;font-size:10px" data-tip="Open SHORT trade modal pre-filled with ATR-based qty" onclick="openTradeModal('${orderSym}','${row.sym}','sell','${quickFillQty}',${row.lastClose})">⚡ Short</button><button class="trade-action-btn" style="margin-top:3px;font-size:10px;margin-left:4px" data-tip="Execute SHORT order immediately using this signal" onclick="executeSignalTrade('${orderSym}','${row.sym}','sell','${quickFillQty}',${row.lastClose})">▶ Execute</button>` : ""}
               </td>
             </tr>
           `;
@@ -4240,7 +4316,7 @@
               ["3–3.9 (HALF)", dist["3"], "#d29922"],
               ["1–2 (HOLD)", dist["1to2"], "#58a6ff"],
               ["−2–0 (HOLD)", dist["-2to0"], "#8b949e"],
-              ["≤ −3 (SHORT)", dist["-6to-3"], "#f85149"]
+              ["≤ −3 (BEAR)", dist["-6to-3"], "#f85149"]
             ].map(([label, count, color]) => `
               <div style="display:flex;align-items:center;gap:8px">
                 <span style="width:90px;font-size:11px;color:var(--muted)">${label}</span>
@@ -5817,7 +5893,7 @@
           kpi("BUY Signals", buys,  "Score >= 4/6", buys > 0 ? "pos" : "") +
           kpi("Half-Size",   halfs, "Score = 3/6") +
           kpi("HOLD",        holds, "Score -2 to +2") +
-          kpi("SHORT/Avoid", sells, "Score <= -3 (downtrend = SHORT signal)", sells > 0 ? "neg" : "") +
+          kpi("BEAR/Avoid", sells, "Score <= -3 (bearish — shorts unsupported on spot)", sells > 0 ? "neg" : "") +
           kpi("Avg Score",   (avgSc >= 0 ? "+" : "") + fmt(avgSc,1) + "/6", "Market breadth", avgSc >= 2 ? "pos" : avgSc <= -1 ? "neg" : "");
 
         // Score bar renderer
@@ -5837,8 +5913,7 @@
           if (!msDown && row.score >= 4)  return pill("green","BUY");
           if (!msDown && row.score >= 3)  return pill("yellow","HALF");   // 3.0–3.9 = half-size
           if (msDown && row.score >= 3)   return pill("yellow","Blocked");
-          if (msDown && row.score <= -4)  return pill("red","SHORT");
-          if (msDown && row.score <= -3)  return pill("red","SHORT ½");   // −3.0 to −3.9 = half-size short
+          if (msDown && row.score <= -3)  return pill("red","BEAR");    // informational — shorts unsupported on Alpaca spot
           return pill("muted","HOLD");
         }
 
@@ -5936,6 +6011,464 @@
         tr.style.display = _msHideUnavailable ? "none" : "";
       });
       if (btn) btn.textContent = _msHideUnavailable ? "👁 Show All" : "👁 Hide Unavailable";
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  AUTOPILOT — automated long-only confluence execution (Command tab)
+    //  Reuses calcSignalScore / fetchBars / apiPost (same order path as
+    //  executeSignalTrade). OFF on every page load — never auto-resumes.
+    // ═══════════════════════════════════════════════════════════════════════
+    const AP_WATCHLIST = JOURNAL_WL;                       // 10-symbol watchlist (shared)
+    const AP_TIER1 = { "BTC/USD": 1, "ETH/USD": 1 };       // Tier-1; everything else = Tier-2
+    const AP_CASH_RESERVE_PCT = 20;   // hard rule: keep ≥ 20% of equity in cash
+    const AP_ENTRY_SCORE      = 4;    // long score gate
+    const AP_TA_EXIT_SCORE    = -2;   // TA exit (score turning bearish)
+    const AP_TRAIL_ARM_PCT    = 2.5;  // trailing stop arms at +2.5%
+    const AP_TRAIL_PCT        = 3;    // trails 3% below HWM
+    const AP_MAX_POSITIONS    = 3;    // correlation budget: max open positions
+    const AP_MAX_PER_TIER     = 2;    // correlation budget: max per tier
+
+    let _apTimer = null, _apTick = null, _apRunning = false, _apBusy = false;
+    let _apCycles = 0, _apOrders = 0, _apLastCycle = null, _apNextAt = null;
+
+    function apGmt2(ts) {
+      return new Date(ts || Date.now()).toLocaleTimeString("en-GB",
+        { timeZone: "Etc/GMT-2", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    }
+
+    function apGetLog() {
+      try { return JSON.parse(localStorage.getItem("autopilotLog") || "[]"); }
+      catch (e) { return []; }
+    }
+
+    function apLog(kind, msg) {
+      const log = apGetLog();
+      log.push({ t: apGmt2(), k: kind, m: msg });
+      while (log.length > 200) log.shift();               // cap 200 entries
+      try { localStorage.setItem("autopilotLog", JSON.stringify(log)); } catch (e) {}
+      apRenderLog();
+    }
+
+    function apRenderLog() {
+      const el = $("apLog");
+      if (!el) return;
+      const log = apGetLog();
+      const col = { entry: "var(--green)", exit: "var(--yellow)", block: "var(--muted)", error: "var(--red)", info: "var(--blue)" };
+      el.innerHTML = log.length
+        ? log.slice().reverse().map(e =>
+            `<div><span style="color:var(--muted)">${e.t}</span> <span style="color:${col[e.k] || "var(--text)"};font-weight:700">[${(e.k || "info").toUpperCase()}]</span> ${e.m}</div>`).join("")
+        : '<span style="color:var(--muted)">No autopilot activity yet.</span>';
+    }
+
+    function apClearLog() {
+      try { localStorage.removeItem("autopilotLog"); } catch (e) {}
+      apRenderLog();
+    }
+
+    function apIntervalMin() {
+      const v = Number(($("apInterval") || {}).value || 60);
+      return [15, 30, 60].includes(v) ? v : 60;
+    }
+
+    function apStatusRender() {
+      const el = $("apStatus");
+      if (!el) return;
+      if (!_apRunning) {
+        el.textContent = `Autopilot is OFF. Cycles run: ${_apCycles} · orders placed: ${_apOrders}.`;
+        return;
+      }
+      let next = "–";
+      if (_apNextAt) {
+        const ms = Math.max(0, _apNextAt - Date.now());
+        next = Math.floor(ms / 60000) + "m " + Math.floor(ms % 60000 / 1000) + "s";
+      }
+      el.innerHTML = `<b style="color:var(--green)">RUNNING</b> · last cycle: ${_apLastCycle ? apGmt2(_apLastCycle) + " GMT+2" : "–"} · next in ${next} · cycles: ${_apCycles} · orders: ${_apOrders}`;
+    }
+
+    // Called once from bootstrapDashboard(). NEVER auto-starts the loop —
+    // only restores the interval choice and flags a pre-reload ON state.
+    function apInit() {
+      const saved = Number(localStorage.getItem("autopilotIntervalMin") || 60);
+      const sel = $("apInterval");
+      if (sel && [15, 30, 60].includes(saved)) sel.value = String(saved);
+      const btn = $("apToggleBtn");
+      if (btn && localStorage.getItem("autopilotEnabled") === "1") {
+        btn.textContent = "▶ Autopilot was ON before reload — click to resume";
+        btn.style.color = "var(--yellow)";
+      }
+      apRenderLog();
+      apStatusRender();
+    }
+
+    function apIntervalChanged() {
+      try { localStorage.setItem("autopilotIntervalMin", String(apIntervalMin())); } catch (e) {}
+      if (_apRunning) {
+        apScheduleNext();
+        apLog("info", "Interval changed to " + apIntervalMin() + " min — next cycle rescheduled.");
+      }
+    }
+
+    function apScheduleNext() {
+      if (_apTimer) clearTimeout(_apTimer);
+      _apNextAt = Date.now() + apIntervalMin() * 60000;
+      _apTimer = setTimeout(async () => {
+        await apCycle();
+        if (_apRunning) apScheduleNext();
+      }, apIntervalMin() * 60000);
+      apStatusRender();
+    }
+
+    function apStop(reason) {
+      const wasRunning = _apRunning;
+      _apRunning = false;
+      if (_apTimer) { clearTimeout(_apTimer); _apTimer = null; }
+      if (_apTick)  { clearInterval(_apTick);  _apTick = null; }
+      _apNextAt = null;
+      try { localStorage.setItem("autopilotEnabled", "0"); } catch (e) {}
+      const btn = $("apToggleBtn");
+      if (btn) { btn.textContent = "▶ Autopilot OFF"; btn.style.color = ""; }
+      apStatusRender();
+      if (wasRunning && reason) apLog("info", "Autopilot stopped — " + reason + ".");
+    }
+
+    async function apToggle() {
+      if (_apRunning) { apStop("toggled off by user"); return; }
+      const s = getSettings();
+      if (!s.apiKey || !s.apiSecret) { alert("Add your Alpaca API key and secret in Settings first."); return; }
+      if (s.mode === "live") { alert("Autopilot is paper-mode only. Live order execution is blocked by this dashboard."); return; }
+      _apRunning = true;
+      try { localStorage.setItem("autopilotEnabled", "1"); } catch (e) {}
+      const btn = $("apToggleBtn");
+      if (btn) { btn.textContent = "⏸ Autopilot ON"; btn.style.color = "var(--green)"; }
+      if (!_apTick) _apTick = setInterval(apStatusRender, 1000);
+      apLog("info", "Autopilot started — interval " + apIntervalMin() + " min, " + AP_WATCHLIST.length + " watchlist symbols, long-only.");
+      await apCycle();
+      if (_apRunning) apScheduleNext();
+    }
+
+    async function apKillSwitch() {
+      apStop("kill switch");
+      try {
+        const r = await fetch(getBaseUrl() + "/v2/orders", { method: "DELETE", headers: getHeaders() });
+        if (!r.ok) throw new Error(r.status + " " + r.statusText);
+        let n = 0;
+        try { const d = await r.json(); n = Array.isArray(d) ? d.length : 0; } catch (e) {}
+        apLog("info", "⛔ Kill switch — cancelled " + n + " open order(s).");
+      } catch (e) {
+        apLog("error", "Kill switch cancel-all failed: " + e.message);
+      }
+    }
+
+    function apRoundQty(n) { return Math.floor(n * 1e6) / 1e6; }
+    function apPrice(p)    { return p < 1 ? Number(p.toFixed(6)) : Number(p.toFixed(2)); }
+
+    async function apPlaceOrder(sym, side, qty, limitPrice, reason) {
+      const result = await apiPost("/v2/orders", {
+        symbol: sym.replace("/", ""),
+        qty: String(qty),
+        side: side,
+        type: "limit",
+        time_in_force: "gtc",
+        limit_price: String(limitPrice)
+      });
+      _apOrders++;
+      apLog(side === "buy" ? "entry" : "exit",
+        `${side.toUpperCase()} ${qty} ${sym} @ $${limitPrice} limit — ${reason} (order ${(result.id || "?").slice(0, 8)})`);
+      return result;
+    }
+
+    async function apCycle() {
+      if (_apBusy) return;
+      _apBusy = true;
+      try {
+        const s = getSettings();
+        if (s.mode === "live") { apLog("error", "Live mode detected — autopilot refuses to run."); apStop("live mode"); return; }
+        const L = s.limits;
+        const stopPct = Number(L.assumedStopLossPct || 5);   // hard stop, from Settings (default 5%)
+
+        const [acct, positions] = await Promise.all([
+          apiFetch("/v2/account"),
+          apiFetch("/v2/positions")
+        ]);
+        const equity = Number(acct.equity || 0);
+        let cash = Number(acct.cash || 0);
+
+        // (a) Scan the watchlist with the shared signal engine
+        const [b15, b4h, bD] = await Promise.all([
+          fetchBars(AP_WATCHLIST, "15Min", 120),
+          fetchBars(AP_WATCHLIST, "4Hour", 60),
+          fetchBars(AP_WATCHLIST, "1Day", 60)
+        ]);
+        const scores = {};
+        for (const sym of AP_WATCHLIST) {
+          const alp = sym.replace("/", "");
+          const a  = ((b15 || {})[sym] || (b15 || {})[alp] || []).map(b => ({ c: b.c, h: b.h, l: b.l, v: b.v }));
+          const c4 = ((b4h || {})[sym] || (b4h || {})[alp] || []).map(b => ({ c: b.c, h: b.h, l: b.l, v: b.v }));
+          const d  = ((bD  || {})[sym] || (bD  || {})[alp] || []).map(b => ({ c: b.c, h: b.h, l: b.l, v: b.v }));
+          scores[sym] = a.length >= 55 ? calcSignalScore(a, c4, d) : null;
+        }
+
+        // (c) EXITS first — long positions only; shorts are never auto-managed
+        let hwm = {};
+        try { hwm = JSON.parse(localStorage.getItem("autopilotHwm") || "{}"); } catch (e) {}
+        const closedSyms = [];
+        for (const p of positions) {
+          const qty = Number(p.qty || 0);
+          if (qty <= 0) continue;
+          const sym   = toSlash(p.symbol);
+          const entry = Number(p.avg_entry_price || 0);
+          const res   = scores[sym];
+          const cur   = (res && res.lastClose) || Number(p.current_price || 0);
+          if (!entry || !cur) continue;
+          const plPct = (cur - entry) / entry * 100;
+          let exitReason = null;
+          if (plPct >= AP_TRAIL_ARM_PCT) {
+            hwm[sym] = Math.max(hwm[sym] || 0, cur);        // persist HWM (localStorage autopilotHwm)
+            if (cur <= hwm[sym] * (1 - AP_TRAIL_PCT / 100))
+              exitReason = `trailing stop (HWM $${fmt(hwm[sym], cur < 1 ? 6 : 2)}, −${AP_TRAIL_PCT}% band)`;
+          } else if (plPct <= -stopPct) {
+            exitReason = `hard stop (P&L ${fmt(plPct, 2)}% ≤ −${stopPct}%)`;
+          }
+          if (!exitReason && res && res.score <= AP_TA_EXIT_SCORE)
+            exitReason = `TA exit (score ${res.score} ≤ ${AP_TA_EXIT_SCORE})`;
+          if (!exitReason) continue;
+          const avail = Math.abs(Number(p.qty_available != null ? p.qty_available : p.qty));
+          if (!avail) { apLog("block", `${sym} exit skipped — qty locked by an existing open order (dedup).`); continue; }
+          try {
+            await apPlaceOrder(sym, "sell", avail, apPrice(cur * 0.995), exitReason);  // 0.5% band below fresh ask
+            closedSyms.push(sym);
+            delete hwm[sym];
+          } catch (e) { apLog("error", `SELL ${sym} failed: ${e.message}`); }
+        }
+        const heldSyms = positions.filter(p => Number(p.qty || 0) > 0).map(p => toSlash(p.symbol));
+        Object.keys(hwm).forEach(k => { if (!heldSyms.includes(k)) delete hwm[k]; });
+        try { localStorage.setItem("autopilotHwm", JSON.stringify(hwm)); } catch (e) {}
+
+        // (b) ENTRIES — score ≥ 4, regime gate, correlation budget, caps, ATR sizing
+        const open  = positions.filter(p => Math.abs(Number(p.qty || 0)) > 0 && !closedSyms.includes(toSlash(p.symbol)));
+        let total = open.length;
+        let tier1 = open.filter(p => AP_TIER1[toSlash(p.symbol)]).length;
+        let tier2 = total - tier1;
+        const mvBySym = {};
+        open.forEach(p => { mvBySym[toSlash(p.symbol)] = Math.abs(Number(p.market_value || 0)); });
+
+        const candidates = AP_WATCHLIST
+          .filter(sym => scores[sym] && scores[sym].score >= AP_ENTRY_SCORE)
+          .sort((a, b) => scores[b].score - scores[a].score);
+
+        if (!candidates.length) apLog("info", `Cycle complete — no entry candidates (no watchlist score ≥ ${AP_ENTRY_SCORE}).`);
+
+        for (const sym of candidates) {
+          const res = scores[sym];
+          const ask = res.lastClose;
+          if (res.dailyRegime === "downtrend") { apLog("block", `${sym} score ${res.score} — blocked: daily regime is downtrend.`); continue; }
+          if (mvBySym[sym])                    { apLog("block", `${sym} score ${res.score} — blocked: position already open.`); continue; }
+          if (total >= AP_MAX_POSITIONS)       { apLog("block", `${sym} score ${res.score} — blocked: max ${AP_MAX_POSITIONS} open positions reached.`); continue; }
+          const isT1 = !!AP_TIER1[sym];
+          if (isT1 && tier1 >= AP_MAX_PER_TIER)  { apLog("block", `${sym} score ${res.score} — blocked: Tier-1 budget full (${AP_MAX_PER_TIER}).`); continue; }
+          if (!isT1 && tier2 >= AP_MAX_PER_TIER) { apLog("block", `${sym} score ${res.score} — blocked: Tier-2 budget full (${AP_MAX_PER_TIER}).`); continue; }
+          if (!ask || !res.atr)                { apLog("block", `${sym} — blocked: missing price/ATR.`); continue; }
+
+          const capPct = (PORTFOLIO_CAPS[sym] || 5) / 100;            // per-symbol cap (5% default)
+          const rawQty = (equity * 0.01) / (res.atr * 1.5);           // 1% risk / 1.5×ATR stop
+          const capQty = (equity * capPct) / ask;
+          let qty = Math.min(rawQty, capQty);
+          const limit = apPrice(ask * 1.001);                         // limit at ask, within 0.2% band
+
+          // Cash-reserve gate: keep ≥ 20% of equity in cash AFTER the order
+          const headroom = cash - equity * AP_CASH_RESERVE_PCT / 100;
+          if (headroom <= 0) { apLog("block", `${sym} score ${res.score} — blocked: cash reserve gate (cash $${fmt(cash, 0)} ≤ ${AP_CASH_RESERVE_PCT}% of equity).`); continue; }
+          if (qty * limit > headroom) qty = headroom / limit;
+          qty = apRoundQty(qty);
+          if (!qty || qty * limit < 10) { apLog("block", `${sym} score ${res.score} — blocked: sized below $10 notional after gates.`); continue; }
+
+          try {
+            await apPlaceOrder(sym, "buy", qty, limit, `entry — score ${res.score}/6, regime ${res.dailyRegime}, ATR sizing`);
+            total++; if (isT1) tier1++; else tier2++;
+            cash -= qty * limit;
+            mvBySym[sym] = qty * limit;
+          } catch (e) { apLog("error", `BUY ${sym} failed: ${e.message}`); }
+        }
+      } catch (e) {
+        apLog("error", "Cycle error: " + e.message);
+      } finally {
+        _apBusy = false;
+        _apCycles++;
+        _apLastCycle = Date.now();
+        apStatusRender();
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  EDGE ANALYSIS TAB — realized round-trip expectancy from FILL activities
+    //  On-demand via "▶ Analyze" (same pattern as the Markov tab).
+    // ═══════════════════════════════════════════════════════════════════════
+    async function edgeFetchAllFills() {
+      let all = [];
+      let pageToken = null;
+      for (let i = 0; i < 100; i++) {                      // safety cap: 10,000 fills
+        let url = "/v2/account/activities?activity_type=FILL&page_size=100&direction=desc";
+        if (pageToken) url += "&page_token=" + encodeURIComponent(pageToken);
+        const batch = await apiFetch(url);
+        if (!Array.isArray(batch) || batch.length === 0) break;
+        all = all.concat(batch);
+        if (batch.length < 100) break;
+        pageToken = batch[batch.length - 1].id;
+      }
+      return all;
+    }
+
+    // FIFO round-trip matcher WITH timestamps. Standalone from computeFifoStats
+    // (which stays untouched as the shared P&L/Backtest engine) because the
+    // Edge tab needs per-round-trip entry/exit times for holding-time stats.
+    function edgeFifoTrades(activities) {
+      const sorted = [...activities].reverse();            // chronological
+      const queues = {};
+      const rts = [];
+      for (const act of sorted) {
+        const sym = act.symbol, side = act.side;
+        const qty = Math.abs(Number(act.qty || 0));
+        const price = Number(act.price || 0);
+        const t = new Date(act.transaction_time || act.date || 0);
+        if (!queues[sym]) queues[sym] = [];
+        if (side === "buy") {
+          queues[sym].push({ qty, price, t });
+        } else if (side === "sell") {
+          let remaining = qty, pnl = 0, entryT = null;
+          while (remaining > 1e-9 && queues[sym].length > 0) {
+            const e = queues[sym][0];
+            const m = Math.min(remaining, e.qty);
+            pnl += m * (price - e.price);
+            if (!entryT) entryT = e.t;                     // first FIFO entry time
+            e.qty -= m; remaining -= m;
+            if (e.qty < 0.000001) queues[sym].shift();
+          }
+          if (entryT) rts.push({ sym: toSlash(sym), pnl, entryT, exitT: t, holdMs: t - entryT });
+        }
+      }
+      return rts;
+    }
+
+    function edgeFmtDur(ms) {
+      if (ms == null || isNaN(ms) || ms < 0) return "–";
+      const m = Math.round(ms / 60000);
+      if (m < 60) return m + "m";
+      const h = Math.floor(m / 60);
+      if (h < 48) return h + "h " + (m % 60) + "m";
+      return Math.floor(h / 24) + "d " + (h % 24) + "h";
+    }
+
+    function edgePnlColor(v) { return v > 0 ? "var(--green)" : v < 0 ? "var(--red)" : "var(--muted)"; }
+    function edgePnlStr(v)   { return (v >= 0 ? "+$" : "−$") + fmt(Math.abs(v)); }
+
+    async function loadEdge() {
+      const s = getSettings();
+      if (!s.apiKey || !s.apiSecret) {
+        $("edgeTakeaway").textContent = "Configure API credentials in Settings first.";
+        return;
+      }
+      $("edgeTakeaway").textContent = "⏳ Fetching all FILL activities (paginated)…";
+      try {
+        const fills = await edgeFetchAllFills();
+        const rts = edgeFifoTrades(fills);
+        if (!rts.length) {
+          $("edgeKpis").innerHTML = kpi("Round-Trips", 0, "No realized round-trips yet");
+          $("edgeSymBody").innerHTML = '<tr><td colspan="8" class="placeholder">No realized round-trips.</td></tr>';
+          $("edgeHourChart").innerHTML = "No data.";
+          $("edgeDowChart").innerHTML = "No data.";
+          $("edgeTakeaway").textContent = `No completed round-trips found in ${fills.length} fill(s) — nothing to analyse yet.`;
+          return;
+        }
+
+        // ── Summary KPI tiles ──
+        const wins   = rts.filter(r => r.pnl >= 0);
+        const losses = rts.filter(r => r.pnl < 0);
+        const netPnl = rts.reduce((a, r) => a + r.pnl, 0);
+        const expectancy = netPnl / rts.length;
+        const avgWin  = wins.length ? wins.reduce((a, r) => a + r.pnl, 0) / wins.length : null;
+        const avgLoss = losses.length ? Math.abs(losses.reduce((a, r) => a + r.pnl, 0)) / losses.length : null;
+        const payoff  = (avgWin !== null && avgLoss) ? avgWin / avgLoss : null;
+        const holds   = rts.map(r => r.holdMs).sort((a, b) => a - b);
+        const medHold = holds[Math.floor(holds.length / 2)];
+        $("edgeKpis").innerHTML = [
+          kpi("Round-Trips", rts.length, `${wins.length}W / ${losses.length}L · ${fmt(wins.length / rts.length * 100, 1)}% win rate`),
+          kpi("Expectancy / Trade", edgePnlStr(expectancy), `Net realized ${edgePnlStr(netPnl)} across ${fills.length} fills`, expectancy >= 0 ? "pos" : "neg"),
+          kpi("Payoff Ratio", payoff !== null ? fmt(payoff, 2) : "n/a", avgWin !== null && avgLoss !== null ? `avg win $${fmt(avgWin)} ÷ avg loss $${fmt(avgLoss)}` : "needs ≥ 1 win and ≥ 1 loss"),
+          kpi("Median Hold", edgeFmtDur(medHold), "first FIFO entry fill → exit fill")
+        ].join("");
+
+        // ── Per-symbol expectancy table ──
+        const bySym = {};
+        rts.forEach(r => {
+          if (!bySym[r.sym]) bySym[r.sym] = { n: 0, w: 0, winSum: 0, lossSum: 0, pnl: 0, holdSum: 0 };
+          const o = bySym[r.sym];
+          o.n++; o.pnl += r.pnl; o.holdSum += r.holdMs;
+          if (r.pnl >= 0) { o.w++; o.winSum += r.pnl; } else { o.lossSum += Math.abs(r.pnl); }
+        });
+        const symRows = Object.keys(bySym).map(sym => Object.assign({ sym }, bySym[sym]))
+          .sort((a, b) => b.pnl - a.pnl);
+        $("edgeSymBody").innerHTML = symRows.map(o => {
+          const nl = o.n - o.w;
+          const aw = o.w ? o.winSum / o.w : null;
+          const al = nl ? o.lossSum / nl : null;
+          const pf = o.lossSum > 0 ? o.winSum / o.lossSum : null;
+          return `<tr>
+            <td><span class="symbol">${tvLink(o.sym)}</span></td>
+            <td class="right">${o.n}</td>
+            <td class="right">${fmt(o.w / o.n * 100, 1)}%</td>
+            <td class="right pos">${aw !== null ? "$" + fmt(aw) : "–"}</td>
+            <td class="right neg">${al !== null ? "$" + fmt(al) : "–"}</td>
+            <td class="right">${pf !== null ? fmt(pf, 2) : "n/a"}</td>
+            <td class="right" style="color:${edgePnlColor(o.pnl)};font-weight:700">${edgePnlStr(o.pnl)}</td>
+            <td class="right">${edgeFmtDur(o.holdSum / o.n)}</td>
+          </tr>`;
+        }).join("");
+
+        // ── Hour-of-day & day-of-week attribution (exit time, GMT+2) ──
+        const hourPnl = Array(24).fill(0), hourN = Array(24).fill(0);
+        const dowPnl  = Array(7).fill(0),  dowN  = Array(7).fill(0);
+        const dowNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        rts.forEach(r => {
+          const h = Number(r.exitT.toLocaleString("en-GB", { timeZone: "Etc/GMT-2", hour: "2-digit", hour12: false })) % 24;
+          const d = dowNames.indexOf(r.exitT.toLocaleDateString("en-US", { timeZone: "Etc/GMT-2", weekday: "short" }));
+          if (h >= 0 && h < 24) { hourPnl[h] += r.pnl; hourN[h]++; }
+          if (d >= 0)           { dowPnl[d]  += r.pnl; dowN[d]++; }
+        });
+
+        const maxAbsH = Math.max(...hourPnl.map(Math.abs), 1e-9);
+        $("edgeHourChart").innerHTML =
+          '<div style="display:flex;gap:2px;align-items:flex-end;height:84px;margin-top:8px">' +
+          hourPnl.map((v, h) => {
+            const hgt = hourN[h] ? Math.max(4, Math.abs(v) / maxAbsH * 72) : 3;
+            const bg = hourN[h] ? (v >= 0 ? "var(--green)" : "var(--red)") : "rgba(255,255,255,.08)";
+            return `<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end" data-tip="${String(h).padStart(2, "0")}:00 GMT+2 — ${hourN[h]} trade(s), ${edgePnlStr(v)}"><div style="height:${hgt}px;background:${bg};border-radius:2px"></div></div>`;
+          }).join("") + "</div>" +
+          '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:4px"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>';
+
+        const maxAbsD = Math.max(...dowPnl.map(Math.abs), 1e-9);
+        const dowOrder = [1, 2, 3, 4, 5, 6, 0];            // Monday-first
+        $("edgeDowChart").innerHTML = '<div style="display:grid;gap:6px;margin-top:8px">' +
+          dowOrder.map(d => `
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="width:36px;font-size:11px;color:var(--muted)">${dowNames[d]}</span>
+              <span style="flex:1;height:8px;background:rgba(255,255,255,.08);border-radius:4px">
+                <span style="display:block;height:100%;width:${Math.abs(dowPnl[d]) / maxAbsD * 100}%;background:${dowPnl[d] >= 0 ? "var(--green)" : "var(--red)"};border-radius:4px"></span>
+              </span>
+              <span style="width:120px;text-align:right;font-size:11px;color:${edgePnlColor(dowPnl[d])}">${dowN[d] ? edgePnlStr(dowPnl[d]) + " · " + dowN[d] + " trade(s)" : "–"}</span>
+            </div>`).join("") + "</div>";
+
+        // ── One-line factual takeaway ──
+        const worstSym = symRows[symRows.length - 1];
+        let worstHour = 0;
+        for (let h = 1; h < 24; h++) if (hourPnl[h] < hourPnl[worstHour]) worstHour = h;
+        const parts = [`${rts.length} round-trips, expectancy ${edgePnlStr(expectancy)}/trade`];
+        if (worstSym && worstSym.pnl < 0) parts.push(`worst symbol ${worstSym.sym} (${edgePnlStr(worstSym.pnl)} net)`);
+        if (hourPnl[worstHour] < 0) parts.push(`worst hour ${String(worstHour).padStart(2, "0")}:00 GMT+2 (${edgePnlStr(hourPnl[worstHour])})`);
+        $("edgeTakeaway").textContent = "Takeaway: " + parts.join("; ") + ".";
+      } catch (e) {
+        $("edgeTakeaway").textContent = "❌ " + e.message;
+        console.error("loadEdge:", e);
+      }
     }
 
   </script>

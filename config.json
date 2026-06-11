@@ -9,7 +9,8 @@
     "cover_score_threshold": 2.0,
     "atr_multiplier": 1.5,
     "risk_per_trade_pct": 0.01,
-    "fallback_size_pct": 0.02
+    "fallback_size_pct": 0.02,
+    "shorts_enabled": false
   },
   "risk": {
     "stop_loss_pct": 0.05,
@@ -22,7 +23,10 @@
     "stop_loss_escalation_cycles": 2,
     "stop_loss_escalation_extra_pct": 0.003,
     "max_open_positions": 3,
-    "tier1_symbols": ["BTC/USD", "ETH/USD"],
+    "tier1_symbols": [
+      "BTC/USD",
+      "ETH/USD"
+    ],
     "max_positions_per_tier": 2,
     "daily_drawdown_gate_pct": 0.03,
     "capital_preservation_stop_pct": 0.03
@@ -78,5 +82,13 @@
       "ADA/USD",
       "AAVE/USD"
     ]
+  },
+  "scout": {
+    "_comment": "Universe scout: auto-promote uptrending high-confluence */USD pairs outside the watchlist (scripts/scout.py). Promoted symbols use the default 5% cap and all existing gates.",
+    "enabled": true,
+    "max_promoted": 3,
+    "min_score": 4.0,
+    "ttl_hours": 6.0,
+    "max_scan": 60
   }
 }

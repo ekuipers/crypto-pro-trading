@@ -608,7 +608,13 @@ def evaluate_symbol(
     # ── Short entry ──────────────────────────────────────────────────────────
     # Regime gate: only short into a confirmed daily downtrend.
     # Score gate: need a strongly bearish signal (≤ short_score_half_size).
-    if decision["daily_regime"] == "downtrend" and score <= SHORT_SCORE_HALF_SIZE:
+    # VENUE GATE (2026-06-11): Alpaca spot crypto cannot be shorted — every
+    # SHORT ever attempted was rejected and none filled. Shorts are disabled
+    # by default via config.json > strategy.shorts_enabled (false). Cover
+    # logic stays active as a safety net for any legacy short position.
+    if (_CFG.get("strategy", {}).get("shorts_enabled", False)
+            and decision["daily_regime"] == "downtrend"
+            and score <= SHORT_SCORE_HALF_SIZE):
         base_qty = _compute_qty(bid)
         if score > SHORT_SCORE_THRESHOLD:
             qty       = round(base_qty * 0.5, 4)
@@ -626,10 +632,16 @@ def evaluate_symbol(
 
     # ── No actionable signal ─────────────────────────────────────────────────
     if decision["daily_regime"] == "downtrend":
-        decision["reason"] = (
-            "no short entry: score=%.1f > %.1f (need more bearish confluence)"
-            % (score, SHORT_SCORE_HALF_SIZE)
-        )
+        if _CFG.get("strategy", {}).get("shorts_enabled", False):
+            decision["reason"] = (
+                "no short entry: score=%.1f > %.1f (need more bearish confluence)"
+                % (score, SHORT_SCORE_HALF_SIZE)
+            )
+        else:
+            decision["reason"] = (
+                "downtrend, longs blocked; shorts disabled (venue unsupported), score=%.1f"
+                % score
+            )
     else:
         decision["reason"] = (
             "no entry: score=%.1f (buy needs >= %.1f, regime=%s)"
@@ -769,6 +781,19 @@ def main() -> int:
     state = ps.load_state()
 
     symbols = [s for s in _CFG.get("watchlist", {}).get("symbols", []) if is_crypto(s)]
+    # Universe scout: merge auto-promoted uptrending symbols (config > scout).
+    # Promoted symbols pass through every existing gate unchanged (score >= 4,
+    # regime, correlation budget, default 5% cap, ATR sizing, stops).
+    if _CFG.get("scout", {}).get("enabled", False):
+        try:
+            import scout
+            extra = [x for x in scout.promoted_symbols(refresh=True)
+                     if is_crypto(x) and x not in symbols]
+            if extra:
+                print("Scout promoted: " + ", ".join(extra))
+                symbols += extra
+        except Exception as e:
+            print("Scout skipped: %r" % e)
     if not symbols:
         sys.stderr.write("FAIL: no crypto symbols in config.json > watchlist.symbols\n")
         return 1
