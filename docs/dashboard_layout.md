@@ -46,7 +46,7 @@ Key principles applied across both dashboards:
 
 | Tab | Key | Purpose |
 |-----|-----|---------|
-| 🧭 **Command** | `command` | Trading-permission cockpit: live hard-rules panel (6 real-time checks), cash-reserve gate, equity/cash/open-risk/drawdown KPIs, trade modal (limit-only). |
+| 🧭 **Command** | `command` | Trading-permission cockpit: live hard-rules panel (6 real-time checks), cash-reserve gate, equity/cash/open-risk/drawdown KPIs, trade modal (limit-only). Now also hosts the **🤖 Autopilot** panel: OFF-on-load toggle, 15/30/60-min interval, ⛔ kill switch (stop + cancel all orders), per-cycle entry/exit engine reusing the page's signal scorer with every hard-rule gate, trailing-stop HWM + activity log in `localStorage`. |
 | 📈 **Performance** | `performance` | Equity curve, win rate, profit factor, expectancy, rolling 30D/90D Sharpe, period selector (1M/3M/6M/1Y). |
 | ⚠️ **Risk** | `risk` | Portfolio cap usage per symbol (from `config.json`), 10×10 correlation heatmap (Pearson ρ, daily log-returns) shown in the **left** column with Effective Exposure on the right, drawdown/Sharpe/Sortino/Calmar/VaR. |
 | 📂 **Positions** | `positions` | Open positions with P&L%, Stop $ (entry×0.95), Target $ (entry×1.10), live R:R, position cap usage. |
@@ -58,6 +58,7 @@ Key principles applied across both dashboards:
 | 🌍 **Market Overview** | `market-overview` | Price, 24h%, 7d%, volume, trend and cap tier per symbol, sortable, with momentum heatmap. Scan universe = the shared `getCryptoUniverse()` (full tradable Alpaca crypto list) sliced by the **Max Symbols** setting — no longer hardcoded to 30. Score column auto-fills from the last Market Signals scan. |
 | 🔭 **Market Signals** | `market-signals` | On-demand full 6-point confluence scan over `getCryptoUniverse()`, sliced by the **Max Symbols** setting (no upper clamp). Score distribution + Top Opportunities panel. Scores cached into `_msPrevScores` for cross-tab display. |
 | 🔗 **Markov** | `markov` | On-demand first-order Markov chain analysis for BTC/USD & ETH/USD across 30/60/90/180/365-day windows. 3×3 transition matrix, stationary distribution, next-day forecast. Analysis-only — places no orders. |
+| 🔬 **Edge** | `edge` | On-demand (▶ Analyze) realized-edge analytics: FIFO round-trips from all FILL activities — per-symbol expectancy table, P&L by hour-of-day / day-of-week (GMT+2), KPI tiles, factual takeaway line. |
 | ⚙ **Settings** | `settings` | Grouped sections: Paper credentials, Live credentials, Risk Limits, and Signals Analysis (**Max Symbols**, default 30, minimum 1, no upper clamp). Seeds from `./config.json` (load-only fallback); saves to `localStorage`. |
 
 ### Shared crypto universe (Market Overview + Market Signals)
@@ -85,6 +86,9 @@ Key principles applied across both dashboards:
 | 2026-06-07 | **Real ranks for every symbol** — added `_universeRank` + `symbolInfo()`; symbols outside `TOP30_INFO` now get a contiguous rank from their universe position instead of `#?`. |
 | 2026-06-07 | **Risk tab panel order** — swapped the "Portfolio Concentration & Correlation Risk" grid so the 🔗 Live Correlation Matrix is the left column and 📊 Effective Exposure the right. |
 | 2026-06-07 | **Correlation matrix left whitespace fix** — `.corr-wrap table` now sets `min-width:0; width:auto` to override the global `table{min-width:760px}` rule; the matrix sizes to its content and aligns left instead of being shoved right by a stretched label column. |
+| 2026-06-11 | **Removed dead short-trading UI** — Alpaca spot crypto cannot short (every attempt rejected, none filled). ⚡ Short / ▶ Execute-short buttons removed; SHORT pills → informational red **BEAR**; notification copy now says "no short — spot venue". Positions-tab Buy/Cover kept as legacy safety. |
+| 2026-06-11 | **🤖 Autopilot panel (Command tab)** — autonomous in-dashboard trading loop with all hard-rule gates (score ≥ 4 + regime + correlation budget + caps + ATR sizing + 20% post-order cash reserve + $10 min notional), exits (hard stop −5%, trailing 3% below HWM after +2.5%, TA exit ≤ −2), OFF-on-load safety, ⛔ kill switch, GMT+2 activity log. |
+| 2026-06-11 | **🔬 Edge tab** — realized round-trip expectancy analytics (FIFO over paginated FILL history): per-symbol expectancy, hour/day-of-week P&L attribution, payoff/holding-time KPIs. |
 
 ---
 

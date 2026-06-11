@@ -143,6 +143,7 @@ All thresholds are configured in `config.json` — edit there, not in source fil
 | `scripts/walkforward_evaluate.py` | Walk-forward backtester — signal at bar close, fill at next open, supports 1H/4H/1D timeframes |
 | `scripts/metrics.py` | Performance metrics — Sharpe, Sortino, max drawdown, profit factor |
 | `scripts/rebalance.py` | Portfolio rebalancer — trims over-cap positions and tops up under-cap ones using signal-confluence gate + ATR sizing; logs to journal |
+| `scripts/scout.py` | Universe scout — auto-promotes uptrending score-≥4 `*/USD` pairs outside the watchlist into `data/watchlist_dynamic.json`; merged by `run_evaluation` when `scout.enabled` (default 5% cap + all gates apply) |
 | `scripts/verify.py` | Credential and connectivity verification |
 | `scripts/_env.py` | Loads `.env` into `os.environ` at import time |
 
@@ -316,6 +317,9 @@ Key features:
 
 ### `docs/portfolio-dashboard.html` *(legacy)*
 
+- **🤖 Autopilot (Command tab)** — in-dashboard autonomous loop: scans the watchlist every 15/30/60 min and trades through the same hard-rule gates as the Python agent (score ≥ 4, regime, correlation budget, caps, ATR sizing, 20% cash reserve, stops + trailing HWM). Always OFF on page load; kill switch cancels all open orders; full per-decision activity log. Short entries are never placed (Alpaca spot crypto cannot short — short UI removed, bearish scores show an informational BEAR pill).
+- **🔬 Edge tab** — on-demand realized-edge analytics (FIFO round-trips from FILL history): per-symbol expectancy, P&L by hour/day-of-week, payoff ratio, holding-time stats.
+
 Original lighter dashboard — 3 tabs: Overview, Hot Symbols, Morning Brief. Updated to support short positions: direction-aware stop/target prices, SHORT badge, `Buy / Cover` button for shorts, regime-gated action chips (SHORT ≤−4/6, ½ SHORT −3/6), and correct P&L sign for shorts via Alpaca's `unrealized_plpc` field. Mobile portrait: `.table-wrap` and `.conf-wrap` use `overflow-x:scroll` + `-webkit-overflow-scrolling:touch`, clamped to `calc(100vw - 24px)` in a `@media (max-width:700px)` block; all tables have `min-width:700px`. Every symbol label is a `tvLink()` anchor opening the TradingView chart in a new tab.
 - **🌅 Morning Brief button** — top-row header button (`generateMorningBrief()`) that generates the morning brief as a downloadable Markdown document matching the `journal/` format: Portfolio Health (equity, cash %, unrealized P&L, open positions + a per-position table), Alerts (cash, stop proximity, cap breach, gains — direction-aware), Signal Confluence table (10 watchlist symbols, score / 4H regime / daily regime / action), and a templated Market Notes paragraph. Opens a preview modal with **📋 Copy** and **↓ Download .md** (filename `morning-brief-YYYY-MM-DD.md`). Reuses the existing `confluenceScore` / `fetchBars` engine.
 
@@ -430,6 +434,7 @@ alpaca-trading-agent/
 │   └── walkforward_*.json/md  # Walk-forward backtest results
 ├── data/
 │   ├── market_research/       # Timestamped market-researcher agent reports
+│   ├── watchlist_dynamic.json # Scout-promoted symbols (auto-generated, TTL-refreshed)
 │   └── positions_state.json   # Persistent per-position state (HWM, stop order IDs, drawdown gate)
 ├── scripts/
 │   ├── _api.py                # HTTP retry helper (exponential backoff)

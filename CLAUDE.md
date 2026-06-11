@@ -79,6 +79,7 @@ weekday/weekend distinction and no equity-market clock gate.
 | **Preserve cash** | Keep at least 20% of cash available in the portfolio. |
 | **Per-symbol position cap** | Never invest more than the symbol's cap (defined in `config.json` › `portfolio_caps.caps`) of total equity in a single position. `trade.py` enforces this in code. See cap table below. |
 | **Limit orders only** | Never use market orders. Limit price must be within 0.2% of the current ask (0.5% for stop-loss orders). |
+| **Stop-loss limit clamping** | If a stop-loss limit (computed from an earlier quote) lands outside the 0.5% band of the fresh ask at submission, `trade.py` clamps it to the nearest band edge instead of rejecting (self-rejection left positions exposed a full cycle; fixed 2026-06-11). |
 | **Stop-loss at -5% (long)** | If a long position drops 5% from entry, SELL immediately — checked at every evaluation. |
 | **Stop-loss at +5% (short)** | If a short position moves 5% against us (price rises), COVER immediately — checked at every evaluation. |
 | **Stop-loss deduplication** | Before placing any stop-loss SELL/COVER, check `get_open_orders(symbol)`. If a pending order exists and is within `stop_loss_escalation_cycles` (2), skip. After that, cancel and replace with a wider band (time-escalation). |
@@ -87,7 +88,7 @@ weekday/weekend distinction and no equity-market clock gate.
 | **Daily drawdown gate** | If portfolio equity drops ≥ 3% vs. day-open equity, capital preservation mode activates: all new entries blocked, existing stops tighten to 3%. Resets at midnight UTC. |
 | **Take-profit based on technical analysis** | If a position is flagged to be closed by the research, close it — checked at every evaluation, before TA signals. |
 | **Score gate (long)** | Only open long positions with a Signal Confluence score ≥ 4/6. Half-size at score = 3/6 if R:R ≥ 1:3. |
-| **Score gate (short)** | Only open short positions with a score ≤ −4/6. Half-size at score = −3/6. |
+| **Score gate (short)** | Only open short positions with a score ≤ −4/6. Half-size at score = −3/6. **Shorts are disabled by default** (`config.json › strategy.shorts_enabled = false`): Alpaca spot crypto cannot be shorted — every attempted short was rejected. Cover logic stays active as a legacy safety net. |
 | **Regime gate (long)** | Never buy into a confirmed daily downtrend (last close < 50-day SMA and 20-day SMA < 50-day SMA). |
 | **Regime gate (short)** | Only short into a confirmed daily downtrend. No shorts in uptrend or mixed regime. |
 | **Cover signal** | Close a short when score rises to ≥ +2/6 (bullish TA turning). |
@@ -277,6 +278,28 @@ all decisions are HOLD.
 
 ---
 
+## Universe Scout (`scripts/scout.py`)
+
+Auto-promotes uptrending, high-confluence `*/USD` pairs from the full tradable
+Alpaca universe into the evaluation set (the 10 watchlist majors correlate at
+~0.8, so in a broad downtrend the whole static list is regime-blocked and the
+bot sits in cash). Flow: fetch active tradable crypto assets → keep `*/USD`,
+drop watchlist symbols → daily-regime filter (confirmed uptrend only, same
+SMA20/50 rule) → full 6-point confluence on survivors → keep score ≥
+`scout.min_score` (4.0) → top `scout.max_promoted` (3) written atomically to
+`data/watchlist_dynamic.json`. `run_evaluation.main()` merges the promoted
+symbols when `config.json › scout.enabled` is true, refreshing the file when
+older than `scout.ttl_hours` (6). Promoted symbols pass through every existing
+gate unchanged (score ≥ 4 entry, regime, Tier-2 correlation budget, default 5%
+cap, ATR sizing, stops). Analysis-only module — it never places orders.
+
+```bash
+python scripts/scout.py            # respect TTL
+python scripts/scout.py --force    # rescan now
+```
+
+---
+
 ## Market Researcher Agent (`.claude/agents/market-researcher.md`)
 
 Independent research-desk subagent ("market-researcher"). A professional crypto
@@ -330,9 +353,11 @@ Self-contained single-file HTML dashboard. Open locally in any browser — no se
 | Live ticker strip | Top-of-page, 10 symbols, price + 24h%. Auto-refreshes every 15 s via `/v1beta3/crypto/us/snapshots`. |
 | Auto-refresh button | 3 modes: `Auto OFF` → `Prices 15s` → `Full 60s`. |
 | Command tab | Live hard-rules panel (6 real-time checks), cash reserve gate, trade modal. |
+| 🤖 Autopilot (Command tab) | In-dashboard autonomous trading loop. Toggle (always **OFF on page load** — never auto-resumes; shows "was ON before reload — click to resume"), interval 15/30/60 min, red ⛔ kill switch (stops loop + cancels all open orders). Each cycle: scans the 10 watchlist symbols with the existing signal engine; entries only at score ≥ 4 + regime gate + correlation budget (max 3 / 2 per tier) + per-symbol cap + ATR sizing + 20% cash-reserve gate (post-order) + $10 min notional; exits = hard stop −5%, trailing stop (HWM in `localStorage.autopilotHwm`, 3% below peak after +2.5%), TA exit at score ≤ −2. No short entries. Activity log (`localStorage.autopilotLog`, 200 entries, GMT+2) with per-decision gate reasons. |
+| 🔬 Edge tab | On-demand (▶ Analyze, Markov-tab pattern) realized-edge analytics from all FILL activities (paginated, 10k cap) with FIFO round-trip matching: per-symbol expectancy table (trades, win rate, avg win/loss, PF, net P&L, holding time), realized P&L by hour-of-day and day-of-week (GMT+2), KPI tiles (round-trips, expectancy $/trade, payoff ratio, median hold), auto-generated factual takeaway line. |
 | Risk tab | Portfolio cap usage, 10×10 correlation heatmap (Pearson ρ, daily log-returns). In the "Portfolio Concentration & Correlation Risk" grid, the 🔗 Live Correlation Matrix is the left column and 📊 Effective Exposure the right. The `.corr-wrap table` sets `min-width:0; width:auto` to override the global `table{min-width:760px}` so the matrix sizes to its content and stays left-aligned (no large left whitespace). |
 | Positions tab | P&L%, Stop $ (entry×0.95), Target $ (entry×1.10), Live R:R. |
-| Signals tab | Paginated bars fetch (follows `next_page_token`), trend arrows ↑↓→, ATR qty, ⚡ quick-buy, and ▶ execute. Bar fetch always passes `end = now − 1 bar period` (via `barsEnd()`) to exclude the in-progress bar and ensure stable, complete-bar-only indicators. |
+| Signals tab | Paginated bars fetch (follows `next_page_token`), trend arrows ↑↓→, ATR qty, ⚡ quick-buy, and ▶ execute. **Short-side action buttons removed 2026-06-11** (Alpaca spot crypto cannot short); bearish scores show an informational red **BEAR** pill and notifications say "no short — spot venue". Bar fetch always passes `end = now − 1 bar period` (via `barsEnd()`) to exclude the in-progress bar and ensure stable, complete-bar-only indicators. |
 | P&L tab | FIFO P&L, calendar heatmap, attribution by symbol, day-of-week performance. Realized stats come from the shared `computeFifoStats()` helper. |
 | Backtest vs Live tab | Compares live metrics to saved expected metrics (Sharpe, max DD, win rate, profit factor, avg daily return). **Win Rate and Profit Factor use realized FIFO stats from `computeFifoStats()` — identical to the P&L tab, so the two can't diverge.** `loadContext()` fetches `/v2/account/activities?activity_type=FILL` and attaches `c.fifoStats`; `renderBacktest()` reads it. Do NOT reintroduce the old fill-vs-limit "win rate proxy" (always ~100% for limit orders) or the hardcoded `n/a` profit factor. |
 | Market Overview tab | Price, 24h%, 7d%, volume, trend and cap tier per symbol, sortable, with a momentum heatmap. Score column auto-fills from last Market Signals scan. **Scan universe is the shared `getCryptoUniverse()` (full tradable Alpaca crypto list), sliced by the same **🔭 Signals Analysis › Max Symbols** setting (`maxSignalSymbols`) as Market Signals** — `MO_SYMBOLS = universe.slice(0, n)` in `loadMarketOverview`. So it is no longer hardcoded to the 30 `TOP30_SYMBOLS`; a value above 30 shows more rows. Every row gets a real rank via the shared `symbolInfo(sym)` helper: curated `TOP30_INFO` when known, otherwise `_universeRank[sym]` (1-based position in the ordered universe, built by `rebuildUniverseRank()` inside `getCryptoUniverse()`). So ranks are contiguous — 1–30 are the cap ranks, 31+ follow universe order — instead of `#?`. Symbols outside `TOP30_INFO` still show tier `?`. Snapshots fetched via `fetchSnapshotsInBatches` so one bad symbol can't kill the whole request. The symbol/name cell in `renderMarketOverview` must be wrapped in its own `<td>` — without the opening tag the symbol+name overflow out of the row, away from the Rank column. |

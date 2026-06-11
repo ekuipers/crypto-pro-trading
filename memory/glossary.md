@@ -133,6 +133,10 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | Term | Meaning | Context |
 |------|---------|---------|
 | market-researcher | Analysis-only subagent in `.claude/agents/market-researcher.md` | Pro spot-trader persona; verifies strategy/risk/profitability and reviews the project after strategy changes; logs timestamped reports to `data/market_research/`; never trades |
+| Universe Scout | `scripts/scout.py` — auto-promotes uptrending score-≥4 non-watchlist `*/USD` pairs | Writes `data/watchlist_dynamic.json` (TTL 6 h); merged by `run_evaluation` when `scout.enabled`; all gates + 5% default cap apply |
+| Autopilot | Dashboard Command-tab autonomous trading loop | OFF on every page load; kill switch cancels all orders; gates mirror the Python agent; HWM + log in localStorage |
+| `shorts_enabled` | `config.json › strategy` flag, default **false** | Alpaca spot crypto cannot be shorted — short entries gated off in `run_evaluation`; cover logic retained |
+| Stop-loss clamp | `trade.py` clamps stale stop limits to the fresh ask's 0.5% band edge | Replaces self-rejection that left positions exposed a full cycle (fixed 2026-06-11) |
 | `data/market_research/` | Historical research log folder | `YYYY-MM-DD-HHMM-market.md` and `…-project-verification.md`, GMT+2 timestamps |
 
 ## API & Environment
