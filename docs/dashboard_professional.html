@@ -2138,7 +2138,7 @@
       <span class="footer-sep">·</span>
       <span>Last modified: <strong>2026-06-15</strong></span>
       <span class="footer-sep">·</span>
-      <span>Version: <strong>v2026-06-15.9</strong></span>
+      <span>Version: <strong>v2026-06-15.10</strong></span>
     </div>
   </footer>
 
@@ -2946,7 +2946,7 @@
       const totalReturnPct = c.equitySeries.length > 1
         ? (c.equitySeries[c.equitySeries.length - 1] - c.equitySeries[0]) / c.equitySeries[0] * 100
         : 0;
-      const totalPL = parseFloat(c.acct.unrealized_pl ?? 0);
+      const totalPL = c.fifoStats ? (c.fifoStats.totalPnl || 0) : 0;
 
       const avgRet = mean(c.returns) * 100;
       const bestRet = c.returns.length ? Math.max(...c.returns) * 100 : 0;
@@ -2954,7 +2954,7 @@
       const vol = std(c.returns) * Math.sqrt(L.tradingDaysPerYear) * 100;
 
       $("performanceKpis").innerHTML = [
-        kpi("Total P&L", (totalPL >= 0 ? "+$" : "-$") + fmt(Math.abs(totalPL)), "Unrealized P&L — matches Portfolio Overview", totalPL >= 0 ? "pos" : "neg"),
+        kpi("Total P&L", (totalPL >= 0 ? "+$" : "-$") + fmt(Math.abs(totalPL)), "Realized P&L (FIFO) — matches P&L tab", totalPL >= 0 ? "pos" : "neg"),
         kpi("Total Return", pct(totalReturnPct), "Loaded 3M account history", totalReturnPct >= 0 ? "pos" : "neg"),
         kpi("Average Return", pct(avgRet,3), "Average period return", avgRet >= 0 ? "pos" : "neg"),
         kpi("Annualized Volatility", fmt(vol,2) + "%", "Return dispersion"),
@@ -2964,7 +2964,7 @@
       ].join("");
 
       $("performanceSummaryBody").innerHTML = [
-        ["Total P&L ($)", (totalPL >= 0 ? "+$" : "-$") + fmt(Math.abs(totalPL)), "Unrealized P&L from account — same value as Portfolio Overview."],
+        ["Total P&L ($)", (totalPL >= 0 ? "+$" : "-$") + fmt(Math.abs(totalPL)), "Realized P&L (FIFO matched fills) — same value as P&L tab."],
         ["Total return (%)", pct(totalReturnPct), "Percentage account growth over loaded history."],
         ["Average period return", pct(avgRet,3), "Useful for consistency analysis."],
         ["Annualized volatility", fmt(vol,2) + "%", "Measures return dispersion."],

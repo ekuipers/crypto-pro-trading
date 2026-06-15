@@ -65,6 +65,11 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-15 — Bug fix: Total P&L in Performance tab (v2026-06-15.10)
+
+**Problem:** After v2026-06-15.9, "Total P&L" pointed at `acct.unrealized_pl` (open-position paper gains) — still not matching the P&L tab which shows `fifoStats.totalPnl` (FIFO-realized P&L from FILL activities).  
+**Fix:** Changed to `c.fifoStats.totalPnl` which is already computed in `loadContext()` via `computeFifoStats()` over the same 100-fill sample. Both tabs now use the same number.
+
 ### 2026-06-15 — Bug fix: Total P&L in Performance tab (v2026-06-15.9)
 
 **Problem:** "Total P&L" in the Performance tab used equity-history subtraction (`equitySeries[last] - equitySeries[0]`), which measures equity change over the loaded 3-month window — different from Portfolio Overview's "Unrealized P&L" card which reads `acct.unrealized_pl`.  

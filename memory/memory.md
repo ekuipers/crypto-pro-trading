@@ -2,6 +2,13 @@
 
 ---
 
+## 2026-06-15 — Bug fix: Total P&L in Performance tab now matches P&L tab (v2026-06-15.10)
+
+**Problem:** The prior fix pointed "Total P&L" at `acct.unrealized_pl` (open-position paper gains), which still did not match the P&L tab's "Total Realized P&L" (`fifoStats.totalPnl` from FIFO-matched fills). The two are fundamentally different concepts.  
+**Fix:** Changed to `c.fifoStats.totalPnl` — the same FIFO-realized value `loadContext()` already computes via `computeFifoStats()` over the same 100-fill sample the P&L tab uses. The tooltip now says "Realized P&L (FIFO) — matches P&L tab". Version v2026-06-15.10.
+
+---
+
 ## 2026-06-15 — Bug fix: Total P&L in Performance tab mismatched Portfolio Overview (v2026-06-15.9)
 
 **Problem:** The "Total P&L" KPI in the Performance tab used `equitySeries[last] - equitySeries[0]` (equity change over the 3-month history window), while Portfolio Overview's "Unrealized P&L" card uses `acct.unrealized_pl` from the Alpaca `/v2/account` API. These two numbers are different — the equity-history approach captures all price movement over months and diverges significantly from the current open-position P&L.  
