@@ -1,3 +1,21 @@
+# Workflow rules
+0. The bugs list needs to take preference for changes and the roadmap determines which features need to be added.
+1. After every change to a code file, append a dated entry to `memory.md` in the memeory folder, describing what changed and why (problem, fix, and how it was verified). Treat `memory.md` as the running changelog — no code edit is complete until `memory.md` is updated. 
+2. Do not start the local server.
+3. Move completed roadmap items and bug fixes to the memory file for reference and change log purpose
+4. Automatically commit changes to git and sync with remote repo
+5. update readme.md
+6. Update version number in the footer with the lastest version in the change log
+
+## Roadmap
+1. Add the watchlist for determining the active portfolio to the settings tab. Let the user select up to 20 symbols to act as active watchlist.
+2. Merge files dashboard_professional.html and portfolio-dashboard.html to a single web page. Split professional dashboard and portfilio dashboard in seperate menu items in the navigation menus.
+3. Remove the hard rule current drawdown ≤ 6%, STOP trading.
+
+## Bugs
+
+---
+
 # Coding instructions
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
@@ -54,6 +72,8 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 These guidelines are working if: fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
 
+---
+
 # Trading Agent Instructions
 
 > **Standing rule:** After every change to any file in this project — code, dashboard, config, or scripts — update `CLAUDE.md`, `README.md`, `memory/projects/alpaca-trading-agent.md`, `memory/glossary.md`, and (for any dashboard change) `docs/dashboard_layout.md` before considering the task done. No exceptions.
@@ -85,7 +105,6 @@ weekday/weekend distinction and no equity-market clock gate.
 | **Stop-loss deduplication** | Before placing any stop-loss SELL/COVER, check `get_open_orders(symbol)`. If a pending order exists and is within `stop_loss_escalation_cycles` (2), skip. After that, cancel and replace with a wider band (time-escalation). |
 | **Trailing stop** | Once a long position is +2.5% in profit, a trailing stop activates and trails 3% below the high-water mark (HWM). HWM is persisted in `data/positions_state.json` across evaluation cycles. |
 | **Correlation budget** | Max 3 open positions total. Max 2 in Tier-1 (BTC/USD, ETH/USD) and max 2 in Tier-2 (all other alts). New entries are blocked when either limit is reached. |
-| **Daily drawdown gate** | If portfolio equity drops ≥ 3% vs. day-open equity, capital preservation mode activates: all new entries blocked, existing stops tighten to 3%. Resets at midnight UTC. |
 | **Take-profit based on technical analysis** | If a position is flagged to be closed by the research, close it — checked at every evaluation, before TA signals. |
 | **Score gate (long)** | Only open long positions with a Signal Confluence score ≥ 4/6. Half-size at score = 3/6 if R:R ≥ 1:3. |
 | **Score gate (short)** | Only open short positions with a score ≤ −4/6. Half-size at score = −3/6. **Shorts are disabled by default** (`config.json › strategy.shorts_enabled = false`): Alpaca spot crypto cannot be shorted — every attempted short was rejected. Cover logic stays active as a legacy safety net. |
