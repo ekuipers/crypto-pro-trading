@@ -2,6 +2,13 @@
 
 ---
 
+## 2026-06-15 — Bug fix: Total P&L in Performance tab mismatched Portfolio Overview (v2026-06-15.9)
+
+**Problem:** The "Total P&L" KPI in the Performance tab used `equitySeries[last] - equitySeries[0]` (equity change over the 3-month history window), while Portfolio Overview's "Unrealized P&L" card uses `acct.unrealized_pl` from the Alpaca `/v2/account` API. These two numbers are different — the equity-history approach captures all price movement over months and diverges significantly from the current open-position P&L.  
+**Fix:** Changed `totalReturnCurrency` to `totalPL = parseFloat(c.acct.unrealized_pl ?? 0)`. The Performance tab's "Total P&L" tile now shows the exact same number as Portfolio Overview's "Unrealized P&L" card, with a tooltip clarifying the match. Version v2026-06-15.9.
+
+---
+
 ## 2026-06-15 — Bug fixes + Roadmap: score distribution, applySort, Total P&L (v2026-06-15.8)
 
 ### Bug fix: Score distribution miscategorises 2.5 as BUY (Signals tab)

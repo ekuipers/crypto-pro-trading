@@ -65,6 +65,11 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-15 — Bug fix: Total P&L in Performance tab (v2026-06-15.9)
+
+**Problem:** "Total P&L" in the Performance tab used equity-history subtraction (`equitySeries[last] - equitySeries[0]`), which measures equity change over the loaded 3-month window — different from Portfolio Overview's "Unrealized P&L" card which reads `acct.unrealized_pl`.  
+**Fix:** Replaced `totalReturnCurrency` with `totalPL = parseFloat(c.acct.unrealized_pl ?? 0)`. The tooltip now says "Unrealized P&L — matches Portfolio Overview". Both tabs now display the same number from the same API field.
+
 ### 2026-06-15 — Bug fixes + Roadmap: score distribution, applySort, Total P&L (v2026-06-15.8)
 
 **Bug fix — Score distribution (Signals tab):** Distribution bucket `else if (s <= 2)` sent score 2.5 to the BUY category. Fixed to `else if (s < 3)`. Labels updated to "0.5–2.9 (HOLD)" and "−2.9–0 (HOLD)". Dict key renamed from `1to2` → `1to3`. Version v2026-06-15.7.
