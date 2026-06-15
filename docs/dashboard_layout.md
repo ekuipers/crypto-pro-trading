@@ -105,6 +105,7 @@ Key principles applied across both dashboards:
 | 2026-06-15 | **Roadmap — Total P&L in currency added to Performance tab** — `renderPerformance()` now computes `totalReturnCurrency = equitySeries[last] − equitySeries[0]` and adds a **Total P&L** KPI tile (first in the `grid-3`, formatted as `+$X.XX` / `-$X.XX` with pos/neg colour) and a matching "Total P&L ($)" row in the Performance Summary table. Version v2026-06-15.8. |
 | 2026-06-15 | **Bug fix — Total P&L in Performance tab mismatched Portfolio Overview** — The tile used `equitySeries[last] − equitySeries[0]` (3-month equity-history window) instead of `acct.unrealized_pl` (same field used by Portfolio Overview). Fixed: `totalPL = parseFloat(c.acct.unrealized_pl ?? 0)`. Both tabs now show the identical value. Version v2026-06-15.9. |
 | 2026-06-15 | **Bug fix — Total P&L in Performance tab still mismatched P&L tab** — v2026-06-15.9 used `acct.unrealized_pl` (open-position paper gains) which differs from the P&L tab's `fifoStats.totalPnl` (FIFO-realized P&L). Fixed: changed to `c.fifoStats.totalPnl` — the same FIFO value already computed in `loadContext()` from the same 100-fill sample the P&L tab uses. Version v2026-06-15.10. |
+| 2026-06-15 | **Bug fix — Signals tab ignored Settings watchlist** — `loadSignals()` hardcoded the 10 default symbols instead of calling `getWatchlist()`. Fixed: replaced the hardcoded array with `getWatchlist()` so the Signals tab now scans whatever symbols the user configured in the Settings watchlist. Version v2026-06-15.11. |
 
 ---
 

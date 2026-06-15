@@ -2,6 +2,14 @@
 
 ---
 
+## 2026-06-15 — Bug fix: Signals tab ignored Settings watchlist (v2026-06-15.11)
+
+**Problem:** `loadSignals()` hardcoded `const SYMBOLS = ["BTC/USD",...]` — the 10 default symbols. Adding or removing symbols in the Settings → Active Watchlist had no effect on the Signals tab scan.  
+**Fix:** Replaced the hardcoded array with `getWatchlist()`. The `SYMBOLS` variable is used for all three `fetchBars()` calls, the correlation matrix computation, the per-symbol row loop, and the correlation heatmap render — all of which now dynamically reflect the user's watchlist. Version v2026-06-15.11.  
+**Verified:** One-line change at the top of `loadSignals()`. All downstream uses of `SYMBOLS` remain correct.
+
+---
+
 ## 2026-06-15 — Bug fix: Total P&L in Performance tab now matches P&L tab (v2026-06-15.10)
 
 **Problem:** The prior fix pointed "Total P&L" at `acct.unrealized_pl` (open-position paper gains), which still did not match the P&L tab's "Total Realized P&L" (`fifoStats.totalPnl` from FIFO-matched fills). The two are fundamentally different concepts.  

@@ -65,6 +65,12 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-15 — Bug fix: Signals tab ignored Settings watchlist (v2026-06-15.11)
+
+**Problem:** `loadSignals()` hardcoded `const SYMBOLS = ["BTC/USD",...]` — the 10 default symbols. Adding or removing symbols in the Settings watchlist had no effect on the Signals tab scan.  
+**Fix:** Replaced the hardcoded array with `getWatchlist()` so the Signals tab now dynamically reads whatever symbols the user configured.  
+**Verified:** Code change is surgical — one line. `SYMBOLS` is used throughout the function (bar fetches, correlation matrix, row iteration) so using `getWatchlist()` propagates correctly everywhere.
+
 ### 2026-06-15 — Bug fix: Total P&L in Performance tab (v2026-06-15.10)
 
 **Problem:** After v2026-06-15.9, "Total P&L" pointed at `acct.unrealized_pl` (open-position paper gains) — still not matching the P&L tab which shows `fifoStats.totalPnl` (FIFO-realized P&L from FILL activities).  

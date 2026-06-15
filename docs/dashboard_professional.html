@@ -2138,7 +2138,7 @@
       <span class="footer-sep">·</span>
       <span>Last modified: <strong>2026-06-15</strong></span>
       <span class="footer-sep">·</span>
-      <span>Version: <strong>v2026-06-15.10</strong></span>
+      <span>Version: <strong>v2026-06-15.11</strong></span>
     </div>
   </footer>
 
@@ -4408,7 +4408,7 @@
       $("signalBody").innerHTML = '<tr><td colspan="13" class="placeholder">Scanning all symbols…</td></tr>';
       $("signalKpis").innerHTML = kpi("Status", "Scanning…", "Fetching bars from Alpaca Data API");
 
-      const SYMBOLS = ["BTC/USD","ETH/USD","SOL/USD","AVAX/USD","LINK/USD","DOT/USD","LTC/USD","DOGE/USD","ADA/USD","AAVE/USD"];
+      const SYMBOLS = getWatchlist();
 
       try {
         const [bars15, bars4h, barsD] = await Promise.all([
