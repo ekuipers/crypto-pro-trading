@@ -66,6 +66,18 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-15 — Roadmap 1–2 + Bugs 1–2 (v2026-06-15.6)
+
+Four items completed in `docs/dashboard_professional.html`:
+
+**Roadmap 1 — Remove "Watchlist — No Position":** Deleted the `<section>` with `portNoPosBody`, removed `portRenderWatchlistNoPos()` function and its 2 call sites in `portRenderPositions()`, removed the watchlist snapshot fetch block from `portLoadPositions()`, and removed `portWlSnaps` declaration.
+
+**Roadmap 2 — Sort Signals tab descending by score:** Added `rows.sort((a, b) => ...)` before `signalBody.innerHTML` assignment in `loadSignals()`.
+
+**Bug 1 — Market Overview Score column:** Two fixes: (a) `loadSignals()` now calls `Object.assign(_msPrevScores, newMap)` after saving `_prevScoreMap`; (b) Market Signals scan now calls `moApplySort()` if `_moData.length > 0` after updating `_msPrevScores`. Score column now populates from either Signals or Market Signals scans.
+
+**Bug 2 — Score inconsistency in Breakout Scanner:** `loadGapGo()` now fetches 15-min and 4H bars via `fetchBars()` in the same `Promise.all`. Per symbol: maps bars to `{c,h,l,v}` and calls `calcSignalScore()`. Result attached as `ggA.signalScore`. In `ggRenderCards()`, added `ssColor`/`ssText` variables and rendered a **Signal /6** badge next to the existing Conviction score in each card header. Legend updated to clarify both metrics. Now consistent with Signals and Market Signals tabs.
+
 ### 2026-06-15 — Roadmap items 1–5: favicon, title, remove Orders/HotSymbols/MorningBrief
 
 Applied all 5 remaining roadmap items to `docs/dashboard_professional.html` via a Python script (to avoid encoding corruption from PowerShell):

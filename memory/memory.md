@@ -2,6 +2,29 @@
 
 ---
 
+## 2026-06-15 — Roadmap items 1–2 + Bugs 1–2 completed (v2026-06-15.6)
+
+### Roadmap 1: Remove "Watchlist — No Position" from Portfolio Overview
+**Fix:** Deleted the HTML `<section>` containing `portNoPosBody`, removed `portRenderWatchlistNoPos()` function and its two call sites in `portRenderPositions()`, removed the watchlist snapshot fetch block from `portLoadPositions()`, and removed the `portWlSnaps` variable declaration.  
+**Verified:** Grep confirms zero remaining refs to `portNoPosBody`, `portWlSnaps`, `portRenderWatchlistNoPos`.
+
+### Roadmap 2: Order Live Signal Scores descending
+**Fix:** Added `rows.sort((a, b) => (b.score !== null ? b.score : -99) - (a.score !== null ? a.score : -99));` before the `signalBody` innerHTML assignment in `loadSignals()`.  
+**Verified:** Sort line present in file.
+
+### Bug 1: Score column in Market Overview table not populated
+**Problem:** Market Overview reads scores from `_msPrevScores`, which was only populated by Market Signals scans. If MO was loaded before a Market Signals scan (or if the user only scanned on the Signals tab), the Score column showed "–" for all rows.  
+**Fix (a):** After `loadSignals()` saves `_prevScoreMap`, it also calls `Object.assign(_msPrevScores, newMap)` — so a Signals tab scan populates the MO score column too.  
+**Fix (b):** After Market Signals scan writes `_msPrevScores`, it calls `if (_moData.length) moApplySort()` — so MO scores update live without requiring a page refresh.  
+**Verified:** Both hooks present in file.
+
+### Bug 2: Signal scores inconsistent across Breakout Scanner, Signals, Market Signals
+**Problem:** Breakout Scanner showed a gap-specific "Conviction" score (max ±7), which users confused with the 6-point Signal score from the Signals and Market Signals tabs.  
+**Fix:** `loadGapGo()` now fetches 15-min and 4H bars alongside the existing daily/hourly bars, computes `calcSignalScore()` for each symbol, and attaches `signalScore` to each analysis object. `ggRenderCards()` displays a **Signal /6** badge in each card header next to the Conviction score. Legend updated to explain both metrics. Breakout Scanner legend corrected from "+6 max" to "+7 max".  
+**Verified:** All 4 change markers present in file; version v2026-06-15.6.
+
+---
+
 ## 2026-06-15 — Roadmap items 2, 3, and 1 completed
 
 ### Item 2: Merge portfolio-dashboard.html into dashboard_professional.html

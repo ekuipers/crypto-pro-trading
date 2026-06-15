@@ -1645,7 +1645,7 @@
           <span><span class="pill yellow" style="font-size:9px">MEDIUM</span> Mixed signals — wait for ORB confirmation</span>
           <span><span class="pill red" style="font-size:9px">LOW</span> Fade risk — avoid chasing, watch for reversal</span>
           <span><span class="pill red" style="font-size:9px">⚠ AVOID</span> Downtrend + negative gap or very high risk</span>
-          <span style="color:var(--muted)">Score: +6 max bullish → −6 max bearish</span>
+          <span style="color:var(--muted)">Conviction: +7 max → −6 min · Signal /6: same 6-point score as Signals &amp; Market Signals tabs</span>
         </div>
 
         <div id="ggContainer">
@@ -1868,29 +1868,6 @@
             </tr></thead>
             <tbody id="portPositionsBody">
               <tr><td colspan="9" class="placeholder"><span class="spinner"></span> Loading positions…</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- Watchlist — no position -->
-      <section>
-        <div class="section-title">Watchlist — No Position</div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr>
-              <th>Symbol</th>
-              <th class="right">Qty</th>
-              <th class="right">Entry Price</th>
-              <th class="right">Current Price</th>
-              <th class="right">Market Value</th>
-              <th class="right">Unrealized P&amp;L</th>
-              <th class="right">Unrealized %</th>
-              <th class="right">Today P&amp;L</th>
-              <th>Trade</th>
-            </tr></thead>
-            <tbody id="portNoPosBody">
-              <tr><td colspan="9" class="placeholder"><span class="spinner"></span> Loading…</td></tr>
             </tbody>
           </table>
         </div>
@@ -2161,7 +2138,7 @@
       <span class="footer-sep">·</span>
       <span>Last modified: <strong>2026-06-15</strong></span>
       <span class="footer-sep">·</span>
-      <span>Version: <strong>v2026-06-15.5</strong></span>
+      <span>Version: <strong>v2026-06-15.6</strong></span>
     </div>
   </footer>
 
@@ -4532,6 +4509,7 @@
         // ATR qty helper (uses last loaded account equity if available)
         const equity = lastContext ? lastContext.equity : 0;
 
+        rows.sort((a, b) => (b.score !== null ? b.score : -99) - (a.score !== null ? a.score : -99));
         $("signalBody").innerHTML = rows.map(row => {
           if (row.error) return `<tr><td><span class="symbol">${tvLink(row.sym)}</span></td><td colspan="12" style="color:var(--muted)">${row.error}</td></tr>`;
           const down = row.dailyRegime === "downtrend";
@@ -4637,6 +4615,7 @@
         const newMap = {};
         rows.filter(r => r.score !== null).forEach(r => { newMap[r.sym] = r.score; });
         _prevScoreMap = newMap;
+        Object.assign(_msPrevScores, newMap);  // keep MO score column in sync
 
         _signalCache = rows;
 
@@ -5673,6 +5652,8 @@
         const gapC    = a.gap24h > 0 ? "green" : a.gap24h < 0 ? "red" : "muted";
         const rPct    = (a.rangePos * 100).toFixed(0);
         const scColor = a.score >= 3 ? "var(--green)" : a.score >= 1 ? "var(--yellow)" : "var(--red)";
+        const ssColor = a.signalScore !== null ? (a.signalScore >= 4 ? "var(--green)" : a.signalScore >= 3 ? "var(--yellow)" : a.signalScore < 0 ? "var(--red)" : "var(--muted)") : "var(--muted)";
+        const ssText  = a.signalScore !== null ? (a.signalScore >= 0 ? "+" : "") + a.signalScore.toFixed(1) + "/6" : "–/6";
         const ticker  = a.symbol.replace("/USD", "");
 
         const newsLinks = `
@@ -5715,11 +5696,17 @@
       ${pill("Vol " + a.volRatio.toFixed(1) + "×", a.volRatio >= 1.5 ? "green" : a.volRatio >= 1.0 ? "yellow" : "muted")}
       ${a.avoidFlag ? pill("⚠ AVOID", "red") : ""}
     </div>
-    <div style="text-align:right">
-      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px">Conviction</div>
-      <div style="font-size:26px;font-weight:950;color:${scColor}">${a.score>=0?"+":""}${a.score.toFixed(1)}</div>
-      <div class="gg-score-bar" style="width:110px;margin-left:auto">
-        <div class="gg-score-fill" style="width:${fillW}%;background:${fillColor}"></div>
+    <div style="display:flex;gap:16px;align-items:flex-start">
+      <div style="text-align:right">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px">Signal /6</div>
+        <div style="font-size:20px;font-weight:800;color:${ssColor}">${ssText}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px">Conviction</div>
+        <div style="font-size:26px;font-weight:950;color:${scColor}">${a.score>=0?"+":""}${a.score.toFixed(1)}</div>
+        <div class="gg-score-bar" style="width:110px;margin-left:auto">
+          <div class="gg-score-fill" style="width:${fillW}%;background:${fillColor}"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -5865,9 +5852,11 @@
         // Use paginated fetch so all 10 symbols are returned even when the API
         // splits results across multiple pages (10 symbols × 200 bars each easily
         // exceeds a single page).
-        const [dBars, hBars] = await Promise.all([
+        const [dBars, hBars, b15All, b4hAll] = await Promise.all([
           ggFetchBarsAllPages(GG_SYMBOLS, "1Day",  dailyStart,  200),
-          ggFetchBarsAllPages(GG_SYMBOLS, "1Hour", hourlyStart, 200)
+          ggFetchBarsAllPages(GG_SYMBOLS, "1Hour", hourlyStart, 200),
+          fetchBars(GG_SYMBOLS, "15Min", 120),
+          fetchBars(GG_SYMBOLS, "4Hour", 60)
         ]);
         const analyses = [];
 
@@ -5876,7 +5865,14 @@
           const hourly = hBars[sym] || [];
           if (daily.length < 10) continue;
           try {
-            analyses.push(ggAnalyze(sym, daily, hourly));
+            const alpSym2 = sym.replace("/","");
+          const b15 = ((b15All && (b15All[sym] || b15All[alpSym2])) || []).map(b => ({c:b.c,h:b.h,l:b.l,v:b.v}));
+          const b4h = ((b4hAll && (b4hAll[sym] || b4hAll[alpSym2])) || []).map(b => ({c:b.c,h:b.h,l:b.l,v:b.v}));
+          const bDd = daily.map(b => ({c:b.c,h:b.h,l:b.l,v:b.v}));
+          const sigRes = b15.length >= 55 ? calcSignalScore(b15, b4h, bDd) : null;
+          const ggA = ggAnalyze(sym, daily, hourly);
+          ggA.signalScore = sigRes ? sigRes.score : null;
+          analyses.push(ggA);
           } catch (e) {
             console.warn("GG analysis failed:", sym, e);
           }
@@ -6315,6 +6311,7 @@
 
         // Cache scores for cross-tab score display + trend arrows
         rows.forEach(function(r){ if (r.score !== null) _msPrevScores[r.sym] = r.score; });
+        if (_moData.length) moApplySort();  // refresh MO score column live
 
         // Score distribution
         const distEl = document.getElementById("msScoreDist");
@@ -6845,7 +6842,6 @@ function portCapFor(sym) { return PORTFOLIO_CAPS[sym] || 5; }
 // ── Port data stores ──
 let portRawPositions = [];
 const portPosSort = { key: null, dir: 1 };
-let portWlSnaps = {};
 let portRawDistTable = [];
 let portRawDistCapData = [];
 const portDistTableSort = { key: "market_value", dir: -1 };
@@ -6957,39 +6953,11 @@ function portChangePeriod(btn) {
 }
 
 // ── Port Overview: Positions ──
-function portRenderWatchlistNoPos() {
-  const tbody = $("portNoPosBody");
-  if (!tbody) return;
-  const posSyms = new Set(portRawPositions.map(p => toSlash(p.symbol)));
-  const noPos = getPortCryptoWL().filter(sym => !posSyms.has(sym));
-  if (!noPos.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="placeholder">All watchlist symbols have open positions</td></tr>';
-    return;
-  }
-  tbody.innerHTML = noPos.map(sym => {
-    const price = portWlSnaps[sym] || 0;
-    const orderSym = sym.replace("/", "");
-    const priceStr = price ? fmtPrice(price) : '<span style="color:var(--muted)">–</span>';
-    return `<tr>
-      <td><span class="symbol">${tvLink(sym)}</span></td>
-      <td class="right" style="color:var(--muted)">–</td>
-      <td class="right" style="color:var(--muted)">–</td>
-      <td class="right mono">${priceStr}</td>
-      <td class="right" style="color:var(--muted)">–</td>
-      <td class="right" style="color:var(--muted)">–</td>
-      <td class="right" style="color:var(--muted)">–</td>
-      <td class="right" style="color:var(--muted)">–</td>
-      <td><div class="trade-actions"><button class="trade-action-btn" onclick="openTradeModal('${orderSym}','${sym}','buy','',${price})">Buy</button></div></td>
-    </tr>`;
-  }).join("");
-}
-
 function portRenderPositions() {
   const tbody = $("portPositionsBody");
   const data = applySort(portRawPositions, portPosSort.key, portPosSort.dir);
   if (!data.length) {
     tbody.innerHTML = '<tr><td colspan="9" class="placeholder">No open positions</td></tr>';
-    portRenderWatchlistNoPos();
     return;
   }
   tbody.innerHTML = data.map(p => {
@@ -7021,7 +6989,6 @@ function portRenderPositions() {
       </div></td>
     </tr>`;
   }).join("");
-  portRenderWatchlistNoPos();
 }
 
 function portSortPos(key) {
@@ -7034,16 +7001,6 @@ async function portLoadPositions() {
   const positions = await apiFetch("/v2/positions");
   portRawPositions = positions;
   $("portPosCount").textContent = positions.length;
-  try {
-    const encoded = getPortCryptoWL().map(s => encodeURIComponent(s)).join(",");
-    const data = await portApiFetch("https://data.alpaca.markets/v1beta3/crypto/us/snapshots?symbols=" + encoded);
-    const snaps = data.snapshots || {};
-    portWlSnaps = {};
-    getPortCryptoWL().forEach(sym => {
-      const s = snaps[sym];
-      if (s && s.dailyBar) portWlSnaps[sym] = parseFloat(s.dailyBar.c || s.dailyBar.o || 0);
-    });
-  } catch (_) {}
   portRenderPositions();
 }
 

@@ -9,9 +9,9 @@ Creator: Erik Kuipers
 # Workflow rules
 0. The bugs list needs to take preference for changes and the roadmap determines which features need to be added.
 1. After every change to a code file, append a dated entry to `memory.md` in the memeory folder, describing what changed and why (problem, fix, and how it was verified). Treat `memory.md` as the running changelog — no code edit is complete until `memory.md` is updated. 
-2. Do not start the local server.
+2. Do not start the local node server.
 3. Move completed roadmap items and bug fixes to the memory file for reference and change log purpose
-4. Automatically commit changes to git and sync with remote repo
+4. Automatically commit changes to git and sync with remote repo.
 5. update readme.md
 6. Add footer to the webpage. Add Project descirption, creator, last modified dat and version number to the Footer
 
@@ -22,6 +22,7 @@ Creator: Erik Kuipers
 
 ## Bugs
 (none)
+
 
 ---
 
@@ -397,18 +398,14 @@ Self-contained single-file HTML dashboard. Open locally in any browser — no se
 
 ### Portfolio dashboard (now integrated into `docs/dashboard_professional.html`)
 
-As of 2026-06-15, the portfolio dashboard pages have been merged into the Professional Dashboard as four new nav tabs under a **"💼 Portfolio"** section label. The `docs/portfolio-dashboard.html` file is kept for legacy reference but is no longer the primary entry point.
+As of 2026-06-15, the portfolio dashboard pages have been merged into the Professional Dashboard as new nav tabs under a **"💼 Portfolio"** section label. The `docs/portfolio-dashboard.html` file is kept for legacy reference but is no longer the primary entry point.
 
-The four portfolio tabs in the Professional Dashboard:
+The portfolio tabs in the Professional Dashboard:
 
 | Tab | ID | Feature |
 |-----|----|---------|
-| 📊 Portfolio Overview | `port-overview` | Account cards, equity curve (Chart.js, period buttons), sortable positions + watchlist-no-position tables, orders with filter buttons. |
-| 🔥 Hot Symbols | `port-hot` | Live snapshots for all 10 watchlist symbols: best/worst/avg stats, sortable ranked table, quick-view card grid. |
+| 📊 Portfolio Overview | `port-overview` | Account cards, equity curve (Chart.js, period buttons), sortable positions table. |
 | 🥧 Allocation | `port-dist` | Donut allocation chart, breakdown table, cap utilisation table vs. `PORTFOLIO_CAPS`. |
-| 🌅 Morning Brief | `port-brief` | Portfolio health strip, alerts, open-positions risk table, signal confluence for 10 watchlist symbols. `portLoadBrief()` called on tab switch. |
-
-**Header button:** `🌅 Morning Brief` → `generateMorningBrief()` — generates a downloadable `.md` morning brief from live Alpaca data (same format as `journal/`). Preview modal `#briefDocBackdrop` with Copy + Download.
 
 **JavaScript namespace:** All portfolio functions and variables are prefixed `port*` to avoid conflicts with the professional dashboard's existing functions. `portCapFor(sym)` uses the existing `PORTFOLIO_CAPS` object (values already in %). The standalone TA engine (`portConfluenceScore`, `portEmaSeries`, etc.) is independent of `calcSignalScore` to avoid cross-tab side effects.
 
@@ -445,7 +442,7 @@ Compare the following point-by-point before committing:
 10. **Bar completeness** — both sides pass `end = now − 1 bar period`.
 11. **Bar recency** — Python passes `sort=desc` (then reverses to chronological); dashboard paginates via `next_page_token`. Both must end at the latest complete bar — verify last bar timestamp ≈ now − 1 period.
 
-**Note on the Forward Analysis scoring** — The Forward Analysis tab uses a *different* scoring system (daily bars, gap magnitude, volume tier, range position). It is intentionally separate from the execution 6-point score and should not be kept in sync with `indicators.py`.
+**Note on the Breakout Scanner scoring** — The Breakout Scanner tab shows two scores side-by-side in each card header: (1) **Conviction** — a gap/breakout-specific score using daily bars, gap magnitude, volume tier, and range position (max ±7); (2) **Signal /6** — the standard 6-point `calcSignalScore()` result using 15-min + 4H + daily bars, identical to the Signals and Market Signals tabs. The Conviction score is intentionally separate from the execution 6-point score and should not be kept in sync with `indicators.py`. The Signal /6 score must be kept in sync (it uses the same `calcSignalScore` function).
 
 ### Documentation update rule
 **This rule applies to every change without exception — code, dashboard, config, or scripts.**
