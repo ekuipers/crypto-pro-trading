@@ -2,7 +2,7 @@
 
 **Status:** Active — paper trading only  
 **Account:** PA3EZEE1I9RS  
-**Root:** `C:\Claude\Projects\alpaca-trading-agent`  
+**Root:** `C:\Users\ERKUIPER\OneDrive - Capgemini\015. Repos\alpaca-trading-bot\alpaca-trading-agent`  
 **Owner:** Erik (the.eekman@gmail.com)  
 **Timezone:** GMT+2 (Europe/Amsterdam)
 
@@ -33,8 +33,8 @@ alpaca-trading-agent/
 ├── journal/
 │   └── YYYY-MM-DD.md            ← Daily trading journals (append, never overwrite)
 ├── docs/
-│   ├── portfolio-dashboard.html       ← Legacy dashboard (5 tabs: Overview, Hot Symbols, Distribution, Morning Brief, Settings)
-│   ├── dashboard_professional.html       ← Primary dashboard (12 tabs — see dashboard_layout.md)
+│   ├── portfolio-dashboard.html       ← Legacy dashboard (contents integrated into pro dashboard; kept for reference)
+│   ├── dashboard_professional.html       ← Primary dashboard (15 tabs — see dashboard_layout.md)
 │   └── dashboard_layout.md            ← Tab structure, feature notes, changelog
 └── skills/
     └── crypto-trader/
@@ -49,7 +49,6 @@ alpaca-trading-agent/
 |-------------|------|
 | Every hour :00 | Research routine for all 10 symbols |
 | Every hour :23 | `run_evaluation.py --execute` — evaluate + trade |
-| 07:00 daily | Morning brief (scheduled task) — eval + journal + dashboard |
 | 23:21 daily | Closing journal entry |
 
 ---
@@ -58,7 +57,7 @@ alpaca-trading-agent/
 
 | Name | Cron | Status | What it does |
 |------|------|--------|-------------|
-| `morning-brief` | `0 7 * * *` | enabled | Runs verify.py + run_evaluation.py; writes ## Morning Brief block to journal; opens dashboard; gives Erik a short summary |
+| `morning-brief` | `0 7 * * *` | enabled | Runs verify.py + run_evaluation.py; writes evaluation block to journal |
 | `morning-evaluation` | `0 9 * * *` | **disabled** | Daily evaluation — compute signals for all watchlist symbols and execute trades where warranted |
 | `daily-journal` | `21 23 * * *` | enabled | Closing journal entry — summarise trades, P&L, and market observations |
 
@@ -525,41 +524,38 @@ python scripts/rebalance.py --execute # place orders
 
 ---
 
-## Portfolio Dashboard (`dashboard_professional.html`)
+## Dashboard (`dashboard_professional.html`) — current as of v2026-06-15.6
 
-10 tabs (key `1`–`9` + Settings):
+**15 tabs** in a **left sidebar nav** (210px sticky column; collapses to horizontal scroll bar on mobile ≤700px). Tab routing via URL hash + `localStorage.lastTab`.
 
-| # | Tab | Key feature |
-|---|-----|-------------|
-| 1 | 🧭 Command | Trading permission status, cash reserve gate, live hard rules panel (6 real-time checks), trade modal |
-| 2 | 📈 Performance | Equity curve, rolling 30D/90D Sharpe, win rate, profit factor |
-| 3 | ⚠️ Risk | MDD, Sharpe, Sortino, portfolio cap usage, concentration panel, 10×10 correlation heatmap |
-| 4 | 📂 Positions | P&L%, Stop $ / Target $, Live R:R column, cap usage per position |
-| 5 | 🎯 Execution | Orders table, cancel-all, ATR Position Sizer |
-| 6 | 📡 Signals | Live 6-point confluence scanner (paginated bars), trend arrows ↑↓→, ATR qty, ⚡ quick-buy, browser notification on score ≥ 4 |
-| 7 | 💰 P&L | FIFO-matched realized P&L, calendar heatmap, P&L attribution by symbol, day-of-week performance, CSV export |
-| 8 | 🧪 Backtest vs Live | Walk-forward report loader, strategy health indicator |
-| 9 | 🔥 Gap & Go | Pre-session analysis: catalyst rating, supply risk, 6M range, key levels, historical gap-and-go rate, trade plan (entry/stop/T1/T2), risk rating — all 10 symbols ranked by conviction score |
-| — | 🔗 Markov | First-order Markov chain analysis for BTC/USD & ETH/USD over 30/60/90/180/365-day windows: 3-state (Up/Flat/Down) transition matrix, stationary distribution, next-day forecast, mean daily return. Analysis-only |
-| — | ⚙ Settings | API keys, mode toggle, notification permission |
+| Tab | ID | Key feature |
+|-----|----|-------------|
+| 🧭 Command | `command` | Live hard-rules panel (6 checks), cash reserve gate, trade modal, 🤖 Autopilot toggle + kill switch |
+| 📈 Performance | `performance` | Equity curve, rolling Sharpe, win rate, profit factor |
+| ⚠ Risk | `risk` | MDD, Sharpe, Sortino, cap usage, 10×10 Pearson correlation heatmap |
+| 📂 Positions | `positions` | P&L%, Stop $, Target $, Live R:R, short-aware badges + cover button |
+| 🎯 Execution | `execution` | Orders table, cancel-all, ATR Position Sizer |
+| 📡 Signals | `signals` | 6-point confluence scanner (watchlist 10 symbols), sorted descending by score, trend arrows, ATR qty, ⚡ quick-buy, ▶ execute |
+| 💰 P&L | `pnl` | FIFO realized P&L, calendar heatmap, attribution by symbol, day-of-week perf |
+| 🧪 Backtest vs Live | `backtest` | Live FIFO metrics vs saved expected metrics (Sharpe, max DD, win rate, PF, avg daily return) |
+| 📊 Breakout Scanner | `gapgo` | Pre-session gap/breakout analysis per watchlist symbol. Card header shows **Conviction** (gap-specific, max ±7) + **Signal /6** (standard `calcSignalScore()` — fetches 15-min + 4H bars) |
+| 🌍 Market Overview | `market-overview` | Price, 24h%, 7d%, volume, trend, cap tier per symbol. Score column auto-fills from Signals or Market Signals scan |
+| 🔭 Market Signals | `market-signals` | On-demand 6-point scan across full tradable Alpaca universe (sliced by Max Symbols setting) |
+| 🔗 Markov | `markov` | First-order Markov chain for BTC/USD & ETH/USD over 30/60/90/180/365-day windows |
+| 🔬 Edge | `edge` | On-demand realized-edge analytics: FIFO round-trips, per-symbol expectancy, hour/day P&L |
+| 📊 Portfolio Overview | `port-overview` | Account cards, equity curve (Chart.js), sortable positions table |
+| 🥧 Allocation | `port-dist` | Donut chart, breakdown table, cap utilisation vs `PORTFOLIO_CAPS` |
+| ⚙ Settings | `settings` | Paper/Live credentials, Risk Limits, Max Symbols, Active Watchlist tag editor |
 
-**Top-of-page live ticker strip** — shows all 10 symbols with price + 24h change. Auto-refreshes every 15 s via `setInterval`. Uses `/v1beta3/crypto/us/snapshots` endpoint.
-
-**3-mode auto-refresh button** — `Auto OFF` → `Prices 15s` (ticker only) → `Full 60s` (ticker + full dashboard).
-
-Data source for Gap & Go: `https://data.alpaca.markets/v1beta3/crypto/us/bars` — 6M daily + 8D hourly bars fetched in parallel.
+**Top-of-page ticker strip** — 10 symbols, price + 24h%. Auto-refreshes every 15 s.  
+**3-mode auto-refresh** — `Auto OFF` → `Prices 15s` → `Full 60s`.  
+**📓 Daily Journal button** — generates closing journal from live data, preview modal with Copy + Download `.md`.
 
 ---
 
-## Known Issues (as of 2026-05-14)
+## Known Issues
 
-| Issue | Detail | Action needed |
-|-------|--------|---------------|
-| All 9 positions over 5% cap | Range 9.7–14.8%; hard rule violation | Trim each to ≤5% equity (~$4,966 per position) |
-| Cash at 1.1% | $1,111 of ~$99,329 equity | Need to free up cash via trimming |
-| DOGE daily downtrend | close < 50-SMA AND 20-SMA < 50-SMA | Regime blocked; no new buys; watch for take-profit at +10% |
-| AAVE daily downtrend | Same as DOGE | Regime blocked |
-| SOL near stop | −2.07% (stop at −5%) | Watch closely |
+(none as of 2026-06-15)
 
 ---
 
