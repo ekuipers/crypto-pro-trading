@@ -1,0 +1,26 @@
+{
+  "day_open_equity": 95428.34,
+  "day_open_date": "2026-06-11",
+  "capital_preservation_mode": false,
+  "capital_preservation_since": null,
+  "positions": {
+    "BTC/USD": {
+      "entry_price": null,
+      "high_water_mark": null,
+      "trailing_stop_active": false,
+      "stop_order_id": "32a23327-e395-49f2-822f-ce3ef2d16659",
+      "stop_order_placed_iso": "2026-05-29T11:56:22.149538+00:00",
+      "stop_order_limit_price": 73030.8608,
+      "stop_order_cycles": 1
+    },
+    "DOGE/USD": {
+      "entry_price": null,
+      "high_water_mark": null,
+      "trailing_stop_active": false,
+      "stop_order_id": null,
+      "stop_order_placed_iso": null,
+      "stop_order_limit_price": null,
+      "stop_order_cycles": 0
+    }
+  }
+}

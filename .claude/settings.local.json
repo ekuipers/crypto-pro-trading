@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(git add *)",
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Bash(git clone *)",
+      "Bash(where gh *)",
+      "PowerShell(gh auth status 2>&1)",
+      "PowerShell(ls \"$env:USERPROFILE\\\\.claude\\\\skills\\\\\" 2>&1)"
     ]
   }
 }

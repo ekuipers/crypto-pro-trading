@@ -1,0 +1,94 @@
+{
+  "_comment": "Central configuration. Single source of truth; formerly split across config.json, portfolio_caps.json, and watchlist_crypto.json.",
+  "strategy": {
+    "buy_score_threshold": 4.0,
+    "buy_score_half_size_threshold": 3.0,
+    "sell_score_threshold": -2.0,
+    "short_score_threshold": -4.0,
+    "short_score_half_size_threshold": -3.0,
+    "cover_score_threshold": 2.0,
+    "atr_multiplier": 1.5,
+    "risk_per_trade_pct": 0.01,
+    "fallback_size_pct": 0.02,
+    "shorts_enabled": false
+  },
+  "risk": {
+    "stop_loss_pct": 0.05,
+    "limit_band_pct": 0.002,
+    "stop_loss_limit_band_pct": 0.005,
+    "default_position_cap_pct": 0.05,
+    "min_cash_reserve_pct": 0.2,
+    "trailing_stop_activation_pct": 0.025,
+    "trailing_stop_trail_pct": 0.03,
+    "stop_loss_escalation_cycles": 2,
+    "stop_loss_escalation_extra_pct": 0.003,
+    "max_open_positions": 3,
+    "tier1_symbols": [
+      "BTC/USD",
+      "ETH/USD"
+    ],
+    "max_positions_per_tier": 2,
+    "daily_drawdown_gate_pct": 0.03,
+    "capital_preservation_stop_pct": 0.03
+  },
+  "indicators": {
+    "ema_fast": 20,
+    "ema_slow": 50,
+    "rsi_period": 14,
+    "macd_fast": 12,
+    "macd_slow": 26,
+    "macd_signal": 9,
+    "bollinger_period": 20,
+    "bollinger_std": 2.0,
+    "volume_period": 20,
+    "bollinger_squeeze_lookback": 60,
+    "bollinger_squeeze_percentile": 20
+  },
+  "data": {
+    "bars_15min": 200,
+    "bars_4h": 120,
+    "bars_daily": 90,
+    "min_bars_for_signal": 60
+  },
+  "api": {
+    "max_retry_attempts": 3,
+    "retry_backoff_seconds": 5.0
+  },
+  "portfolio_caps": {
+    "caps": {
+      "BTC/USD": 0.3,
+      "ETH/USD": 0.15,
+      "ADA/USD": 0.1,
+      "SOL/USD": 0.1,
+      "DOGE/USD": 0.08,
+      "LTC/USD": 0.06,
+      "DOT/USD": 0.06,
+      "LINK/USD": 0.05,
+      "AVAX/USD": 0.05,
+      "AAVE/USD": 0.05
+    },
+    "default_cap": 0.05
+  },
+  "watchlist": {
+    "symbols": [
+      "BTC/USD",
+      "ETH/USD",
+      "SOL/USD",
+      "AVAX/USD",
+      "LINK/USD",
+      "DOT/USD",
+      "LTC/USD",
+      "DOGE/USD",
+      "ADA/USD",
+      "AAVE/USD"
+    ]
+  },
+  "scout": {
+    "_comment": "Universe scout: auto-promote uptrending high-confluence */USD pairs outside the watchlist (scripts/scout.py). Promoted symbols use the default 5% cap and all existing gates.",
+    "enabled": true,
+    "max_promoted": 3,
+    "min_score": 4.0,
+    "ttl_hours": 6.0,
+    "max_scan": 60
+  }
+}

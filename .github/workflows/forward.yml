@@ -1,0 +1,87 @@
+name: Forward Analysis
+
+on:
+  schedule:
+    - cron: '8 4 * * *'   # once per day in the morning
+  workflow_dispatch:    
+      
+# Voorkom gelijktijdige runs die allebei naar main proberen te pushen.
+# Concurrency zorgt dat er max 1 run tegelijk actief/pending is per group.
+concurrency:
+  group: trading-bot-${{ github.ref }}
+  cancel-in-progress: false
+
+# Minimaal benodigde rechten om commits te kunnen pushen.
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  evaluate:
+    name: Forward Analysis
+    runs-on: ubuntu-latest
+
+    # Run voor manual dispatch, als event is schedule dan voer schedule uit) 
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'schedule' && github.event.schedule ==   '8 4 * * *')
+
+    # Environment for walk forward is always paper
+    environment: 'paper'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0        # nodig voor rebase/pull met volledige history [3](https://code.alazhar.dev/actions/checkout)
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Configure trading env vars
+        run: |
+            echo "TRADING_ENV=paper" >> "$GITHUB_ENV"
+            echo "APCA_BASE_URL=https://paper-api.alpaca.markets" >> "$GITHUB_ENV"
+            echo "APCA_API_KEY_ID=${{ secrets.APCA_PAPER_KEY_ID }}" >> "$GITHUB_ENV"
+            echo "APCA_API_SECRET_KEY=${{ secrets.APCA_PAPER_SECRET_KEY }}" >> "$GITHUB_ENV"
+
+      - name: Validate credentials
+        run: |
+          missing=0
+          [ -z "$APCA_API_KEY_ID" ] && echo "ERROR: APCA_API_KEY_ID is empty" && missing=1
+          [ -z "$APCA_API_SECRET_KEY" ] && echo "ERROR: APCA_API_SECRET_KEY is empty" && missing=1
+          [ -z "$APCA_BASE_URL" ] && echo "ERROR: APCA_BASE_URL is empty" && missing=1
+          [ $missing -eq 1 ] && exit 1
+          echo "Credentials present. ENV=$TRADING_ENV BASE_URL=$APCA_BASE_URL"
+
+      - name: Run forward analysis
+        run: |
+          python scripts/walkforward_evaluate.py --symbols BTC/USDC ETH/USDC --start 2024-01-01 --end 2026-05-01 --train-days 90 --test-days 30 --timeframes 1H 4H 1D --fee-bps 5 --slippage-bps 5
+          
+      - name: Commit & push reports
+        run: |
+          git config user.name  "Trading Bot"
+          git config user.email "bot@alpaca-trading"
+
+          # Only commit when there are changes
+          git add reports/
+          git diff --cached --quiet && { echo "No report changes"; exit 0; }
+
+          git commit -m "reports: [$TRADING_ENV] evaluation $(date -u '+%Y-%m-%d %H:%M UTC')"
+
+          # Rebase + retry push to avoid 'fetch first' failures (race conditions)
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && \
+            git push origin HEAD:main && break
+            echo "Push failed, retrying ($i/3)..."
+            sleep 2
+          done
