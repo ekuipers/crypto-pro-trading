@@ -30,8 +30,8 @@ Key principles applied across both dashboards:
 ## 1. Professional Dashboard — `docs/dashboard_professional.html`
 
 **Status:** Primary (recommended)
-**Title:** "Professional Trader Dashboard"
-**Tabs:** 17 — Command · Performance · Risk · Positions · Execution · Signals · P&L · Backtest vs Live · Breakout Scanner · Market Overview · Market Signals · Markov · Edge · [💼 Portfolio: Portfolio Overview · Hot Symbols · Allocation · Morning Brief] · Settings
+**Title:** "CryptoPro Dashboard"
+**Tabs:** 15 — Command · Performance · Risk · Positions · Execution · Signals · P&L · Backtest vs Live · Breakout Scanner · Market Overview · Market Signals · Markov · Edge · [💼 Portfolio: Portfolio Overview · Allocation] · Settings
 
 ### Navigation & layout
 
@@ -59,10 +59,8 @@ Key principles applied across both dashboards:
 | 🔭 **Market Signals** | `market-signals` | On-demand full 6-point confluence scan over `getCryptoUniverse()`, sliced by the **Max Symbols** setting (no upper clamp). Score distribution + Top Opportunities panel. Scores cached into `_msPrevScores` for cross-tab display. |
 | 🔗 **Markov** | `markov` | On-demand first-order Markov chain analysis for BTC/USD & ETH/USD across 30/60/90/180/365-day windows. 3×3 transition matrix, stationary distribution, next-day forecast. Analysis-only — places no orders. |
 | 🔬 **Edge** | `edge` | On-demand (▶ Analyze) realized-edge analytics: FIFO round-trips from all FILL activities — per-symbol expectancy table, P&L by hour-of-day / day-of-week (GMT+2), KPI tiles, factual takeaway line. |
-| 📊 **Portfolio Overview** | `port-overview` | Account equity/cash/buying-power/P&L cards; equity curve (Chart.js, period buttons); open positions table (sortable, short-aware); watchlist no-position table; orders table with filter buttons (All/Filled/Open/Canceled). |
-| 🔥 **Hot Symbols** | `port-hot` | Live snapshots for the 10-symbol watchlist: best/worst/green-count/avg-change summary; sortable ranked table; quick-view card grid with colour-coded tops. |
+| 📊 **Portfolio Overview** | `port-overview` | Account equity/cash/buying-power/P&L cards; equity curve (Chart.js, period buttons); open positions table (sortable, short-aware); watchlist no-position table. |
 | 🥧 **Allocation** | `port-dist` | Donut chart of allocation across positions + cash; sortable breakdown table; cap utilisation table (all watchlist symbols, Over Cap / Near Cap / OK badges). |
-| 🌅 **Morning Brief** | `port-brief` | Live portfolio health strip, alerts, open-positions risk table (sortable, progress bars for stop/gain), signal confluence table for all 10 watchlist symbols. Standalone `portConfluenceScore()` TA engine; data loaded on tab switch or ↻ Refresh. |
 | ⚙ **Settings** | `settings` | Grouped sections: Paper credentials, Live credentials, Risk Limits, Signals Analysis (**Max Symbols**, default 30, minimum 1, no upper clamp), and **📋 Active Watchlist** (up to 20 symbols; tag editor with Add/Remove/Reset; persisted in `localStorage.proDashboardWatchlist`; used by Autopilot, Daily Journal, Signals tab, and Portfolio tabs). Seeds from `./config.json` (load-only fallback); saves to `localStorage`. |
 
 ### Shared crypto universe (Market Overview + Market Signals)
@@ -97,6 +95,7 @@ Key principles applied across both dashboards:
 | 2026-06-15 | **6% drawdown hard rule removed** — removed `maxCurrentDrawdownPct` / `warningCurrentDrawdownPct` from `DEFAULT_LIMITS`, the hard-rules panel, and the alerts/permission-rules checks. The drawdown metric still shows on the Risk tab; the system no longer halts trading when drawdown reaches 6%. |
 | 2026-06-15 | **📋 Active Watchlist in Settings tab** — tag editor lets the user manage up to 20 watchlist symbols. `getWatchlist()` returns the active list from `localStorage.proDashboardWatchlist` (falls back to the 10 defaults). All consumers updated: `JOURNAL_WL`, `AP_WATCHLIST`, and `PORT_CRYPTO_WL` are now dynamic calls to `getWatchlist()` / `getApWatchlist()` / `getPortCryptoWL()`. Footer: v2026-06-15.3. |
 | 2026-06-15 | **Footer redesign** — replaced single-line footer with a two-row structured footer: project name + description on row 1; Creator, Last modified date, and Version on row 2. CSS uses `display:flex` + `flex-wrap` with mobile fallback to `flex-direction:column`. Version v2026-06-15.4. |
+| 2026-06-15 | **Roadmap cleanup (all 5 items)** — (1) Added SVG candlestick favicon inline data URI; (2) Removed Orders pane from Portfolio Overview (`portFilterOrders`, `portSortOrd`, `portLoadOrders` JS removed); (3) Removed Hot Symbols tab (`page-port-hot`, all `port-hot` JS); (4) Updated `<title>` to "CryptoPro Dashboard"; (5) Removed Morning Brief tab, header button, modal, and all related JS (`portLoadBrief`, `portSortBriefPos`, `portRenderBriefPos`, `portSortConf`, `portRenderConf`, `generateMorningBrief`, helpers). Version v2026-06-15.5. |
 
 ---
 

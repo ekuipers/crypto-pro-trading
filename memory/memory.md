@@ -46,6 +46,28 @@ Additionally, the `setSortIcons()` function was present in the original `portfol
 
 ---
 
+## 2026-06-15 — Roadmap items 1–5 completed (favicon, remove Orders/HotSymbols/MorningBrief, page title)
+
+**Problem:** 5 open roadmap items remained: no favicon, Orders pane in Portfolio Overview, Hot Symbols tab in nav, page title still "Professional Trader Dashboard", and Morning Brief tab/button/modal.  
+**Fix:** Applied all 5 changes via Python script to avoid encoding issues:
+1. Added SVG candlestick chart favicon (inline data URI, 3 green/red candles on dark background).
+2. Removed Orders pane from Portfolio Overview — deleted `portFilterOrders`, `portSortOrd`, `portLoadOrders` JS and the Orders `<section>` HTML.
+3. Removed Hot Symbols tab — deleted `page-port-hot` HTML page, nav button, and all Hot Symbols JS (`portWlCard`, `portSortHot`, `portRenderHot`, `portLoadCryptoWatchlist`, `portLoadHot`).
+4. Updated `<title>` from "Professional Trader Dashboard" to "CryptoPro Dashboard".
+5. Removed Morning Brief — deleted nav button, `page-port-brief` HTML page, header button, Morning Brief modal, and all Brief JS (`portLoadBrief`, `portSortBriefPos`, `portRenderBriefPos`, `portSortConf`, `portRenderConf`, `generateMorningBrief`, `closeBriefDoc`, `downloadBriefDoc`, `copyBriefDoc`).
+Also removed now-unused constants/vars: `portAllOrders`, `portOrdSort`, `portRawHotRows`, `portHotSort`, `port_briefEquity`, `portRawBriefPos`, `portRawConfRows`, `portBriefPosSort`, `portConfSort`, `PORT_STATUS_GROUPS`. Updated `switchTab`, `refreshCurrent`, and the 60s `setInterval` in Port init. Version v2026-06-15.5.  
+**Verified:** Python check confirms zero remaining refs to all removed identifiers. File: 7395 lines (down from 8070).
+
+**Files changed:**
+- `docs/dashboard_professional.html`
+- `CLAUDE.md` (roadmap cleared)
+- `README.md` (portfolio tabs section updated)
+- `docs/dashboard_layout.md` (tab list + changelog entry)
+- `memory/MEMORY.md` (this entry)
+- `memory/projects/alpaca-trading-agent.md` (session history)
+
+---
+
 ## 2026-06-15 — Footer redesign (Roadmap item: Replace footer per Workflow rule 6)
 
 **Problem:** Footer was a single cramped line of text with no structured project information.  

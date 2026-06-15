@@ -317,13 +317,10 @@ Key features:
 
 ### Portfolio tabs (integrated into `docs/dashboard_professional.html`)
 
-As of 2026-06-15, the portfolio dashboard pages have been merged into the Professional Dashboard as four new nav tabs under a **"💼 Portfolio"** section label in the sidebar. The legacy `docs/portfolio-dashboard.html` file is kept for reference.
+As of 2026-06-15, the portfolio dashboard pages have been merged into the Professional Dashboard as new nav tabs under a **"💼 Portfolio"** section label in the sidebar. The legacy `docs/portfolio-dashboard.html` file is kept for reference.
 
-- **📊 Portfolio Overview** (`port-overview`) — Account equity/cash/buying-power/P&L cards, equity curve (Chart.js, period selector: 1D/1W/1M/3M/1Y), sortable open positions table (short-aware), watchlist symbols with no position, orders table with All/Filled/Open/Canceled filter buttons.
-- **🔥 Hot Symbols** (`port-hot`) — Live snapshots for all 10 watchlist symbols: best/worst/green-count/avg-change summary tiles, sortable ranked table, quick-view card grid with colour-coded tops.
+- **📊 Portfolio Overview** (`port-overview`) — Account equity/cash/buying-power/P&L cards, equity curve (Chart.js, period selector: 1D/1W/1M/3M/1Y), sortable open positions table (short-aware), watchlist symbols with no position.
 - **🥧 Allocation** (`port-dist`) — Donut allocation chart with legend, breakdown table, cap utilisation table (all watchlist symbols vs. `PORTFOLIO_CAPS` limits, Over Cap / Near Cap / OK status badges).
-- **🌅 Morning Brief** (`port-brief`) — Live portfolio health strip, alert list, open-positions risk table (stop distance progress bar, gain progress bar, status chips), signal confluence table for all 10 watchlist symbols (standalone `portConfluenceScore` TA engine). Loads on tab switch and has a ↻ Refresh button.
-- **🌅 Morning Brief header button** — `generateMorningBrief()` produces a downloadable `.md` brief from live Alpaca data matching the `journal/` format (Portfolio Health, Alerts, Signal Confluence table, Market Notes). Preview modal (`#briefDocBackdrop`) with Copy + Download.
 
 ### `docs/portfolio-dashboard.html` *(legacy — contents integrated into Professional Dashboard)*
 

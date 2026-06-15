@@ -66,6 +66,16 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-15 — Roadmap items 1–5: favicon, title, remove Orders/HotSymbols/MorningBrief
+
+Applied all 5 remaining roadmap items to `docs/dashboard_professional.html` via a Python script (to avoid encoding corruption from PowerShell):
+1. **Favicon** — Inline SVG candlestick chart (`data:image/svg+xml`), 3 candles on dark background. Added to `<head>` alongside updated `<title>`.
+2. **Title** — Changed from "Professional Trader Dashboard" to "CryptoPro Dashboard".
+3. **Remove Orders pane** — Deleted the `<!-- Orders -->` `<section>` from `page-port-overview`; removed `portFilterOrders`, `portSortOrd`, `portLoadOrders` JS; removed `portLoadOrders()` from `portLoadOverview`'s `Promise.all`; removed `portAllOrders`, `portOrdSort`, `PORT_STATUS_GROUPS` declarations.
+4. **Remove Hot Symbols tab** — Deleted nav button, `page-port-hot` HTML, all Hot Symbols JS (`portWlCard`, `portSortHot`, `portRenderHot`, `portLoadCryptoWatchlist`, `portLoadHot`), and related vars (`portRawHotRows`, `portHotSort`).
+5. **Remove Morning Brief** — Deleted nav button, header button, `page-port-brief` HTML, `#briefDocBackdrop` modal, and all Brief JS (`portLoadBrief`, `portSortBriefPos`, `portRenderBriefPos`, `portSortConf`, `portRenderConf`, `generateMorningBrief`, `closeBriefDoc`, `downloadBriefDoc`, `copyBriefDoc`); removed vars (`port_briefEquity`, `portRawBriefPos`, `portRawConfRows`, `portBriefPosSort`, `portConfSort`); fixed `switchTab`, `refreshCurrent`, `setInterval`, `setSortIcons` init calls.
+Version: v2026-06-15.5. File: 7395 lines (down from 8070).
+
 ### 2026-06-15 — All 3 roadmap items completed
 
 Three roadmap items completed in one session (items tackled in order: 2, 3, 1):

@@ -18,7 +18,7 @@ Creator: Erik Kuipers
 ---
 
 ## Roadmap
-1. Create and add a favicon based on the purpose of this project.
+(all items completed as of 2026-06-15)
 
 ## Bugs
 (none)
