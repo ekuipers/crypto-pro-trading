@@ -9,8 +9,7 @@
 
 ## Roadmap
 1. Add the watchlist for determining the active portfolio to the settings tab. Let the user select up to 20 symbols to act as active watchlist.
-2. Merge files dashboard_professional.html and portfolio-dashboard.html to a single web page. Split professional dashboard and portfilio dashboard in seperate menu items in the navigation menus.
-3. Remove the hard rule current drawdown ≤ 6%, STOP trading.
+2. Remove the hard rule current drawdown ≤ 6%, STOP trading.
 
 ## Bugs
 
@@ -385,11 +384,22 @@ Self-contained single-file HTML dashboard. Open locally in any browser — no se
 | Settings tab | Grouped into labelled sections, each a 2-column `form-grid`: **📄 Paper Trading** (API Key + Secret), **🔴 Live Trading** (API Key + Secret), **🛡 Risk Limits** (Assumed Stop Loss %, Max Daily Loss %, Max Open Risk %), then **🔭 Signals Analysis** (Max Symbols in Market Signals scan) — all placed *below* the API credentials. API key/secret pairs line up side by side per environment; risk-limit and signals inputs form separate blocks under the keys. `maxSignalSymbols` (input `setMaxSignalSymbols`, default 30, minimum 1, **no upper clamp**) lives in `getSettings().limits` and sets how many symbols the **Market Signals** scanner analyses — top-N via `universe.slice(0, n)` (`SCAN_SYMBOLS` in `loadMarketSignals`), where `universe` is `getCryptoUniverse()` (full tradable Alpaca crypto list, TOP30 first then the rest alphabetically). A value above 30 genuinely scans more than 30 symbols (no longer capped at the 30 hardcoded `TOP30_SYMBOLS`; the only ceiling is how many USD pairs the account can trade). Does not affect the watchlist Signals tab or Market Overview (the latter still shows the static 30). Settings persist to `config.json` in the same folder as the HTML: `loadConfigFromFile()` fetches `./config.json` on page load (inside an async `bootstrapDashboard()` IIFE) and seeds settings (empty string fields do not clobber stored credentials; `limits` are merged). `config.json` is **load-only** and acts as a *seed/fallback*: on load, saved `localStorage` values win and `config.json` only fills gaps (so a `maxSignalSymbols` you set and save persists across refreshes; `config.json`'s value applies only on a fresh browser with no saved setting). There is no save-to-file; `saveSettings()` persists to `localStorage`. To change defaults for a fresh browser, edit `config.json`; to change your live setting, use the Settings tab. **Note:** `updateScanBtnLabel()` must NOT be called from the early top-level init — `TOP30_SYMBOLS` is a `const` declared later in the script, so calling it before that line throws a TDZ error (`Cannot access 'TOP30_SYMBOLS' before initialization`) that aborts the whole script. It is now called inside `bootstrapDashboard()` after the `await`, by which point the const is initialized. |
 | 📓 Daily Journal button (header) | `generateDailyJournal()` builds today's closing journal from live data (`/v2/account`, `/v2/positions`, `/v2/account/activities?activity_type=FILL`) plus a 10-symbol `JOURNAL_WL` confluence scan via `calcSignalScore`. Sections: Summary, Trades Today (FILL fills filtered to the GMT+2 day), Open Positions, Market Observations. Preview modal (`#journalDocBackdrop`) with Copy + Download `.md` (`daily-journal-YYYY-MM-DD.md`). Day filtering and timestamps use the `Etc/GMT-2` timezone. |
 
-### Portfolio dashboard (`docs/portfolio-dashboard.html`)
+### Portfolio dashboard (now integrated into `docs/dashboard_professional.html`)
 
-| Feature | Detail |
-|---------|--------|
-| 🌅 Morning Brief button (header) | `generateMorningBrief()` generates the morning brief as a downloadable Markdown doc matching the `journal/` format: Portfolio Health (+ per-position table), direction-aware Alerts, Signal Confluence table (10 watchlist symbols via the existing `confluenceScore`/`fetchBars` engine), and a templated Market Notes paragraph. Preview modal (`#briefDocBackdrop`) with Copy + Download `.md` (`morning-brief-YYYY-MM-DD.md`). Timestamps use the `Etc/GMT-2` timezone. |
+As of 2026-06-15, the portfolio dashboard pages have been merged into the Professional Dashboard as four new nav tabs under a **"💼 Portfolio"** section label. The `docs/portfolio-dashboard.html` file is kept for legacy reference but is no longer the primary entry point.
+
+The four portfolio tabs in the Professional Dashboard:
+
+| Tab | ID | Feature |
+|-----|----|---------|
+| 📊 Portfolio Overview | `port-overview` | Account cards, equity curve (Chart.js, period buttons), sortable positions + watchlist-no-position tables, orders with filter buttons. |
+| 🔥 Hot Symbols | `port-hot` | Live snapshots for all 10 watchlist symbols: best/worst/avg stats, sortable ranked table, quick-view card grid. |
+| 🥧 Allocation | `port-dist` | Donut allocation chart, breakdown table, cap utilisation table vs. `PORTFOLIO_CAPS`. |
+| 🌅 Morning Brief | `port-brief` | Portfolio health strip, alerts, open-positions risk table, signal confluence for 10 watchlist symbols. `portLoadBrief()` called on tab switch. |
+
+**Header button:** `🌅 Morning Brief` → `generateMorningBrief()` — generates a downloadable `.md` morning brief from live Alpaca data (same format as `journal/`). Preview modal `#briefDocBackdrop` with Copy + Download.
+
+**JavaScript namespace:** All portfolio functions and variables are prefixed `port*` to avoid conflicts with the professional dashboard's existing functions. `portCapFor(sym)` uses the existing `PORTFOLIO_CAPS` object (values already in %). The standalone TA engine (`portConfluenceScore`, `portEmaSeries`, etc.) is independent of `calcSignalScore` to avoid cross-tab side effects.
 
 ### Dashboard scoring parity with `indicators.py`
 

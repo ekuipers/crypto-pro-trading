@@ -4,6 +4,21 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-06-15 — Portfolio Dashboard Merge
+
+| Term | Meaning |
+|------|---------|
+| `port-overview` / `port-hot` / `port-dist` / `port-brief` | Tab IDs for the four portfolio tabs integrated into `dashboard_professional.html` under the "💼 Portfolio" nav section. |
+| `portCapFor(sym)` | Returns the symbol's cap percentage from `PORTFOLIO_CAPS` (e.g. 30 for BTC/USD). Uses `PORTFOLIO_CAPS[sym] \|\| 5`. |
+| `portConfluenceScore()` | Standalone TA confluence scorer in the Professional Dashboard (same logic as `calcSignalScore`/`signal_score`). Prefixed `port*` to avoid namespace collision. |
+| `portLoadBrief()` | Loads the Morning Brief tab: fetches account + positions, computes alerts, runs `portConfluenceScore` for all 10 watchlist symbols. |
+| `generateMorningBrief()` | Header-button function that produces a downloadable `.md` morning brief from live Alpaca data. Opens `#briefDocBackdrop` modal. |
+| `port-filter-btn` | CSS class for the order-filter buttons (All/Filled/Open/Canceled) in the Portfolio Overview tab. Renamed from `filter-btn` to avoid collision. |
+| `port-period-btn` | CSS class for chart period selector buttons in Portfolio Overview. Renamed from `period-btn`. |
+| `port-sortable` / `port-sorted` | CSS classes for sortable column headers in portfolio tables. Renamed from `sortable` / `sorted`. |
+
+---
+
 ## Acronyms & Abbreviations
 
 | Term | Meaning | Context |

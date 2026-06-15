@@ -315,13 +315,19 @@ Key features:
 - **📓 Daily Journal button** — top-row header button (`generateDailyJournal()`) that produces today's closing journal entry from live data: a Summary block (close equity, day P&L vs day-open, cash %, open-position count + unrealized P&L, trades-executed-today + session realized P&L via FIFO), a Trades Today table (FILL activities filtered to the GMT+2 calendar day), an Open Positions table, and a templated Market Observations paragraph backed by a closing 10-symbol confluence scan. Opens a preview modal with **📋 Copy** and **↓ Download .md** (filename `daily-journal-YYYY-MM-DD.md`). No backend required.
 - **⚙ Settings tab** — grouped into labelled sections, each a 2-column `form-grid`: **📄 Paper Trading** (API Key + Secret), **🔴 Live Trading** (API Key + Secret), **🛡 Risk Limits** (Assumed Stop Loss %, Max Daily Loss %, Max Open Risk %), then **🔭 Signals Analysis** (Max Symbols in Market Signals scan) below the API credentials. API key/secret pairs line up side by side per environment; risk-limit and signals fields live in their own blocks under the keys. The **Max Symbols** value (`maxSignalSymbols`, default 30, minimum 1, no upper clamp) sets how many of the market-cap-ranked `TOP30_SYMBOLS` the Market Signals scanner analyses (top-N). The scan universe is 30 symbols, so a value above 30 just scans all of them. A **`config.json`** file in the same folder as the dashboard is fetched on page load (`loadConfigFromFile`) to seed all settings; blank fields in it do not overwrite stored credentials. Saving settings persists to `localStorage` only (no save-to-file); saved values win over `config.json` on reload, so a Max Symbols value you set and save survives refreshes. `config.json` only seeds a fresh browser — edit it to change the fresh-start defaults.
 
-### `docs/portfolio-dashboard.html` *(legacy)*
+### Portfolio tabs (integrated into `docs/dashboard_professional.html`)
 
-- **🤖 Autopilot (Command tab)** — in-dashboard autonomous loop: scans the watchlist every 15/30/60 min and trades through the same hard-rule gates as the Python agent (score ≥ 4, regime, correlation budget, caps, ATR sizing, 20% cash reserve, stops + trailing HWM). Always OFF on page load; kill switch cancels all open orders; full per-decision activity log. Short entries are never placed (Alpaca spot crypto cannot short — short UI removed, bearish scores show an informational BEAR pill).
-- **🔬 Edge tab** — on-demand realized-edge analytics (FIFO round-trips from FILL history): per-symbol expectancy, P&L by hour/day-of-week, payoff ratio, holding-time stats.
+As of 2026-06-15, the portfolio dashboard pages have been merged into the Professional Dashboard as four new nav tabs under a **"💼 Portfolio"** section label in the sidebar. The legacy `docs/portfolio-dashboard.html` file is kept for reference.
 
-Original lighter dashboard — 3 tabs: Overview, Hot Symbols, Morning Brief. Updated to support short positions: direction-aware stop/target prices, SHORT badge, `Buy / Cover` button for shorts, regime-gated action chips (SHORT ≤−4/6, ½ SHORT −3/6), and correct P&L sign for shorts via Alpaca's `unrealized_plpc` field. Mobile portrait: `.table-wrap` and `.conf-wrap` use `overflow-x:scroll` + `-webkit-overflow-scrolling:touch`, clamped to `calc(100vw - 24px)` in a `@media (max-width:700px)` block; all tables have `min-width:700px`. Every symbol label is a `tvLink()` anchor opening the TradingView chart in a new tab.
-- **🌅 Morning Brief button** — top-row header button (`generateMorningBrief()`) that generates the morning brief as a downloadable Markdown document matching the `journal/` format: Portfolio Health (equity, cash %, unrealized P&L, open positions + a per-position table), Alerts (cash, stop proximity, cap breach, gains — direction-aware), Signal Confluence table (10 watchlist symbols, score / 4H regime / daily regime / action), and a templated Market Notes paragraph. Opens a preview modal with **📋 Copy** and **↓ Download .md** (filename `morning-brief-YYYY-MM-DD.md`). Reuses the existing `confluenceScore` / `fetchBars` engine.
+- **📊 Portfolio Overview** (`port-overview`) — Account equity/cash/buying-power/P&L cards, equity curve (Chart.js, period selector: 1D/1W/1M/3M/1Y), sortable open positions table (short-aware), watchlist symbols with no position, orders table with All/Filled/Open/Canceled filter buttons.
+- **🔥 Hot Symbols** (`port-hot`) — Live snapshots for all 10 watchlist symbols: best/worst/green-count/avg-change summary tiles, sortable ranked table, quick-view card grid with colour-coded tops.
+- **🥧 Allocation** (`port-dist`) — Donut allocation chart with legend, breakdown table, cap utilisation table (all watchlist symbols vs. `PORTFOLIO_CAPS` limits, Over Cap / Near Cap / OK status badges).
+- **🌅 Morning Brief** (`port-brief`) — Live portfolio health strip, alert list, open-positions risk table (stop distance progress bar, gain progress bar, status chips), signal confluence table for all 10 watchlist symbols (standalone `portConfluenceScore` TA engine). Loads on tab switch and has a ↻ Refresh button.
+- **🌅 Morning Brief header button** — `generateMorningBrief()` produces a downloadable `.md` brief from live Alpaca data matching the `journal/` format (Portfolio Health, Alerts, Signal Confluence table, Market Notes). Preview modal (`#briefDocBackdrop`) with Copy + Download.
+
+### `docs/portfolio-dashboard.html` *(legacy — contents integrated into Professional Dashboard)*
+
+Original lighter standalone dashboard. Still functional but the Professional Dashboard now contains all the same tabs. See above.
 
 ---
 
@@ -420,8 +426,8 @@ alpaca-trading-agent/
 │   ├── trade.yml              # Hourly trading + daily summary
 │   └── forward.yml            # Daily walk-forward analysis
 ├── docs/
-│   ├── portfolio-dashboard.html        # Portfolio dashboard (5 tabs, lightweight)
-│   ├── dashboard_professional.html     # Professional dashboard (13 tabs, primary)
+│   ├── portfolio-dashboard.html        # Portfolio dashboard (5 tabs, legacy — contents integrated into pro dashboard)
+│   ├── dashboard_professional.html     # Professional dashboard (17 tabs, primary; includes 4 portfolio tabs)
 │   └── dashboard_layout.md            # Dashboard layout & changelog (Professional + Portfolio sections)
 ├── journal/
 │   ├── _template.md           # Journal entry template

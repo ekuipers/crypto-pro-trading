@@ -6,8 +6,8 @@ covered by the project's documentation-update rule (see `CLAUDE.md`).
 
 There are two dashboards, each a self-contained single-file HTML page (no server needed):
 
-1. **Professional Dashboard** — `docs/dashboard_professional.html` (primary, 13 tabs, sidebar nav)
-2. **Portfolio Dashboard** — `docs/portfolio-dashboard.html` (lightweight, 5 tabs)
+1. **Professional Dashboard** — `docs/dashboard_professional.html` (primary, now 17 tabs including 4 integrated portfolio tabs, sidebar nav)
+2. **Portfolio Dashboard** — `docs/portfolio-dashboard.html` (legacy, 5 tabs — contents now also available in the Professional Dashboard)
 
 ---
 
@@ -31,7 +31,7 @@ Key principles applied across both dashboards:
 
 **Status:** Primary (recommended)
 **Title:** "Professional Trader Dashboard"
-**Tabs:** 13 — Command · Performance · Risk · Positions · Execution · Signals · P&L · Backtest vs Live · Breakout Scanner · Market Overview · Market Signals · Markov · Settings
+**Tabs:** 17 — Command · Performance · Risk · Positions · Execution · Signals · P&L · Backtest vs Live · Breakout Scanner · Market Overview · Market Signals · Markov · Edge · [💼 Portfolio: Portfolio Overview · Hot Symbols · Allocation · Morning Brief] · Settings
 
 ### Navigation & layout
 
@@ -59,6 +59,10 @@ Key principles applied across both dashboards:
 | 🔭 **Market Signals** | `market-signals` | On-demand full 6-point confluence scan over `getCryptoUniverse()`, sliced by the **Max Symbols** setting (no upper clamp). Score distribution + Top Opportunities panel. Scores cached into `_msPrevScores` for cross-tab display. |
 | 🔗 **Markov** | `markov` | On-demand first-order Markov chain analysis for BTC/USD & ETH/USD across 30/60/90/180/365-day windows. 3×3 transition matrix, stationary distribution, next-day forecast. Analysis-only — places no orders. |
 | 🔬 **Edge** | `edge` | On-demand (▶ Analyze) realized-edge analytics: FIFO round-trips from all FILL activities — per-symbol expectancy table, P&L by hour-of-day / day-of-week (GMT+2), KPI tiles, factual takeaway line. |
+| 📊 **Portfolio Overview** | `port-overview` | Account equity/cash/buying-power/P&L cards; equity curve (Chart.js, period buttons); open positions table (sortable, short-aware); watchlist no-position table; orders table with filter buttons (All/Filled/Open/Canceled). |
+| 🔥 **Hot Symbols** | `port-hot` | Live snapshots for the 10-symbol watchlist: best/worst/green-count/avg-change summary; sortable ranked table; quick-view card grid with colour-coded tops. |
+| 🥧 **Allocation** | `port-dist` | Donut chart of allocation across positions + cash; sortable breakdown table; cap utilisation table (all watchlist symbols, Over Cap / Near Cap / OK badges). |
+| 🌅 **Morning Brief** | `port-brief` | Live portfolio health strip, alerts, open-positions risk table (sortable, progress bars for stop/gain), signal confluence table for all 10 watchlist symbols. Standalone `portConfluenceScore()` TA engine; data loaded on tab switch or ↻ Refresh. |
 | ⚙ **Settings** | `settings` | Grouped sections: Paper credentials, Live credentials, Risk Limits, and Signals Analysis (**Max Symbols**, default 30, minimum 1, no upper clamp). Seeds from `./config.json` (load-only fallback); saves to `localStorage`. |
 
 ### Shared crypto universe (Market Overview + Market Signals)
@@ -89,12 +93,13 @@ Key principles applied across both dashboards:
 | 2026-06-11 | **Removed dead short-trading UI** — Alpaca spot crypto cannot short (every attempt rejected, none filled). ⚡ Short / ▶ Execute-short buttons removed; SHORT pills → informational red **BEAR**; notification copy now says "no short — spot venue". Positions-tab Buy/Cover kept as legacy safety. |
 | 2026-06-11 | **🤖 Autopilot panel (Command tab)** — autonomous in-dashboard trading loop with all hard-rule gates (score ≥ 4 + regime + correlation budget + caps + ATR sizing + 20% post-order cash reserve + $10 min notional), exits (hard stop −5%, trailing 3% below HWM after +2.5%, TA exit ≤ −2), OFF-on-load safety, ⛔ kill switch, GMT+2 activity log. |
 | 2026-06-11 | **🔬 Edge tab** — realized round-trip expectancy analytics (FIFO over paginated FILL history): per-symbol expectancy, hour/day-of-week P&L attribution, payoff/holding-time KPIs. |
+| 2026-06-15 | **💼 Portfolio tabs merged in** — all four `portfolio-dashboard.html` pages integrated as new nav tabs under a "💼 Portfolio" section label. Morning Brief button added to header. All element IDs/functions prefixed `port*` to avoid conflicts. `portCapFor()` reuses existing `PORTFOLIO_CAPS`. Inline `<style>` from page-brief moved to global CSS block. `generateMorningBrief()` + modal added. `switchTab` and `refreshCurrent` extended for all four new tabs. |
 
 ---
 
 ## 2. Portfolio Dashboard — `docs/portfolio-dashboard.html`
 
-**Status:** Lightweight alternative (still maintained)
+**Status:** Legacy (maintained for reference; all tabs are now integrated into the Professional Dashboard under the "💼 Portfolio" section)
 **Title:** "Portfolio Dashboard"
 **Tabs:** 5 — Overview · Hot Symbols · Allocation · Morning Brief · Settings
 

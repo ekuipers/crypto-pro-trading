@@ -66,6 +66,23 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-15 — Merge portfolio-dashboard.html into dashboard_professional.html
+Roadmap item #2: merged `docs/portfolio-dashboard.html` into `docs/dashboard_professional.html` as four new nav tabs under a "💼 Portfolio" section label. Changes made surgically via Edit tool — no full rewrite.
+
+**What was added:**
+1. **CSS block** — All portfolio-specific CSS classes (`port-filter-btn`, `hot-stat`, `bar-track/fill`, `wl-card`, `port-period-btn`, `port-status-badge`, `health-*`, `alerts-box`, `conf-table`, `score-bar-pips`, `chip-*`, `pos-health-wrap`, `progress-bar`, `brief-*`, `sort-icon`, `port-sortable/sorted`) added before `</style>`.
+2. **Header button** — `🌅 Morning Brief` button added next to `📓 Daily Journal` in the header, calls `generateMorningBrief()`.
+3. **Nav section** — Four new tab buttons under a `💼 Portfolio` section label inserted before Settings: Portfolio Overview, Hot Symbols, Allocation, Morning Brief.
+4. **Four portfolio pages** — `page-port-overview`, `page-port-hot`, `page-port-brief` (inline `<style>` dropped, CSS moved to global block), `page-port-dist` inserted before `page-settings`. All element IDs prefixed with `port`, all onclick handlers prefixed with `port`, `sortable/sorted/filter-btn` CSS classes prefixed with `port-`, `period-btn` class renamed to `port-period-btn`.
+5. **Morning Brief modal** — `#briefDocBackdrop` inserted after the Daily Journal modal.
+6. **Portfolio JavaScript block** — ~700 lines of portfolio JS (all functions prefixed `port*`): `portCapFor()` using existing `PORTFOLIO_CAPS`, account/chart/positions/orders loader, hot symbols, TA engine (standalone `portEmaSeries/portComputeRSI/portComputeMACD/portComputeBB/portVolumeRatio/portConfluenceScore`), brief loader, dist loader, morning brief doc generator (`generateMorningBrief`, `closeBriefDoc`, `downloadBriefDoc`, `copyBriefDoc`), 60-second auto-refresh interval for portfolio tabs.
+7. **`switchTab` extension** — Added `port-overview/port-hot/port-dist/port-brief` branches.
+8. **`refreshCurrent` extension** — Added same four branches so ⟳ Refresh works on portfolio tabs.
+
+**Key design decisions:** `portCapFor(sym)` returns `PORTFOLIO_CAPS[sym] || 5` (percentage, not decimal) matching the pro dashboard's existing cap table. The portfolio's standalone TA functions do not conflict with the pro dashboard's `calcSignalScore` — they are prefixed and independent. The inline `<style>` block from `page-brief` was dropped and its CSS moved to the global `<style>` tag to avoid duplication.
+
+**Verification:** All 23 key identifiers confirmed present (page IDs, function names, CSS classes, modal ID). Final file: 7971 lines.
+
 ### 2026-06-11 — Pro-trader review: scout, stop-clamp, shorts off, dashboard Autopilot + Edge
 Professional-trader review of dashboard + project (focus: max profit, autonomy). Key context: account 100% cash ($95.4k), all 10 watchlist majors in confirmed downtrend (corr ~0.81), and Alpaca spot crypto **cannot be shorted** (every SHORT ever attempted was rejected; none filled). Five changes:
 1. **Stop-loss self-rejection fix** — `trade.py` clamps a stale stop-loss limit to the nearest 0.5%-band edge of the fresh ask instead of rejecting (journals showed repeated AVAX/LINK stop rejections leaving positions exposed a full cycle). Tests in `tests/test_trade_stop_clamp.py`.
