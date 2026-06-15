@@ -2,6 +2,21 @@
 
 ---
 
+## 2026-06-15 — Bug fixes + Roadmap: score distribution, applySort, Total P&L (v2026-06-15.8)
+
+### Bug fix: Score distribution miscategorises 2.5 as BUY (Signals tab)
+**Problem:** `else if (s <= 2)` in the distribution loop skipped score 2.5, which fell through to the `else` branch and was counted as BUY (≥4). Score 2.5 is achievable when e.g. MACD gives +0.5 partial credit.  
+**Fix:** Changed to `else if (s < 3)`. Labels updated: "1–2 (HOLD)" → "0.5–2.9 (HOLD)", "−2–0 (HOLD)" → "−2.9–0 (HOLD)". Dict key renamed `1to2` → `1to3`. Version v2026-06-15.7.
+
+### Bug fix: `applySort` and `numOrStr` not defined (Portfolio Overview)
+**Problem:** `portRenderPositions()` called `applySort()` and the sort helpers in `portRenderDistTable` / `portRenderDistCap` called `numOrStr()` — neither function was defined anywhere in the file.  
+**Fix:** Added both as shared sort helpers immediately before `portRenderPositions`: `numOrStr(v)` = `parseFloat` if numeric else lowercased string; `applySort(arr, key, dir)` = shallow-copy sort via `numOrStr`. Portfolio Overview positions-table column-header sort now works.
+
+### Roadmap: Total P&L in currency — Performance tab (v2026-06-15.8)
+**Fix:** `renderPerformance()` computes `totalReturnCurrency = equitySeries[last] − equitySeries[0]`. Added as (a) a **Total P&L** KPI tile (first in `grid-3`) with `+$X.XX` / `-$X.XX` colour-coded display, and (b) a "Total P&L ($)" row at the top of the Performance Summary table.
+
+---
+
 ## 2026-06-15 — Roadmap items 1–2 + Bugs 1–2 completed (v2026-06-15.6)
 
 ### Roadmap 1: Remove "Watchlist — No Position" from Portfolio Overview

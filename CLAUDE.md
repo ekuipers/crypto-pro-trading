@@ -14,6 +14,7 @@ Creator: Erik Kuipers
 4. Automatically commit changes to git and sync with remote repo.
 5. update readme.md
 6. Add footer to the webpage. Add Project descirption, creator, last modified dat and version number to the Footer
+7. Before analyzing any code change, read the memory for earlier chnages.
 
 ---
 
@@ -22,6 +23,7 @@ Creator: Erik Kuipers
 
 ## Bugs
 (none)
+
 
 
 ---

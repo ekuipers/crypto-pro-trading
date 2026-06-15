@@ -2138,7 +2138,7 @@
       <span class="footer-sep">·</span>
       <span>Last modified: <strong>2026-06-15</strong></span>
       <span class="footer-sep">·</span>
-      <span>Version: <strong>v2026-06-15.6</strong></span>
+      <span>Version: <strong>v2026-06-15.8</strong></span>
     </div>
   </footer>
 
@@ -2946,6 +2946,9 @@
       const totalReturnPct = c.equitySeries.length > 1
         ? (c.equitySeries[c.equitySeries.length - 1] - c.equitySeries[0]) / c.equitySeries[0] * 100
         : 0;
+      const totalReturnCurrency = c.equitySeries.length > 1
+        ? c.equitySeries[c.equitySeries.length - 1] - c.equitySeries[0]
+        : 0;
 
       const avgRet = mean(c.returns) * 100;
       const bestRet = c.returns.length ? Math.max(...c.returns) * 100 : 0;
@@ -2953,6 +2956,7 @@
       const vol = std(c.returns) * Math.sqrt(L.tradingDaysPerYear) * 100;
 
       $("performanceKpis").innerHTML = [
+        kpi("Total P&L", (totalReturnCurrency >= 0 ? "+$" : "-$") + fmt(Math.abs(totalReturnCurrency)), "Absolute dollar gain/loss over loaded history", totalReturnCurrency >= 0 ? "pos" : "neg"),
         kpi("Total Return", pct(totalReturnPct), "Loaded 3M account history", totalReturnPct >= 0 ? "pos" : "neg"),
         kpi("Average Return", pct(avgRet,3), "Average period return", avgRet >= 0 ? "pos" : "neg"),
         kpi("Annualized Volatility", fmt(vol,2) + "%", "Return dispersion"),
@@ -2962,7 +2966,8 @@
       ].join("");
 
       $("performanceSummaryBody").innerHTML = [
-        ["Total return", pct(totalReturnPct), "Shows account growth over loaded history."],
+        ["Total P&L ($)", (totalReturnCurrency >= 0 ? "+$" : "-$") + fmt(Math.abs(totalReturnCurrency)), "Absolute dollar gain/loss over the loaded history window."],
+        ["Total return (%)", pct(totalReturnPct), "Percentage account growth over loaded history."],
         ["Average period return", pct(avgRet,3), "Useful for consistency analysis."],
         ["Annualized volatility", fmt(vol,2) + "%", "Measures return dispersion."],
         ["Best period", pct(bestRet), "Largest positive move in loaded history."],
@@ -4574,11 +4579,11 @@
         }).join("");
 
         // Score distribution
-        const dist = {"-6to-3": 0, "-2to0": 0, "1to2": 0, "3": 0, "4plus": 0};
+        const dist = {"-6to-3": 0, "-2to0": 0, "1to3": 0, "3": 0, "4plus": 0};
         scores.forEach(s => {
           if (s <= -3) dist["-6to-3"]++;
           else if (s <= 0) dist["-2to0"]++;
-          else if (s <= 2) dist["1to2"]++;
+          else if (s < 3) dist["1to3"]++;   // fixed: was s<=2, which sent score 2.5 to BUY bucket
           else if (s >= 3 && s < 4) dist["3"]++;  // 3.0–3.9 = half-size
           else dist["4plus"]++;
         });
@@ -4588,8 +4593,8 @@
             ${[
               ["≥ 4 (BUY)", dist["4plus"], "#3fb950"],
               ["3–3.9 (HALF)", dist["3"], "#d29922"],
-              ["1–2 (HOLD)", dist["1to2"], "#58a6ff"],
-              ["−2–0 (HOLD)", dist["-2to0"], "#8b949e"],
+              ["0.5–2.9 (HOLD)", dist["1to3"], "#58a6ff"],
+              ["−2.9–0 (HOLD)", dist["-2to0"], "#8b949e"],
               ["≤ −3 (BEAR)", dist["-6to-3"], "#f85149"]
             ].map(([label, count, color]) => `
               <div style="display:flex;align-items:center;gap:8px">
@@ -6950,6 +6955,16 @@ function portChangePeriod(btn) {
   portChartPeriod = btn.dataset.p;
   portChartTimeframe = btn.dataset.tf;
   portLoadPortfolioChart(portChartPeriod, portChartTimeframe);
+}
+
+// ── Shared sort helpers ──
+function numOrStr(v) { const n = parseFloat(v); return isNaN(n) ? String(v).toLowerCase() : n; }
+function applySort(arr, key, dir) {
+  if (!key) return [...arr];
+  return [...arr].sort((a, b) => {
+    const va = numOrStr(a[key] ?? ""), vb = numOrStr(b[key] ?? "");
+    if (va < vb) return -dir; if (va > vb) return dir; return 0;
+  });
 }
 
 // ── Port Overview: Positions ──

@@ -47,7 +47,7 @@ Key principles applied across both dashboards:
 | Tab | Key | Purpose |
 |-----|-----|---------|
 | 🧭 **Command** | `command` | Trading-permission cockpit: live hard-rules panel (6 real-time checks), cash-reserve gate, equity/cash/open-risk/drawdown KPIs, trade modal (limit-only). Now also hosts the **🤖 Autopilot** panel: OFF-on-load toggle, 15/30/60-min interval, ⛔ kill switch (stop + cancel all orders), per-cycle entry/exit engine reusing the page's signal scorer with every hard-rule gate, trailing-stop HWM + activity log in `localStorage`. |
-| 📈 **Performance** | `performance` | Equity curve, win rate, profit factor, expectancy, rolling 30D/90D Sharpe, period selector (1M/3M/6M/1Y). |
+| 📈 **Performance** | `performance` | Equity curve, KPI tiles (Total P&L in dollars, Total Return %, avg return, volatility, best/worst period, filled orders), rolling metrics, period selector (1M/3M/6M/1Y). |
 | ⚠️ **Risk** | `risk` | Portfolio cap usage per symbol (from `config.json`), 10×10 correlation heatmap (Pearson ρ, daily log-returns) shown in the **left** column with Effective Exposure on the right, drawdown/Sharpe/Sortino/Calmar/VaR. |
 | 📂 **Positions** | `positions` | Open positions with P&L%, Stop $ (entry×0.95), Target $ (entry×1.10), live R:R, position cap usage. |
 | 🎯 **Execution** | `execution` | Open/recent orders, cancel-all, limit-band compliance, ATR Position Sizer widget. |
@@ -100,6 +100,9 @@ Key principles applied across both dashboards:
 | 2026-06-15 | **Roadmap 2** — Live Signal Scores (Signals tab) now sorted descending by score before rendering. |
 | 2026-06-15 | **Bug 1** — Market Overview Score column now populates after either a Signals tab scan or a Market Signals scan. Signals tab scan now writes into `_msPrevScores` (via `Object.assign`); Market Signals scan triggers `moApplySort()` to refresh MO live. |
 | 2026-06-15 | **Bug 2** — Breakout Scanner now shows two scores in each card header: **Conviction** (gap/breakout-specific, max ±7) and **Signal /6** (standard 6-point `calcSignalScore()` — same bars/logic as Signals and Market Signals tabs). `loadGapGo()` now also fetches 15-min and 4H bars via `fetchBars()`. Version v2026-06-15.6. |
+| 2026-06-15 | **Bug fix — Score distribution miscategorises score 2.5 as BUY** — The Signals tab distribution used `else if (s <= 2)` for the positive-HOLD bucket, so a score of 2.5 fell through to the `else` branch and was counted as "≥ 4 (BUY)". Fixed to `else if (s < 3)`. Labels updated: "1–2 (HOLD)" → "0.5–2.9 (HOLD)", "−2–0 (HOLD)" → "−2.9–0 (HOLD)". Version v2026-06-15.7. |
+| 2026-06-15 | **Bug fix — `applySort` and `numOrStr` not defined** — `portRenderPositions()` called `applySort()` and the sort helpers used by `portRenderDistTable` / `portRenderDistCap` called `numOrStr()`, but neither function was defined anywhere. Added both: `numOrStr(v)` coerces to `parseFloat` if numeric else lowercased string; `applySort(arr, key, dir)` sorts a shallow-copy of `arr` by key using `numOrStr`. Portfolio Overview positions table now sorts correctly when a column header is clicked. |
+| 2026-06-15 | **Roadmap — Total P&L in currency added to Performance tab** — `renderPerformance()` now computes `totalReturnCurrency = equitySeries[last] − equitySeries[0]` and adds a **Total P&L** KPI tile (first in the `grid-3`, formatted as `+$X.XX` / `-$X.XX` with pos/neg colour) and a matching "Total P&L ($)" row in the Performance Summary table. Version v2026-06-15.8. |
 
 ---
 

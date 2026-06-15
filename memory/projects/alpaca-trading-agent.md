@@ -65,6 +65,14 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-15 — Bug fixes + Roadmap: score distribution, applySort, Total P&L (v2026-06-15.8)
+
+**Bug fix — Score distribution (Signals tab):** Distribution bucket `else if (s <= 2)` sent score 2.5 to the BUY category. Fixed to `else if (s < 3)`. Labels updated to "0.5–2.9 (HOLD)" and "−2.9–0 (HOLD)". Dict key renamed from `1to2` → `1to3`. Version v2026-06-15.7.
+
+**Bug fix — `applySort` / `numOrStr` not defined:** `portRenderPositions()` called `applySort()` (undefined), and the sort helpers in `portRenderDistTable` / `portRenderDistCap` called `numOrStr()` (also undefined). Added both as shared sort helpers before `portRenderPositions`: `numOrStr(v)` = `parseFloat(v)` if numeric else `String(v).toLowerCase()`; `applySort(arr, key, dir)` = shallow-copy sort via `numOrStr`. Portfolio Overview positions table now sorts correctly.
+
+**Roadmap — Total P&L in currency (Performance tab):** `renderPerformance()` now computes `totalReturnCurrency = equitySeries[last] − equitySeries[0]` and adds (a) a **Total P&L** KPI tile (first in the `grid-3`) formatted as `+$X.XX` / `-$X.XX` with pos/neg colour, and (b) a "Total P&L ($)" row as the first entry in the Performance Summary table. Version v2026-06-15.8.
+
 ### 2026-06-15 — Roadmap 1–2 + Bugs 1–2 (v2026-06-15.6)
 
 Four items completed in `docs/dashboard_professional.html`:
