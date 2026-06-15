@@ -1,7 +1,10 @@
 # Introduction
+Description: Professional multi-chart cryptocurrency trading & analytics platform.
 
 Project name: CryptoPro Dashboard
 Creator: Erik Kuipers
+
+---
 
 # Workflow rules
 0. The bugs list needs to take preference for changes and the roadmap determines which features need to be added.
@@ -12,10 +15,13 @@ Creator: Erik Kuipers
 5. update readme.md
 6. Add footer to the webpage. Add Project descirption, creator, last modified dat and version number to the Footer
 
+---
+
 ## Roadmap
-*(All items completed as of 2026-06-15 — see `memory/memory.md` and `memory/projects/alpaca-trading-agent.md`)*
+1. Create and add a favicon based on the purpose of this project.
 
 ## Bugs
+(none)
 
 ---
 

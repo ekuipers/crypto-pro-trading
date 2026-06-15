@@ -3036,8 +3036,6 @@
       else if (c.dayPct <= -L.warningDailyLossPct) add("yellow", "Daily loss warning", "Today P&L is " + pct(c.dayPct) + ". Reduce size.");
       else add("green", "Daily loss OK", "Today P&L is " + pct(c.dayPct) + ".");
 
-      else add("green", "Drawdown OK", "Current drawdown is " + pct(c.dd.currentDDPct) + ".");
-
       if (c.assumedOpenRiskPct >= L.maxOpenRiskPct) add("red", "Open risk too high", "Open risk is " + fmt(c.assumedOpenRiskPct,2) + "% of equity.");
       else if (c.assumedOpenRiskPct >= L.warningOpenRiskPct) add("yellow", "Open risk elevated", "Open risk is " + fmt(c.assumedOpenRiskPct,2) + "% of equity.");
       else add("green", "Open risk OK", "Open risk is " + fmt(c.assumedOpenRiskPct,2) + "% of equity.");
@@ -8037,6 +8035,17 @@ function downloadBriefDoc() {
 function copyBriefDoc() {
   if (!_briefDocMarkdown) return;
   navigator.clipboard && navigator.clipboard.writeText(_briefDocMarkdown);
+}
+
+// ── Port sort-icon helper ──
+function setSortIcons(headId, activeKey, dir) {
+  document.querySelectorAll("#" + headId + " th[data-key]").forEach(th => {
+    const icon = th.querySelector(".sort-icon");
+    if (!icon) return;
+    const isActive = th.dataset.key === activeKey;
+    th.classList.toggle("port-sorted", isActive);
+    icon.textContent = isActive ? (dir === 1 ? "↑" : "↓") : "⇅";
+  });
 }
 
 // ── Port init ──

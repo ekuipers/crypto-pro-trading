@@ -29,6 +29,23 @@
 
 ---
 
+## 2026-06-15 — Bug fix: buttons/links not reacting on dashboard
+
+**Problem:** After the drawdown-rule removal commit (c505713), a dangling `else` was left at the top level of `renderCommand()` — the code that removed `if/else if (drawdown ≥ max/warn)` left its trailing `else add("Drawdown OK",...)` behind. An orphan `else` (no matching `if`) is a JavaScript **syntax error** that prevented the entire script block from being parsed. Every function declaration was therefore never hoisted, making ALL onclick handlers (`switchTab`, `saveSettings`, etc.) undefined — the total "nothing reacts" symptom.
+
+Additionally, the `setSortIcons()` function was present in the original `portfolio-dashboard.html` but was accidentally omitted during the portfolio merge. This caused a `ReferenceError` at the end of the script and prevented the Port init block from completing.
+
+**Fix 1:** Removed the orphan `else add("green", "Drawdown OK", ...)` line from `renderCommand()` (dashboard_professional.html ~line 3039).  
+**Fix 2:** Added `setSortIcons(headId, activeKey, dir)` function before the Port init calls; uses `port-sorted` CSS class (matching the merged dashboard's CSS rule `th.port-sorted .sort-icon`).  
+**Verified:** Both changes reviewed in-context. The if/else chain for daily-loss and open-risk checks is now valid. `setSortIcons` is defined before its first call.
+
+**Files changed:**
+- `docs/dashboard_professional.html` (syntax fix + setSortIcons function)
+- `CLAUDE.md` (bug cleared)
+- `memory/memory.md` (this entry)
+
+---
+
 ## 2026-06-15 — Footer redesign (Roadmap item: Replace footer per Workflow rule 6)
 
 **Problem:** Footer was a single cramped line of text with no structured project information.  
