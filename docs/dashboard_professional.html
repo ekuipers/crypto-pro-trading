@@ -1117,6 +1117,11 @@
     .progress-bar  { height:6px; border-radius:3px; background:var(--border); margin-top:5px; overflow:hidden; }
     .progress-fill { height:100%; border-radius:3px; transition:width .3s; }
     .brief-section-title { font-size:14px; font-weight:700; color:var(--text); margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+    /* ── Watchlist tag editor ─── */
+    .wl-tag-editor { display:flex; flex-wrap:wrap; gap:6px; padding:10px; background:var(--surface2); border-radius:var(--radius); border:1px solid var(--border); min-height:44px; align-items:center; }
+    .wl-sym-tag { display:inline-flex; align-items:center; gap:5px; background:rgba(88,166,255,.12); border:1px solid rgba(88,166,255,.3); color:var(--blue); padding:3px 8px; border-radius:20px; font-size:12px; font-weight:700; }
+    .wl-sym-tag-x { cursor:pointer; opacity:.55; font-size:14px; line-height:1; padding:0 1px; }
+    .wl-sym-tag-x:hover { opacity:1; }
   </style>
 </head>
 
@@ -2163,7 +2168,17 @@
             </div>
           </div>
 
-          <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">📋 Active Watchlist (up to 20 symbols)</div>
+          <div class="wl-tag-editor" id="watchlistTagsEl"></div>
+          <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+            <input id="watchlistAddInput" placeholder="e.g. BTC/USD" style="flex:1;max-width:220px" onkeydown="if(event.key==='Enter')addWatchlistSymbol()">
+            <button class="btn btn-green" onclick="addWatchlistSymbol()">+ Add</button>
+            <button class="btn" onclick="resetWatchlist()">↩ Reset defaults</button>
+            <span class="small" style="color:var(--muted)"><span id="watchlistCountEl">0</span>/20</span>
+          </div>
+          <div class="small" style="margin-top:6px;color:var(--muted)">Used by Autopilot, Daily Journal, Signals tab, and Portfolio tabs. Changes take effect immediately after saving.</div>
+
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
             <button class="btn btn-green" onclick="saveSettings()">Save Settings</button>
             <button class="btn btn-red" onclick="clearSettings()">Clear Settings</button>
           </div>
@@ -2291,7 +2306,7 @@
   <div id="tooltip"></div>
 
   <footer>
-    Professional Trader Dashboard · Erik Kuipers ATR-sized positions · Limit orders only · Alpaca data · USD · v2026-06-15 (portfolio tabs merged)
+    Professional Trader Dashboard · Erik Kuipers ATR-sized positions · Limit orders only · Alpaca data · USD · v2026-06-15.3 (watchlist management added to Settings tab)
   </footer>
 
   <script>
@@ -2300,8 +2315,6 @@
     const DEFAULT_LIMITS = {
       maxDailyLossPct: 2.0,
       warningDailyLossPct: 1.0,
-      maxCurrentDrawdownPct: 6.0,
-      warningCurrentDrawdownPct: 3.0,
       maxOpenRiskPct: 5.0,
       warningOpenRiskPct: 3.0,
       maxSinglePositionPct: 30.0,
@@ -2994,8 +3007,6 @@
       else if (c.dayPct <= -L.warningDailyLossPct) add("yellow", "Daily loss warning", "Today P&L is " + pct(c.dayPct) + ". Reduce size.");
       else add("green", "Daily loss OK", "Today P&L is " + pct(c.dayPct) + ".");
 
-      if (Math.abs(c.dd.currentDDPct) >= L.maxCurrentDrawdownPct) add("red", "Current drawdown too high", "Current drawdown is " + pct(c.dd.currentDDPct) + ".");
-      else if (Math.abs(c.dd.currentDDPct) >= L.warningCurrentDrawdownPct) add("yellow", "Drawdown warning", "Current drawdown is " + pct(c.dd.currentDDPct) + ".");
       else add("green", "Drawdown OK", "Current drawdown is " + pct(c.dd.currentDDPct) + ".");
 
       if (c.assumedOpenRiskPct >= L.maxOpenRiskPct) add("red", "Open risk too high", "Open risk is " + fmt(c.assumedOpenRiskPct,2) + "% of equity.");
@@ -3079,12 +3090,6 @@
             value: fmt(c.assumedOpenRiskPct,2) + "% ($" + fmt(c.assumedOpenRisk) + ")",
             level: c.assumedOpenRiskPct >= L.maxOpenRiskPct ? "red" : c.assumedOpenRiskPct >= L.warningOpenRiskPct ? "yellow" : "green",
             note:  c.assumedOpenRiskPct >= L.maxOpenRiskPct ? "⚠ BREACH — reduce exposure" : "OK"
-          },
-          {
-            label: "Current drawdown ≤ " + L.maxCurrentDrawdownPct + "%",
-            value: pct(c.dd.currentDDPct) + " from peak",
-            level: Math.abs(c.dd.currentDDPct) >= L.maxCurrentDrawdownPct ? "red" : Math.abs(c.dd.currentDDPct) >= L.warningCurrentDrawdownPct ? "yellow" : "green",
-            note:  Math.abs(c.dd.currentDDPct) >= L.maxCurrentDrawdownPct ? "⚠ BREACH — stop and review" : "OK"
           },
           {
             label: "Stop-loss at −5%",
@@ -3173,8 +3178,6 @@
 
       const alerts = [];
 
-      if (Math.abs(c.dd.currentDDPct) >= L.maxCurrentDrawdownPct) alerts.push(["red", "Current drawdown breaches hard limit. Stop and review strategy health."]);
-      else if (Math.abs(c.dd.currentDDPct) >= L.warningCurrentDrawdownPct) alerts.push(["yellow", "Current drawdown is elevated. Reduce size and avoid marginal setups."]);
 
       if (c.assumedOpenRiskPct >= L.maxOpenRiskPct) alerts.push(["red", "Open risk breaches hard limit based on assumed stop model."]);
       else if (c.assumedOpenRiskPct >= L.warningOpenRiskPct) alerts.push(["yellow", "Open risk is elevated. Avoid adding correlated exposure."]);
@@ -3471,6 +3474,7 @@
       $("setMaxOpenRisk").value = s.limits.maxOpenRiskPct;
       $("setMaxSignalSymbols").value = s.limits.maxSignalSymbols;
 
+      renderWatchlistTags();
       $("lastUpdated").textContent = "Settings loaded";
     }
 
@@ -5123,9 +5127,66 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    //  ACTIVE WATCHLIST — settings-managed, up to 20 symbols
+    // ═══════════════════════════════════════════════════════════════════════
+    const DEFAULT_WATCHLIST = ["BTC/USD","ETH/USD","SOL/USD","AVAX/USD","LINK/USD","DOT/USD","LTC/USD","DOGE/USD","ADA/USD","AAVE/USD"];
+    const WL_STORAGE_KEY = "proDashboardWatchlist";
+    const WL_MAX = 20;
+
+    function getWatchlist() {
+      try {
+        const saved = localStorage.getItem(WL_STORAGE_KEY);
+        if (saved) { const p = JSON.parse(saved); if (Array.isArray(p) && p.length) return p; }
+      } catch(e) {}
+      return DEFAULT_WATCHLIST.slice();
+    }
+
+    function saveWatchlistData(arr) {
+      localStorage.setItem(WL_STORAGE_KEY, JSON.stringify(arr));
+    }
+
+    function renderWatchlistTags() {
+      const el = document.getElementById("watchlistTagsEl");
+      const countEl = document.getElementById("watchlistCountEl");
+      if (!el) return;
+      const wl = getWatchlist();
+      el.innerHTML = wl.map((sym, i) =>
+        `<span class="wl-sym-tag">${sym}<span class="wl-sym-tag-x" onclick="removeWatchlistSymbol(${i})" title="Remove">×</span></span>`
+      ).join("");
+      if (countEl) countEl.textContent = wl.length;
+    }
+
+    function addWatchlistSymbol() {
+      const input = document.getElementById("watchlistAddInput");
+      if (!input) return;
+      const raw = input.value.trim().toUpperCase().replace(/\s+/g, "");
+      const sym = raw.includes("/") ? raw : raw.replace(/USD$/, "/USD");
+      if (!sym || !sym.endsWith("/USD")) { alert("Symbol must end with /USD, e.g. BTC/USD"); return; }
+      const wl = getWatchlist();
+      if (wl.length >= WL_MAX) { alert(`Maximum ${WL_MAX} symbols allowed.`); return; }
+      if (wl.includes(sym)) { alert(`${sym} is already in the watchlist.`); return; }
+      wl.push(sym);
+      saveWatchlistData(wl);
+      input.value = "";
+      renderWatchlistTags();
+    }
+
+    function removeWatchlistSymbol(idx) {
+      const wl = getWatchlist();
+      wl.splice(idx, 1);
+      saveWatchlistData(wl);
+      renderWatchlistTags();
+    }
+
+    function resetWatchlist() {
+      if (!confirm("Reset watchlist to the 10 default symbols?")) return;
+      saveWatchlistData(DEFAULT_WATCHLIST.slice());
+      renderWatchlistTags();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     //  DAILY JOURNAL — DOCUMENT GENERATOR (executable button)
     // ═══════════════════════════════════════════════════════════════════════
-    const JOURNAL_WL = ["BTC/USD","ETH/USD","SOL/USD","AVAX/USD","LINK/USD","DOT/USD","LTC/USD","DOGE/USD","ADA/USD","AAVE/USD"];
     let _journalMarkdown = "";
     let _journalFilename = "";
 
@@ -5243,12 +5304,13 @@
         md += `### Market Observations\n`;
         let scan = [];
         try {
+          const _jwl = getWatchlist();
           const [b15, b4h, bD] = await Promise.all([
-            fetchBars(JOURNAL_WL, "15Min", 120),
-            fetchBars(JOURNAL_WL, "4Hour", 60),
-            fetchBars(JOURNAL_WL, "1Day", 60),
+            fetchBars(_jwl, "15Min", 120),
+            fetchBars(_jwl, "4Hour", 60),
+            fetchBars(_jwl, "1Day", 60),
           ]);
-          scan = JOURNAL_WL.map(sym => {
+          scan = _jwl.map(sym => {
             const a = (b15 || {})[sym], c = (b4h || {})[sym], d = (bD || {})[sym];
             if (!a || a.length < 50) return null;
             const r = calcSignalScore(a, c || [], d || []);
@@ -6464,7 +6526,7 @@
     //  Reuses calcSignalScore / fetchBars / apiPost (same order path as
     //  executeSignalTrade). OFF on every page load — never auto-resumes.
     // ═══════════════════════════════════════════════════════════════════════
-    const AP_WATCHLIST = JOURNAL_WL;                       // 10-symbol watchlist (shared)
+    function getApWatchlist() { return getWatchlist(); }   // dynamic — reads settings at call time
     const AP_TIER1 = { "BTC/USD": 1, "ETH/USD": 1 };       // Tier-1; everything else = Tier-2
     const AP_CASH_RESERVE_PCT = 20;   // hard rule: keep ≥ 20% of equity in cash
     const AP_ENTRY_SCORE      = 4;    // long score gate
@@ -6587,7 +6649,7 @@
       const btn = $("apToggleBtn");
       if (btn) { btn.textContent = "⏸ Autopilot ON"; btn.style.color = "var(--green)"; }
       if (!_apTick) _apTick = setInterval(apStatusRender, 1000);
-      apLog("info", "Autopilot started — interval " + apIntervalMin() + " min, " + AP_WATCHLIST.length + " watchlist symbols, long-only.");
+      apLog("info", "Autopilot started — interval " + apIntervalMin() + " min, " + getApWatchlist().length + " watchlist symbols, long-only.");
       await apCycle();
       if (_apRunning) apScheduleNext();
     }
@@ -6640,13 +6702,14 @@
         let cash = Number(acct.cash || 0);
 
         // (a) Scan the watchlist with the shared signal engine
+        const _apwl = getApWatchlist();
         const [b15, b4h, bD] = await Promise.all([
-          fetchBars(AP_WATCHLIST, "15Min", 120),
-          fetchBars(AP_WATCHLIST, "4Hour", 60),
-          fetchBars(AP_WATCHLIST, "1Day", 60)
+          fetchBars(_apwl, "15Min", 120),
+          fetchBars(_apwl, "4Hour", 60),
+          fetchBars(_apwl, "1Day", 60)
         ]);
         const scores = {};
-        for (const sym of AP_WATCHLIST) {
+        for (const sym of _apwl) {
           const alp = sym.replace("/", "");
           const a  = ((b15 || {})[sym] || (b15 || {})[alp] || []).map(b => ({ c: b.c, h: b.h, l: b.l, v: b.v }));
           const c4 = ((b4h || {})[sym] || (b4h || {})[alp] || []).map(b => ({ c: b.c, h: b.h, l: b.l, v: b.v }));
@@ -6698,7 +6761,7 @@
         const mvBySym = {};
         open.forEach(p => { mvBySym[toSlash(p.symbol)] = Math.abs(Number(p.market_value || 0)); });
 
-        const candidates = AP_WATCHLIST
+        const candidates = _apwl
           .filter(sym => scores[sym] && scores[sym].score >= AP_ENTRY_SCORE)
           .sort((a, b) => scores[b].score - scores[a].score);
 
@@ -6921,10 +6984,8 @@
 //  PORTFOLIO DASHBOARD — Integrated from portfolio-dashboard.html
 // ═══════════════════════════════════════════════════════════
 
-const PORT_CRYPTO_WL = [
-  "BTC/USD","ETH/USD","SOL/USD","AVAX/USD","LINK/USD",
-  "DOT/USD","LTC/USD","DOGE/USD","ADA/USD","AAVE/USD"
-];
+// getPortCryptoWL() is now dynamic — always reads the active watchlist from settings
+function getPortCryptoWL() { return getWatchlist(); }
 
 async function portApiFetch(url) {
   const r = await fetch(url, { headers: getHeaders() });
@@ -7069,7 +7130,7 @@ function portRenderWatchlistNoPos() {
   const tbody = $("portNoPosBody");
   if (!tbody) return;
   const posSyms = new Set(portRawPositions.map(p => toSlash(p.symbol)));
-  const noPos = PORT_CRYPTO_WL.filter(sym => !posSyms.has(sym));
+  const noPos = getPortCryptoWL().filter(sym => !posSyms.has(sym));
   if (!noPos.length) {
     tbody.innerHTML = '<tr><td colspan="9" class="placeholder">All watchlist symbols have open positions</td></tr>';
     return;
@@ -7143,11 +7204,11 @@ async function portLoadPositions() {
   portRawPositions = positions;
   $("portPosCount").textContent = positions.length;
   try {
-    const encoded = PORT_CRYPTO_WL.map(s => encodeURIComponent(s)).join(",");
+    const encoded = getPortCryptoWL().map(s => encodeURIComponent(s)).join(",");
     const data = await portApiFetch("https://data.alpaca.markets/v1beta3/crypto/us/snapshots?symbols=" + encoded);
     const snaps = data.snapshots || {};
     portWlSnaps = {};
-    PORT_CRYPTO_WL.forEach(sym => {
+    getPortCryptoWL().forEach(sym => {
       const s = snaps[sym];
       if (s && s.dailyBar) portWlSnaps[sym] = parseFloat(s.dailyBar.c || s.dailyBar.o || 0);
     });
@@ -7269,10 +7330,10 @@ function portRenderHot() {
 }
 
 async function portLoadCryptoWatchlist() {
-  const encoded = PORT_CRYPTO_WL.map(s => encodeURIComponent(s)).join(",");
+  const encoded = getPortCryptoWL().map(s => encodeURIComponent(s)).join(",");
   const data = await portApiFetch("https://data.alpaca.markets/v1beta3/crypto/us/snapshots?symbols=" + encoded);
   const snaps = data.snapshots || {};
-  const rows = PORT_CRYPTO_WL.map(sym => {
+  const rows = getPortCryptoWL().map(sym => {
     const s = snaps[sym];
     if (!s) return { sym, price: 0, open: 0, high: 0, low: 0, volume: 0, change: 0, pct: 0, noData: true };
     const db = s.dailyBar || {};
@@ -7632,7 +7693,7 @@ async function portLoadBrief() {
     portRenderBriefPos();
 
     $("portBriefConfluence").innerHTML = `<tr><td colspan="10" class="placeholder"><span class="spinner"></span> Fetching bars…</td></tr>`;
-    const confRows = await Promise.all(PORT_CRYPTO_WL.map(async sym => {
+    const confRows = await Promise.all(getPortCryptoWL().map(async sym => {
       try {
         const [b15, b4h, bD] = await Promise.all([
           portFetchBars(sym, "15Min", 6), portFetchBars(sym, "4Hour", 25), portFetchBars(sym, "1Day", 120),
@@ -7788,7 +7849,7 @@ async function portLoadDist() {
     portRawDistTable._equity = equity;
     setSortIcons("portDistTableHead", portDistTableSort.key, portDistTableSort.dir);
     portRenderDistTable();
-    const allSyms = Array.from(new Set([...PORT_CRYPTO_WL, ...sorted.map(p => toSlash(p.symbol))]));
+    const allSyms = Array.from(new Set([...getPortCryptoWL(), ...sorted.map(p => toSlash(p.symbol))]));
     const posMap = {};
     sorted.forEach(p => { posMap[toSlash(p.symbol)] = p; });
     portRawDistCapData = allSyms.map(sym => {
@@ -7898,7 +7959,7 @@ async function generateMorningBrief() {
     md += `### 📡 Signal Confluence\n\n`;
     md += `| Symbol | Score | 4H Regime | Daily Regime | Action |\n`;
     md += `|--------|-------|-----------|--------------|--------|\n`;
-    const confRows = await Promise.all(PORT_CRYPTO_WL.map(async sym => {
+    const confRows = await Promise.all(getPortCryptoWL().map(async sym => {
       try {
         const [b15, b4h, bD] = await Promise.all([
           portFetchBars(sym, "15Min", 6), portFetchBars(sym, "4Hour", 25), portFetchBars(sym, "1Day", 120),

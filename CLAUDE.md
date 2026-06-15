@@ -8,8 +8,7 @@
 6. Update version number in the footer with the lastest version in the change log
 
 ## Roadmap
-1. Add the watchlist for determining the active portfolio to the settings tab. Let the user select up to 20 symbols to act as active watchlist.
-2. Remove the hard rule current drawdown ≤ 6%, STOP trading.
+*(All items completed as of 2026-06-15 — see `memory/projects/alpaca-trading-agent.md` for details)*
 
 ## Bugs
 
@@ -29,6 +28,7 @@ State your assumptions explicitly. If uncertain, ask.
 If multiple interpretations exist, present them - don't pick silently.
 If a simpler approach exists, say so. Push back when warranted.
 If something is unclear, stop. Name what's confusing. Ask.
+
 2. Simplicity First
 Minimum code that solves the problem. Nothing speculative.
 

@@ -66,7 +66,11 @@ alpaca-trading-agent/
 
 ## Session History
 
-### 2026-06-15 — Merge portfolio-dashboard.html into dashboard_professional.html
+### 2026-06-15 — All 3 roadmap items completed
+
+Three roadmap items completed in one session (items tackled in order: 2, 3, 1):
+
+**Item 2: Merge portfolio-dashboard.html into dashboard_professional.html**
 Roadmap item #2: merged `docs/portfolio-dashboard.html` into `docs/dashboard_professional.html` as four new nav tabs under a "💼 Portfolio" section label. Changes made surgically via Edit tool — no full rewrite.
 
 **What was added:**
@@ -82,6 +86,12 @@ Roadmap item #2: merged `docs/portfolio-dashboard.html` into `docs/dashboard_pro
 **Key design decisions:** `portCapFor(sym)` returns `PORTFOLIO_CAPS[sym] || 5` (percentage, not decimal) matching the pro dashboard's existing cap table. The portfolio's standalone TA functions do not conflict with the pro dashboard's `calcSignalScore` — they are prefixed and independent. The inline `<style>` block from `page-brief` was dropped and its CSS moved to the global `<style>` tag to avoid duplication.
 
 **Verification:** All 23 key identifiers confirmed present (page IDs, function names, CSS classes, modal ID). Final file: 7971 lines.
+
+**Item 3: Remove 6% drawdown hard rule**
+Removed the "current drawdown ≤ 6%, STOP trading" rule from `dashboard_professional.html`. Four locations cleaned: `DEFAULT_LIMITS` (removed `maxCurrentDrawdownPct`/`warningCurrentDrawdownPct`), the live hard-rules panel (removed the drawdown row), the permission-rules check, and the alerts block. The drawdown metric still renders on the Risk tab — only the trading halt was removed. Footer updated to v2026-06-15.2.
+
+**Item 1: Watchlist management in Settings tab**
+Added a `📋 Active Watchlist` section to the Settings tab: a tag editor (`#watchlistTagsEl`) showing up to 20 symbols as removable pills, an Add input field, and a Reset-to-defaults link. Storage key: `localStorage.proDashboardWatchlist`. New JS: `DEFAULT_WATCHLIST`, `getWatchlist()`, `saveWatchlistData()`, `renderWatchlistTags()`, `addWatchlistSymbol()`, `removeWatchlistSymbol(idx)`, `resetWatchlist()`. All three previous hardcoded arrays replaced: `JOURNAL_WL` → `getWatchlist()`, `AP_WATCHLIST` → `getApWatchlist()`, `PORT_CRYPTO_WL` → `getPortCryptoWL()`. `loadSettingsForm()` calls `renderWatchlistTags()`. Footer updated to v2026-06-15.3. CSS added: `.wl-tag-editor`, `.wl-sym-tag`, `.wl-sym-tag-x`.
 
 ### 2026-06-11 — Pro-trader review: scout, stop-clamp, shorts off, dashboard Autopilot + Edge
 Professional-trader review of dashboard + project (focus: max profit, autonomy). Key context: account 100% cash ($95.4k), all 10 watchlist majors in confirmed downtrend (corr ~0.81), and Alpaca spot crypto **cannot be shorted** (every SHORT ever attempted was rejected; none filled). Five changes:
