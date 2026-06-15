@@ -26,3 +26,17 @@
 - `memory/projects/alpaca-trading-agent.md` (session history)
 - `memory/glossary.md` (new terms: `getWatchlist`, `DEFAULT_WATCHLIST`, `WL_STORAGE_KEY`)
 - `docs/dashboard_layout.md` (changelog entries for all three items; Settings tab description updated)
+
+---
+
+## 2026-06-15 — Footer redesign (Roadmap item: Replace footer per Workflow rule 6)
+
+**Problem:** Footer was a single cramped line of text with no structured project information.  
+**Fix:** Replaced with a two-row flex footer: row 1 = project name ("CryptoPro Dashboard") + description; row 2 = Creator (Erik Kuipers), Last modified date (2026-06-15), Version (v2026-06-15.4). CSS uses `display:flex; flex-wrap:wrap` per row with a `@media(max-width:700px)` fallback to `flex-direction:column`. Added `.footer-row`, `.footer-name`, `.footer-sep` CSS classes.  
+**Verified:** Grep confirms footer HTML is present and version string updated to v2026-06-15.4.
+
+**Files changed:**
+- `docs/dashboard_professional.html` (footer HTML + CSS)
+- `CLAUDE.md` (roadmap cleared)
+- `docs/dashboard_layout.md` (changelog entry)
+- `memory/projects/alpaca-trading-agent.md` (session history)

@@ -1,3 +1,8 @@
+# Introduction
+
+Project name: CryptoPro Dashboard
+Creator: Erik Kuipers
+
 # Workflow rules
 0. The bugs list needs to take preference for changes and the roadmap determines which features need to be added.
 1. After every change to a code file, append a dated entry to `memory.md` in the memeory folder, describing what changed and why (problem, fix, and how it was verified). Treat `memory.md` as the running changelog — no code edit is complete until `memory.md` is updated. 
@@ -5,10 +10,10 @@
 3. Move completed roadmap items and bug fixes to the memory file for reference and change log purpose
 4. Automatically commit changes to git and sync with remote repo
 5. update readme.md
-6. Update version number in the footer with the lastest version in the change log
+6. Add footer to the webpage. Add Project descirption, creator, last modified dat and version number to the Footer
 
 ## Roadmap
-*(All items completed as of 2026-06-15 — see `memory/projects/alpaca-trading-agent.md` for details)*
+*(All items completed as of 2026-06-15 — see `memory/memory.md` and `memory/projects/alpaca-trading-agent.md`)*
 
 ## Bugs
 

@@ -87,6 +87,9 @@ Roadmap item #2: merged `docs/portfolio-dashboard.html` into `docs/dashboard_pro
 
 **Verification:** All 23 key identifiers confirmed present (page IDs, function names, CSS classes, modal ID). Final file: 7971 lines.
 
+**Footer redesign (Workflow rule 6)**
+Replaced the single-line footer in `docs/dashboard_professional.html` with a two-row structured footer: row 1 = project name "CryptoPro Dashboard" + description; row 2 = Creator, Last modified date, Version (v2026-06-15.4). CSS: `.footer-row` flex wrap with mobile fallback. Roadmap cleared.
+
 **Item 3: Remove 6% drawdown hard rule**
 Removed the "current drawdown ≤ 6%, STOP trading" rule from `dashboard_professional.html`. Four locations cleaned: `DEFAULT_LIMITS` (removed `maxCurrentDrawdownPct`/`warningCurrentDrawdownPct`), the live hard-rules panel (removed the drawdown row), the permission-rules check, and the alerts block. The drawdown metric still renders on the Risk tab — only the trading halt was removed. Footer updated to v2026-06-15.2.
 

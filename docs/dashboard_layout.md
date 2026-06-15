@@ -96,6 +96,7 @@ Key principles applied across both dashboards:
 | 2026-06-15 | **💼 Portfolio tabs merged in** — all four `portfolio-dashboard.html` pages integrated as new nav tabs under a "💼 Portfolio" section label. Morning Brief button added to header. All element IDs/functions prefixed `port*` to avoid conflicts. `portCapFor()` reuses existing `PORTFOLIO_CAPS`. Inline `<style>` from page-brief moved to global CSS block. `generateMorningBrief()` + modal added. `switchTab` and `refreshCurrent` extended for all four new tabs. |
 | 2026-06-15 | **6% drawdown hard rule removed** — removed `maxCurrentDrawdownPct` / `warningCurrentDrawdownPct` from `DEFAULT_LIMITS`, the hard-rules panel, and the alerts/permission-rules checks. The drawdown metric still shows on the Risk tab; the system no longer halts trading when drawdown reaches 6%. |
 | 2026-06-15 | **📋 Active Watchlist in Settings tab** — tag editor lets the user manage up to 20 watchlist symbols. `getWatchlist()` returns the active list from `localStorage.proDashboardWatchlist` (falls back to the 10 defaults). All consumers updated: `JOURNAL_WL`, `AP_WATCHLIST`, and `PORT_CRYPTO_WL` are now dynamic calls to `getWatchlist()` / `getApWatchlist()` / `getPortCryptoWL()`. Footer: v2026-06-15.3. |
+| 2026-06-15 | **Footer redesign** — replaced single-line footer with a two-row structured footer: project name + description on row 1; Creator, Last modified date, and Version on row 2. CSS uses `display:flex` + `flex-wrap` with mobile fallback to `flex-direction:column`. Version v2026-06-15.4. |
 
 ---
 
