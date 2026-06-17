@@ -64,6 +64,20 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-17 — Roadmap: Analytics parent tab (Performance+P&L+Edge), drop Positions; Bug: Signals duplication (v2026-06-17.17)
+
+Rescan roadmap, all items confirmed. Bug fixed first (rule 0), then both roadmap items.
+
+**Bug 1 — "Signals" appeared as both a top-level menu item and a Market sub-tab.** Renamed the Market tab's full-universe scanner sub-tab from **🔭 Signals → 🔭 Scanner** (button label + Overview cross-link "View matching signals →" → "View scanner →"). Sub-id stays `market-signals` and the `#market-signals` deep link is unchanged — non-destructive. Now "Signals" names only the watchlist tab (action/execute); "Scanner" is the universe confluence scan (+ watchlist add/remove). Both tools kept — they serve different workflows, so neither was removed.
+
+**Roadmap 1 — merge Performance + P&L + Edge into one 🔬 Analytics tab.** Generalised the Market sub-tab machinery into a reusable system: CSS `.market-subnav`/`.market-subpage` renamed to `.subnav`/`.subpage` (shared); new generic `_activateSubTab(parentId, subId)` scopes the `.subpage`/`.subtab-btn` toggling to `#page-<parent>` so Market and Analytics never clash; button ids unified to `subtab-<subId>` (Market's `msubtab-*` renamed). `marketSubTab`/`analyticsSubTab` are thin wrappers over it. New `ANALYTICS_SUBS = ["performance","pnl","edge"]`, `_analyticsSub`. The three former top-level pages were physically relocated (via a Node div-depth-counting script) into a new `page-analytics` as `subpage-performance/pnl/edge`; nav shows one **🔬 Analytics** button in a renamed **📊 Analysis** section (with Backtest + Markov). `switchTab()` redirect + `applyTabFromUrl()` `SUBS = MARKET_SUBS.concat(ANALYTICS_SUBS)` keep `#performance`/`#pnl`/`#edge` deep links + keyboard working. Performance auto-loads (`refreshCurrent`→`loadDashboard`→`renderPerformance`); P&L on select (`loadPnl`); Edge manual.
+
+**Roadmap 2 — drop standalone Positions.** Removed the `page-positions` block + its nav button (positions table already exists in Portfolio Overview). `renderPositions` is retained (still called by `loadDashboard` via the wrapper that caches `_lastPositions`/`_lastEquity` for the Risk concentration panel + positions CSV export), but its two DOM writes (`positionKpis`/`positionsBody`) are now null-guarded so they no-op with the page gone. The `exportCsv("positions")` branch is now unreachable (no button wired) but left in the still-used `exportCsv` function — harmless, no churn.
+
+**Nav now:** 🧭 Command · ⚡ Trade [Signals · Market · Execution] · 💼 Portfolio [Overview · Allocation · Risk] · 📊 Analysis [🔬 Analytics · Backtest vs Live · Markov] · ⚙ Settings. Keyboard `TAB_ORDER` updated.
+
+**Verified:** inline-script parse clean (0 errors); whole-document div-balanced (459/459); `subpage-performance/pnl/edge` nested inside `page-analytics`; no stale `page-positions`/`page-performance`/`page-pnl`/`page-edge` ids; no `.market-subpage`/`msubtab-` left; 11 nav buttons + 3 section labels; no dead `switchTab('positions'…)` links. Footer v2026-06-17.17.
+
 ### 2026-06-17 — Roadmap: regroup nav into Trade/Portfolio/Analytics + fold Breakout into Market tab (v2026-06-17.16)
 
 Owner accepted the nav-IA advice and added it as a roadmap item. Implemented the two parts of the pasted target menu; the two leftover consolidation bullets (merge Performance+P&L+Edge; drop standalone Positions) stay on the roadmap pending sign-off since they change tab behavior/URLs.

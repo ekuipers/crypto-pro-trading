@@ -214,8 +214,8 @@
       display:block;
     }
 
-    /* Market parent page sub-tabs (Market Overview / Market Signals) */
-    .market-subnav {
+    /* Parent-page sub-tab bar — shared by 🌐 Market and 🔬 Analytics */
+    .subnav {
       display:flex;
       gap:8px;
       margin-bottom:18px;
@@ -238,8 +238,8 @@
       color:var(--blue);
       border-bottom-color:var(--blue);
     }
-    .market-subpage { display:none; }
-    .market-subpage.active { display:block; }
+    .subpage { display:none; }
+    .subpage.active { display:block; }
 
     section {
       margin-bottom:26px;
@@ -1199,15 +1199,12 @@
 
     <div class="nav-section-label">💼 Portfolio</div>
     <button class="tab-btn" onclick="switchTab('port-overview',this)">📊 Overview</button>
-    <button class="tab-btn" onclick="switchTab('positions',this)">📂 Positions</button>
     <button class="tab-btn" onclick="switchTab('port-dist',this)">🥧 Allocation</button>
     <button class="tab-btn" onclick="switchTab('risk',this)">⚠️ Risk</button>
 
-    <div class="nav-section-label">🔬 Analytics</div>
-    <button class="tab-btn" onclick="switchTab('performance',this)">📈 Performance</button>
-    <button class="tab-btn" onclick="switchTab('pnl',this)">💰 P&amp;L</button>
+    <div class="nav-section-label">📊 Analysis</div>
+    <button class="tab-btn" onclick="switchTab('analytics',this)">🔬 Analytics</button>
     <button class="tab-btn" onclick="switchTab('backtest',this)">🧪 Backtest vs Live</button>
-    <button class="tab-btn" onclick="switchTab('edge',this)">🔬 Edge</button>
     <button class="tab-btn" onclick="switchTab('markov',this)">🔗 Markov</button>
 
     <button class="tab-btn" onclick="switchTab('settings',this)" style="margin-top:14px">⚙ Settings</button>
@@ -1271,7 +1268,17 @@
       </section>
     </div>
 
-    <div id="page-performance" class="page">
+    <!-- Analytics parent page — merges Performance + P&L + Edge (roadmap). Deep
+         links #performance / #pnl / #edge still resolve here via ANALYTICS_SUBS
+         in applyTabFromUrl(); switchTab() redirects them to this parent. -->
+    <div id="page-analytics" class="page">
+      <div class="subnav">
+        <button id="subtab-performance" class="subtab-btn active" onclick="analyticsSubTab('performance')">📈 Performance</button>
+        <button id="subtab-pnl" class="subtab-btn" onclick="analyticsSubTab('pnl')">💰 P&amp;L</button>
+        <button id="subtab-edge" class="subtab-btn" onclick="analyticsSubTab('edge')">🔬 Edge</button>
+      </div>
+
+    <div id="subpage-performance" class="subpage active">
       <section>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
           <div class="section-title" style="margin-bottom:0">Performance Dashboard</div>
@@ -1330,6 +1337,129 @@
         </div>
       </section>
     </div>
+
+    <div id="subpage-pnl" class="subpage">
+      <section>
+        <div class="section-title">Realized P&amp;L &amp; Trade Statistics</div>
+        <div id="pnlKpis" class="grid-3"></div>
+      </section>
+
+      <section>
+        <div class="section-title">P&amp;L Calendar</div>
+        <div id="pnlCalendar" class="panel" style="overflow-x:auto">
+          <div class="small">Load account data to see the calendar.</div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">P&amp;L Attribution by Symbol</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-tip="Trading pair.">Symbol</th>
+                <th class="right" data-tip="Total sell-side trades matched for this symbol.">Trades</th>
+                <th class="right" data-tip="Winning vs losing trades.">W/L</th>
+                <th class="right" data-tip="Win rate for this symbol.">Win Rate</th>
+                <th class="right" data-tip="Total realized P&amp;L (FIFO matched).">Realized P&amp;L</th>
+                <th class="right" data-tip="Gross wins / gross losses.">Profit Factor</th>
+                <th class="right" data-tip="Average winning trade.">Avg Win</th>
+                <th class="right" data-tip="Average losing trade.">Avg Loss</th>
+              </tr>
+            </thead>
+            <tbody id="pnlBySymbolBody"><tr><td colspan="8" class="placeholder">Open P&amp;L tab and load data to see attribution.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">Performance by Day of Week</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-tip="Day of week.">Day</th>
+                <th class="right" data-tip="Number of closed trades on this day.">Trades</th>
+                <th class="right" data-tip="Win rate for trades closed on this day.">Win Rate</th>
+                <th class="right" data-tip="Total realized P&amp;L for this day of week.">Realized P&amp;L</th>
+                <th data-tip="Relative P&amp;L bar.">Distribution</th>
+              </tr>
+            </thead>
+            <tbody id="dowBody"><tr><td colspan="5" class="placeholder">Load P&amp;L data to see day-of-week breakdown.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
+          <div class="section-title" style="margin-bottom:0">Closed Trade Log</div>
+          <button class="btn" onclick="exportCsv('trades')" style="margin-left:auto">↓ Export CSV</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-tip="Date of fill.">Date</th>
+                <th data-tip="Symbol.">Symbol</th>
+                <th data-tip="Buy or sell.">Side</th>
+                <th class="right" data-tip="Fill quantity.">Qty</th>
+                <th class="right" data-tip="Average fill price.">Fill Price</th>
+                <th class="right" data-tip="Estimated P&amp;L vs matched entry (FIFO).">Est. P&amp;L</th>
+                <th data-tip="Order status.">Status</th>
+              </tr>
+            </thead>
+            <tbody id="pnlTradeBody"><tr><td colspan="7" class="placeholder">Load data to see trade log.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <div id="subpage-edge" class="subpage">
+      <section>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
+          <div class="section-title" style="margin-bottom:0">🔬 Edge Analysis — Realized Round-Trips</div>
+          <span class="small">All FILL activities · FIFO round-trip matching · expectancy &amp; time attribution (GMT+2)</span>
+          <button class="btn btn-green" onclick="loadEdge()" style="margin-left:auto">▶ Analyze</button>
+        </div>
+        <div id="edgeKpis" class="grid-3" style="margin-bottom:14px"></div>
+        <div id="edgeTakeaway" class="small" style="color:var(--muted);margin-bottom:6px">Click "▶ Analyze" to fetch every FILL activity and compute realized edge statistics.</div>
+      </section>
+
+      <section>
+        <div class="section-title">Per-Symbol Expectancy</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-tip="Trading pair.">Symbol</th>
+                <th class="right" data-tip="Completed FIFO round-trips (sell matched against earlier buys).">Round-Trips</th>
+                <th class="right" data-tip="Share of round-trips with P&amp;L ≥ 0.">Win Rate</th>
+                <th class="right" data-tip="Average realized profit of winning round-trips.">Avg Win $</th>
+                <th class="right" data-tip="Average realized loss of losing round-trips.">Avg Loss $</th>
+                <th class="right" data-tip="Gross wins ÷ gross losses. n/a until at least one losing trade.">Profit Factor</th>
+                <th class="right" data-tip="Total realized P&amp;L for this symbol.">Net P&amp;L $</th>
+                <th class="right" data-tip="Average time from first FIFO entry fill to exit fill.">Avg Hold</th>
+              </tr>
+            </thead>
+            <tbody id="edgeSymBody"><tr><td colspan="8" class="placeholder">Run the analysis to populate this table.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-title">⏰ Realized P&amp;L by Hour of Day (GMT+2)</div>
+            <div id="edgeHourChart" class="small" style="color:var(--muted)">Run the analysis to see the hour-of-day breakdown.</div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">📅 Realized P&amp;L by Day of Week</div>
+            <div id="edgeDowChart" class="small" style="color:var(--muted)">Run the analysis to see the day-of-week breakdown.</div>
+          </div>
+        </div>
+      </section>
+    </div>
+    </div><!-- /page-analytics -->
 
     <div id="page-risk" class="page">
       <section>
@@ -1395,40 +1525,6 @@
       </section>
     </div>
 
-    <div id="page-positions" class="page">
-      <section>
-        <div class="section-title">Open Positions</div>
-        <div id="positionKpis" class="grid-3"></div>
-      </section>
-
-      <section>
-        <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
-          <button class="btn" onclick="exportCsv('positions')">↓ Export CSV</button>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th data-tip="Asset or trading pair. Click to sort.">Symbol <span class="sort">⇅</span></th>
-                <th class="right" data-tip="Position quantity. Click to sort.">Qty <span class="sort">⇅</span></th>
-                <th class="right" data-tip="Average entry price. Click to sort.">Entry <span class="sort">⇅</span></th>
-                <th class="right" data-tip="Current market price. Click to sort.">Current <span class="sort">⇅</span></th>
-                <th class="right" data-tip="Current position value. Click to sort.">Market Value <span class="sort">⇅</span></th>
-                <th class="right" data-tip="Position size as percentage of account equity. Click to sort.">% Equity <span class="sort">⇅</span></th>
-                <th class="right" data-tip="Unrealized profit or loss. Click to sort.">Unrealized P&L <span class="sort">⇅</span></th>
-                <th class="right" data-tip="Unrealized P&L percentage. Click to sort.">Unrealized % <span class="sort">⇅</span></th>
-                <th class="right" data-tip="Current P&L % vs −5% hard stop. Shows remaining room before auto-close.">Stop Dist <span class="sort">⇅</span></th>
-                <th class="right" data-tip="Hard stop price = entry × 0.95 (−5% rule).">Stop $</th>
-                <th class="right" data-tip="Take-profit target = entry × 1.10 (+10% from entry).">Target $</th>
-                <th class="right" data-tip="Live R:R = (target − current) ÷ (current − stop). ≥2 green, ≥1 yellow, &lt;1 red.">Live R:R</th>
-                <th data-tip="Open a paper-only trade ticket for this symbol.">Action <span class="sort">⇅</span></th>
-              </tr>
-            </thead>
-            <tbody id="positionsBody"></tbody>
-          </table>
-        </div>
-      </section>
-    </div>
 
     <div id="page-execution" class="page">
       <section>
@@ -1514,81 +1610,6 @@
       </section>
     </div>
 
-    <div id="page-pnl" class="page">
-      <section>
-        <div class="section-title">Realized P&amp;L &amp; Trade Statistics</div>
-        <div id="pnlKpis" class="grid-3"></div>
-      </section>
-
-      <section>
-        <div class="section-title">P&amp;L Calendar</div>
-        <div id="pnlCalendar" class="panel" style="overflow-x:auto">
-          <div class="small">Load account data to see the calendar.</div>
-        </div>
-      </section>
-
-      <section>
-        <div class="section-title">P&amp;L Attribution by Symbol</div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th data-tip="Trading pair.">Symbol</th>
-                <th class="right" data-tip="Total sell-side trades matched for this symbol.">Trades</th>
-                <th class="right" data-tip="Winning vs losing trades.">W/L</th>
-                <th class="right" data-tip="Win rate for this symbol.">Win Rate</th>
-                <th class="right" data-tip="Total realized P&amp;L (FIFO matched).">Realized P&amp;L</th>
-                <th class="right" data-tip="Gross wins / gross losses.">Profit Factor</th>
-                <th class="right" data-tip="Average winning trade.">Avg Win</th>
-                <th class="right" data-tip="Average losing trade.">Avg Loss</th>
-              </tr>
-            </thead>
-            <tbody id="pnlBySymbolBody"><tr><td colspan="8" class="placeholder">Open P&amp;L tab and load data to see attribution.</td></tr></tbody>
-          </table>
-        </div>
-      </section>
-
-      <section>
-        <div class="section-title">Performance by Day of Week</div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th data-tip="Day of week.">Day</th>
-                <th class="right" data-tip="Number of closed trades on this day.">Trades</th>
-                <th class="right" data-tip="Win rate for trades closed on this day.">Win Rate</th>
-                <th class="right" data-tip="Total realized P&amp;L for this day of week.">Realized P&amp;L</th>
-                <th data-tip="Relative P&amp;L bar.">Distribution</th>
-              </tr>
-            </thead>
-            <tbody id="dowBody"><tr><td colspan="5" class="placeholder">Load P&amp;L data to see day-of-week breakdown.</td></tr></tbody>
-          </table>
-        </div>
-      </section>
-
-      <section>
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
-          <div class="section-title" style="margin-bottom:0">Closed Trade Log</div>
-          <button class="btn" onclick="exportCsv('trades')" style="margin-left:auto">↓ Export CSV</button>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th data-tip="Date of fill.">Date</th>
-                <th data-tip="Symbol.">Symbol</th>
-                <th data-tip="Buy or sell.">Side</th>
-                <th class="right" data-tip="Fill quantity.">Qty</th>
-                <th class="right" data-tip="Average fill price.">Fill Price</th>
-                <th class="right" data-tip="Estimated P&amp;L vs matched entry (FIFO).">Est. P&amp;L</th>
-                <th data-tip="Order status.">Status</th>
-              </tr>
-            </thead>
-            <tbody id="pnlTradeBody"><tr><td colspan="7" class="placeholder">Load data to see trade log.</td></tr></tbody>
-          </table>
-        </div>
-      </section>
-    </div>
     <div id="page-backtest" class="page">
       <section>
         <div class="section-title">Backtest vs Live</div>
@@ -1656,18 +1677,18 @@
          setting). Deep links #market-overview / #market-signals / #gapgo still
          resolve here via applyTabFromUrl()'s SUBS list. -->
     <div id="page-market" class="page">
-      <div class="market-subnav">
-        <button id="msubtab-market-overview" class="subtab-btn active" onclick="marketSubTab('market-overview')">🌍 Overview</button>
-        <button id="msubtab-market-signals" class="subtab-btn" onclick="marketSubTab('market-signals')">🔭 Signals</button>
-        <button id="msubtab-gapgo" class="subtab-btn" onclick="marketSubTab('gapgo')">📊 Breakout</button>
+      <div class="subnav">
+        <button id="subtab-market-overview" class="subtab-btn active" onclick="marketSubTab('market-overview')">🌍 Overview</button>
+        <button id="subtab-market-signals" class="subtab-btn" onclick="marketSubTab('market-signals')">🔭 Scanner</button>
+        <button id="subtab-gapgo" class="subtab-btn" onclick="marketSubTab('gapgo')">📊 Breakout</button>
       </div>
 
-      <div id="subpage-market-overview" class="market-subpage active">
+      <div id="subpage-market-overview" class="subpage active">
       <section>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
           <div class="section-title" style="margin-bottom:0" title="Symbol count set in Settings › Signals Analysis › Max Symbols">🌍 Market Overview — Crypto</div>
           <button class="btn" onclick="loadMarketOverview()" style="margin-left:auto">⟳ Refresh</button>
-          <button class="btn" onclick="marketSubTab('market-signals')" title="See confluence signals for this universe" data-tip="Jump to the Market Signals scanner.">View matching signals →</button>
+          <button class="btn" onclick="marketSubTab('market-signals')" title="See confluence signals for this universe" data-tip="Jump to the confluence Scanner.">View scanner →</button>
           <select id="moSortSelect" class="btn" style="color:var(--text);background:var(--surface2)" onchange="moApplySort()">
             <option value="rank">Sort: Market Cap Rank</option>
             <option value="chg24h_desc">Sort: 24h % ↓</option>
@@ -1707,7 +1728,7 @@
       </div><!-- /subpage-market-overview -->
 
       <!-- Market Signals sub-page -->
-      <div id="subpage-market-signals" class="market-subpage">
+      <div id="subpage-market-signals" class="subpage">
       <section>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
           <div class="section-title" style="margin-bottom:0">🔭 Market Signals — Confluence Scanner</div>
@@ -1757,7 +1778,7 @@
       </div><!-- /subpage-market-signals -->
 
       <!-- Breakout Scanner sub-page (folded in from the former standalone tab) -->
-      <div id="subpage-gapgo" class="market-subpage">
+      <div id="subpage-gapgo" class="subpage">
       <section>
         <div class="gg-toolbar">
           <div>
@@ -1806,51 +1827,6 @@
       </section>
     </div>
 
-    <div id="page-edge" class="page">
-      <section>
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
-          <div class="section-title" style="margin-bottom:0">🔬 Edge Analysis — Realized Round-Trips</div>
-          <span class="small">All FILL activities · FIFO round-trip matching · expectancy &amp; time attribution (GMT+2)</span>
-          <button class="btn btn-green" onclick="loadEdge()" style="margin-left:auto">▶ Analyze</button>
-        </div>
-        <div id="edgeKpis" class="grid-3" style="margin-bottom:14px"></div>
-        <div id="edgeTakeaway" class="small" style="color:var(--muted);margin-bottom:6px">Click "▶ Analyze" to fetch every FILL activity and compute realized edge statistics.</div>
-      </section>
-
-      <section>
-        <div class="section-title">Per-Symbol Expectancy</div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th data-tip="Trading pair.">Symbol</th>
-                <th class="right" data-tip="Completed FIFO round-trips (sell matched against earlier buys).">Round-Trips</th>
-                <th class="right" data-tip="Share of round-trips with P&amp;L ≥ 0.">Win Rate</th>
-                <th class="right" data-tip="Average realized profit of winning round-trips.">Avg Win $</th>
-                <th class="right" data-tip="Average realized loss of losing round-trips.">Avg Loss $</th>
-                <th class="right" data-tip="Gross wins ÷ gross losses. n/a until at least one losing trade.">Profit Factor</th>
-                <th class="right" data-tip="Total realized P&amp;L for this symbol.">Net P&amp;L $</th>
-                <th class="right" data-tip="Average time from first FIFO entry fill to exit fill.">Avg Hold</th>
-              </tr>
-            </thead>
-            <tbody id="edgeSymBody"><tr><td colspan="8" class="placeholder">Run the analysis to populate this table.</td></tr></tbody>
-          </table>
-        </div>
-      </section>
-
-      <section>
-        <div class="grid-2">
-          <div class="panel">
-            <div class="panel-title">⏰ Realized P&amp;L by Hour of Day (GMT+2)</div>
-            <div id="edgeHourChart" class="small" style="color:var(--muted)">Run the analysis to see the hour-of-day breakdown.</div>
-          </div>
-          <div class="panel">
-            <div class="panel-title">📅 Realized P&amp;L by Day of Week</div>
-            <div id="edgeDowChart" class="small" style="color:var(--muted)">Run the analysis to see the day-of-week breakdown.</div>
-          </div>
-        </div>
-      </section>
-    </div>
 
     <!-- ─── PAGE: PORTFOLIO OVERVIEW ─── -->
     <div id="page-port-overview" class="page">
@@ -2178,7 +2154,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-06-17</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-06-17.16</strong></span>
+    <span>Version: <strong>v2026-06-17.17</strong></span>
   </footer>
 
   <script>
@@ -2506,13 +2482,15 @@
     }
 
     function switchTab(id, btn) {
-      // The three Market sub-tabs are not top-level pages — redirect to the
-      // Market parent tab and select the sub-tab (keeps #gapgo / keyboard / any
-      // legacy switchTab('gapgo') call working after the Breakout fold-in).
-      if (MARKET_SUBS.includes(id)) {
-        _marketSub = id;
-        if (activeTab !== "market") switchTab("market", tabBtnFor("market"));
-        else marketSubTab(id);
+      // Sub-tab ids (Market: #market-overview/#market-signals/#gapgo; Analytics:
+      // #performance/#pnl/#edge) are not top-level pages — redirect to the parent
+      // tab and select the sub-tab. Keeps deep links, keyboard shortcuts, and any
+      // legacy switchTab('pnl')/switchTab('gapgo') call working after the merges.
+      if (MARKET_SUBS.includes(id) || ANALYTICS_SUBS.includes(id)) {
+        const parent = MARKET_SUBS.includes(id) ? "market" : "analytics";
+        if (parent === "market") _marketSub = id; else _analyticsSub = id;
+        if (activeTab !== parent) switchTab(parent, tabBtnFor(parent));
+        else (parent === "market" ? marketSubTab : analyticsSubTab)(id);
         return;
       }
 
@@ -2538,16 +2516,16 @@
         refreshCurrent();
       } else if (id === "signals") {
         loadSignals();
-      } else if (id === "pnl") {
-        loadPnl();
       } else if (id === "market") {
-        // Parent page — restore the last-used sub-tab (defaults to Overview,
-        // which auto-loads; Signals stays manual). marketSubTab updates the hash.
+        // Parent page — restore the last-used sub-tab (Overview auto-loads;
+        // Signals/Breakout stay manual). marketSubTab updates the hash.
         marketSubTab(_marketSub || "market-overview");
+      } else if (id === "analytics") {
+        // Parent page — restore the last-used sub-tab (Performance auto-loads;
+        // P&L loads on select; Edge stays manual). analyticsSubTab updates the hash.
+        analyticsSubTab(_analyticsSub || "performance");
       } else if (id === "markov") {
         // don't auto-run — user clicks "Run Markov Analysis"
-      } else if (id === "edge") {
-        // don't auto-run — user clicks "▶ Analyze"
       } else if (id === "port-overview") {
         portLoadOverview();
       } else if (id === "port-dist") {
@@ -2562,35 +2540,51 @@
       switchTab("settings", btn);
     }
 
-    // ── Market parent page sub-tabs ───────────────────────────────────────────
-    // The Market tab merges Market Overview + Market Signals (roadmap item 2).
-    // marketSubTab() toggles the inner sub-pages, keeps the active tab nav button
-    // on "🌐 Market", reflects the precise sub-tab in the URL hash / lastTab for
-    // deep-linkability (#market-overview / #market-signals), and lazy-loads.
-    // Selection state is preserved across switches because both sub-pages keep
-    // their rendered DOM.
-    let _marketSub = "market-overview";
-    const MARKET_SUBS = ["market-overview", "market-signals", "gapgo"];
-    function marketSubTab(subId) {
-      if (!MARKET_SUBS.includes(subId)) subId = "market-overview";
-      _marketSub = subId;
-      document.querySelectorAll(".market-subpage").forEach(p => p.classList.remove("active"));
+    // ── Parent-page sub-tabs (generic) ────────────────────────────────────────
+    // Two parent tabs use an inner sub-tab bar: 🌐 Market (Overview / Signals /
+    // Breakout) and 🔬 Analytics (Performance / P&L / Edge). `_activateSubTab`
+    // toggles the inner `.subpage` divs + `.subtab-btn` buttons (scoped to the
+    // parent so the two groups never clash), keeps the parent nav button active,
+    // and reflects the precise sub-tab in the URL hash / lastTab so a refresh or
+    // deep link (#market-signals, #pnl, …) lands on the exact sub-tab. Selection
+    // state is preserved because the sub-pages keep their rendered DOM.
+    const MARKET_SUBS    = ["market-overview", "market-signals", "gapgo"];
+    const ANALYTICS_SUBS = ["performance", "pnl", "edge"];
+    let _marketSub    = "market-overview";
+    let _analyticsSub = "performance";
+
+    function _activateSubTab(parentId, subId) {
+      const page = document.getElementById("page-" + parentId);
+      if (!page) return;
+      page.querySelectorAll(".subpage").forEach(p => p.classList.remove("active"));
       const pg = document.getElementById("subpage-" + subId);
       if (pg) pg.classList.add("active");
-      document.querySelectorAll(".subtab-btn").forEach(b => b.classList.remove("active"));
-      const sb = document.getElementById("msubtab-" + subId);
+      page.querySelectorAll(".subtab-btn").forEach(b => b.classList.remove("active"));
+      const sb = document.getElementById("subtab-" + subId);
       if (sb) sb.classList.add("active");
-
-      // Reflect the sub-tab in the URL hash + lastTab so a refresh / deep link
-      // lands on the exact sub-tab. applyTabFromUrl() resolves these back here.
+      // Mirror the sub-tab id to the hash + lastTab for deep-links / refresh.
       try { localStorage.setItem("lastTab", subId); } catch (e) {}
       if (location.hash !== "#" + subId) {
         try { history.replaceState(null, "", "#" + subId); }
         catch (e) { location.hash = subId; }
       }
+    }
 
+    function marketSubTab(subId) {
+      if (!MARKET_SUBS.includes(subId)) subId = "market-overview";
+      _marketSub = subId;
+      _activateSubTab("market", subId);
       if (subId === "market-overview") loadMarketOverview();
-      // market-signals stays manual — user clicks ▶ Scan
+      // market-signals / gapgo stay manual — user clicks ▶
+    }
+
+    function analyticsSubTab(subId) {
+      if (!ANALYTICS_SUBS.includes(subId)) subId = "performance";
+      _analyticsSub = subId;
+      _activateSubTab("analytics", subId);
+      if (subId === "performance") refreshCurrent();  // populated by loadDashboard → renderPerformance
+      else if (subId === "pnl")    loadPnl();
+      // edge stays manual — user clicks ▶ Analyze
     }
 
     // ── Tab deep-linking & last-tab restore ───────────────────────────────
@@ -2611,7 +2605,7 @@
     // a refresh or a direct #tab link lands on the right tab instead of Command.
     function applyTabFromUrl() {
       const ids = validTabIds();
-      const SUBS = MARKET_SUBS;  // Market parent sub-tabs (market-overview / market-signals / gapgo)
+      const SUBS = MARKET_SUBS.concat(ANALYTICS_SUBS);  // all parent sub-tab ids
       const hash = (location.hash || "").replace(/^#/, "");
       let stored = null;
       try { stored = localStorage.getItem("lastTab"); } catch (e) {}
@@ -2619,12 +2613,13 @@
                    : (ids.includes(stored) || SUBS.includes(stored)) ? stored
                    : null;
       if (!target) return;
-      // A Market sub-tab deep link: open the parent Market tab, then select the
-      // sub-tab. Backward-compatible with old #market-overview / #market-signals.
+      // A sub-tab deep link: open the parent tab, then select the sub-tab.
+      // Backward-compatible with the old standalone #market-signals / #pnl / … hashes.
       if (SUBS.includes(target)) {
-        _marketSub = target;   // so switchTab('market') opens the right sub-tab directly
-        if (activeTab !== "market") switchTab("market", tabBtnFor("market"));
-        else marketSubTab(target);
+        const parent = MARKET_SUBS.includes(target) ? "market" : "analytics";
+        if (parent === "market") _marketSub = target; else _analyticsSub = target;
+        if (activeTab !== parent) switchTab(parent, tabBtnFor(parent));
+        else (parent === "market" ? marketSubTab : analyticsSubTab)(target);
         return;
       }
       if (target === activeTab) return;
@@ -3143,7 +3138,12 @@
     }
 
     function renderPositions(c) {
-      $("positionKpis").innerHTML = [
+      // The standalone Positions page was dropped (its table lives in Portfolio
+      // Overview). This renderer still runs via loadDashboard so the wrapper can
+      // cache _lastPositions for the Risk concentration panel + CSV export, but
+      // its DOM writes are guarded so they no-op when the elements are absent.
+      const _pk = $("positionKpis");
+      if (_pk) _pk.innerHTML = [
         kpi("Open Positions", String(c.positions.length), "Current active positions"),
         kpi("Invested", "$" + fmt(c.invested), fmt(c.investedPct,1) + "% of equity"),
         kpi("Cash", "$" + fmt(c.cash), fmt(c.cashPct,1) + "% of equity"),
@@ -3152,7 +3152,8 @@
         kpi("Buying Power", "$" + fmt(c.buyingPower), "Available buying power")
       ].join("");
 
-      $("positionsBody").innerHTML = c.positions.length
+      const _pb = $("positionsBody");
+      if (_pb) _pb.innerHTML = c.positions.length
         ? c.positions.map(p => {
             const qty = Number(p.qty || 0);
             const mv = Math.abs(Number(p.market_value || 0));
@@ -5304,7 +5305,7 @@
     // ═══════════════════════════════════════════════════════════════════════
 
     (function initKeyboardShortcuts() {
-      const TAB_ORDER = ["command","signals","market","execution","port-overview","positions","port-dist","risk","performance","pnl","backtest","edge","markov","settings"];
+      const TAB_ORDER = ["command","signals","market","execution","port-overview","port-dist","risk","analytics","backtest","markov","settings"];
       document.addEventListener("keydown", function(e) {
         // Ignore when typing in an input/textarea
         if (["INPUT","TEXTAREA","SELECT"].includes(e.target.tagName)) return;
