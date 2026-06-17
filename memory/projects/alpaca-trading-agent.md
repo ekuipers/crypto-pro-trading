@@ -64,6 +64,16 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-17 — Roadmap: ticker strip follows the active watchlist (v2026-06-17.18)
+
+Rescan roadmap. Sole remaining item: "On the command center page, make sure that the tickers are showing symbols from the watchlist."
+
+**Problem:** The top-of-page live ticker strip (`loadTickerStrip()`) used a hardcoded 10-symbol `WATCH = ["BTC/USD",…,"AAVE/USD"]` array — identical to the old default but ignoring whatever the user configured in the Settings watchlist. So adding/removing watchlist symbols never changed the ticker.
+
+**Fix (`docs/dashboard_professional.html`):** `loadTickerStrip()` now calls `getWatchlist()` (the same source the Signals tab, Autopilot, and journal already use) and returns early on an empty list. To avoid a up-to-15 s lag after editing the watchlist, `saveWatchlistData()` now also calls `loadTickerStrip()` (guarded by `typeof … === "function"`) so the ticker re-renders immediately on every add/remove/reset. `loadTickerStrip` is best-effort and guards on missing API keys, so the call is safe during early init.
+
+**Verified:** `getWatchlist()` is a hoisted function declaration available to `loadTickerStrip` regardless of source order; watchlist max is 20, well within the snapshots endpoint limit. Roadmap is now empty. Footer v2026-06-17.18.
+
 ### 2026-06-17 — Roadmap: Analytics parent tab (Performance+P&L+Edge), drop Positions; Bug: Signals duplication (v2026-06-17.17)
 
 Rescan roadmap, all items confirmed. Bug fixed first (rule 0), then both roadmap items.

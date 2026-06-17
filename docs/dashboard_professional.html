@@ -2154,7 +2154,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-06-17</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-06-17.17</strong></span>
+    <span>Version: <strong>v2026-06-17.18</strong></span>
   </footer>
 
   <script>
@@ -4138,7 +4138,8 @@
     async function loadTickerStrip() {
       const s = getSettings();
       if (!s.apiKey || !s.apiSecret) return;
-      const WATCH = ["BTC/USD","ETH/USD","SOL/USD","AVAX/USD","LINK/USD","DOT/USD","LTC/USD","DOGE/USD","ADA/USD","AAVE/USD"];
+      const WATCH = getWatchlist();   // active watchlist (Settings) — not a static list (roadmap item 1)
+      if (!WATCH.length) return;
       const joined = WATCH.map(encodeURIComponent).join(",");
       try {
         const resp = await fetch(`${DATA_URL}/v1beta3/crypto/us/snapshots?symbols=${joined}`, { headers: getHeaders() });
@@ -5061,6 +5062,7 @@
 
     function saveWatchlistData(arr) {
       localStorage.setItem(WL_STORAGE_KEY, JSON.stringify(arr));
+      if (typeof loadTickerStrip === "function") loadTickerStrip();   // reflect new watchlist in the ticker immediately (roadmap item 1)
     }
 
     function renderWatchlistTags() {

@@ -20,14 +20,9 @@ Creator: Erik Kuipers
 ---
 
 ## Roadmap
-(empty — all items completed as of 2026-06-17; see `memory/projects/alpaca-trading-agent.md` for the change log)
-
-*(Completed 2026-06-17, v2026-06-17.17: item 1 "merge Performance + P&L + Edge into one 🔬 Analytics tab with sub-tabs" and item 2 "drop standalone Positions" — the Positions table lives in Portfolio Overview; `renderPositions` is retained only to cache data for the Risk concentration panel + CSV export, with its DOM writes guarded.)*
+_(empty — last item completed 2026-06-17: ticker strip now reads the active watchlist; see memory/projects/alpaca-trading-agent.md)_
 
 ## Bugs
-(none open)
-
-*(Fixed 2026-06-17, v2026-06-17.17 — "Signals appeared as both a top-level menu item and a Market sub-tab": the Market universe-scan sub-tab was renamed **🔭 Scanner** so "Signals" now names only the watchlist tab. The two tools stay distinct — watchlist Signals = action/execute; Market Scanner = full-universe confluence + watchlist add/remove.)*
 
 ---
 

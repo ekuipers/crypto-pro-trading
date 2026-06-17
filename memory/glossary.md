@@ -72,7 +72,7 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | Daily regime | Computed from 90-day daily bars: SMA-20 vs SMA-50 vs last close |
 | Vol ratio | Current bar volume / 20-bar average volume |
 | Live R:R | Real-time risk-to-reward: `(target − current) / (current − stop)` using −5% stop, +10% target |
-| Ticker strip | Top-of-dashboard price bar; 10 symbols, 15-second auto-refresh via Alpaca snapshots API |
+| Ticker strip | Top-of-dashboard price bar driven by the active watchlist (`getWatchlist()`, up to 20 symbols — not a static 10); 15-second auto-refresh via Alpaca snapshots API, re-renders immediately on watchlist edits |
 | Correlation heatmap | 10×10 Pearson ρ matrix of daily log-returns; shown in Risk tab |
 | Trend arrow | ↑/↓/→ indicator in Signals tab comparing current confluence score to previous scan |
 | Quick-buy (⚡) | Signals tab button for setups scoring ≥ 3; pre-fills trade modal with ATR-sized qty |
