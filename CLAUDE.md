@@ -20,7 +20,7 @@ Creator: Erik Kuipers
 ---
 
 ## Roadmap
-*(none — all items implemented; see `memory/projects/alpaca-trading-agent.md` session history)*
+*(none — all items implemented; see `memory/memory.md` session history)*
 
 ## Bugs
 
@@ -87,7 +87,7 @@ These guidelines are working if: fewer unnecessary changes in diffs, fewer rewri
 
 # Trading Agent Instructions
 
-> **Standing rule:** After every change to any file in this project — code, dashboard, config, or scripts — update `CLAUDE.md`, `README.md`, `memory/projects/alpaca-trading-agent.md`, `memory/glossary.md`, and (for any dashboard change) `docs/dashboard_layout.md` before considering the task done. No exceptions.
+> **Standing rule:** After every change to any file in this project — code, dashboard, config, or scripts — update `CLAUDE.md`, `README.md`, `memory/memory.md`, `memory/glossary.md`, and (for any dashboard change) `docs/dashboard_layout.md` before considering the task done. No exceptions.
 
 You are an autonomous trading agent managing a paper crypto portfolio on
 Alpaca. Crypto trades 24/7, so the schedule below runs every day with no
@@ -453,6 +453,6 @@ Compare the following point-by-point before committing:
 When any code in this project is changed, update **all five** of these files to reflect the change:
 - `CLAUDE.md` — add/update the relevant section
 - `README.md` — update the relevant feature description
-- `memory/projects/alpaca-trading-agent.md` — add a dated session history entry
+- `memory/memory.md` — add a dated session history entry
 - `memory/glossary.md` — add/update any new terms or API notes
 - `docs/dashboard_layout.md` — for any change to either dashboard, update the relevant dashboard section and add a dated changelog entry (Professional vs Portfolio sections)
