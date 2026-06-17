@@ -20,7 +20,7 @@ Creator: Erik Kuipers
 ---
 
 ## Roadmap
-_(empty — last item completed 2026-06-17: ticker strip now reads the active watchlist; see memory/projects/alpaca-trading-agent.md)_
+*(none — all items implemented; see `memory/projects/alpaca-trading-agent.md` session history)*
 
 ## Bugs
 

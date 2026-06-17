@@ -64,6 +64,16 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-17 — Roadmap: portfolio overview tiles horizontal (v2026-06-17.19)
+
+Rescan roadmap. Sole item: "Align the tiles in the portfolio overview page horizontally instead of vertically."
+
+**Problem:** The account-overview tiles use `<div class="cards">` as their container, but there was **no `.cards` CSS rule** anywhere in `dashboard_professional.html`. With no `display`, the wrapper was a plain block and the six `.card` children stacked vertically (one per row) on the Portfolio Overview tab (and the five summary cards on the Allocation tab).
+
+**Fix (`docs/dashboard_professional.html`):** Added a responsive grid rule next to `.grid-2`/`.grid-3`: `.cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; }`. The tiles now flow horizontally and wrap responsively. Both `.cards` instances (Portfolio Overview "Account Overview" and Allocation "Portfolio Allocation" summaries) are fixed by the single rule.
+
+**Verified:** `.cards` had zero prior CSS matches, so the new rule introduces no override conflict; only the two portfolio-tab containers use the class, both intended to be horizontal. Roadmap is now empty. Footer v2026-06-17.19.
+
 ### 2026-06-17 — Roadmap: ticker strip follows the active watchlist (v2026-06-17.18)
 
 Rescan roadmap. Sole remaining item: "On the command center page, make sure that the tickers are showing symbols from the watchlist."
