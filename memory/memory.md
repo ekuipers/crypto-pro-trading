@@ -62,6 +62,22 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-17 — Layout/style consistency sweep (v2026-06-17.20)
+
+Request: "check the dashboard for any inconsistencies in layout and style" → "proceed". Reviewed the CSS + markup of `docs/dashboard_professional.html` and fixed seven defects:
+
+1. **Undefined `--fg`** — `.footer-name` used `color:var(--fg)` (no such token; palette defines `--text`), so the footer project name silently fell back to muted grey. Changed to `var(--text)`.
+2. **Invisible `.spinner`** — five portfolio loading states (`<span class="spinner">` in Portfolio Overview + Allocation) referenced a class that was never defined → empty span. Added a real spinner (`width/height:13px`, border ring, `border-top-color:var(--blue)`, `animation:spin .7s linear infinite`) plus `@keyframes spin`.
+3. **Undefined `.error-box`** — the two portfolio error containers (`#portErrorBox`, `#portDistErrorBox`) used `class="error-box"` (undefined) → unstyled text. Switched both to the existing `.error` red box. JS still toggles `display`/`textContent`, so no JS change needed.
+4. **Dead/duplicate `.score-pip`** — base `.score-pip` was defined twice; the `.on-pos/.on-neg/.on-half` variants were unused (renderer `portScoreBar` only emits `.on`). Removed the first base + the three dead variants; the still-used base (`.score-pip`/`.on`/`.neg`) remains.
+5. **Hardcoded, non-theme-aware hover greys** — `.btn:hover`/`th:hover` used `#222b3a` and `th.port-sortable:hover` used `#21262d`; neither adapted to light theme (only `.btn`/inputs were overridden), so hovering a table header in light mode flashed dark, and the two sortable-header shades disagreed. Added a `--hover` token (`#222b3a` dark / `#e2e7ed` light) and pointed all three at it; removed the now-redundant light-theme `.btn:hover` override.
+6. **`.period-btns` had no CSS** — Portfolio Overview's period-button wrapper was undefined while the Performance row used inline `display:flex;gap:6px`. Added `.period-btns { display:flex; gap:6px; flex-wrap:wrap; }`.
+7. **Breakout-card symbol off-pattern** — the `gg-card` symbol was an inline-styled `<span>`, not a TradingView link (CLAUDE.md: every symbol label is a `tvLink()` anchor). Changed to `<span class="symbol" style="font-size:20px">${tvLink(a.symbol)}</span>`.
+
+Left as intentional: `.subtab-btn` font-weight (600) is deliberately lighter than `.tab-btn` (850) for nav hierarchy.
+
+**Verified:** grep confirms 0 remaining `var(--fg)`, `error-box`, `on-pos/on-half`, and only the `--hover` token definition retains the `#222b3a` literal. Footer bumped to v2026-06-17.20.
+
 ### 2026-06-17 — Memory consolidation: merged projects file into single `memory/memory.md`
 
 Merged `memory/projects/alpaca-trading-agent.md` into `memory/memory.md` so the project has **one** memory file (request: "memory.md is the single memory file for the whole project"). The projects file was the comprehensive superset (metadata, architecture, schedule, full session history, dashboard reference, API/indicator notes); the old `memory.md` changelog was a near-duplicate subset. Folded in the one entry unique to the old changelog ("buttons/links not reacting" orphan-`else` syntax fix), fixed the architecture tree to show the single file, then copied the superset over `memory/memory.md` and deleted `memory/projects/` (`git rm`). Updated the three live path references in `CLAUDE.md` (roadmap note, standing rule, doc-update list) from `memory/projects/alpaca-trading-agent.md` → `memory/memory.md`. Historical references inside dated changelog entries and `data/market_research/` reports left intact as accurate records. Verified: 708-line merged file, projects folder gone, no stale live refs.

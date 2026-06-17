@@ -4,6 +4,16 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-06-17 — Layout/style consistency sweep
+
+| Term | Meaning |
+|------|---------|
+| `--hover` | Theme-aware CSS token for control hover backgrounds (`#222b3a` dark / `#e2e7ed` light). Used by `.btn:hover`, `th:hover`, `th.port-sortable:hover`. Replaced hardcoded `#222b3a`/`#21262d` greys that didn't adapt to the light theme. |
+| `.spinner` + `@keyframes spin` | Small spinning ring (13px, blue top border) shown inline before portfolio "Loading…" text. Previously referenced by markup but never defined (invisible). |
+| `.error` (vs `.error-box`) | The one defined red error-box class. The portfolio error containers (`#portErrorBox`, `#portDistErrorBox`) previously used the undefined `.error-box`; now reuse `.error`. |
+
+---
+
 ## 2026-06-15 — Portfolio Dashboard Merge
 
 | Term | Meaning |

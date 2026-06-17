@@ -22,6 +22,7 @@
       --blue:#58a6ff;
       --purple:#bc8cff;
       --orange:#f0883e;
+      --hover:#222b3a;
       --radius:10px;
     }
 
@@ -128,7 +129,7 @@
     }
 
     .btn:hover {
-      background:#222b3a;
+      background:var(--hover);
     }
 
     .btn-green {
@@ -480,7 +481,7 @@
 
     th:hover {
       color:var(--text);
-      background:#222b3a;
+      background:var(--hover);
     }
 
     th .sort {
@@ -585,6 +586,21 @@
       color:var(--muted);
       text-align:center;
       padding:32px;
+    }
+
+    .spinner {
+      display:inline-block;
+      width:13px;
+      height:13px;
+      border:2px solid var(--border);
+      border-top-color:var(--blue);
+      border-radius:50%;
+      vertical-align:-2px;
+      animation:spin .7s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform:rotate(360deg); }
     }
 
     #tooltip {
@@ -730,7 +746,7 @@
     }
     .footer-name {
       font-weight:700;
-      color:var(--fg);
+      color:var(--text);
       font-size:13px;
     }
     .footer-sep { color:var(--border); }
@@ -872,6 +888,7 @@
     }
 
 
+    .period-btns { display:flex; gap:6px; flex-wrap:wrap; }
     .period-btn { color:var(--muted); }
     .period-btn.active { color:var(--blue); border-color:rgba(88,166,255,.4); background:rgba(88,166,255,.1); }
 
@@ -898,13 +915,6 @@
     .cal-month-label { font-size:10px; color:var(--muted); font-weight:900; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
 
     .score-bar { display:inline-flex; gap:2px; }
-    .score-pip {
-      width:10px; height:10px; border-radius:2px;
-      background:var(--border);
-    }
-    .score-pip.on-pos { background:var(--green); }
-    .score-pip.on-neg { background:var(--red); }
-    .score-pip.on-half { background:var(--yellow); }
 
     .regime-badge {
       display:inline-flex; align-items:center; gap:5px;
@@ -935,12 +945,10 @@
       --blue:    #0969da;
       --purple:  #8250df;
       --orange:  #bc4c00;
+      --hover:   #e2e7ed;
     }
     :root[data-theme="light"] .btn {
       background:#f0f3f7;
-    }
-    :root[data-theme="light"] .btn:hover {
-      background:#e2e7ed;
     }
     :root[data-theme="light"] input,
     :root[data-theme="light"] select,
@@ -1123,7 +1131,7 @@
     .sort-icon { font-size:9px; margin-left:4px; opacity:.4; transition:opacity .15s,color .15s; }
     th.port-sorted .sort-icon { opacity:1; color:var(--blue); }
     th.port-sortable { cursor:pointer; user-select:none; white-space:nowrap; }
-    th.port-sortable:hover { color:var(--text); background:#21262d; }
+    th.port-sortable:hover { color:var(--text); background:var(--hover); }
     .brief-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
     .brief-ts { color:var(--muted); font-size:12px; }
     .brief-refresh { background:var(--surface2); border:1px solid var(--border); color:var(--blue); padding:5px 12px; border-radius:var(--radius); cursor:pointer; font-size:12px; }
@@ -1836,7 +1844,7 @@
 
     <!-- ─── PAGE: PORTFOLIO OVERVIEW ─── -->
     <div id="page-port-overview" class="page">
-      <div id="portErrorBox" class="error-box" style="display:none"></div>
+      <div id="portErrorBox" class="error" style="display:none"></div>
 
       <!-- Account cards -->
       <section>
@@ -1901,7 +1909,7 @@
 
     <!-- ─── PAGE: DISTRIBUTION ─── -->
     <div id="page-port-dist" class="page">
-      <div id="portDistErrorBox" class="error-box" style="display:none"></div>
+      <div id="portDistErrorBox" class="error" style="display:none"></div>
 
       <!-- Summary cards -->
       <section>
@@ -2160,7 +2168,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-06-17</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-06-17.19</strong></span>
+    <span>Version: <strong>v2026-06-17.20</strong></span>
   </footer>
 
   <script>
@@ -5811,7 +5819,7 @@
   <div class="gg-card-header">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div class="gg-rank" style="${rank===1?"border-color:var(--yellow);color:var(--yellow)":""}">${rank===1?"🥇":rank}</div>
-      <span style="font-size:20px;font-weight:900;color:var(--blue)">${a.symbol}</span>
+      <span class="symbol" style="font-size:20px">${tvLink(a.symbol)}</span>
       <span class="mono" style="font-size:15px">${ggFmtP(a.current)}</span>
       ${pill(gapSign + gapPct + "% 24h", gapC)}
       ${pill("Vol " + a.volRatio.toFixed(1) + "×", a.volRatio >= 1.5 ? "green" : a.volRatio >= 1.0 ? "yellow" : "muted")}
