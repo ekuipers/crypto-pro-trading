@@ -1146,7 +1146,7 @@
 
 <body>
   <header>
-    <div class="logo">📊 Professional Trader Dashboard</div>
+    <div class="logo">📊 CryptoPro Dashboard</div>
 
     <div class="header-right">
       <span id="modeBadge" class="badge paper" data-tip="Active trading mode — switch between paper and live. Paper is safe for testing.">
@@ -1685,9 +1685,10 @@
                 <th data-tip="7-day trend direction.">Trend</th>
                 <th data-tip="Market cap tier.">Cap Tier</th>
                 <th data-tip="Signal score from last Market Signals scan.">Score</th>
+                <th data-tip="Open a paper trade ticket for this symbol.">Trade</th>
               </tr>
             </thead>
-            <tbody id="moTableBody"><tr><td colspan="9" class="placeholder">Click Refresh to load market data.</td></tr></tbody>
+            <tbody id="moTableBody"><tr><td colspan="10" class="placeholder">Click Refresh to load market data.</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -2013,7 +2014,8 @@
           <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">📋 Active Watchlist (up to 20 symbols)</div>
           <div class="wl-tag-editor" id="watchlistTagsEl"></div>
           <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
-            <input id="watchlistAddInput" placeholder="e.g. BTC/USD" style="flex:1;max-width:220px" onkeydown="if(event.key==='Enter')addWatchlistSymbol()">
+            <input id="watchlistAddInput" list="watchlistSymbolOptions" placeholder="Select or type a symbol — e.g. BTC/USD" style="flex:1;max-width:260px" onkeydown="if(event.key==='Enter')addWatchlistSymbol()">
+            <datalist id="watchlistSymbolOptions"></datalist>
             <button class="btn btn-green" onclick="addWatchlistSymbol()">+ Add</button>
             <button class="btn" onclick="resetWatchlist()">↩ Reset defaults</button>
             <span class="small" style="color:var(--muted)"><span id="watchlistCountEl">0</span>/20</span>
@@ -2136,9 +2138,9 @@
     <div class="footer-row">
       <span>Creator: <strong>Erik Kuipers</strong></span>
       <span class="footer-sep">·</span>
-      <span>Last modified: <strong>2026-06-15</strong></span>
+      <span>Last modified: <strong>2026-06-17</strong></span>
       <span class="footer-sep">·</span>
-      <span>Version: <strong>v2026-06-15.11</strong></span>
+      <span>Version: <strong>v2026-06-17.12</strong></span>
     </div>
   </footer>
 
@@ -4982,6 +4984,7 @@
         `<span class="wl-sym-tag">${sym}<span class="wl-sym-tag-x" onclick="removeWatchlistSymbol(${i})" title="Remove">×</span></span>`
       ).join("");
       if (countEl) countEl.textContent = wl.length;
+      populateWatchlistOptions();   // keep the exchange dropdown in sync (excludes already-added symbols)
     }
 
     function addWatchlistSymbol() {
@@ -5010,6 +5013,25 @@
       if (!confirm("Reset watchlist to the 10 default symbols?")) return;
       saveWatchlistData(DEFAULT_WATCHLIST.slice());
       renderWatchlistTags();
+    }
+
+    // Populate the Settings watchlist add-symbol dropdown with the full tradable
+    // Alpaca crypto universe (shared getCryptoUniverse). The control is an
+    // <input list> + <datalist>, so the user can pick from the exchange list or
+    // type to filter; symbols already in the watchlist are skipped. Degrades
+    // gracefully to plain free-text entry if the assets call fails (datalist
+    // stays empty — addWatchlistSymbol() still normalizes whatever is typed).
+    async function populateWatchlistOptions() {
+      const dl = document.getElementById("watchlistSymbolOptions");
+      if (!dl) return;
+      try {
+        const universe = await getCryptoUniverse();
+        const wl = getWatchlist();
+        dl.innerHTML = universe
+          .filter(function(sym) { return !wl.includes(sym); })
+          .map(function(sym) { return '<option value="' + sym + '">'; })
+          .join("");
+      } catch (e) { /* non-fatal — free-text entry still works */ }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -6015,8 +6037,28 @@
           "<td>" + moTrendIcon(row.chg7d) + "</td>" +
           '<td><span style="font-size:11px;font-weight:800;color:' + tierColor + '">' + info.tier + "</span></td>" +
           "<td>" + scoreStr + "</td>" +
+          "<td>" + moTradeButtons(row) + "</td>" +
           "</tr>";
       }).join("");
+    }
+
+    // Buy/Sell buttons for a Market Overview row. Opens the shared paper-trade
+    // modal (openTradeModal) pre-filled with the symbol, side and live price.
+    // Qty is left blank so the user sizes the order in the ticket. Disabled when
+    // no live price is available for the row.
+    function moTradeButtons(row) {
+      var orderSym    = row.sym.replace("/", "");
+      var displaySym  = row.sym.replace("/USD", "");
+      var price       = row.price;
+      if (!price) {
+        return '<span style="color:var(--muted);font-size:11px">–</span>';
+      }
+      return '<div class="trade-actions">' +
+        '<button class="trade-action-btn" style="font-size:10px" data-tip="Open a paper BUY ticket for ' + displaySym + '" ' +
+          'onclick="openTradeModal(\'' + orderSym + '\',\'' + row.sym + '\',\'buy\',\'\',' + price + ')">Buy</button>' +
+        '<button class="trade-close-btn" style="font-size:10px;margin-left:4px" data-tip="Open a paper SELL ticket for ' + displaySym + '" ' +
+          'onclick="openTradeModal(\'' + orderSym + '\',\'' + row.sym + '\',\'sell\',\'\',' + price + ')">Sell</button>' +
+        '</div>';
     }
 
     function renderMoHeatmap(rows) {
@@ -6046,14 +6088,14 @@
       const s = getSettings();
       if (!s.apiKey || !s.apiSecret) {
         document.getElementById("moTableBody").innerHTML =
-          '<tr><td colspan="9" class="placeholder">Configure API credentials in Settings first.</td></tr>';
+          '<tr><td colspan="10" class="placeholder">Configure API credentials in Settings first.</td></tr>';
         return;
       }
       const universe = await getCryptoUniverse();
       const maxSyms  = Math.max(1, Math.round(s.limits.maxSignalSymbols || universe.length));
       const MO_SYMBOLS = universe.slice(0, maxSyms);
       document.getElementById("moTableBody").innerHTML =
-        '<tr><td colspan="9" class="placeholder">Fetching market data for ' + MO_SYMBOLS.length + ' symbols…</td></tr>';
+        '<tr><td colspan="10" class="placeholder">Fetching market data for ' + MO_SYMBOLS.length + ' symbols…</td></tr>';
       const upd = document.getElementById("moLastUpdated");
       const kEl = document.getElementById("moKpis");
       if (upd) upd.textContent = "Loading…";
@@ -6110,7 +6152,7 @@
 
       } catch(e) {
         document.getElementById("moTableBody").innerHTML =
-          '<tr><td colspan="9" style="color:var(--red);padding:16px">❌ ' + e.message + "</td></tr>";
+          '<tr><td colspan="10" style="color:var(--red);padding:16px">❌ ' + e.message + "</td></tr>";
         if (upd) upd.textContent = "Error";
         console.error("loadMarketOverview:", e);
       }

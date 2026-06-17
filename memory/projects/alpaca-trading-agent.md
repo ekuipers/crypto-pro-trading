@@ -65,6 +65,16 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-17 — Roadmap: Market Overview Buy/Sell buttons + Settings watchlist exchange dropdown (v2026-06-17.12)
+
+Cleared the two open roadmap items (both completed; roadmap now empty).
+
+**Roadmap 2 — Buy/Sell buttons on Market Overview rows.** Added a **Trade** column to the Market Overview table (header + all `colspan` placeholders bumped 9 → 10). New helper `moTradeButtons(row)` renders **Buy** / **Sell** buttons that call the existing shared `openTradeModal(orderSym, displaySym, side, '', price)` — order symbol in Alpaca `BTCUSD` format, qty left blank for the user to size, side + live price pre-filled. Shows `–` when the row has no live price. Reuses the same `trade-action-btn` / `trade-close-btn` classes as the Signals and Positions tabs, so no new modal/submit logic was needed.
+
+**Roadmap 1 — Settings watchlist add via exchange dropdown.** Replaced the free-text `#watchlistAddInput` with an `<input list="watchlistSymbolOptions">` + `<datalist>` populated from the full tradable Alpaca crypto universe via new `populateWatchlistOptions()` → `getCryptoUniverse()`. User can pick from the exchange list or type to filter; already-added symbols are excluded. Called from `renderWatchlistTags()` so the dropdown re-syncs after add/remove/reset. Degrades gracefully to plain free-text entry if the assets call fails — the existing `addWatchlistSymbol()` still normalizes input to `BASE/USD`, so add/cap(20)/dedupe logic is untouched.
+
+**Verified:** Surgical edits — header/colspan, one render-cell call, two new helper functions, one markup swap. Both features reuse existing, already-tested code paths (`openTradeModal`, `getCryptoUniverse`, `addWatchlistSymbol`). Footer bumped to v2026-06-17.12 / Last modified 2026-06-17.
+
 ### 2026-06-15 — Bug fix: Signals tab ignored Settings watchlist (v2026-06-15.11)
 
 **Problem:** `loadSignals()` hardcoded `const SYMBOLS = ["BTC/USD",...]` — the 10 default symbols. Adding or removing symbols in the Settings watchlist had no effect on the Signals tab scan.  

@@ -4,11 +4,6 @@ This file documents the design, tab structure, and feature history of both dashb
 It serves as the **changelog** for all future dashboard changes and is one of the files
 covered by the project's documentation-update rule (see `CLAUDE.md`).
 
-There are two dashboards, each a self-contained single-file HTML page (no server needed):
-
-1. **Professional Dashboard** — `docs/dashboard_professional.html` (primary, now 17 tabs including 4 integrated portfolio tabs, sidebar nav)
-2. **Portfolio Dashboard** — `docs/portfolio-dashboard.html` (legacy, 5 tabs — contents now also available in the Professional Dashboard)
-
 ---
 
 ## Design Philosophy
@@ -55,13 +50,13 @@ Key principles applied across both dashboards:
 | 💰 **P&L** | `pnl` | FIFO realized P&L (shared `computeFifoStats()`), calendar heatmap, attribution by symbol, day-of-week performance, CSV export. |
 | 🧪 **Backtest vs Live** | `backtest` | Compares live metrics to saved expected metrics (Sharpe, max DD, win rate, profit factor, avg daily return). Win Rate & Profit Factor use the same realized FIFO stats as the P&L tab. |
 | 📊 **Breakout Scanner** | `gapgo` | On-demand pre-session breakout/gap analysis per watchlist symbol: catalyst, supply risk, likelihood, 6-month range position, key levels, historical gap behaviour, trade plan, risk rating. Each card header shows two scores: **Conviction** (gap-specific, max ±7) and **Signal /6** (standard 6-point `calcSignalScore()` — identical to Signals and Market Signals tabs). |
-| 🌍 **Market Overview** | `market-overview` | Price, 24h%, 7d%, volume, trend and cap tier per symbol, sortable, with momentum heatmap. Scan universe = the shared `getCryptoUniverse()` (full tradable Alpaca crypto list) sliced by the **Max Symbols** setting — no longer hardcoded to 30. Score column auto-fills from the last Market Signals scan. |
+| 🌍 **Market Overview** | `market-overview` | Price, 24h%, 7d%, volume, trend and cap tier per symbol, sortable, with momentum heatmap. Scan universe = the shared `getCryptoUniverse()` (full tradable Alpaca crypto list) sliced by the **Max Symbols** setting — no longer hardcoded to 30. Score column auto-fills from the last Market Signals scan. Each row has a **Trade** column with Buy/Sell buttons (`moTradeButtons()`) that open the shared paper-trade modal pre-filled with symbol, side, and live price. |
 | 🔭 **Market Signals** | `market-signals` | On-demand full 6-point confluence scan over `getCryptoUniverse()`, sliced by the **Max Symbols** setting (no upper clamp). Score distribution + Top Opportunities panel. Scores cached into `_msPrevScores` for cross-tab display. |
 | 🔗 **Markov** | `markov` | On-demand first-order Markov chain analysis for BTC/USD & ETH/USD across 30/60/90/180/365-day windows. 3×3 transition matrix, stationary distribution, next-day forecast. Analysis-only — places no orders. |
 | 🔬 **Edge** | `edge` | On-demand (▶ Analyze) realized-edge analytics: FIFO round-trips from all FILL activities — per-symbol expectancy table, P&L by hour-of-day / day-of-week (GMT+2), KPI tiles, factual takeaway line. |
 | 📊 **Portfolio Overview** | `port-overview` | Account equity/cash/buying-power/P&L cards; equity curve (Chart.js, period buttons); open positions table (sortable, short-aware). |
 | 🥧 **Allocation** | `port-dist` | Donut chart of allocation across positions + cash; sortable breakdown table; cap utilisation table (all watchlist symbols, Over Cap / Near Cap / OK badges). |
-| ⚙ **Settings** | `settings` | Grouped sections: Paper credentials, Live credentials, Risk Limits, Signals Analysis (**Max Symbols**, default 30, minimum 1, no upper clamp), and **📋 Active Watchlist** (up to 20 symbols; tag editor with Add/Remove/Reset; persisted in `localStorage.proDashboardWatchlist`; used by Autopilot, Daily Journal, Signals tab, and Portfolio tabs). Seeds from `./config.json` (load-only fallback); saves to `localStorage`. |
+| ⚙ **Settings** | `settings` | Grouped sections: Paper credentials, Live credentials, Risk Limits, Signals Analysis (**Max Symbols**, default 30, minimum 1, no upper clamp), and **📋 Active Watchlist** (up to 20 symbols; tag editor with Add/Remove/Reset; the add-symbol control is an `<input list>` + `<datalist>` dropdown populated from the full tradable Alpaca exchange universe via `populateWatchlistOptions()` — pick or type to filter; persisted in `localStorage.proDashboardWatchlist`; used by Autopilot, Daily Journal, Signals tab, and Portfolio tabs). Seeds from `./config.json` (load-only fallback); saves to `localStorage`. |
 
 ### Shared crypto universe (Market Overview + Market Signals)
 
@@ -106,6 +101,8 @@ Key principles applied across both dashboards:
 | 2026-06-15 | **Bug fix — Total P&L in Performance tab mismatched Portfolio Overview** — The tile used `equitySeries[last] − equitySeries[0]` (3-month equity-history window) instead of `acct.unrealized_pl` (same field used by Portfolio Overview). Fixed: `totalPL = parseFloat(c.acct.unrealized_pl ?? 0)`. Both tabs now show the identical value. Version v2026-06-15.9. |
 | 2026-06-15 | **Bug fix — Total P&L in Performance tab still mismatched P&L tab** — v2026-06-15.9 used `acct.unrealized_pl` (open-position paper gains) which differs from the P&L tab's `fifoStats.totalPnl` (FIFO-realized P&L). Fixed: changed to `c.fifoStats.totalPnl` — the same FIFO value already computed in `loadContext()` from the same 100-fill sample the P&L tab uses. Version v2026-06-15.10. |
 | 2026-06-15 | **Bug fix — Signals tab ignored Settings watchlist** — `loadSignals()` hardcoded the 10 default symbols instead of calling `getWatchlist()`. Fixed: replaced the hardcoded array with `getWatchlist()` so the Signals tab now scans whatever symbols the user configured in the Settings watchlist. Version v2026-06-15.11. |
+| 2026-06-17 | **Roadmap — Market Overview Buy/Sell buttons** — added a **Trade** column to the Market Overview table (header + `colspan` 9→10). New `moTradeButtons(row)` renders Buy/Sell buttons that open the shared `openTradeModal()` pre-filled with symbol (`BTCUSD` format), side, and live price (qty blank); shows `–` when no live price. Version v2026-06-17.12. |
+| 2026-06-17 | **Roadmap — Settings watchlist exchange dropdown** — replaced the free-text watchlist input with an `<input list>` + `<datalist>` populated from the full tradable Alpaca crypto universe (`populateWatchlistOptions()` → `getCryptoUniverse()`); pick from the exchange list or type to filter, already-added symbols excluded, re-synced via `renderWatchlistTags()`. Degrades to free-text if the assets call fails. Version v2026-06-17.12. |
 
 ---
 
