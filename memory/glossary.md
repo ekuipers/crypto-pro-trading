@@ -4,6 +4,14 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-06-17 — Shared Score Distribution tile
+
+| Term | Meaning |
+|------|---------|
+| `renderScoreDist(elId, scores)` | Shared helper (defined just above `loadSignals`) that renders the 6-point **Score Distribution** tile into the given element id. Buckets an array of scores into ≥4 BUY / 3–3.9 HALF / 0.5–2.9 HOLD / −2.9–0 HOLD / ≤−3 BEAR (handles fractional scores) and draws colour-coded horizontal bars. Used by both the Signals tab (`#scoreDist`) and the Market → Scanner sub-tab (`#msScoreDist`) so they render identically. Replaced the Scanner's old per-integer inline list. |
+
+---
+
 ## 2026-06-17 — Behavioral Insights tab
 
 | Term | Meaning |

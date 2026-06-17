@@ -62,6 +62,16 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-17 — Roadmap: Scanner score-distribution tile matches Signals page (v2026-06-17.22)
+
+Rescan roadmap. Sole item: "Use the same score distribution tile in the Scanner tab as in the Signals page."
+
+**Problem:** The two tabs rendered score distribution differently. The Signals tab (`#scoreDist`) showed a **bucketed horizontal-bar tile** (≥4 BUY / 3–3.9 HALF / 0.5–2.9 HOLD / −2.9–0 HOLD / ≤−3 BEAR, colour-coded, with count + bar). The Market → Scanner sub-tab (`#msScoreDist`) showed a **compact per-integer inline list** (`+4: 3  +3: 1 …`) keyed on exact integer scores — so it also mis-bucketed fractional scores like 3.5.
+
+**Fix (`docs/dashboard_professional.html`):** Extracted the Signals tile rendering into a shared helper `renderScoreDist(elId, scores)` (defined just above `loadSignals`) containing the exact bucket logic + markup. Replaced the Signals inline block (≈28 lines) with `renderScoreDist("scoreDist", scores)` and the Scanner inline block with `renderScoreDist("msScoreDist", valid.map(r=>r.score).filter(s=>s!==null))`. Both tabs now render the identical tile, and the Scanner correctly handles fractional scores. No orphaned variables (old local `dist`/`total`/`distEl` removed with their blocks).
+
+**Verified:** extracted the inline `<script>` and ran `node --check` → SYNTAX OK; confirmed `scores` (loadSignals) and `valid` (loadMarketSignals) are in scope at the call sites. Roadmap cleared. Footer v2026-06-17.22.
+
 ### 2026-06-17 — Roadmap: remove duplicate KPI + new 🧠 Behavioral Insights tab (v2026-06-17.21)
 
 Implemented the two-item roadmap the user added to `CLAUDE.md` ("start roadmap"). Decisions taken via the question prompt: remove obvious duplicates at discretion; behavioral insights as a **new top-level nav tab**; rule-breaks computed **best-effort from trade history**.

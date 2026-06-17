@@ -2188,7 +2188,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-06-17</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-06-17.21</strong></span>
+    <span>Version: <strong>v2026-06-17.22</strong></span>
   </footer>
 
   <script>
@@ -4525,6 +4525,43 @@
       $("markovLastUpdated").textContent = "Last updated: " + new Date().toLocaleString();
     }
 
+    // Shared 6-point Score Distribution tile — used by both the Signals tab
+    // (#scoreDist) and the Market → Scanner sub-tab (#msScoreDist) so the two
+    // render identically. Buckets match the score-pill thresholds (≥4 BUY,
+    // 3–3.9 HALF, 0.5–2.9 / −2.9–0 HOLD, ≤−3 BEAR) and handle fractional scores.
+    function renderScoreDist(elId, scores) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      const dist = {"-6to-3": 0, "-2to0": 0, "1to3": 0, "3": 0, "4plus": 0};
+      scores.forEach(s => {
+        if (s <= -3) dist["-6to-3"]++;
+        else if (s <= 0) dist["-2to0"]++;
+        else if (s < 3) dist["1to3"]++;        // score 2.5 stays HOLD, not BUY
+        else if (s >= 3 && s < 4) dist["3"]++;  // 3.0–3.9 = half-size
+        else dist["4plus"]++;
+      });
+      const total = scores.length || 1;
+      el.innerHTML = `
+        <div style="display:grid;gap:6px;margin-top:8px">
+          ${[
+            ["≥ 4 (BUY)", dist["4plus"], "#3fb950"],
+            ["3–3.9 (HALF)", dist["3"], "#d29922"],
+            ["0.5–2.9 (HOLD)", dist["1to3"], "#58a6ff"],
+            ["−2.9–0 (HOLD)", dist["-2to0"], "#8b949e"],
+            ["≤ −3 (BEAR)", dist["-6to-3"], "#f85149"]
+          ].map(([label, count, color]) => `
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="width:90px;font-size:11px;color:var(--muted)">${label}</span>
+              <span style="flex:1;height:8px;background:rgba(255,255,255,.08);border-radius:4px">
+                <span style="display:block;height:100%;width:${count/total*100}%;background:${color};border-radius:4px"></span>
+              </span>
+              <span style="font-size:11px;width:16px;text-align:right">${count}</span>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+
     async function loadSignals() {
       const s = getSettings();
       if (!s.apiKey || !s.apiSecret) {
@@ -4702,35 +4739,8 @@
           `;
         }).join("");
 
-        // Score distribution
-        const dist = {"-6to-3": 0, "-2to0": 0, "1to3": 0, "3": 0, "4plus": 0};
-        scores.forEach(s => {
-          if (s <= -3) dist["-6to-3"]++;
-          else if (s <= 0) dist["-2to0"]++;
-          else if (s < 3) dist["1to3"]++;   // fixed: was s<=2, which sent score 2.5 to BUY bucket
-          else if (s >= 3 && s < 4) dist["3"]++;  // 3.0–3.9 = half-size
-          else dist["4plus"]++;
-        });
-        const total = scores.length || 1;
-        $("scoreDist").innerHTML = `
-          <div style="display:grid;gap:6px;margin-top:8px">
-            ${[
-              ["≥ 4 (BUY)", dist["4plus"], "#3fb950"],
-              ["3–3.9 (HALF)", dist["3"], "#d29922"],
-              ["0.5–2.9 (HOLD)", dist["1to3"], "#58a6ff"],
-              ["−2.9–0 (HOLD)", dist["-2to0"], "#8b949e"],
-              ["≤ −3 (BEAR)", dist["-6to-3"], "#f85149"]
-            ].map(([label, count, color]) => `
-              <div style="display:flex;align-items:center;gap:8px">
-                <span style="width:90px;font-size:11px;color:var(--muted)">${label}</span>
-                <span style="flex:1;height:8px;background:rgba(255,255,255,.08);border-radius:4px">
-                  <span style="display:block;height:100%;width:${count/total*100}%;background:${color};border-radius:4px"></span>
-                </span>
-                <span style="font-size:11px;width:16px;text-align:right">${count}</span>
-              </div>
-            `).join("")}
-          </div>
-        `;
+        // Score distribution (shared tile — see renderScoreDist)
+        renderScoreDist("scoreDist", scores);
 
         const buys = scores.filter(s => s >= 4).length;
         const halfs = scores.filter(s => s >= 3 && s < 4).length;  // 3.0–3.9 = half-size
@@ -6508,16 +6518,8 @@
         rows.forEach(function(r){ if (r.score !== null) _msPrevScores[r.sym] = r.score; });
         if (_moData.length) moApplySort();  // refresh MO score column live
 
-        // Score distribution
-        const distEl = document.getElementById("msScoreDist");
-        if (distEl) {
-          distEl.innerHTML = [-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6].map(function(sc) {
-            const cnt = valid.filter(function(r){ return r.score === sc; }).length;
-            if (!cnt) return "";
-            const col = sc >= 4 ? "var(--green)" : sc >= 3 ? "var(--yellow)" : sc <= 0 ? "var(--red)" : "var(--blue)";
-            return '<span style="margin-right:8px;color:' + col + '"><b>' + (sc > 0 ? "+" : "") + sc + "</b>: " + cnt + "</span>";
-          }).filter(Boolean).join("") || "No data.";
-        }
+        // Score distribution — shared tile, identical to the Signals tab
+        renderScoreDist("msScoreDist", valid.map(function(r){ return r.score; }).filter(function(s){ return s !== null; }));
 
         // Top opportunities
         const oppsEl = document.getElementById("msTopOpps");
