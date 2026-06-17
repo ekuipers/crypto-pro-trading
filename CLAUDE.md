@@ -20,12 +20,9 @@ Creator: Erik Kuipers
 ---
 
 ## Roadmap
-1. Add applied Indicators in the left pane to the top pane.
-   *(Awaiting clarification — the dashboard has no chart pane or indicator-list "left pane"; the intended source and target panes need to be identified before implementing.)*
+(empty — all items completed as of 2026-06-17; see `memory/projects/alpaca-trading-agent.md` for the change log)
 
-*(Completed 2026-06-17 — see `memory/projects/alpaca-trading-agent.md` change log:
-former item 1 "per-symbol watchlist Add/Remove button on Market Signals", and
-former item 2 "merge Market Overview + Market Signals into a single tabbed parent page".)*
+*(Completed 2026-06-17: item 1 "per-symbol watchlist Add/Remove button on Market Signals" and item 2 "merge Market Overview + Market Signals into a single tabbed parent page". The former item 3 "applied Indicators left pane → top pane" was dropped per the owner — it belonged to a separate charting project, not this dashboard.)*
 
 ## Bugs
 (all items completed as of 2026-06-17 — see `memory/projects/alpaca-trading-agent.md` for the change log)
