@@ -1218,6 +1218,7 @@
 
     <div class="nav-section-label">📊 Analysis</div>
     <button class="tab-btn" onclick="switchTab('analytics',this)">🔬 Analytics</button>
+    <button class="tab-btn" onclick="switchTab('insights',this)">🧠 Insights</button>
     <button class="tab-btn" onclick="switchTab('backtest',this)">🧪 Backtest vs Live</button>
     <button class="tab-btn" onclick="switchTab('markov',this)">🔗 Markov</button>
 
@@ -1841,6 +1842,25 @@
       </section>
     </div>
 
+    <!-- Behavioral Insights tab — plain-language trading-psychology read-outs from
+         realized FIFO round-trips (exit-time attribution, GMT+2). On-demand
+         (▶ Analyze) like Edge/Markov; analysis-only, places no orders. -->
+    <div id="page-insights" class="page">
+      <section>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
+          <div class="section-title" style="margin-bottom:0">🧠 Behavioral Insights — Trading Psychology</div>
+          <span class="small">Realized round-trips · FIFO · exit-time attribution (GMT+2)</span>
+          <button class="btn btn-green" onclick="loadInsights()" style="margin-left:auto">▶ Analyze</button>
+        </div>
+        <div id="insightsKpis" class="grid-3" style="margin-bottom:14px"></div>
+        <div id="insightsTakeaway" class="small" style="color:var(--muted);margin-bottom:6px">Click "▶ Analyze" to read your closed trades and surface behavioral patterns — best/worst weekday, how losing streaks affect you, trading cadence after wins, and rule-discipline breaches.</div>
+      </section>
+
+      <section>
+        <div id="insightsCards" class="grid-2"></div>
+      </section>
+    </div>
+
 
     <!-- ─── PAGE: PORTFOLIO OVERVIEW ─── -->
     <div id="page-port-overview" class="page">
@@ -2168,7 +2188,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-06-17</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-06-17.20</strong></span>
+    <span>Version: <strong>v2026-06-17.21</strong></span>
   </footer>
 
   <script>
@@ -2540,6 +2560,8 @@
         analyticsSubTab(_analyticsSub || "performance");
       } else if (id === "markov") {
         // don't auto-run — user clicks "Run Markov Analysis"
+      } else if (id === "insights") {
+        // don't auto-run — user clicks "▶ Analyze" (paginates all FILL history)
       } else if (id === "port-overview") {
         portLoadOverview();
       } else if (id === "port-dist") {
@@ -3057,8 +3079,7 @@
         kpi("Average Return", pct(avgRet,3), "Average period return", avgRet >= 0 ? "pos" : "neg"),
         kpi("Annualized Volatility", fmt(vol,2) + "%", "Return dispersion"),
         kpi("Best Period", pct(bestRet), "Largest positive period", "pos"),
-        kpi("Worst Period", pct(worstRet), "Largest negative period", "neg"),
-        kpi("Filled Orders", String(c.filledOrders.length), "Recent order sample")
+        kpi("Worst Period", pct(worstRet), "Largest negative period", "neg")
       ].join("");
 
       $("performanceSummaryBody").innerHTML = [
@@ -5321,7 +5342,7 @@
     // ═══════════════════════════════════════════════════════════════════════
 
     (function initKeyboardShortcuts() {
-      const TAB_ORDER = ["command","signals","market","execution","port-overview","port-dist","risk","analytics","backtest","markov","settings"];
+      const TAB_ORDER = ["command","signals","market","execution","port-overview","port-dist","risk","analytics","insights","backtest","markov","settings"];
       document.addEventListener("keydown", function(e) {
         // Ignore when typing in an input/textarea
         if (["INPUT","TEXTAREA","SELECT"].includes(e.target.tagName)) return;
@@ -7039,6 +7060,214 @@
       } catch (e) {
         $("edgeTakeaway").textContent = "❌ " + e.message;
         console.error("loadEdge:", e);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  BEHAVIORAL INSIGHTS TAB — plain-language trading-psychology read-outs
+    //  from realized FIFO round-trips. On-demand (▶ Analyze); analysis-only,
+    //  places no orders. Reuses edgeFetchAllFills() (paginated FILL history)
+    //  + a dedicated FIFO matcher that also carries entry cost + pnl% so the
+    //  rule-discipline heuristic (−5% stop, per-symbol cap) can be derived.
+    // ═══════════════════════════════════════════════════════════════════════
+    function insRoundTrips(activities) {
+      const sorted = [...activities].reverse();            // chronological
+      const queues = {};
+      const rts = [];
+      for (const act of sorted) {
+        const sym = toSlash(act.symbol), side = act.side;
+        const qty = Math.abs(Number(act.qty || 0));
+        const price = Number(act.price || 0);
+        const t = new Date(act.transaction_time || act.date || 0);
+        if (!queues[sym]) queues[sym] = [];
+        if (side === "buy") {
+          queues[sym].push({ qty, price, t });
+        } else if (side === "sell") {
+          let remaining = qty, pnl = 0, cost = 0, entryT = null;
+          while (remaining > 1e-9 && queues[sym].length > 0) {
+            const e = queues[sym][0];
+            const m = Math.min(remaining, e.qty);
+            pnl  += m * (price - e.price);
+            cost += m * e.price;
+            if (!entryT) entryT = e.t;
+            e.qty -= m; remaining -= m;
+            if (e.qty < 0.000001) queues[sym].shift();
+          }
+          if (entryT && cost > 0) {
+            rts.push({ sym, pnl, cost, pnlPct: pnl / cost * 100, entryT, exitT: t });
+          }
+        }
+      }
+      rts.sort((a, b) => a.exitT - b.exitT);               // chronological by exit
+      return rts;
+    }
+
+    function insStmt(text, cls) {                          // headline statement line
+      const c = cls === "neg" ? "var(--red)" : cls === "pos" ? "var(--green)" : "var(--yellow)";
+      return `<div style="font-size:14px;font-weight:700;color:${c};margin-bottom:10px;line-height:1.4">${text}</div>`;
+    }
+    function insGap(h) {                                    // format an hour gap
+      if (h === null || h === undefined) return "–";
+      return h < 1 ? Math.round(h * 60) + "m" : h < 48 ? fmt(h, 1) + "h" : fmt(h / 24, 1) + "d";
+    }
+
+    async function loadInsights() {
+      const s = getSettings();
+      if (!s.apiKey || !s.apiSecret) {
+        $("insightsTakeaway").textContent = "Configure API credentials in Settings first.";
+        return;
+      }
+      $("insightsTakeaway").textContent = "⏳ Fetching all FILL activities (paginated)…";
+      $("insightsKpis").innerHTML = "";
+      $("insightsCards").innerHTML = "";
+      try {
+        const fills = await edgeFetchAllFills();
+        const rts = insRoundTrips(fills);
+        if (rts.length < 2) {
+          $("insightsTakeaway").textContent = `Only ${rts.length} completed round-trip(s) found in ${fills.length} fill(s) — need a few closed trades before behavioral patterns are meaningful.`;
+          return;
+        }
+
+        const dowNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const todayG2 = jGmt2Date();
+
+        // ── 1. Day-of-week edge (exit time, GMT+2) ──
+        const dN = Array(7).fill(0), dW = Array(7).fill(0), dP = Array(7).fill(0);
+        rts.forEach(r => {
+          const d = dowNames.indexOf(r.exitT.toLocaleDateString("en-US", { timeZone: "Etc/GMT-2", weekday: "short" }));
+          if (d < 0) return;
+          dN[d]++; dP[d] += r.pnl; if (r.pnl >= 0) dW[d]++;
+        });
+        let worstD = -1, bestD = -1;                       // by avg P&L, ≥2 trades
+        for (let d = 0; d < 7; d++) {
+          if (dN[d] < 2) continue;
+          const avg = dP[d] / dN[d];
+          if (worstD < 0 || avg < dP[worstD] / dN[worstD]) worstD = d;
+          if (bestD  < 0 || avg > dP[bestD]  / dN[bestD])  bestD  = d;
+        }
+
+        // ── 2. Win rate after consecutive losses ──
+        let streak = 0, baseW = 0, baseN = 0, a1W = 0, a1N = 0, a2W = 0, a2N = 0;
+        rts.forEach((r, i) => {
+          if (i > 0) {
+            baseN++; if (r.pnl >= 0) baseW++;
+            if (streak >= 1) { a1N++; if (r.pnl >= 0) a1W++; }
+            if (streak >= 2) { a2N++; if (r.pnl >= 0) a2W++; }
+          }
+          if (r.pnl < 0) streak++; else streak = 0;
+        });
+        const baseRate = baseN ? baseW / baseN * 100 : null;
+        const a1Rate   = a1N ? a1W / a1N * 100 : null;
+        const a2Rate   = a2N ? a2W / a2N * 100 : null;
+
+        // ── 3. Trading cadence after wins vs losses (gap to next entry) ──
+        const afterWinGap = [], afterLossGap = [];
+        for (let i = 0; i < rts.length - 1; i++) {
+          const gap = (rts[i + 1].entryT - rts[i].exitT) / 3600000; // hours
+          if (gap < 0) continue;
+          (rts[i].pnl >= 0 ? afterWinGap : afterLossGap).push(gap);
+        }
+        const med = arr => arr.length ? [...arr].sort((a, b) => a - b)[Math.floor(arr.length / 2)] : null;
+        const medWin = med(afterWinGap), medLoss = med(afterLossGap);
+
+        // ── 4. Rule-discipline breaches (best-effort from trade history) ──
+        let acctEquity = 0;
+        try { acctEquity = Number((await apiFetch("/v2/account")).equity || 0); } catch (e) {}
+        const stopBreaches = rts.filter(r => r.pnlPct < -5);                 // −5% hard stop not honored
+        const stopToday = stopBreaches.filter(r => r.exitT.toLocaleDateString("en-CA", { timeZone: "Etc/GMT-2" }) === todayG2);
+        const capBreaches = acctEquity > 0 ? rts.filter(r => r.cost > portCapFor(r.sym) / 100 * acctEquity) : [];
+        const totalBreaches = stopBreaches.length + capBreaches.length;
+
+        // ── KPI tiles ──
+        $("insightsKpis").innerHTML = [
+          kpi("Rule Breaches", String(totalBreaches), `${stopBreaches.length} stop-loss · ${capBreaches.length} cap (best-effort)`, totalBreaches ? "neg" : "pos"),
+          kpi("After-2-Loss Win Rate", a2Rate !== null ? fmt(a2Rate, 0) + "%" : "n/a", baseRate !== null ? `baseline ${fmt(baseRate, 0)}%` : "need a streak", a2Rate !== null && baseRate !== null && a2Rate < baseRate ? "neg" : "pos"),
+          kpi("Worst Weekday", worstD >= 0 ? `${dowNames[worstD]} ${edgePnlStr(dP[worstD])}` : "n/a", worstD >= 0 ? `${dN[worstD]} trades · ${fmt(dW[worstD] / dN[worstD] * 100, 0)}% win` : "need ≥2/day", worstD >= 0 && dP[worstD] < 0 ? "neg" : "")
+        ].join("");
+
+        const cards = [];
+
+        // Card 1 — weekday
+        {
+          const maxAbs = Math.max(...dP.map(Math.abs), 1e-9);
+          const stmt = worstD >= 0 && dP[worstD] < 0
+            ? insStmt(`📉 You trade worse on ${dowNames[worstD]}s — ${edgePnlStr(dP[worstD])} net across ${dN[worstD]} trades (${fmt(dW[worstD] / dN[worstD] * 100, 0)}% win rate).`, "neg")
+            : insStmt(`No consistently losing weekday yet${bestD >= 0 ? ` — your strongest day is ${dowNames[bestD]}` : ""}.`, "pos");
+          const rows = [1, 2, 3, 4, 5, 6, 0].map(d => `
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <span style="width:34px;font-size:11px;color:var(--muted)">${dowNames[d]}</span>
+              <span style="flex:1;height:8px;background:rgba(255,255,255,.08);border-radius:4px">
+                <span style="display:block;height:100%;width:${Math.abs(dP[d]) / maxAbs * 100}%;background:${dP[d] >= 0 ? "var(--green)" : "var(--red)"};border-radius:4px"></span>
+              </span>
+              <span style="width:140px;text-align:right;font-size:11px;color:${edgePnlColor(dP[d])}">${dN[d] ? edgePnlStr(dP[d]) + " · " + fmt(dW[d] / dN[d] * 100, 0) + "%" : "–"}</span>
+            </div>`).join("");
+          cards.push(`<div class="panel"><div class="panel-title">🗓 Day-of-Week Edge</div>${stmt}${rows}</div>`);
+        }
+
+        // Card 2 — losing streaks
+        {
+          const drop = a2Rate !== null && baseRate !== null && a2Rate < baseRate - 5;
+          const stmt = a2N < 1
+            ? insStmt("Not enough back-to-back losses yet to judge streak behavior.", "")
+            : drop
+              ? insStmt(`📉 Your win rate drops after losing streaks — ${fmt(a2Rate, 0)}% after 2+ losses vs ${fmt(baseRate, 0)}% baseline. Consider pausing after consecutive losses.`, "neg")
+              : insStmt(`✅ You hold up after losses — ${fmt(a2Rate, 0)}% win rate after 2+ losses vs ${fmt(baseRate, 0)}% baseline.`, "pos");
+          const row = (lbl, w, n) => `
+            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
+              <span style="color:var(--muted)">${lbl}</span>
+              <span>${n ? fmt(w / n * 100, 0) + "% <span style='color:var(--muted)'>(" + w + "/" + n + ")</span>" : "–"}</span>
+            </div>`;
+          cards.push(`<div class="panel"><div class="panel-title">📉 After Losing Streaks</div>${stmt}
+            ${row("Baseline (all trades)", baseW, baseN)}
+            ${row("After 1 loss", a1W, a1N)}
+            ${row("After 2+ losses", a2W, a2N)}</div>`);
+        }
+
+        // Card 3 — cadence after outcome
+        {
+          const over = medWin !== null && medLoss !== null && medWin < medLoss;
+          const stmt = (medWin === null || medLoss === null)
+            ? insStmt("Need more sequential trades to compare post-win vs post-loss cadence.", "")
+            : over
+              ? insStmt(`🔁 You may overtrade after wins — median ${insGap(medWin)} to the next trade after a win vs ${insGap(medLoss)} after a loss.`, "neg")
+              : insStmt(`✅ Balanced cadence — ${insGap(medWin)} to next trade after a win vs ${insGap(medLoss)} after a loss.`, "pos");
+          const row = (lbl, v, n) => `
+            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
+              <span style="color:var(--muted)">${lbl}</span><span>${insGap(v)} <span style="color:var(--muted)">(${n} gaps)</span></span>
+            </div>`;
+          cards.push(`<div class="panel"><div class="panel-title">🔁 Cadence After Outcome</div>${stmt}
+            ${row("Median gap after a WIN", medWin, afterWinGap.length)}
+            ${row("Median gap after a LOSS", medLoss, afterLossGap.length)}</div>`);
+        }
+
+        // Card 4 — rule discipline
+        {
+          const stmt = totalBreaches === 0
+            ? insStmt("✅ No rule breaches detected in your closed trades.", "pos")
+            : insStmt(`⚠ ${totalBreaches} rule breach(es) detected${stopToday.length ? ` — ${stopToday.length} stop-loss breach(es) today` : ""}.`, "neg");
+          const items = [
+            `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--muted)">−5% stop-loss breaches</span><span class="${stopBreaches.length ? "neg" : ""}">${stopBreaches.length}</span></div>`,
+            `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--muted)">Per-symbol cap breaches <span style="color:var(--muted)">(best-effort)</span></span><span class="${capBreaches.length ? "neg" : ""}">${acctEquity > 0 ? capBreaches.length : "n/a"}</span></div>`
+          ];
+          if (stopBreaches.length) {
+            const worst = stopBreaches.reduce((a, b) => b.pnlPct < a.pnlPct ? b : a);
+            items.push(`<div style="font-size:11px;color:var(--muted);margin-top:8px">Worst: ${worst.sym} closed at ${fmt(worst.pnlPct, 1)}% (${edgePnlStr(worst.pnl)}) on ${worst.exitT.toLocaleDateString("en-CA", { timeZone: "Etc/GMT-2" })}.</div>`);
+          }
+          cards.push(`<div class="panel"><div class="panel-title">⚠ Rule Discipline</div>${stmt}${items.join("")}
+            <div style="font-size:11px;color:var(--muted);margin-top:8px">Best-effort from FILL history: stop-loss breaches use realized loss % vs the −5% hard rule; cap breaches compare entry cost to the symbol cap × <em>current</em> equity (historical equity unknown).</div></div>`);
+        }
+
+        $("insightsCards").innerHTML = cards.join("");
+
+        // ── One-line takeaway ──
+        const tk = [];
+        if (worstD >= 0 && dP[worstD] < 0) tk.push(`worst weekday ${dowNames[worstD]} (${edgePnlStr(dP[worstD])})`);
+        if (a2Rate !== null && baseRate !== null) tk.push(`${fmt(a2Rate, 0)}% win after 2+ losses vs ${fmt(baseRate, 0)}% baseline`);
+        if (totalBreaches) tk.push(`${totalBreaches} rule breach(es)`);
+        $("insightsTakeaway").textContent = "Takeaway: " + (tk.length ? tk.join("; ") + "." : `${rts.length} round-trips analysed; no notable behavioral flags.`);
+      } catch (e) {
+        $("insightsTakeaway").textContent = "❌ " + e.message;
+        console.error("loadInsights:", e);
       }
     }
 

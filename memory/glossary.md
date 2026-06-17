@@ -4,6 +4,19 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-06-17 — Behavioral Insights tab
+
+| Term | Meaning |
+|------|---------|
+| `loadInsights()` | Entry point for the 🧠 Insights tab (top-level `page-insights`, id `insights`). On-demand (▶ Analyze). Fetches all FILL history (`edgeFetchAllFills()`), builds round-trips (`insRoundTrips()`), renders 3 KPI tiles + 4 behavioral cards. Analysis-only. |
+| `insRoundTrips(activities)` | Dedicated FIFO round-trip matcher for Insights (separate from `computeFifoStats`/`edgeFifoTrades` so the shared engines stay untouched). Returns `{sym, pnl, cost, pnlPct, entryT, exitT}` sorted chronologically by exit time. `cost` = matched entry cost; `pnlPct` = pnl ÷ cost × 100. |
+| `insStmt(text, cls)` / `insGap(h)` | Insights render helpers: a coloured headline statement line (`neg`/`pos`/else yellow), and an hour-gap formatter (`m`/`h`/`d`). |
+| After-2-Loss Win Rate | Win rate of round-trips that follow ≥2 consecutive losing round-trips (chronological), vs the all-trades baseline. Drives the "win rate drops after losses" insight. |
+| Cadence after outcome | Median hours from a round-trip's exit to the next round-trip's entry, split by whether the prior trip won or lost. Shorter gap after wins ⇒ "overtrade after wins". |
+| Rule breach (best-effort) | Insights heuristic: **stop-loss breach** = realized `pnlPct < −5` (the −5% hard stop wasn't honored); **cap breach** = entry `cost` > `portCapFor(sym)`% × *current* equity (approximate — historical equity unknown). |
+
+---
+
 ## 2026-06-17 — Layout/style consistency sweep
 
 | Term | Meaning |

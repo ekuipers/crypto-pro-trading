@@ -62,6 +62,20 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-17 — Roadmap: remove duplicate KPI + new 🧠 Behavioral Insights tab (v2026-06-17.21)
+
+Implemented the two-item roadmap the user added to `CLAUDE.md` ("start roadmap"). Decisions taken via the question prompt: remove obvious duplicates at discretion; behavioral insights as a **new top-level nav tab**; rule-breaks computed **best-effort from trade history**.
+
+**Item 1 — remove redundant/duplicate/low-impact metrics.** Audited every `kpi()` block. Removed the one clearly-misplaced visible duplicate: the **"Filled Orders" tile on the Performance tab** (labelled "Recent order sample" — an order-count metric that duplicates the Execution tab and doesn't belong in performance stats). Deliberately preserved the other apparent overlaps because they're legitimate: Current Drawdown / Open Risk appear on both Command (summary cockpit) and Risk (detail) — a standard summary-vs-detail pattern; Win Rate / Profit Factor on P&L vs Backtest are documented as **intentional parity** (`computeFifoStats()` so they can't diverge). The `positionKpis` "Open Risk" lives in the **defunct, null-guarded Positions render** (no longer mounted) so it's invisible — left untouched rather than editing dead code.
+
+**Item 2 — 🧠 Behavioral Insights tab.** New top-level tab (`page-insights`, nav button in the **📊 Analysis** section, id `insights`, deep link `#insights`, added to `TAB_ORDER`; manual ▶ Analyze, no auto-run — same on-demand pattern as Edge/Markov). New JS (`loadInsights`, `insRoundTrips`, `insStmt`, `insGap`) placed right after `loadEdge`. `insRoundTrips()` is a dedicated FIFO matcher (kept separate from `computeFifoStats`/`edgeFifoTrades` to avoid touching the shared engines) that returns round-trips carrying `pnl`, entry `cost`, `pnlPct`, `entryT`, `exitT`, sorted chronologically by exit. Four insight cards + 3 KPI tiles:
+- **🗓 Day-of-Week Edge** — per-weekday win rate + net P&L (GMT+2 exit time); flags the worst consistently-losing weekday ("You trade worse on Tuesdays").
+- **📉 After Losing Streaks** — win-rate baseline vs after-1-loss vs after-2+-consecutive-losses; flags a ≥5pt drop ("win rate drops after 2 losses").
+- **🔁 Cadence After Outcome** — median hours to the next entry after a win vs after a loss; flags shorter post-win gap ("overtrade after wins").
+- **⚠ Rule Discipline** — best-effort rule-break detection: −5% hard-stop breaches (realized loss% < −5) + per-symbol cap breaches (entry cost > `portCapFor(sym)`% × *current* equity, labelled approximate). KPI "Rule Breaches" surfaces the count and same-day stop breaches.
+
+**Verified:** extracted the inline `<script>` and ran `node --check` → SYNTAX OK; unit-tested `insRoundTrips` + streak/cadence/breach logic on synthetic fills (5 round-trips −6/−4/+2.1/+10/+1.8%): FIFO correct, baseline 3/4 vs after-2-loss 1/1, 1 stop breach (BTC −6%, ETH −4% correctly not flagged), cadence medians sane. `getSettings().apiKey` guard mirrors `loadEdge`. Roadmap cleared in `CLAUDE.md`. Footer v2026-06-17.21.
+
 ### 2026-06-17 — Layout/style consistency sweep (v2026-06-17.20)
 
 Request: "check the dashboard for any inconsistencies in layout and style" → "proceed". Reviewed the CSS + markup of `docs/dashboard_professional.html` and fixed seven defects:
