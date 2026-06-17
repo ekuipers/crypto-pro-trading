@@ -64,6 +64,16 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-17 — Bugs: exclude stablecoins from scans + fix false "Over Cap" badge (v2026-06-17.14)
+
+New workflow rule 8 added to CLAUDE.md: a "rescan roadmap" request must **implement** the roadmap items and **fix** the listed bugs, not just report status.
+
+**Bug 1 — stablecoins in symbol scans.** `getCryptoUniverse()` kept every `*/USD` pair, so `USDT/USD`, `USDC/USD`, etc. (stablecoins priced in dollars — never tradeable setups) appeared in Market Signals, Market Overview, and the Settings watchlist dropdown. Fix: added a `STABLECOIN_BASES` set (USDT, USDC, DAI, USDP, PYUSD, TUSD, BUSD, GUSD, USDG, FDUSD, USDD, FRAX, LUSD, USTC) and skip any pair whose base is in it (`STABLECOIN_BASES[sym.slice(0,-4)]`). Fixed at the source, so every consumer of `getCryptoUniverse()` is covered.
+
+**Bug 2 — false "Over Cap" badge at exactly 100%.** In the Allocation tab's cap-utilisation table, `utilPct` was clamped with `Math.min(...,100)` for the text while `isOver = curPct > capPct` used the raw value. A position fractionally over cap (e.g. 100.3%) displayed "100% of cap used" yet showed "⚠ Over Cap" — a visible contradiction. Fix: `utilPct` is now the true un-clamped utilisation, `isOver = Math.round(utilPct) > 100`, and the progress-bar width is clamped separately (`Math.min(utilPct,100)`). The badge now always agrees with the displayed "% of cap used": at-cap → Near Cap, only >100% rounded → Over Cap.
+
+**Verified:** Bug 1 — base-slice logic handles both `USDT/USD` and bare `USDCUSD` (normalized first). Bug 2 — walked the boundary cases: 100.4% → round 100 → Near Cap / "100% of cap used"; 100.6% → round 101 → Over Cap / "101% of cap used". Footer v2026-06-17.14. Both items moved out of CLAUDE.md's Roadmap/Bugs lists.
+
 ### 2026-06-17 — Roadmap: single-line responsive footer + delete legacy portfolio-dashboard.html (v2026-06-17.13)
 
 **Roadmap — footer on a single line depending on window size.** The footer was two stacked `.footer-row` divs (the `<footer>` was `flex-direction:column`). Flattened to a single `<footer>` flex row with `flex-wrap:wrap; align-items:baseline; gap:4px 14px` — all items (name · description · creator · last modified · version) sit on one line on wide windows and wrap naturally as the window narrows. Removed the now-unused `.footer-row` CSS rule and its mobile override; kept the `@media(max-width:700px)` footer padding tweak. Footer bumped to v2026-06-17.13.

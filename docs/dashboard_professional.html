@@ -2132,7 +2132,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-06-17</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-06-17.13</strong></span>
+    <span>Version: <strong>v2026-06-17.14</strong></span>
   </footer>
 
   <script>
@@ -6160,8 +6160,16 @@
     //
     // Robust to symbol format: Alpaca may return crypto symbols as "BTC/USD" or
     // bare "BTCUSD". Both are normalized to "BASE/USD"; non-USD quotes
-    // (USDT/USDC/BTC pairs) are dropped.
+    // (USDT/USDC/BTC pairs) are dropped, as are stablecoin bases priced in USD
+    // (USDT/USD, USDC/USD, … — see STABLECOIN_BASES).
     let _cryptoUniverse = null;
+    // Stablecoin bases excluded from the scan universe — a USDT/USD or USDC/USD
+    // "pair" is just the stablecoin priced in dollars, never a tradeable setup,
+    // and pollutes the Market Signals / Market Overview / watchlist symbol lists.
+    const STABLECOIN_BASES = {
+      USDT:1, USDC:1, DAI:1, USDP:1, PYUSD:1, TUSD:1, BUSD:1, GUSD:1,
+      USDG:1, FDUSD:1, USDD:1, FRAX:1, LUSD:1, USTC:1
+    };
     // sym -> 1-based position in the ordered universe. Used as the rank fallback
     // for symbols outside TOP30_INFO so every row shows a real number, not "?".
     let _universeRank = {};
@@ -6188,7 +6196,8 @@
             if (!/USD$/.test(sym)) return;          // only USD-quoted bare symbols
             sym = sym.slice(0, -3) + "/USD";         // BTCUSD -> BTC/USD
           }
-          if (!sym.endsWith("/USD")) return;         // drop USDT/USDC/BTC quotes
+          if (!sym.endsWith("/USD")) return;         // drop non-USD quotes (USDT/USDC/BTC pairs)
+          if (STABLECOIN_BASES[sym.slice(0, -4)]) return;  // drop stablecoin bases (USDT/USD, USDC/USD, …)
           if (seen[sym]) return;
           seen[sym] = 1;
           usd.push(sym);
@@ -7271,7 +7280,7 @@ function portRenderDistCap() {
   });
   $("portDistCapBody").innerHTML = data.map(item => {
     const { sym, curPct, capPct, headroom, utilPct, isOver, hasPos } = item;
-    const barFill = isOver ? `background:var(--red);width:100%` : `background:var(--green);width:${utilPct.toFixed(1)}%`;
+    const barFill = isOver ? `background:var(--red);width:100%` : `background:var(--green);width:${Math.min(utilPct, 100).toFixed(1)}%`;
     const badge = !hasPos
       ? `<span style="color:var(--muted);font-size:12px">No position</span>`
       : isOver
@@ -7360,8 +7369,12 @@ async function portLoadDist() {
       const curPct = equity ? mv / equity * 100 : 0;
       const capPct = portCapFor(sym);
       const headroom = Math.max(capPct - curPct, 0);
-      const utilPct = capPct ? Math.min(curPct / capPct * 100, 100) : 0;
-      const isOver = curPct > capPct;
+      // True (un-clamped) utilisation so the displayed % matches the badge — a
+      // position fractionally over cap used to read "100% of cap used" (clamped)
+      // yet show "Over Cap", which looked contradictory. "Over Cap" now fires
+      // only when the rounded utilisation actually exceeds 100%.
+      const utilPct = capPct ? curPct / capPct * 100 : 0;
+      const isOver = Math.round(utilPct) > 100;
       const hasPos = !!p;
       return { sym, curPct, capPct, headroom, utilPct, isOver, hasPos };
     });
