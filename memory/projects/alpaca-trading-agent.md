@@ -33,8 +33,7 @@ alpaca-trading-agent/
 ├── journal/
 │   └── YYYY-MM-DD.md            ← Daily trading journals (append, never overwrite)
 ├── docs/
-│   ├── portfolio-dashboard.html       ← Legacy dashboard (contents integrated into pro dashboard; kept for reference)
-│   ├── dashboard_professional.html       ← Primary dashboard (15 tabs — see dashboard_layout.md)
+│   ├── dashboard_professional.html       ← Sole dashboard (portfolio-dashboard.html deleted 2026-06-17; see dashboard_layout.md)
 │   └── dashboard_layout.md            ← Tab structure, feature notes, changelog
 └── skills/
     └── crypto-trader/
@@ -64,6 +63,14 @@ alpaca-trading-agent/
 ---
 
 ## Session History
+
+### 2026-06-17 — Roadmap: single-line responsive footer + delete legacy portfolio-dashboard.html (v2026-06-17.13)
+
+**Roadmap — footer on a single line depending on window size.** The footer was two stacked `.footer-row` divs (the `<footer>` was `flex-direction:column`). Flattened to a single `<footer>` flex row with `flex-wrap:wrap; align-items:baseline; gap:4px 14px` — all items (name · description · creator · last modified · version) sit on one line on wide windows and wrap naturally as the window narrows. Removed the now-unused `.footer-row` CSS rule and its mobile override; kept the `@media(max-width:700px)` footer padding tweak. Footer bumped to v2026-06-17.13.
+
+**Deleted `docs/portfolio-dashboard.html`.** The legacy standalone dashboard (its tabs were merged into the Professional Dashboard on 2026-06-15) was removed at the user's request. Updated all current-state references (CLAUDE.md, README.md, this file's architecture tree, dashboard_layout.md) to note the deletion; historical changelog entries describing the original merge are left intact as the record.
+
+**Verified:** Footer change is CSS + markup only, all required footer fields (description, creator, last-modified, version) retained. Surgical reference cleanup; no code logic touched.
 
 ### 2026-06-17 — Roadmap: Market Overview Buy/Sell buttons + Settings watchlist exchange dropdown (v2026-06-17.12)
 

@@ -691,14 +691,9 @@
       border-top:1px solid var(--border);
       margin-top:20px;
       display:flex;
-      flex-direction:column;
-      gap:6px;
-    }
-    .footer-row {
-      display:flex;
       flex-wrap:wrap;
-      gap:4px 20px;
       align-items:baseline;
+      gap:4px 14px;
     }
     .footer-name {
       font-weight:700;
@@ -708,7 +703,6 @@
     .footer-sep { color:var(--border); }
     @media(max-width:700px) {
       footer { padding:16px; }
-      .footer-row { flex-direction:column; gap:3px; }
     }
 
     /* ── GAP & GO TAB ── */
@@ -2130,18 +2124,15 @@
   <div id="tooltip"></div>
 
   <footer>
-    <div class="footer-row">
-      <span class="footer-name">CryptoPro Dashboard</span>
-      <span class="footer-sep">·</span>
-      <span>Autonomous crypto paper-trading cockpit — signal confluence, ATR sizing, limit orders only, Alpaca API</span>
-    </div>
-    <div class="footer-row">
-      <span>Creator: <strong>Erik Kuipers</strong></span>
-      <span class="footer-sep">·</span>
-      <span>Last modified: <strong>2026-06-17</strong></span>
-      <span class="footer-sep">·</span>
-      <span>Version: <strong>v2026-06-17.12</strong></span>
-    </div>
+    <span class="footer-name">CryptoPro Dashboard</span>
+    <span class="footer-sep">·</span>
+    <span>Autonomous crypto paper-trading cockpit — signal confluence, ATR sizing, limit orders only, Alpaca API</span>
+    <span class="footer-sep">·</span>
+    <span>Creator: <strong>Erik Kuipers</strong></span>
+    <span class="footer-sep">·</span>
+    <span>Last modified: <strong>2026-06-17</strong></span>
+    <span class="footer-sep">·</span>
+    <span>Version: <strong>v2026-06-17.13</strong></span>
   </footer>
 
   <script>

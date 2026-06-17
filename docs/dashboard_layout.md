@@ -103,12 +103,14 @@ Key principles applied across both dashboards:
 | 2026-06-15 | **Bug fix — Signals tab ignored Settings watchlist** — `loadSignals()` hardcoded the 10 default symbols instead of calling `getWatchlist()`. Fixed: replaced the hardcoded array with `getWatchlist()` so the Signals tab now scans whatever symbols the user configured in the Settings watchlist. Version v2026-06-15.11. |
 | 2026-06-17 | **Roadmap — Market Overview Buy/Sell buttons** — added a **Trade** column to the Market Overview table (header + `colspan` 9→10). New `moTradeButtons(row)` renders Buy/Sell buttons that open the shared `openTradeModal()` pre-filled with symbol (`BTCUSD` format), side, and live price (qty blank); shows `–` when no live price. Version v2026-06-17.12. |
 | 2026-06-17 | **Roadmap — Settings watchlist exchange dropdown** — replaced the free-text watchlist input with an `<input list>` + `<datalist>` populated from the full tradable Alpaca crypto universe (`populateWatchlistOptions()` → `getCryptoUniverse()`); pick from the exchange list or type to filter, already-added symbols excluded, re-synced via `renderWatchlistTags()`. Degrades to free-text if the assets call fails. Version v2026-06-17.12. |
+| 2026-06-17 | **Roadmap — single-line responsive footer** — flattened the footer from two stacked `.footer-row` divs into a single `<footer>` flex row (`flex-wrap:wrap; align-items:baseline; gap:4px 14px`), so all items sit on one line on wide windows and wrap naturally as the window narrows. Removed the now-unused `.footer-row` CSS. Version v2026-06-17.13. |
+| 2026-06-17 | **Deleted legacy `docs/portfolio-dashboard.html`** — its tabs were merged into the Professional Dashboard on 2026-06-15; the standalone file is now removed. Professional Dashboard is the sole entry point. |
 
 ---
 
-## 2. Portfolio Dashboard — `docs/portfolio-dashboard.html`
+## 2. Portfolio Dashboard — `docs/portfolio-dashboard.html` *(DELETED 2026-06-17)*
 
-**Status:** Legacy (maintained for reference; all tabs are now integrated into the Professional Dashboard under the "💼 Portfolio" section)
+**Status:** Deleted on 2026-06-17. The file no longer exists; all its tabs were integrated into the Professional Dashboard under the "💼 Portfolio" section on 2026-06-15. The section below is kept as a historical record of what the standalone dashboard contained.
 **Title:** "Portfolio Dashboard"
 **Tabs:** 5 — Overview · Hot Symbols · Allocation · Morning Brief · Settings
 

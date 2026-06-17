@@ -318,14 +318,10 @@ Key features:
 
 ### Portfolio tabs (integrated into `docs/dashboard_professional.html`)
 
-As of 2026-06-15, the portfolio dashboard pages have been merged into the Professional Dashboard as new nav tabs under a **"💼 Portfolio"** section label in the sidebar. The legacy `docs/portfolio-dashboard.html` file is kept for reference.
+As of 2026-06-15, the portfolio dashboard pages were merged into the Professional Dashboard as new nav tabs under a **"💼 Portfolio"** section label in the sidebar. The legacy `docs/portfolio-dashboard.html` file was deleted on 2026-06-17 — the Professional Dashboard is the sole entry point.
 
 - **📊 Portfolio Overview** (`port-overview`) — Account equity/cash/buying-power/P&L cards, equity curve (Chart.js, period selector: 1D/1W/1M/3M/1Y), sortable open positions table (short-aware; column-header sorting powered by `applySort()`/`numOrStr()` helpers).
 - **🥧 Allocation** (`port-dist`) — Donut allocation chart with legend, breakdown table, cap utilisation table (all watchlist symbols vs. `PORTFOLIO_CAPS` limits, Over Cap / Near Cap / OK status badges).
-
-### `docs/portfolio-dashboard.html` *(legacy — contents integrated into Professional Dashboard)*
-
-Original lighter standalone dashboard. Still functional but the Professional Dashboard now contains all the same tabs. See above.
 
 ---
 
@@ -424,8 +420,7 @@ alpaca-trading-agent/
 │   ├── trade.yml              # Hourly trading + daily summary
 │   └── forward.yml            # Daily walk-forward analysis
 ├── docs/
-│   ├── portfolio-dashboard.html        # Portfolio dashboard (5 tabs, legacy — contents integrated into pro dashboard)
-│   ├── dashboard_professional.html     # Professional dashboard (17 tabs, primary; includes 4 portfolio tabs)
+│   ├── dashboard_professional.html     # Professional dashboard (sole entry point; includes the portfolio tabs)
 │   └── dashboard_layout.md            # Dashboard layout & changelog (Professional + Portfolio sections)
 ├── journal/
 │   ├── _template.md           # Journal entry template
