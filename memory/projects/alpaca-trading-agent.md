@@ -64,6 +64,16 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-17 — Roadmap: regroup nav into Trade/Portfolio/Analytics + fold Breakout into Market tab (v2026-06-17.16)
+
+Owner accepted the nav-IA advice and added it as a roadmap item. Implemented the two parts of the pasted target menu; the two leftover consolidation bullets (merge Performance+P&L+Edge; drop standalone Positions) stay on the roadmap pending sign-off since they change tab behavior/URLs.
+
+**Nav regrouping (menu-only, no behavior change).** Reordered the sidebar `<nav>` and added two `.nav-section-label` headers so all tabs sit under labelled groups: **🧭 Command** (ungrouped, top) · **⚡ Trade** (Signals, Market, Execution) · **💼 Portfolio** (Overview [renamed from "Portfolio Overview"], Positions, Allocation, Risk) · **🔬 Analytics** (Performance, P&L, Backtest vs Live, Edge, Markov) · **⚙ Settings** (ungrouped, bottom, `margin-top:14px`). Act → Hold → Analyze flow. Kept Edge's 🔬 emoji (the pasted target showed 🧭, which collides with Command). No id/onclick changed, so `validTabIds()`/`tabBtnFor()`/routing are untouched. Updated the keyboard `TAB_ORDER` to the new visual order (keys 1-9).
+
+**Breakout Scanner folded into the Market tab as a third sub-tab.** Moved the former standalone `page-gapgo` content into `page-market` as `subpage-gapgo` (class `market-subpage`), added a third sub-tab button `msubtab-gapgo` ("📊 Breakout") to `.market-subnav`, and removed the top-level Breakout nav button. New `const MARKET_SUBS = ["market-overview","market-signals","gapgo"]` is the single source of truth: `marketSubTab()` validates against it, `applyTabFromUrl()` uses `SUBS = MARKET_SUBS`, and `switchTab()` gained a guard at the top that redirects any of the three sub-ids to the parent (`market`) + sub-tab — so keyboard shortcuts, the `#gapgo` deep link, and any legacy `switchTab('gapgo')` keep working. Removed the now-dead `else if (id === "gapgo")` branch. Breakout stays manual (▶ Run Analysis); added a "← Back to market context" cross-link in its toolbar. The sub-tab buttons were also shortened to "Overview / Signals / Breakout" (the parent is already "Market").
+
+**Verified:** inline-script parse clean (`new Function`, 0 errors); `page-market` div-balanced (33/33) with all three sub-pages; nav has 14 tab buttons + 3 section labels; no stale `page-gapgo`/`switchTab('gapgo')` page refs remain (only the moved markup + `loadGapGo` internals + the intentional redirect comment). Footer v2026-06-17.16.
+
 ### 2026-06-17 — Roadmap: merge Market Overview+Signals into one tabbed page + Market Signals watchlist buttons (v2026-06-17.15)
 
 Rescan roadmap → implemented the two well-specified items. The third ("add applied Indicators in the left pane to the top pane") was **dropped per the owner** — it belonged to a separate charting project, not this dashboard (which has no chart/indicator pane). Roadmap now empty.

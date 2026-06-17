@@ -1191,21 +1191,26 @@
   <div class="layout">
   <nav>
     <button class="tab-btn active" onclick="switchTab('command',this)">🧭 Command</button>
-    <button class="tab-btn" onclick="switchTab('performance',this)">📈 Performance</button>
-    <button class="tab-btn" onclick="switchTab('risk',this)">⚠️ Risk</button>
-    <button class="tab-btn" onclick="switchTab('positions',this)">📂 Positions</button>
-    <button class="tab-btn" onclick="switchTab('execution',this)">🎯 Execution</button>
+
+    <div class="nav-section-label">⚡ Trade</div>
     <button class="tab-btn" onclick="switchTab('signals',this)">📡 Signals</button>
+    <button class="tab-btn" onclick="switchTab('market',this)">🌐 Market</button>
+    <button class="tab-btn" onclick="switchTab('execution',this)">🎯 Execution</button>
+
+    <div class="nav-section-label">💼 Portfolio</div>
+    <button class="tab-btn" onclick="switchTab('port-overview',this)">📊 Overview</button>
+    <button class="tab-btn" onclick="switchTab('positions',this)">📂 Positions</button>
+    <button class="tab-btn" onclick="switchTab('port-dist',this)">🥧 Allocation</button>
+    <button class="tab-btn" onclick="switchTab('risk',this)">⚠️ Risk</button>
+
+    <div class="nav-section-label">🔬 Analytics</div>
+    <button class="tab-btn" onclick="switchTab('performance',this)">📈 Performance</button>
     <button class="tab-btn" onclick="switchTab('pnl',this)">💰 P&amp;L</button>
     <button class="tab-btn" onclick="switchTab('backtest',this)">🧪 Backtest vs Live</button>
-    <button class="tab-btn" onclick="switchTab('gapgo',this)">📊 Breakout Scanner</button>
-    <button class="tab-btn" onclick="switchTab('market',this)">🌐 Market</button>
-    <button class="tab-btn" onclick="switchTab('markov',this)">🔗 Markov</button>
     <button class="tab-btn" onclick="switchTab('edge',this)">🔬 Edge</button>
-    <div class="nav-section-label">💼 Portfolio</div>
-    <button class="tab-btn" onclick="switchTab('port-overview',this)">📊 Portfolio Overview</button>
-    <button class="tab-btn" onclick="switchTab('port-dist',this)">🥧 Allocation</button>
-    <button class="tab-btn" onclick="switchTab('settings',this)">⚙ Settings</button>
+    <button class="tab-btn" onclick="switchTab('markov',this)">🔗 Markov</button>
+
+    <button class="tab-btn" onclick="switchTab('settings',this)" style="margin-top:14px">⚙ Settings</button>
   </nav>
 
   <main>
@@ -1646,44 +1651,15 @@
         </div>
       </section>
     </div>
-    <!-- ═══════════════════════════════════════════ GAP & GO PAGE ═══ -->
-    <div id="page-gapgo" class="page">
-      <section>
-        <div class="gg-toolbar">
-          <div>
-            <div class="section-title" style="margin-bottom:2px">📊 Breakout Scanner — Pre-Session Analysis</div>
-            <div id="ggLastUpdated" style="font-size:12px;color:var(--muted)">Click "Run Analysis" to fetch live data</div>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <button class="btn btn-green" onclick="loadGapGo()">▶ Run Analysis</button>
-            <span style="font-size:11px;color:var(--muted)">Crypto watchlist · 24/7</span>
-          </div>
-        </div>
-
-        <div class="gg-legend">
-          <span><span class="pill green" style="font-size:9px">HIGH</span> Breakout Scanner likelihood — momentum aligned, volume confirms</span>
-          <span><span class="pill yellow" style="font-size:9px">MEDIUM</span> Mixed signals — wait for ORB confirmation</span>
-          <span><span class="pill red" style="font-size:9px">LOW</span> Fade risk — avoid chasing, watch for reversal</span>
-          <span><span class="pill red" style="font-size:9px">⚠ AVOID</span> Downtrend + negative gap or very high risk</span>
-          <span style="color:var(--muted)">Conviction: +7 max → −6 min · Signal /6: same 6-point score as Signals &amp; Market Signals tabs</span>
-        </div>
-
-        <div id="ggContainer">
-          <div class="placeholder" style="padding:48px">
-            ▶ Click <strong>Run Analysis</strong> to fetch the latest price data and generate the full Breakout Scanner playbook for all 10 watchlist symbols.
-          </div>
-        </div>
-      </section>
-    </div>
-
-    <!-- Market Overview page -->
-    <!-- Market parent page — merges Market Overview + Market Signals under one
-         tab with sub-tabs (shared symbol universe / Max Symbols setting).
-         Deep links #market-overview and #market-signals still resolve here. -->
+    <!-- Market parent page — merges Market Overview + Market Signals + Breakout
+         Scanner under one tab with sub-tabs (shared symbol universe / Max Symbols
+         setting). Deep links #market-overview / #market-signals / #gapgo still
+         resolve here via applyTabFromUrl()'s SUBS list. -->
     <div id="page-market" class="page">
       <div class="market-subnav">
-        <button id="msubtab-market-overview" class="subtab-btn active" onclick="marketSubTab('market-overview')">🌍 Market Overview</button>
-        <button id="msubtab-market-signals" class="subtab-btn" onclick="marketSubTab('market-signals')">🔭 Market Signals</button>
+        <button id="msubtab-market-overview" class="subtab-btn active" onclick="marketSubTab('market-overview')">🌍 Overview</button>
+        <button id="msubtab-market-signals" class="subtab-btn" onclick="marketSubTab('market-signals')">🔭 Signals</button>
+        <button id="msubtab-gapgo" class="subtab-btn" onclick="marketSubTab('gapgo')">📊 Breakout</button>
       </div>
 
       <div id="subpage-market-overview" class="market-subpage active">
@@ -1779,6 +1755,37 @@
         </div>
       </section>
       </div><!-- /subpage-market-signals -->
+
+      <!-- Breakout Scanner sub-page (folded in from the former standalone tab) -->
+      <div id="subpage-gapgo" class="market-subpage">
+      <section>
+        <div class="gg-toolbar">
+          <div>
+            <div class="section-title" style="margin-bottom:2px">📊 Breakout Scanner — Pre-Session Analysis</div>
+            <div id="ggLastUpdated" style="font-size:12px;color:var(--muted)">Click "Run Analysis" to fetch live data</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="btn" onclick="marketSubTab('market-overview')" title="Return to market context" data-tip="Back to the Market Overview tab.">← Back to market context</button>
+            <button class="btn btn-green" onclick="loadGapGo()">▶ Run Analysis</button>
+            <span style="font-size:11px;color:var(--muted)">Crypto watchlist · 24/7</span>
+          </div>
+        </div>
+
+        <div class="gg-legend">
+          <span><span class="pill green" style="font-size:9px">HIGH</span> Breakout Scanner likelihood — momentum aligned, volume confirms</span>
+          <span><span class="pill yellow" style="font-size:9px">MEDIUM</span> Mixed signals — wait for ORB confirmation</span>
+          <span><span class="pill red" style="font-size:9px">LOW</span> Fade risk — avoid chasing, watch for reversal</span>
+          <span><span class="pill red" style="font-size:9px">⚠ AVOID</span> Downtrend + negative gap or very high risk</span>
+          <span style="color:var(--muted)">Conviction: +7 max → −6 min · Signal /6: same 6-point score as Signals &amp; Market Signals tabs</span>
+        </div>
+
+        <div id="ggContainer">
+          <div class="placeholder" style="padding:48px">
+            ▶ Click <strong>Run Analysis</strong> to fetch the latest price data and generate the full Breakout Scanner playbook for all 10 watchlist symbols.
+          </div>
+        </div>
+      </section>
+      </div><!-- /subpage-gapgo -->
     </div><!-- /page-market -->
 
     <div id="page-markov" class="page">
@@ -2171,7 +2178,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-06-17</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-06-17.15</strong></span>
+    <span>Version: <strong>v2026-06-17.16</strong></span>
   </footer>
 
   <script>
@@ -2499,6 +2506,16 @@
     }
 
     function switchTab(id, btn) {
+      // The three Market sub-tabs are not top-level pages — redirect to the
+      // Market parent tab and select the sub-tab (keeps #gapgo / keyboard / any
+      // legacy switchTab('gapgo') call working after the Breakout fold-in).
+      if (MARKET_SUBS.includes(id)) {
+        _marketSub = id;
+        if (activeTab !== "market") switchTab("market", tabBtnFor("market"));
+        else marketSubTab(id);
+        return;
+      }
+
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
       if (btn) btn.classList.add("active");
 
@@ -2523,8 +2540,6 @@
         loadSignals();
       } else if (id === "pnl") {
         loadPnl();
-      } else if (id === "gapgo") {
-        // don't auto-run — user clicks "Run Analysis"
       } else if (id === "market") {
         // Parent page — restore the last-used sub-tab (defaults to Overview,
         // which auto-loads; Signals stays manual). marketSubTab updates the hash.
@@ -2555,8 +2570,9 @@
     // Selection state is preserved across switches because both sub-pages keep
     // their rendered DOM.
     let _marketSub = "market-overview";
+    const MARKET_SUBS = ["market-overview", "market-signals", "gapgo"];
     function marketSubTab(subId) {
-      if (subId !== "market-overview" && subId !== "market-signals") subId = "market-overview";
+      if (!MARKET_SUBS.includes(subId)) subId = "market-overview";
       _marketSub = subId;
       document.querySelectorAll(".market-subpage").forEach(p => p.classList.remove("active"));
       const pg = document.getElementById("subpage-" + subId);
@@ -2595,7 +2611,7 @@
     // a refresh or a direct #tab link lands on the right tab instead of Command.
     function applyTabFromUrl() {
       const ids = validTabIds();
-      const SUBS = ["market-overview", "market-signals"];  // Market parent sub-tabs
+      const SUBS = MARKET_SUBS;  // Market parent sub-tabs (market-overview / market-signals / gapgo)
       const hash = (location.hash || "").replace(/^#/, "");
       let stored = null;
       try { stored = localStorage.getItem("lastTab"); } catch (e) {}
@@ -5288,7 +5304,7 @@
     // ═══════════════════════════════════════════════════════════════════════
 
     (function initKeyboardShortcuts() {
-      const TAB_ORDER = ["command","performance","risk","positions","execution","signals","pnl","backtest","gapgo","settings"];
+      const TAB_ORDER = ["command","signals","market","execution","port-overview","positions","port-dist","risk","performance","pnl","backtest","edge","markov","settings"];
       document.addEventListener("keydown", function(e) {
         // Ignore when typing in an input/textarea
         if (["INPUT","TEXTAREA","SELECT"].includes(e.target.tagName)) return;
