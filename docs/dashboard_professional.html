@@ -214,6 +214,33 @@
       display:block;
     }
 
+    /* Market parent page sub-tabs (Market Overview / Market Signals) */
+    .market-subnav {
+      display:flex;
+      gap:8px;
+      margin-bottom:18px;
+      border-bottom:1px solid var(--border);
+      flex-wrap:wrap;
+    }
+    .subtab-btn {
+      background:transparent;
+      border:none;
+      border-bottom:2px solid transparent;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:600;
+      padding:8px 14px;
+      cursor:pointer;
+      margin-bottom:-1px;
+    }
+    .subtab-btn:hover { color:var(--text); }
+    .subtab-btn.active {
+      color:var(--blue);
+      border-bottom-color:var(--blue);
+    }
+    .market-subpage { display:none; }
+    .market-subpage.active { display:block; }
+
     section {
       margin-bottom:26px;
     }
@@ -1172,8 +1199,7 @@
     <button class="tab-btn" onclick="switchTab('pnl',this)">💰 P&amp;L</button>
     <button class="tab-btn" onclick="switchTab('backtest',this)">🧪 Backtest vs Live</button>
     <button class="tab-btn" onclick="switchTab('gapgo',this)">📊 Breakout Scanner</button>
-    <button class="tab-btn" onclick="switchTab('market-overview',this)">🌍 Market Overview</button>
-    <button class="tab-btn" onclick="switchTab('market-signals',this)">🔭 Market Signals</button>
+    <button class="tab-btn" onclick="switchTab('market',this)">🌐 Market</button>
     <button class="tab-btn" onclick="switchTab('markov',this)">🔗 Markov</button>
     <button class="tab-btn" onclick="switchTab('edge',this)">🔬 Edge</button>
     <div class="nav-section-label">💼 Portfolio</div>
@@ -1651,11 +1677,21 @@
     </div>
 
     <!-- Market Overview page -->
-    <div id="page-market-overview" class="page">
+    <!-- Market parent page — merges Market Overview + Market Signals under one
+         tab with sub-tabs (shared symbol universe / Max Symbols setting).
+         Deep links #market-overview and #market-signals still resolve here. -->
+    <div id="page-market" class="page">
+      <div class="market-subnav">
+        <button id="msubtab-market-overview" class="subtab-btn active" onclick="marketSubTab('market-overview')">🌍 Market Overview</button>
+        <button id="msubtab-market-signals" class="subtab-btn" onclick="marketSubTab('market-signals')">🔭 Market Signals</button>
+      </div>
+
+      <div id="subpage-market-overview" class="market-subpage active">
       <section>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
           <div class="section-title" style="margin-bottom:0" title="Symbol count set in Settings › Signals Analysis › Max Symbols">🌍 Market Overview — Crypto</div>
           <button class="btn" onclick="loadMarketOverview()" style="margin-left:auto">⟳ Refresh</button>
+          <button class="btn" onclick="marketSubTab('market-signals')" title="See confluence signals for this universe" data-tip="Jump to the Market Signals scanner.">View matching signals →</button>
           <select id="moSortSelect" class="btn" style="color:var(--text);background:var(--surface2)" onchange="moApplySort()">
             <option value="rank">Sort: Market Cap Rank</option>
             <option value="chg24h_desc">Sort: 24h % ↓</option>
@@ -1692,15 +1728,16 @@
           <div class="small" style="color:var(--muted)">Load data to see heatmap.</div>
         </div>
       </section>
-    </div>
+      </div><!-- /subpage-market-overview -->
 
-    <!-- Market Signals page -->
-    <div id="page-market-signals" class="page">
+      <!-- Market Signals sub-page -->
+      <div id="subpage-market-signals" class="market-subpage">
       <section>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
           <div class="section-title" style="margin-bottom:0">🔭 Market Signals — Confluence Scanner</div>
           <span class="small">15-min bars · 4H regime · Daily gate</span>
-          <button id="msScanBtn" class="btn btn-green" onclick="loadMarketSignals()" style="margin-left:auto" title="Symbol count set in Settings › Signals Analysis">▶ Scan</button>
+          <button class="btn" onclick="marketSubTab('market-overview')" style="margin-left:auto" title="Return to market context" data-tip="Back to the Market Overview tab.">← Back to market context</button>
+          <button id="msScanBtn" class="btn btn-green" onclick="loadMarketSignals()" title="Symbol count set in Settings › Signals Analysis">▶ Scan</button>
           <button id="msHideBtn" class="btn" onclick="msToggleUnavailable()" data-tip="Hide symbols not available on Alpaca">👁 Show All</button>
         </div>
         <div id="msKpis" class="grid-3" style="margin-bottom:18px"></div>
@@ -1722,9 +1759,10 @@
                 <th data-tip="4H regime (EMA 20/50).">4H</th>
                 <th data-tip="Daily regime gate.">Daily</th>
                 <th data-tip="Recommended action.">Action</th>
+                <th data-tip="Add to watchlist when score ≥ buy signal; remove on a sell signal when no position is open.">Watchlist</th>
               </tr>
             </thead>
-            <tbody id="msTableBody"><tr><td colspan="13" class="placeholder">Click "Scan" to run the scanner.</td></tr></tbody>
+            <tbody id="msTableBody"><tr><td colspan="14" class="placeholder">Click "Scan" to run the scanner.</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -1740,7 +1778,8 @@
           </div>
         </div>
       </section>
-    </div>
+      </div><!-- /subpage-market-signals -->
+    </div><!-- /page-market -->
 
     <div id="page-markov" class="page">
       <section>
@@ -2132,7 +2171,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-06-17</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-06-17.14</strong></span>
+    <span>Version: <strong>v2026-06-17.15</strong></span>
   </footer>
 
   <script>
@@ -2486,10 +2525,10 @@
         loadPnl();
       } else if (id === "gapgo") {
         // don't auto-run — user clicks "Run Analysis"
-      } else if (id === "market-overview") {
-        loadMarketOverview();
-      } else if (id === "market-signals") {
-        // don't auto-run — user clicks "Scan Top N"
+      } else if (id === "market") {
+        // Parent page — restore the last-used sub-tab (defaults to Overview,
+        // which auto-loads; Signals stays manual). marketSubTab updates the hash.
+        marketSubTab(_marketSub || "market-overview");
       } else if (id === "markov") {
         // don't auto-run — user clicks "Run Markov Analysis"
       } else if (id === "edge") {
@@ -2506,6 +2545,36 @@
     function openSettings() {
       const btn = Array.from(document.querySelectorAll(".tab-btn")).find(b => b.textContent.includes("Settings"));
       switchTab("settings", btn);
+    }
+
+    // ── Market parent page sub-tabs ───────────────────────────────────────────
+    // The Market tab merges Market Overview + Market Signals (roadmap item 2).
+    // marketSubTab() toggles the inner sub-pages, keeps the active tab nav button
+    // on "🌐 Market", reflects the precise sub-tab in the URL hash / lastTab for
+    // deep-linkability (#market-overview / #market-signals), and lazy-loads.
+    // Selection state is preserved across switches because both sub-pages keep
+    // their rendered DOM.
+    let _marketSub = "market-overview";
+    function marketSubTab(subId) {
+      if (subId !== "market-overview" && subId !== "market-signals") subId = "market-overview";
+      _marketSub = subId;
+      document.querySelectorAll(".market-subpage").forEach(p => p.classList.remove("active"));
+      const pg = document.getElementById("subpage-" + subId);
+      if (pg) pg.classList.add("active");
+      document.querySelectorAll(".subtab-btn").forEach(b => b.classList.remove("active"));
+      const sb = document.getElementById("msubtab-" + subId);
+      if (sb) sb.classList.add("active");
+
+      // Reflect the sub-tab in the URL hash + lastTab so a refresh / deep link
+      // lands on the exact sub-tab. applyTabFromUrl() resolves these back here.
+      try { localStorage.setItem("lastTab", subId); } catch (e) {}
+      if (location.hash !== "#" + subId) {
+        try { history.replaceState(null, "", "#" + subId); }
+        catch (e) { location.hash = subId; }
+      }
+
+      if (subId === "market-overview") loadMarketOverview();
+      // market-signals stays manual — user clicks ▶ Scan
     }
 
     // ── Tab deep-linking & last-tab restore ───────────────────────────────
@@ -2526,12 +2595,23 @@
     // a refresh or a direct #tab link lands on the right tab instead of Command.
     function applyTabFromUrl() {
       const ids = validTabIds();
+      const SUBS = ["market-overview", "market-signals"];  // Market parent sub-tabs
       const hash = (location.hash || "").replace(/^#/, "");
       let stored = null;
       try { stored = localStorage.getItem("lastTab"); } catch (e) {}
-      const target = ids.includes(hash) ? hash
-                   : (ids.includes(stored) ? stored : null);
-      if (!target || target === activeTab) return;
+      const target = (ids.includes(hash) || SUBS.includes(hash)) ? hash
+                   : (ids.includes(stored) || SUBS.includes(stored)) ? stored
+                   : null;
+      if (!target) return;
+      // A Market sub-tab deep link: open the parent Market tab, then select the
+      // sub-tab. Backward-compatible with old #market-overview / #market-signals.
+      if (SUBS.includes(target)) {
+        _marketSub = target;   // so switchTab('market') opens the right sub-tab directly
+        if (activeTab !== "market") switchTab("market", tabBtnFor("market"));
+        else marketSubTab(target);
+        return;
+      }
+      if (target === activeTab) return;
       try { switchTab(target, tabBtnFor(target)); } catch (e) {}
     }
     window.addEventListener("hashchange", applyTabFromUrl);
@@ -5957,6 +6037,8 @@
 
     let _moData = [];        // cached overview rows (for re-sort without re-fetch)
     let _msPrevScores = {};  // scores from last Market Signals scan
+    let _msLastRows = [];    // last scanned rows (for watchlist cell re-render without a rescan)
+    let _msOpenPosSyms = new Set();  // BASE/USD symbols with an open position (watchlist remove gate)
 
     function moTierColor(tier) {
       return tier === "Mega" ? "var(--blue)" : tier === "Large" ? "var(--green)" : tier === "Mid" ? "var(--yellow)" : "var(--muted)";
@@ -6225,7 +6307,7 @@
       const s = getSettings();
       if (!s.apiKey || !s.apiSecret) {
         document.getElementById("msTableBody").innerHTML =
-          '<tr><td colspan="13" class="placeholder">Configure API credentials in Settings first.</td></tr>';
+          '<tr><td colspan="14" class="placeholder">Configure API credentials in Settings first.</td></tr>';
         return;
       }
       const universe = await getCryptoUniverse();
@@ -6233,7 +6315,7 @@
       const SCAN_SYMBOLS = universe.slice(0, maxSyms);
       updateScanBtnLabel();
       document.getElementById("msTableBody").innerHTML =
-        '<tr><td colspan="13" class="placeholder">Scanning ' + SCAN_SYMBOLS.length + ' symbols — fetching 15-min, 4H and daily bars… this may take a moment.</td></tr>';
+        '<tr><td colspan="14" class="placeholder">Scanning ' + SCAN_SYMBOLS.length + ' symbols — fetching 15-min, 4H and daily bars… this may take a moment.</td></tr>';
       const upd = document.getElementById("msLastUpdated");
       const kEl = document.getElementById("msKpis");
       if (upd) upd.textContent = "Loading…";
@@ -6247,7 +6329,7 @@
         ]);
         if (!bars15) {
           document.getElementById("msTableBody").innerHTML =
-            '<tr><td colspan="13" style="color:var(--red);padding:16px">Error fetching bars — check API credentials.</td></tr>';
+            '<tr><td colspan="14" style="color:var(--red);padding:16px">Error fetching bars — check API credentials.</td></tr>';
           return;
         }
 
@@ -6256,6 +6338,17 @@
         try {
           snaps = await fetchSnapshotsInBatches(SCAN_SYMBOLS);
         } catch(e) { /* non-fatal */ }
+
+        // Open positions — used by the per-symbol watchlist remove button
+        // (only offered when there is no open position for the symbol).
+        _msOpenPosSyms = new Set();
+        try {
+          const ps = await apiFetch("/v2/positions");
+          (ps || []).forEach(function(p) {
+            const ns = p.symbol.includes("/") ? p.symbol : p.symbol.replace(/USD$/, "/USD");
+            _msOpenPosSyms.add(ns);
+          });
+        } catch(e) { /* non-fatal — buttons just won't suppress on open positions */ }
 
         const rows   = [];
         const scores = [];
@@ -6319,7 +6412,7 @@
               '<td style="color:var(--muted);font-size:12px">#' + info.rank + "</td>" +
               '<td>' + tvLink(row.sym, row.sym.replace("/USD","")) + "</td>" +
               '<td class="right mono" style="color:var(--muted)">' + moFmtPrice(row.livePrice) + "</td>" +
-              '<td colspan="10" style="color:var(--muted);font-size:12px">' + row.error + "</td>" +
+              '<td colspan="11" style="color:var(--muted);font-size:12px">' + row.error + "</td>" +
               "</tr>";
           }
           const emaLabel = row.ema20 > row.ema50 ? "Golden" : "Death";
@@ -6351,8 +6444,11 @@
             '<td class="' + r4hCls + '">' + r4hLabel + "</td>" +
             '<td class="' + regCls + '">' + (row.dailyRegime || "–") + "</td>" +
             "<td>" + msActionPill(row) + "</td>" +
+            '<td id="mswl-' + row.sym.replace("/","") + '">' + msWatchlistCell(row) + "</td>" +
             "</tr>";
         }).join("");
+
+        _msLastRows = rows;   // cached so watchlist add/remove can re-render cells without a rescan
 
         // Cache scores for cross-tab score display + trend arrows
         rows.forEach(function(r){ if (r.score !== null) _msPrevScores[r.sym] = r.score; });
@@ -6393,7 +6489,7 @@
 
       } catch(e) {
         document.getElementById("msTableBody").innerHTML =
-          '<tr><td colspan="13" style="color:var(--red);padding:16px">❌ ' + e.message + "</td></tr>";
+          '<tr><td colspan="14" style="color:var(--red);padding:16px">❌ ' + e.message + "</td></tr>";
         if (upd) upd.textContent = "Error";
         console.error("loadMarketSignals:", e);
       }
@@ -6407,6 +6503,51 @@
         tr.style.display = _msHideUnavailable ? "none" : "";
       });
       if (btn) btn.textContent = _msHideUnavailable ? "👁 Show All" : "👁 Hide Unavailable";
+    }
+
+    // ── Market Signals per-symbol watchlist control (roadmap item 1) ──────────
+    // Add button: shown when score ≥ buy gate (4) and the symbol is not yet on
+    // the watchlist. Remove button: shown when the signal is a sell (score ≤ −2)
+    // and there is no open position for the symbol. Otherwise show watched/–.
+    function msWatchlistCell(row) {
+      if (row.score === null || row.error) return '<span style="color:var(--muted)">–</span>';
+      const inWl   = getWatchlist().includes(row.sym);
+      const hasPos = _msOpenPosSyms.has(row.sym);
+      const full   = getWatchlist().length >= WL_MAX;
+      if (!inWl && row.score >= 4) {
+        if (full) return '<span class="small" style="color:var(--muted)" title="Watchlist full (' + WL_MAX + ')">full</span>';
+        return '<button class="trade-action-btn" onclick="msAddWatch(\'' + row.sym + '\')" title="Score ≥ buy signal — add to watchlist">+ Watch</button>';
+      }
+      if (inWl && row.score <= -2 && !hasPos) {
+        return '<button class="trade-close-btn" onclick="msRemoveWatch(\'' + row.sym + '\')" title="Sell signal & no open position — remove from watchlist">– Unwatch</button>';
+      }
+      if (inWl) return '<span class="small" style="color:var(--green)">✓ watched</span>';
+      return '<span style="color:var(--muted)">–</span>';
+    }
+
+    // Re-render just the watchlist cells from the cached rows — no rescan needed.
+    function renderMsWatchlistCells() {
+      _msLastRows.forEach(function(row) {
+        const cell = document.getElementById("mswl-" + row.sym.replace("/",""));
+        if (cell) cell.innerHTML = msWatchlistCell(row);
+      });
+    }
+
+    function msAddWatch(sym) {
+      const wl = getWatchlist();
+      if (wl.includes(sym)) { renderMsWatchlistCells(); return; }
+      if (wl.length >= WL_MAX) { alert("Maximum " + WL_MAX + " symbols allowed."); return; }
+      wl.push(sym);
+      saveWatchlistData(wl);
+      renderWatchlistTags();        // keep the Settings tag editor in sync
+      renderMsWatchlistCells();
+    }
+
+    function msRemoveWatch(sym) {
+      const wl = getWatchlist().filter(function(s){ return s !== sym; });
+      saveWatchlistData(wl);
+      renderWatchlistTags();
+      renderMsWatchlistCells();
     }
 
     // ═══════════════════════════════════════════════════════════════════════

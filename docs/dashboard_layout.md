@@ -26,13 +26,13 @@ Key principles applied across both dashboards:
 
 **Status:** Primary (recommended)
 **Title:** "CryptoPro Dashboard"
-**Tabs:** 15 — Command · Performance · Risk · Positions · Execution · Signals · P&L · Backtest vs Live · Breakout Scanner · Market Overview · Market Signals · Markov · Edge · [💼 Portfolio: Portfolio Overview · Allocation] · Settings
+**Tabs:** 14 — Command · Performance · Risk · Positions · Execution · Signals · P&L · Backtest vs Live · Breakout Scanner · **Market** (Overview · Signals sub-tabs) · Markov · Edge · [💼 Portfolio: Portfolio Overview · Allocation] · Settings
 
 ### Navigation & layout
 
 - **Left sidebar navigation** — a `.layout` flex wrapper holds `<nav>` + `<main>`; `nav` is a 210px sticky vertical column, the active tab marked by a left blue border + tint.
 - **Mobile (≤700px)** — `.layout` switches to a column and `nav` collapses to a horizontal scrolling bar with a bottom-border active marker. All tables scroll horizontally (`overflow-x` on `.table-wrap`, clamped to `calc(100vw - 32px)`), so the page is fully usable in portrait.
-- **Tab deep-linking + refresh memory** — the active tab is reflected in the URL hash (e.g. `dashboard_professional.html#signals`). `switchTab()` writes the tab id to the hash (`history.replaceState`) and to `localStorage.lastTab`; on load `applyTabFromUrl()` (end of `bootstrapDashboard()`) restores the tab from the hash first, then `localStorage`. A `hashchange` listener switches tabs live. Valid ids are derived from the nav buttons via `validTabIds()`, so routing never drifts. So you can bookmark/share a direct link to any tab, and a browser refresh reopens the last tab instead of defaulting to Command.
+- **Tab deep-linking + refresh memory** — the active tab is reflected in the URL hash (e.g. `dashboard_professional.html#signals`). `switchTab()` writes the tab id to the hash (`history.replaceState`) and to `localStorage.lastTab`; on load `applyTabFromUrl()` (end of `bootstrapDashboard()`) restores the tab from the hash first, then `localStorage`. A `hashchange` listener switches tabs live. Valid ids are derived from the nav buttons via `validTabIds()`, so routing never drifts. The 🌐 Market parent tab also routes its two sub-tabs (`market-overview` / `market-signals`) through the hash via `marketSubTab()`, and `applyTabFromUrl()` recognises those sub-ids (`SUBS` list) and opens the parent + sub-tab — so the legacy deep links keep working. So you can bookmark/share a direct link to any tab or Market sub-tab, and a browser refresh reopens the last tab instead of defaulting to Command.
 - **Live ticker strip** — top-of-page, 10 symbols, price + 24h%, auto-refreshes every 15 s via `/v1beta3/crypto/us/snapshots`.
 - **Auto-refresh button** — 3 modes: `Auto OFF` → `Prices 15s` → `Full 60s`.
 - **📓 Daily Journal button (header)** — `generateDailyJournal()` builds today's closing journal from live data plus a 10-symbol confluence scan; preview modal with Copy + Download `.md`.
@@ -50,8 +50,9 @@ Key principles applied across both dashboards:
 | 💰 **P&L** | `pnl` | FIFO realized P&L (shared `computeFifoStats()`), calendar heatmap, attribution by symbol, day-of-week performance, CSV export. |
 | 🧪 **Backtest vs Live** | `backtest` | Compares live metrics to saved expected metrics (Sharpe, max DD, win rate, profit factor, avg daily return). Win Rate & Profit Factor use the same realized FIFO stats as the P&L tab. |
 | 📊 **Breakout Scanner** | `gapgo` | On-demand pre-session breakout/gap analysis per watchlist symbol: catalyst, supply risk, likelihood, 6-month range position, key levels, historical gap behaviour, trade plan, risk rating. Each card header shows two scores: **Conviction** (gap-specific, max ±7) and **Signal /6** (standard 6-point `calcSignalScore()` — identical to Signals and Market Signals tabs). |
-| 🌍 **Market Overview** | `market-overview` | Price, 24h%, 7d%, volume, trend and cap tier per symbol, sortable, with momentum heatmap. Scan universe = the shared `getCryptoUniverse()` (full tradable Alpaca crypto list) sliced by the **Max Symbols** setting — no longer hardcoded to 30. Score column auto-fills from the last Market Signals scan. Each row has a **Trade** column with Buy/Sell buttons (`moTradeButtons()`) that open the shared paper-trade modal pre-filled with symbol, side, and live price. |
-| 🔭 **Market Signals** | `market-signals` | On-demand full 6-point confluence scan over `getCryptoUniverse()`, sliced by the **Max Symbols** setting (no upper clamp). Stablecoin pairs (USDT/USD, USDC/USD, …) are excluded from the universe. Score distribution + Top Opportunities panel. Scores cached into `_msPrevScores` for cross-tab display. |
+| 🌐 **Market** | `market` | **Parent tab merging Market Overview + Market Signals** under a sub-tab bar (`marketSubTab()`). One nav button; the two former pages are `.market-subpage` divs. The sub-tab id is mirrored to the URL hash + `localStorage.lastTab`, so the legacy deep links `#market-overview` / `#market-signals` still open the right sub-tab (resolved in `applyTabFromUrl()`). Overview auto-loads (contextual); Signals is manual (action-oriented). Cross-links: "View matching signals →" / "← Back to market context". `_marketSub` restores the last sub-tab on re-entry. |
+| › 🌍 Market Overview | `market-overview` (sub) | Price, 24h%, 7d%, volume, trend and cap tier per symbol, sortable, with momentum heatmap. Scan universe = the shared `getCryptoUniverse()` (full tradable Alpaca crypto list) sliced by the **Max Symbols** setting — no longer hardcoded to 30. Score column auto-fills from the last Market Signals scan. Each row has a **Trade** column with Buy/Sell buttons (`moTradeButtons()`) that open the shared paper-trade modal pre-filled with symbol, side, and live price. |
+| › 🔭 Market Signals | `market-signals` (sub) | On-demand full 6-point confluence scan over `getCryptoUniverse()`, sliced by the **Max Symbols** setting (no upper clamp). Stablecoin pairs excluded. **Per-symbol Watchlist column** (`msWatchlistCell()`): **+ Watch** when score ≥ 4 and not already watched; **– Unwatch** when score ≤ −2 (sell) and no open position; else ✓ watched / –. Buttons update the shared watchlist and re-render in place (`renderMsWatchlistCells()`, no rescan); open positions fetched into `_msOpenPosSyms`. Score distribution + Top Opportunities panel. Scores cached into `_msPrevScores` for cross-tab display. |
 | 🔗 **Markov** | `markov` | On-demand first-order Markov chain analysis for BTC/USD & ETH/USD across 30/60/90/180/365-day windows. 3×3 transition matrix, stationary distribution, next-day forecast. Analysis-only — places no orders. |
 | 🔬 **Edge** | `edge` | On-demand (▶ Analyze) realized-edge analytics: FIFO round-trips from all FILL activities — per-symbol expectancy table, P&L by hour-of-day / day-of-week (GMT+2), KPI tiles, factual takeaway line. |
 | 📊 **Portfolio Overview** | `port-overview` | Account equity/cash/buying-power/P&L cards; equity curve (Chart.js, period buttons); open positions table (sortable, short-aware). |
@@ -73,6 +74,10 @@ Key principles applied across both dashboards:
 
 | Date | Change |
 |------|--------|
+| 2026-05-09 | Initial version — 3 tabs: Overview, Hot Symbols, Morning Brief. |
+| 2026-05-10 | Added Allocation (donut) and Settings tabs. |
+| 2026-05-11 | Equity curve added to Overview (Chart.js + portfolio-history endpoint). |
+| 2026-05-12 | Paper/live toggle in header badge; `localStorage` credential persistence. |
 | 2026-05-12 → 2026-05-17 | Built the 8→10-tab cockpit (Command, Performance, Risk, Positions, Execution, Signals, P&L, Backtest vs Live, Breakout Scanner) — see prior history. |
 | (later) | Added **Market Overview**, **Market Signals**, and **Markov** tabs; converted the top nav to a **left sidebar**; added the live ticker strip, auto-refresh modes, and the 📓 Daily Journal generator. |
 | 2026-06-06 | Removed the 30-symbol hard clamp on the **Max Symbols** setting (no upper bound; minimum 1). |
@@ -107,6 +112,8 @@ Key principles applied across both dashboards:
 | 2026-06-17 | **Deleted legacy `docs/portfolio-dashboard.html`** — its tabs were merged into the Professional Dashboard on 2026-06-15; the standalone file is now removed. Professional Dashboard is the sole entry point. |
 | 2026-06-17 | **Bug — stablecoins in scans** — `getCryptoUniverse()` now drops stablecoin bases (`STABLECOIN_BASES`: USDT, USDC, DAI, PYUSD, …), so `USDT/USD`/`USDC/USD` etc. no longer appear in Market Signals, Market Overview, or the watchlist dropdown. Version v2026-06-17.14. |
 | 2026-06-17 | **Bug — false "Over Cap" badge** — Allocation cap table clamped `utilPct` to 100 for display but flagged Over Cap off the raw value, so a position fractionally over cap read "100% of cap used" yet showed "Over Cap". Fixed: `utilPct` is now un-clamped, `isOver = Math.round(utilPct) > 100` (matches the displayed %), bar width clamped separately. Version v2026-06-17.14. |
+| 2026-06-17 | **Roadmap — merged Market Overview + Market Signals into one 🌐 Market tab** — replaced the two sidebar nav buttons with a single `switchTab('market')` button; the former pages are now `.market-subpage` divs switched by a sub-tab bar (`marketSubTab()`). The sub-tab id is mirrored to the URL hash + `localStorage.lastTab`, so legacy deep links `#market-overview` / `#market-signals` still resolve (via a `SUBS` list in `applyTabFromUrl()`). Added cross-links ("View matching signals →" / "← Back to market context"); `_marketSub` restores the last sub-tab. CSS: `.market-subnav`, `.subtab-btn`, `.market-subpage`. Version v2026-06-17.15. |
+| 2026-06-17 | **Roadmap — per-symbol Watchlist button on Market Signals** — new **Watchlist** column (colspans 13→14): `msWatchlistCell()` shows **+ Watch** when score ≥ 4 and not watched, **– Unwatch** when score ≤ −2 (sell) and no open position (`/v2/positions` → `_msOpenPosSyms`), else ✓ watched / –. `msAddWatch`/`msRemoveWatch` update the shared watchlist and re-render only the cells (`renderMsWatchlistCells()`, cached `_msLastRows`) — no rescan. Version v2026-06-17.15. |
 
 ---
 
@@ -132,16 +139,6 @@ Key principles applied across both dashboards:
 - Auto-refresh every 60 s on the Overview tab.
 - Sortable Positions, Orders, and Hot Symbols tables (`sortPos` / `sortOrd` / `sortHot`).
 - **🌅 Morning Brief button (header)** — `generateMorningBrief()` produces a downloadable Markdown brief matching the `journal/` format: Portfolio Health (+ per-position table), direction-aware Alerts, a 10-symbol Signal Confluence table (via the existing `confluenceScore`/`fetchBars` engine), and a templated Market Notes paragraph. Preview modal (`#briefDocBackdrop`) with Copy + Download `.md` (`morning-brief-YYYY-MM-DD.md`). Timestamps use the `Etc/GMT-2` timezone.
-
-### Changelog
-
-| Date | Change |
-|------|--------|
-| 2026-05-09 | Initial version — 3 tabs: Overview, Hot Symbols, Morning Brief. |
-| 2026-05-10 | Added Allocation (donut) and Settings tabs. |
-| 2026-05-11 | Equity curve added to Overview (Chart.js + portfolio-history endpoint). |
-| 2026-05-12 | Paper/live toggle in header badge; `localStorage` credential persistence. |
-| (later) | Added the 🌅 Morning Brief downloadable-document generator (`generateMorningBrief()`) matching the journal format. |
 
 ---
 

@@ -64,6 +64,16 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-17 — Roadmap: merge Market Overview+Signals into one tabbed page + Market Signals watchlist buttons (v2026-06-17.15)
+
+Rescan roadmap → implemented the two well-specified items; the third ("add applied Indicators in the left pane to the top pane") is left open pending clarification (the dashboard has no chart/indicator pane to map "left pane"/"top pane" onto).
+
+**Roadmap 2 — single tabbed parent for Market Overview + Market Signals.** Replaced the two sidebar nav buttons with one **🌐 Market** button (`switchTab('market')` → `page-market`). The two former pages are now `.market-subpage` divs (`subpage-market-overview`, `subpage-market-signals`) inside `page-market`, switched by a sub-tab bar (`.market-subnav` / `.subtab-btn`) via new `marketSubTab(subId)`. `marketSubTab` toggles the sub-pages + sub-tab buttons, writes the precise sub-tab id to the URL hash and `localStorage.lastTab` (so old deep links `#market-overview` / `#market-signals` still resolve), lazy-loads Overview (manual Signals), and stores `_marketSub` so `switchTab('market')` restores the last sub-tab. `applyTabFromUrl()` gained a `SUBS` list that recognises the two sub-ids from hash or stored value and opens the parent + sub-tab (sets `_marketSub` first to avoid a wasted Overview load when deep-linking to Signals). Cross-links added: Overview header "View matching signals →" and Signals header "← Back to market context". CSS: `.market-subnav`, `.subtab-btn`(+`.active`), `.market-subpage`(+`.active`). Selection state persists because both sub-pages keep their DOM.
+
+**Roadmap 1 — per-symbol watchlist Add/Remove on Market Signals.** Added a **Watchlist** column (header + colspans 13→14, error-row inner colspan 10→11). `msWatchlistCell(row)`: **+ Watch** when score ≥ 4 and symbol not on watchlist; **– Unwatch** when score ≤ −2 (sell) and no open position; else "✓ watched" / "–" (and "full" at the 20-symbol cap). `loadMarketSignals()` now fetches `/v2/positions` into `_msOpenPosSyms` (normalised to `BASE/USD`) to gate the remove button, and caches `_msLastRows`. Buttons → `msAddWatch`/`msRemoveWatch`, which mutate the shared watchlist (`saveWatchlistData` + `renderWatchlistTags`) and re-render only the watchlist cells (`renderMsWatchlistCells()`, cells keyed `mswl-<alpSym>`) — no rescan. Reuses existing `trade-action-btn`/`trade-close-btn` styles.
+
+**Verified:** inline-script parse clean (`new Function` over the extracted script block, 0 errors); `page-market` segment div-balanced (24 open / 24 close) with both sub-pages + sub-nav present; column counts reconciled (14 data tds = 14 headers; error row 3 + 11). Footer bumped to v2026-06-17.15. Roadmap items 1 & 2 cleared from CLAUDE.md; item 3 flagged for clarification.
+
 ### 2026-06-17 — Bugs: exclude stablecoins from scans + fix false "Over Cap" badge (v2026-06-17.14)
 
 New workflow rule 8 added to CLAUDE.md: a "rescan roadmap" request must **implement** the roadmap items and **fix** the listed bugs, not just report status.
