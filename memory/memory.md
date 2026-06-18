@@ -62,6 +62,17 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-18 — Roadmap: last 3 Autopilot-log messages under the trading-status word (v2026-06-18.4)
+
+Rescan roadmap. Bugs list empty; sole roadmap item: *"add the last 3 messages from the Autopilot log to the tradingstatus window/div."*
+
+**Implementation (`docs/dashboard_professional.html`):**
+- Added `#tradingStatusLog` directly under the big `#tradingStatus` permission word in the Command Center (centered, monospace 11px). Kept it a **separate sibling** because `renderCommand()` sets `$("tradingStatus").textContent`, which would wipe any child nodes.
+- New `apRenderStatusLog()` renders the **last 3** entries from the Autopilot log (`apGetLog().slice(-3).reverse()`, newest-first) using the same `{t, [KIND], m}` formatting + colour map (`entry`/`exit`/`block`/`error`/`info`) as the full `#apLog`. Empty log → empty string (no clutter in the Connect-Alpaca state).
+- Hooked it into `apRenderLog()` (one extra call at the end) so it stays in sync automatically: `apRenderLog()` already fires after every `apLog()` push **and** on autopilot init (line ~6745), so no other wiring was needed.
+
+**Verified:** extracted the inline `<script>`s and validated each via `vm.Script` (`node`) → 2 scripts checked, 0 errors. Function declarations (`apRenderStatusLog`, `apGetLog`) are hoisted so the init-time `apRenderLog()` call resolves them. Roadmap cleared in `CLAUDE.md`. Footer v2026-06-18.4.
+
 ### 2026-06-18 — Roadmap: latest 2 activities in the Command-center permission area (v2026-06-18.3)
 
 Rescan roadmap. Bugs list empty; sole roadmap item: *"Show the latest 2 activities in the command center in the trade permissions area. Put it in the top left corner of the area."*

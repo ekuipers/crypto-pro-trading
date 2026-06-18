@@ -1233,6 +1233,7 @@
       <section>
         <div class="section-title">Professional Command Center</div>
         <div id="tradingStatus" class="status-main reduce" data-tip="Final trading permission based on risk limits, drawdown, open risk, concentration, and journal discipline.">Connect Alpaca</div>
+        <div id="tradingStatusLog" class="small" data-tip="Last 3 entries from the Autopilot activity log." style="text-align:center;margin:6px 0 8px;line-height:1.5;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px"></div>
         <div id="sessionBanner" style="display:none;text-align:center;font-size:12px;color:var(--muted);margin-bottom:8px"></div>
         <div id="tickerStrip" class="ticker-strip">
           <div style="padding:10px 16px;color:var(--muted);font-size:12px;align-self:center">Connect Alpaca to see live prices</div>
@@ -2189,7 +2190,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-06-18</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-06-18.3</strong></span>
+    <span>Version: <strong>v2026-06-18.4</strong></span>
   </footer>
 
   <script>
@@ -6704,6 +6705,17 @@
         ? log.slice().reverse().map(e =>
             `<div><span style="color:var(--muted)">${e.t}</span> <span style="color:${col[e.k] || "var(--text)"};font-weight:700">[${(e.k || "info").toUpperCase()}]</span> ${e.m}</div>`).join("")
         : '<span style="color:var(--muted)">No autopilot activity yet.</span>';
+      apRenderStatusLog();
+    }
+
+    // Mirror the last 3 Autopilot log entries into the Command-center trading-status area.
+    function apRenderStatusLog() {
+      const el = $("tradingStatusLog");
+      if (!el) return;
+      const col = { entry: "var(--green)", exit: "var(--yellow)", block: "var(--muted)", error: "var(--red)", info: "var(--blue)" };
+      const last3 = apGetLog().slice(-3).reverse();
+      el.innerHTML = last3.map(e =>
+        `<div><span style="color:var(--muted)">${e.t}</span> <span style="color:${col[e.k] || "var(--text)"};font-weight:700">[${(e.k || "info").toUpperCase()}]</span> ${e.m}</div>`).join("");
     }
 
     function apClearLog() {
