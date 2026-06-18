@@ -62,6 +62,21 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-18 — Bug (follow-up): scanner returns only 33 symbols while Max Symbols = 60 (v2026-06-18.2)
+
+Rescan roadmap. User sharpened the bug after v2026-06-18.1: *"The market and signal scanner still only return 33 symbols while the setting is set higher for example 60."*
+
+**Investigation:** After the v2026-06-18.1 fix (no longer caching the `TOP30_SYMBOLS` fallback), `getCryptoUniverse()` now correctly resolves Alpaca's full tradable-crypto list. The result is ~33 because **Alpaca only offers ~20–33 USD-quoted (`*/USD`) crypto pairs** — its other pairs (~56 total trading pairs) are quoted in USDT / USDC / BTC, which the dashboard deliberately drops (the entire bot — caps, positions, evaluation — is USD-only). Confirmed via Alpaca support docs (≈21–33 USD pairs vs 56 total). So 60 is unreachable with USD pairs; **this is a real exchange ceiling, not a code defect.** No local API credentials were available (`.env` absent, env vars unset), so the universe size couldn't be queried directly — relied on Alpaca's published pair list.
+
+**Decision (asked the user):** chose **"Make the UI honest"** over broadening the universe to USDT/USDC pairs (which would surface signals the USD-only strategy can't act on).
+
+**Fix (`docs/dashboard_professional.html`):**
+- `updateScanBtnLabel()` now clamps the displayed count to `_cryptoUniverse.length` when known: shows `▶ Scan Top <universe> (all available)` when Max Symbols exceeds the universe, else `▶ Scan Top <min(n, universe)>`. Falls back to the raw `n` before the universe has loaded.
+- Scanner (`loadMarketSignals`) final status appends, when `maxSyms > universe.length`: "Max Symbols (N) exceeds the M tradable USD pairs Alpaca offers — scanning all available".
+- Market Overview (`loadMarketOverview`) status appends the analogous note.
+
+**Verified:** extracted the single inline `<script>` and ran `node --check` → SYNTAX OK. `_cryptoUniverse`, `universe`, and `maxSyms` confirmed in scope at each edit site. Footer v2026-06-18.2. Bug cleared from `CLAUDE.md`.
+
 ### 2026-06-18 — Bug: fewer symbols scanned than the Max Symbols setting (v2026-06-18.1)
 
 Rescan roadmap. Roadmap empty; sole open bug: *"There are less symbols scanned than in the max. symbols setting specified."*

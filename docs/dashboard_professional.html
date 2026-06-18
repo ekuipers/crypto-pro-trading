@@ -2188,7 +2188,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-06-18</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-06-18.1</strong></span>
+    <span>Version: <strong>v2026-06-18.2</strong></span>
   </footer>
 
   <script>
@@ -6285,7 +6285,10 @@
 
         moApplySort();
         renderMoHeatmap(rows.filter(function(r){ return r.chg24h !== null; }));
-        if (upd) upd.textContent = "Last updated: " + new Date().toLocaleTimeString();
+        const moCappedNote = maxSyms > universe.length
+          ? " · showing all " + universe.length + " tradable USD pairs (Max Symbols " + maxSyms + " exceeds the universe)"
+          : "";
+        if (upd) upd.textContent = "Last updated: " + new Date().toLocaleTimeString() + moCappedNote;
 
       } catch(e) {
         document.getElementById("moTableBody").innerHTML =
@@ -6375,7 +6378,16 @@
       const btn = document.getElementById("msScanBtn");
       if (!btn) return;
       const n = Math.max(1, Math.round(getSettings().limits.maxSignalSymbols || TOP30_SYMBOLS.length));
-      btn.textContent = "▶ Scan Top " + n;
+      // Clamp the displayed count to the real universe size once it is known —
+      // Alpaca only lists ~33 tradable USD pairs, so a Max Symbols of e.g. 60
+      // can never be reached. Show "(all available)" so the cap is honest
+      // instead of implying 60 symbols exist to scan.
+      const uni = _cryptoUniverse ? _cryptoUniverse.length : null;
+      if (uni && n > uni) {
+        btn.textContent = "▶ Scan Top " + uni + " (all available)";
+      } else {
+        btn.textContent = "▶ Scan Top " + Math.min(n, uni || n);
+      }
     }
 
     async function loadMarketSignals() {
@@ -6551,8 +6563,11 @@
             : '<span style="color:var(--muted)">No BUY setups currently — market breadth weak.</span>';
         }
 
+        const cappedNote = maxSyms > universe.length
+          ? " · Max Symbols (" + maxSyms + ") exceeds the " + universe.length + " tradable USD pairs Alpaca offers — scanning all available"
+          : "";
         if (upd) upd.textContent = "Last scanned: " + new Date().toLocaleTimeString() +
-          " · " + valid.length + "/" + SCAN_SYMBOLS.length + " symbols analysed";
+          " · " + valid.length + "/" + SCAN_SYMBOLS.length + " symbols analysed" + cappedNote;
 
       } catch(e) {
         document.getElementById("msTableBody").innerHTML =
