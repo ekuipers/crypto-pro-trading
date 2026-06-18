@@ -23,6 +23,7 @@ Creator: Erik Kuipers
 *(none — all items implemented; see `memory/memory.md` session history)*
 
 ## Bugs
+1. There are less symbols scanned than in the max. symbols setting specified
 
 ---
 
