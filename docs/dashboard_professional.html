@@ -1244,6 +1244,7 @@
         <div class="grid-2">
           <div class="panel">
             <div class="panel-title">🚦 Trading Permission Rules</div>
+            <div id="recentActivities" class="small" style="margin-bottom:10px;text-align:left"></div>
             <div id="permissionRules" class="small">Load data to calculate trading permission.</div>
           </div>
 
@@ -2188,7 +2189,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-06-18</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-06-18.2</strong></span>
+    <span>Version: <strong>v2026-06-18.3</strong></span>
   </footer>
 
   <script>
@@ -2891,6 +2892,7 @@
         filledOrders,
         slippageRows,
         avgSlip,
+        activities,
         equity,
         lastEquity,
         cash,
@@ -2991,6 +2993,31 @@
           </div>
         </div>
       `).join("");
+
+      // Latest 2 activities — top-left of the trading-permission panel.
+      const actEl = $("recentActivities");
+      if (actEl) {
+        const recent = (c.activities || []).slice(0, 2);
+        if (!recent.length) {
+          actEl.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">Latest Activity</div>
+            <div style="color:var(--muted)">No recent activity.</div>`;
+        } else {
+          actEl.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Latest Activity</div>` +
+            recent.map(a => {
+              const t = new Date(a.transaction_time || a.date || 0)
+                .toLocaleString("en-GB", { timeZone: "Etc/GMT-2", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+              const side = String(a.side || "").toUpperCase();
+              const sideColor = side === "BUY" ? "var(--green)" : side === "SELL" ? "var(--red)" : "var(--muted)";
+              const qty = fmt(Number(a.qty || 0), 4);
+              const price = Number(a.price || 0);
+              return `<div style="margin-bottom:2px">
+                <span style="color:var(--muted)">${t}</span>
+                <b style="color:${sideColor}">${side}</b>
+                ${qty} ${tvLink(toSlash(a.symbol))} @ $${fmt(price)}
+              </div>`;
+            }).join("");
+        }
+      }
 
       // Live Hard Rules panel
       const hardEl = $("hardRulesLive");

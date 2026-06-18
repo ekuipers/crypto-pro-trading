@@ -62,6 +62,17 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-18 — Roadmap: latest 2 activities in the Command-center permission area (v2026-06-18.3)
+
+Rescan roadmap. Bugs list empty; sole roadmap item: *"Show the latest 2 activities in the command center in the trade permissions area. Put it in the top left corner of the area."*
+
+**Implementation (`docs/dashboard_professional.html`):**
+- `loadContext()` already fetches the FILL activity feed (`/v2/account/activities?activity_type=FILL&page_size=100&sort=desc`, newest-first) but only used it for `computeFifoStats`. Added the raw `activities` array to the returned context object so renderers can reuse it (no extra API call).
+- Added a `#recentActivities` block to the **🚦 Trading Permission Rules** panel, placed **above** `#permissionRules` (top-left of the panel), `text-align:left`.
+- `renderCommand(c)` now renders a **Latest Activity** label + the latest 2 FILL activities (`c.activities.slice(0,2)`): time formatted GMT+2 via `Etc/GMT-2` (`MMM dd HH:mm`), colour-coded side (BUY green / SELL red), qty, `tvLink(toSlash(symbol))`, and `$price`. Empty feed shows "No recent activity."
+
+**Verified:** extracted the inline `<script>`s and validated each via `vm.Script` (`node`) → 2 scripts checked, 0 errors. Confirmed helpers (`fmt`, `tvLink`, `toSlash`) and the `c` context param are in scope at the call site. Roadmap cleared in `CLAUDE.md`. Footer v2026-06-18.3.
+
 ### 2026-06-18 — Bug (follow-up): scanner returns only 33 symbols while Max Symbols = 60 (v2026-06-18.2)
 
 Rescan roadmap. User sharpened the bug after v2026-06-18.1: *"The market and signal scanner still only return 33 symbols while the setting is set higher for example 60."*

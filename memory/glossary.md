@@ -16,6 +16,7 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 | Term | Meaning |
 |------|---------|
+| `c.activities` | Context field added by `loadContext()` (the newest-first FILL feed it already fetches for `computeFifoStats`). `renderCommand()` uses `c.activities.slice(0,2)` to render the **Latest Activity** block (`#recentActivities`) in the top-left of the 🚦 Trading Permission Rules panel. |
 | `loadInsights()` | Entry point for the 🧠 Insights tab (top-level `page-insights`, id `insights`). On-demand (▶ Analyze). Fetches all FILL history (`edgeFetchAllFills()`), builds round-trips (`insRoundTrips()`), renders 3 KPI tiles + 4 behavioral cards. Analysis-only. |
 | `insRoundTrips(activities)` | Dedicated FIFO round-trip matcher for Insights (separate from `computeFifoStats`/`edgeFifoTrades` so the shared engines stay untouched). Returns `{sym, pnl, cost, pnlPct, entryT, exitT}` sorted chronologically by exit time. `cost` = matched entry cost; `pnlPct` = pnl ÷ cost × 100. |
 | `insStmt(text, cls)` / `insGap(h)` | Insights render helpers: a coloured headline statement line (`neg`/`pos`/else yellow), and an hour-gap formatter (`m`/`h`/`d`). |

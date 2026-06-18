@@ -15,12 +15,12 @@ Creator: Erik Kuipers
 5. Update readme.md to reflect changes.
 6. Add footer to the webpage. Add Project descirption, creator, last modified dat and version number to the Footer
 7. Before analyzing any code change, read the memory for earlier changes.
-8. Always implement the roadmap items and fix the listed bugs after a rescan of the roadmap (a "rescan roadmap"request triggers implementation, not just a status report).
+8. a "rescan roadmap"request triggers implementation, not just a status report.
 
 ---
 
 ## Roadmap
-*(none — all items implemented; see `memory/memory.md` session history)*
+*(none — all listed roadmap items implemented; see `memory/memory.md` session history)*
 
 ## Bugs
 *(none — all listed bugs fixed; see `memory/memory.md` session history)*
@@ -383,7 +383,7 @@ Self-contained single-file HTML dashboard. Open locally in any browser — no se
 |---------|--------|
 | Live ticker strip | Top-of-page, 10 symbols, price + 24h%. Auto-refreshes every 15 s via `/v1beta3/crypto/us/snapshots`. |
 | Auto-refresh button | 3 modes: `Auto OFF` → `Prices 15s` → `Full 60s`. |
-| Command tab | Live hard-rules panel (6 real-time checks), cash reserve gate, trade modal. |
+| Command tab | Live hard-rules panel (6 real-time checks), cash reserve gate, trade modal. The **🚦 Trading Permission Rules** panel shows a **Latest Activity** block in its top-left corner: the latest 2 FILL activities (time GMT+2, side, qty, TradingView symbol link, fill price) rendered by `renderCommand()` from `c.activities` (the FILL feed `loadContext()` already fetches, now exposed on the context object). |
 | 🤖 Autopilot (Command tab) | In-dashboard autonomous trading loop. Toggle (always **OFF on page load** — never auto-resumes; shows "was ON before reload — click to resume"), interval 15/30/60 min, red ⛔ kill switch (stops loop + cancels all open orders). Each cycle: scans the 10 watchlist symbols with the existing signal engine; entries only at score ≥ 4 + regime gate + correlation budget (max 3 / 2 per tier) + per-symbol cap + ATR sizing + 20% cash-reserve gate (post-order) + $10 min notional; exits = hard stop −5%, trailing stop (HWM in `localStorage.autopilotHwm`, 3% below peak after +2.5%), TA exit at score ≤ −2. No short entries. Activity log (`localStorage.autopilotLog`, 200 entries, GMT+2) with per-decision gate reasons. |
 | 🔬 Analytics tab (parent) | **Merges Performance + P&L + Edge into one nav tab** (`page-analytics`) using the shared sub-tab system (`.subnav`/`.subpage`/`.subtab-btn`; generic `_activateSubTab("analytics", subId)`). Valid sub-ids `ANALYTICS_SUBS = ["performance","pnl","edge"]`. `analyticsSubTab(subId)` mirrors the sub-tab to the URL hash + `localStorage.lastTab` so the old deep links `#performance` / `#pnl` / `#edge` still resolve (via `applyTabFromUrl()`'s `SUBS` and `switchTab()`'s redirect). Performance auto-loads via `refreshCurrent()` (→`loadDashboard`→`renderPerformance`); P&L loads on select (`loadPnl`); Edge stays manual (▶ Analyze). Lives in the **📊 Analysis** nav section alongside Backtest vs Live and Markov. |
 | 🔬 Edge sub-tab (Analytics) | On-demand (▶ Analyze, Markov-tab pattern) realized-edge analytics from all FILL activities (paginated, 10k cap) with FIFO round-trip matching: per-symbol expectancy table (trades, win rate, avg win/loss, PF, net P&L, holding time), realized P&L by hour-of-day and day-of-week (GMT+2), KPI tiles (round-trips, expectancy $/trade, payoff ratio, median hold), auto-generated factual takeaway line. |
