@@ -62,6 +62,16 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-18 — Bug: fewer symbols scanned than the Max Symbols setting (v2026-06-18.1)
+
+Rescan roadmap. Roadmap empty; sole open bug: *"There are less symbols scanned than in the max. symbols setting specified."*
+
+**Root cause (`docs/dashboard_professional.html` › `getCryptoUniverse()`):** the function caches the tradable-crypto universe in `_cryptoUniverse` on first call (`if (_cryptoUniverse) return _cryptoUniverse`). The old code also cached the **`TOP30_SYMBOLS` fallback** whenever the `/v2/assets` call failed or returned nothing. `getCryptoUniverse()` first runs on page load via `loadSettings()` → `renderWatchlistTags()` → `populateWatchlistOptions()` — which can fire before credentials are seeded (or during a transient network hiccup). When that happened, the 30-symbol fallback was cached for the whole session, so every later Scanner / Market Overview scan computed `universe.slice(0, maxSyms)` against only 30 symbols. With Max Symbols set above 30 the scan silently returned fewer than requested — the reported bug.
+
+**Fix:** only cache a **real, non-empty** assets result; on failure/empty, return the `TOP30_SYMBOLS` fallback **without** assigning it to `_cryptoUniverse`, so the next call retries and can pick up the full universe once credentials/network recover. The fallback path still populates `_universeRank` from the 30 symbols so any rendering in the meantime shows real ranks.
+
+**Verified:** extracted the single inline `<script>` and ran `node --check` → SYNTAX OK. Confirmed `_cryptoUniverse` stays `null` on the fallback path (so retries happen) and is set only on a non-empty real result. Footer bumped to v2026-06-18.1. Bug cleared from `CLAUDE.md`.
+
 ### 2026-06-17 — Roadmap: Scanner score-distribution tile matches Signals page (v2026-06-17.22)
 
 Rescan roadmap. Sole item: "Use the same score distribution tile in the Scanner tab as in the Signals page."

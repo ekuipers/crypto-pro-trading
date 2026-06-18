@@ -2186,9 +2186,9 @@
     <span class="footer-sep">·</span>
     <span>Creator: <strong>Erik Kuipers</strong></span>
     <span class="footer-sep">·</span>
-    <span>Last modified: <strong>2026-06-17</strong></span>
+    <span>Last modified: <strong>2026-06-18</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-06-17.22</strong></span>
+    <span>Version: <strong>v2026-06-18.1</strong></span>
   </footer>
 
   <script>
@@ -6350,14 +6350,25 @@
         });
         const known = TOP30_SYMBOLS.filter(s => usd.includes(s));
         const extra = usd.filter(s => !TOP30_SYMBOLS.includes(s)).sort();
-        _cryptoUniverse = known.concat(extra);
-        if (!_cryptoUniverse.length) _cryptoUniverse = TOP30_SYMBOLS.slice();
+        const full  = known.concat(extra);
+        if (full.length) {
+          _cryptoUniverse = full;     // cache only a real, non-empty result
+          rebuildUniverseRank();
+          return _cryptoUniverse;
+        }
       } catch (e) {
         console.warn("getCryptoUniverse:", e);
-        _cryptoUniverse = TOP30_SYMBOLS.slice();
       }
-      rebuildUniverseRank();
-      return _cryptoUniverse;
+      // Transient fallback: the assets call failed or returned nothing (e.g.
+      // it ran on page load before credentials were seeded). Return TOP30
+      // WITHOUT caching it, so a later call retries and can pick up the full
+      // universe. Caching the fallback here used to stick the universe at 30
+      // for the whole session, silently capping every scan below the Max
+      // Symbols setting (Bug: fewer symbols scanned than specified).
+      const fallback = TOP30_SYMBOLS.slice();
+      _universeRank = {};
+      fallback.forEach(function(s, i) { _universeRank[s] = i + 1; });
+      return fallback;
     }
 
     function updateScanBtnLabel() {
