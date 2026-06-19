@@ -2251,7 +2251,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-06-19</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-06-19.2</strong></span>
+    <span>Version: <strong>v2026-06-19.3</strong></span>
   </footer>
 
   <script>
@@ -2392,19 +2392,31 @@
 
 
     // tvLink: wraps a symbol in a TradingView chart anchor (opens new tab).
-    // Accepts BTC/USD, BTCUSD, or BTC -- all map to CRYPTO:BTCUSD.
+    // Accepts BTC/USD, BTCUSD, BTC/USDT, or bare BTC. Strips the slash to the
+    // TradingView ticker form (BTCUSD, BTCUSDT, …); a bare base defaults to USD.
     function tvLink(sym, label) {
-      var base = sym.replace(/\/USD$/i,'').replace(/USD$/i,'').replace('/','');
-      var url  = 'https://www.tradingview.com/chart/?symbol=CRYPTO:' + base + 'USD';
+      var tv = String(sym).toUpperCase().replace('/', '');
+      if (!/USD[TC]?$/.test(tv)) tv += 'USD';   // bare base like "BTC" -> BTCUSD
+      var url  = 'https://www.tradingview.com/chart/?symbol=CRYPTO:' + tv;
       var txt  = (label !== undefined) ? label : sym;
       return '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="tv-link">' + txt + '</a>';
+    }
+
+    // baseTicker: the base asset of a pair regardless of quote currency
+    // (BTC/USD -> BTC, BTC/USDT -> BTC, bare BTC -> BTC). Used for display
+    // labels now that the universe includes USDT/USDC-quoted pairs, where the
+    // old `.replace("/USD","")` would mangle e.g. "BTC/USDT" into "BTCT".
+    function baseTicker(sym) {
+      return String(sym).split("/")[0];
     }
 
     function toSlash(sym) {
       if (!sym) return "–";
       if (sym.includes("/")) return sym;
-      if (sym.endsWith("USD")) return sym.slice(0, -3) + "/USD";
-      return sym;
+      // attach the longest matching allowed quote (USDT/USDC before USD) so
+      // bare Alpaca symbols like BTCUSD / BTCUSDT normalize to BASE/QUOTE
+      const q = ["USDT", "USDC", "USD"].find(function(qq) { return sym.endsWith(qq); });
+      return q ? sym.slice(0, -q.length) + "/" + q : sym;
     }
 
     function timeAgo(iso) {
@@ -4305,7 +4317,7 @@
       if (!el) return;
       const html = symbols.map(sym => {
         const snap = snapshots[sym] || snapshots[sym.replace("/","")] || null;
-        const base = sym.replace("/USD","");
+        const base = baseTicker(sym);
         if (!snap) {
           return `<div class="ticker-item"><div class="ticker-sym">${base}</div><div class="ticker-price" style="color:var(--muted)">–</div></div>`;
         }
@@ -4361,7 +4373,7 @@
     function renderCorrelationHeatmap(matrix, symbols) {
       const el = $("corrHeatmap");
       if (!el) return;
-      const names = symbols.map(s => s.replace("/USD",""));
+      const names = symbols.map(s => baseTicker(s));
       const colorFor = r => {
         if (r === null) return "rgba(255,255,255,.06)";
         if (r >= 0) { const a = (r * 0.75 + 0.12).toFixed(2); return `rgba(88,166,255,${a})`; }
@@ -5243,8 +5255,13 @@
       const input = document.getElementById("watchlistAddInput");
       if (!input) return;
       const raw = input.value.trim().toUpperCase().replace(/\s+/g, "");
-      const sym = raw.includes("/") ? raw : raw.replace(/USD$/, "/USD");
-      if (!sym || !sym.endsWith("/USD")) { alert("Symbol must end with /USD, e.g. BTC/USD"); return; }
+      let sym = raw;
+      if (sym && !sym.includes("/")) {
+        // bare form: attach the longest matching allowed quote (USDT/USDC before USD)
+        const q = ["USDT", "USDC", "USD"].find(function(qq) { return sym.endsWith(qq); });
+        if (q) sym = sym.slice(0, -q.length) + "/" + q;
+      }
+      if (!sym || !/\/(USD|USDT|USDC)$/.test(sym)) { alert("Symbol must be quoted in USD, USDT, or USDC — e.g. BTC/USD, BTC/USDT"); return; }
       const wl = getWatchlist();
       if (wl.length >= WL_MAX) { alert(`Maximum ${WL_MAX} symbols allowed.`); return; }
       if (wl.includes(sym)) { alert(`${sym} is already in the watchlist.`); return; }
@@ -5940,7 +5957,7 @@
         const scColor = a.score >= 3 ? "var(--green)" : a.score >= 1 ? "var(--yellow)" : "var(--red)";
         const ssColor = a.signalScore !== null ? (a.signalScore >= SIGNAL_BUY_SCORE ? "var(--green)" : a.signalScore >= SIGNAL_HALF_SCORE ? "var(--yellow)" : a.signalScore < 0 ? "var(--red)" : "var(--muted)") : "var(--muted)";
         const ssText  = a.signalScore !== null ? (a.signalScore >= 0 ? "+" : "") + a.signalScore.toFixed(1) + "/6" : "–/6";
-        const ticker  = a.symbol.replace("/USD", "");
+        const ticker  = baseTicker(a.symbol);
 
         const newsLinks = `
           <a class="gg-news-link" href="https://cryptopanic.com/news/${ticker.toLowerCase()}/" target="_blank">CryptoPanic ↗</a>
@@ -6291,7 +6308,7 @@
         }
         return "<tr>" +
           '<td style="color:var(--muted);font-weight:700;font-size:12px">#' + info.rank + "</td>" +
-          "<td>" + tvLink(row.sym, row.sym.replace("/USD","")) +
+          "<td>" + tvLink(row.sym, baseTicker(row.sym)) +
             '<span style="color:var(--muted);font-size:11px;margin-left:5px">' + info.name + "</span></td>" +
           '<td class="right mono">' + moFmtPrice(row.price) + "</td>" +
           '<td class="right">' + moChgHtml(row.chg24h) + "</td>" +
@@ -6311,7 +6328,7 @@
     // no live price is available for the row.
     function moTradeButtons(row) {
       var orderSym    = row.sym.replace("/", "");
-      var displaySym  = row.sym.replace("/USD", "");
+      var displaySym  = baseTicker(row.sym);
       var price       = row.price;
       if (!price) {
         return '<span style="color:var(--muted);font-size:11px">–</span>';
@@ -6437,7 +6454,7 @@
           ? "rgba(63,185,80,"  + (0.15 + intensity * 0.60) + ")"
           : "rgba(248,81,73," + (0.15 + intensity * 0.60) + ")";
         var textCol = intensity > 0.45 ? "#fff" : "var(--text)";
-        var sym = row.sym.replace("/USD","");
+        var sym = baseTicker(row.sym);
         return '<div style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;' +
           'background:' + bg + ';border-radius:8px;padding:10px 14px;min-width:80px;margin:4px;' +
           'border:1px solid rgba(255,255,255,0.07)" title="' + row.sym + '">' +
@@ -6509,8 +6526,8 @@
           kpi("Advancing", advancing + " / " + withData.length, "Coins up 24h", advancing/withData.length > 0.6 ? "pos" : advancing/withData.length < 0.4 ? "neg" : "") +
           kpi("Declining",  declining  + " / " + withData.length, "Coins down 24h") +
           kpi("Avg 24h %",  (avgChg >= 0 ? "+" : "") + fmt(avgChg,2) + "%", "Equal-weight avg", avgChg >= 0 ? "pos" : "neg") +
-          kpi("Best 24h",   top1 ? top1.sym.replace("/USD","") + " +" + fmt(top1.chg24h,2) + "%" : "–", "Top performer", "pos") +
-          kpi("Worst 24h",  bot1 ? bot1.sym.replace("/USD","") + " " + fmt(bot1.chg24h,2) + "%" : "–", "Bottom performer", "neg");
+          kpi("Best 24h",   top1 ? baseTicker(top1.sym) + " +" + fmt(top1.chg24h,2) + "%" : "–", "Top performer", "pos") +
+          kpi("Worst 24h",  bot1 ? baseTicker(bot1.sym) + " " + fmt(bot1.chg24h,2) + "%" : "–", "Bottom performer", "neg");
 
         moApplySort();
         renderMoHeatmap(rows.filter(function(r){ return r.chg24h !== null; }));
@@ -6537,10 +6554,15 @@
     // TOP30_SYMBOLS if the assets call fails or returns nothing usable.
     //
     // Robust to symbol format: Alpaca may return crypto symbols as "BTC/USD" or
-    // bare "BTCUSD". Both are normalized to "BASE/USD"; non-USD quotes
-    // (USDT/USDC/BTC pairs) are dropped, as are stablecoin bases priced in USD
+    // bare "BTCUSD". Both are normalized to "BASE/QUOTE". Accepted quotes are
+    // USD plus the major stablecoin quotes USDT and USDC (see ALLOWED_QUOTES) —
+    // so pairs like BTC/USDT and ETH/USDC are included (roadmap 2026-06-19);
+    // other quotes (BTC-quoted pairs, etc.) are dropped, as are stablecoin bases
     // (USDT/USD, USDC/USD, … — see STABLECOIN_BASES).
     let _cryptoUniverse = null;
+    // Quote currencies the dashboard universe accepts: USD plus the major
+    // stablecoin quotes, so BTC/USDT, ETH/USDC, … are selectable and scannable.
+    const ALLOWED_QUOTES = { USD: 1, USDT: 1, USDC: 1 };
     // Stablecoin bases excluded from the scan universe — a USDT/USD or USDC/USD
     // "pair" is just the stablecoin priced in dollars, never a tradeable setup,
     // and pollutes the Market Signals / Market Overview / watchlist symbol lists.
@@ -6564,34 +6586,39 @@
     // fallback whose rank is the symbol's position in the universe ordering.
     function symbolInfo(sym) {
       if (TOP30_INFO[sym]) return TOP30_INFO[sym];
-      return { rank: _universeRank[sym] || 99, tier: "?", capLabel: "?", name: sym.replace("/USD", "") };
+      return { rank: _universeRank[sym] || 99, tier: "?", capLabel: "?", name: baseTicker(sym) };
     }
     async function getCryptoUniverse() {
       if (_cryptoUniverse) return _cryptoUniverse;
       try {
         const assets = await apiFetch("/v2/assets?asset_class=crypto&status=active");
         const seen = {};
-        const usd = [];
+        const pairs = [];
         const stableSeen = {};
         const stable = [];
         (assets || []).forEach(function(a) {
           if (!a || !a.tradable || typeof a.symbol !== "string") return;
           let sym = a.symbol.toUpperCase();
           if (!sym.includes("/")) {
-            if (!/USD$/.test(sym)) return;          // only USD-quoted bare symbols
-            sym = sym.slice(0, -3) + "/USD";         // BTCUSD -> BTC/USD
+            // bare form: split off the longest matching allowed quote (USDT/USDC before USD)
+            const q = ["USDT", "USDC", "USD"].find(function(qq) { return sym.endsWith(qq); });
+            if (!q) return;
+            sym = sym.slice(0, -q.length) + "/" + q;   // BTCUSD -> BTC/USD, BTCUSDT -> BTC/USDT
           }
-          if (!sym.endsWith("/USD")) return;         // drop non-USD quotes (USDT/USDC/BTC pairs)
-          if (STABLECOIN_BASES[sym.slice(0, -4)]) {  // stablecoin base: keep aside for the opt-in filter
-            if (!stableSeen[sym]) { stableSeen[sym] = 1; stable.push(sym); }
+          const slash = sym.indexOf("/");
+          const base  = sym.slice(0, slash);
+          const quote = sym.slice(slash + 1);
+          if (!ALLOWED_QUOTES[quote]) return;        // keep USD/USDT/USDC quotes only (drop BTC-quoted etc.)
+          if (STABLECOIN_BASES[base]) {              // stablecoin base: never a directional setup
+            if (quote === "USD" && !stableSeen[sym]) { stableSeen[sym] = 1; stable.push(sym); }  // keep USD ones for the opt-in filter
             return;
           }
           if (seen[sym]) return;
           seen[sym] = 1;
-          usd.push(sym);
+          pairs.push(sym);
         });
-        const known = TOP30_SYMBOLS.filter(s => usd.includes(s));
-        const extra = usd.filter(s => !TOP30_SYMBOLS.includes(s)).sort();
+        const known = TOP30_SYMBOLS.filter(s => pairs.includes(s));
+        const extra = pairs.filter(s => !TOP30_SYMBOLS.includes(s)).sort();
         const full  = known.concat(extra);
         if (full.length) {
           _cryptoUniverse = full;     // cache only a real, non-empty result
@@ -6680,8 +6707,7 @@
         try {
           const ps = await apiFetch("/v2/positions");
           (ps || []).forEach(function(p) {
-            const ns = p.symbol.includes("/") ? p.symbol : p.symbol.replace(/USD$/, "/USD");
-            _msOpenPosSyms.add(ns);
+            _msOpenPosSyms.add(toSlash(p.symbol));
           });
         } catch(e) { /* non-fatal — buttons just won't suppress on open positions */ }
 
@@ -6746,7 +6772,7 @@
           if (row.error) {
             return '<tr data-unavailable="1">' +
               '<td style="color:var(--muted);font-size:12px">#' + info.rank + "</td>" +
-              '<td>' + tvLink(row.sym, row.sym.replace("/USD","")) + "</td>" +
+              '<td>' + tvLink(row.sym, baseTicker(row.sym)) + "</td>" +
               '<td class="right mono" style="color:var(--muted)">' + moFmtPrice(row.livePrice) + "</td>" +
               '<td colspan="11" style="color:var(--muted);font-size:12px">' + row.error + "</td>" +
               "</tr>";
@@ -6768,7 +6794,7 @@
           const pbFmt   = (row.bb_pb !== undefined && row.bb_pb !== null) ? fmt(row.bb_pb,2) : "–";
           return "<tr>" +
             '<td style="color:var(--muted);font-size:12px">#' + info.rank + "</td>" +
-            '<td>' + tvLink(row.sym, row.sym.replace("/USD","")) + "</td>" +
+            '<td>' + tvLink(row.sym, baseTicker(row.sym)) + "</td>" +
             '<td class="right mono">' + moFmtPrice(row.livePrice || row.lastClose) + "</td>" +
             '<td class="right">' + scoreBar(row.score) + "</td>" +
             "<td>" + trendHtml + "</td>" +
@@ -6803,7 +6829,7 @@
             ? buyRows.map(function(r) {
                 const inf = symbolInfo(r.sym);
                 return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px">' +
-                  tvLink(r.sym, r.sym.replace("/USD","")) +
+                  tvLink(r.sym, baseTicker(r.sym)) +
                   '<span style="color:var(--muted);font-size:11px;flex:1">' + (inf.name||"") + "</span>" +
                   '<span style="color:var(--green);font-weight:800">+' + r.score + "/6</span>" +
                   '<span style="color:var(--muted);font-size:11px">' + (r.dailyRegime||"") + "</span>" +

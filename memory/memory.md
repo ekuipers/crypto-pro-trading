@@ -62,6 +62,24 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-19 — Roadmap: allow USDT/USDC-quoted pairs in the symbol selector (v2026-06-19.3)
+
+Rescan roadmap. One item: "allow multiple stablecoin pairs like USDT and USDC in the symbol selector. It is currently limited to USD." This is about stablecoin **quote** currencies (BTC/USDT, ETH/USDC), distinct from the previous session's stablecoin-*base* filter (USDT/USD). The dashboard universe (`getCryptoUniverse()`) kept only `/USD` quotes and `addWatchlistSymbol()` hard-rejected anything not `/USD`.
+
+**Decision (asked the user — scope had trading-safety implications):** chose **"Everywhere in the dashboard"** — USDT/USDC pairs are first-class across the selector, watchlist, Scanner, and Market Overview. Python bot untouched (reads `config.json` separately). Per-symbol caps stay `/USD`-keyed → `/USDT`,`/USDC` pairs use the default 5% cap.
+
+**Implementation (`docs/dashboard_professional.html`, all JS):**
+- New `const ALLOWED_QUOTES = {USD,USDT,USDC}`. `getCryptoUniverse()` rewritten: normalizes bare symbols by the longest-matching quote (USDT/USDC before USD), splits `BASE/QUOTE`, keeps `ALLOWED_QUOTES` only (drops BTC-quoted etc.), still sidelines stablecoin **bases** (USD ones into `_stablecoinUniverse` for the Show-stablecoins filter, others dropped). Renamed the local `usd`→`pairs` since it now holds mixed quotes.
+- `addWatchlistSymbol()`: accepts `/USD`, `/USDT`, `/USDC`; bare input normalized to `BASE/QUOTE`; clearer reject message.
+- New `baseTicker(sym)` = base before the slash. Replaced every display `sym.replace("/USD","")` (ticker strip, correlation heatmap names, gap-scanner ticker, Market Overview cell + trade buttons + heatmap + KPIs, `symbolInfo` name, Scanner table + top-opps) with `baseTicker()` so `BTC/USDT` shows `BTC` not `BTCT`.
+- `tvLink()` now strips the slash to the TradingView ticker form (`BTCUSDT`), bare base defaults to USD — was hardcoding `+ 'USD'`.
+- `toSlash()` broadened to attach the longest-matching allowed quote (so bare `BTCUSDT` → `BTC/USDT`); reused it for the Scanner open-positions normalizer (`_msOpenPosSyms`), replacing an inline `/USD`-only regex.
+- Footer → v2026-06-19.3.
+
+**Order/format note:** order symbols still use `sym.replace("/","")` (`BTC/USDT`→`BTCUSDT`), the correct Alpaca order form. Caps for non-USD quotes fall back to default by design (user accepted).
+
+**Verified:** dashboard inline `<script>` → `new Function()` syntax check 0 errors; a standalone Node harness replicating the universe classifier, `baseTicker`, `toSlash`, `tvLink` base, and `addWatchlistSymbol` normalization passed all 27 assertions (BTC/USDT & ETH/USDC kept, BTC/BTC & DAI/USDT dropped, USDT/USD sidelined as stablecoin, bare forms normalized, FOO/EUR rejected). Docs updated (CLAUDE.md roadmap cleared + Settings/Scanner USD-only claims corrected, README, glossary, dashboard_layout changelog). Roadmap cleared.
+
 ### 2026-06-19 — Roadmap: stablecoin filter on the symbol selector (v2026-06-19.2)
 
 Rescan roadmap. One item: "Add a stablecoin filter to the symbol selector dialog." The symbol selector is the Settings → 📋 Active Watchlist add-symbol control (`<input list="watchlistSymbolOptions">` + `<datalist>`), fed by `getCryptoUniverse()`, which since 2026-06-17 *unconditionally* drops stablecoin bases (`STABLECOIN_BASES`). The roadmap asks to make that a user-controllable filter.
