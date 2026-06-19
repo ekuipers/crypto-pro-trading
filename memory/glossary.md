@@ -4,6 +4,21 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-06-19 — Loosened gates, 4H swing-low stop, Scalping tab
+
+| Term | Meaning |
+|------|---------|
+| Swing-low stop (4H) | TA-driven long stop that replaced the fixed −5% hard stop. Sits just below the previous 4H range low — lowest low of the last `swing_low_lookback_bars` (20) completed 4H bars, ×(1−`swing_low_buffer_pct`), clamped so it is never more than `swing_low_max_stop_pct` (8%) below entry. `risk.stop_loss_mode = "swing_low_4h"`. |
+| `swing_low_stop_price(entry, lows_4h, …)` | `risk.py` helper returning the swing-low stop price, or `None` when <5 bars or the level isn't below entry (caller then falls back to the fixed `stop_loss_pct`). |
+| `should_stop_out(entry, current, stop_price=None)` | `risk.py` — now takes an explicit `stop_price` (the swing-low level); falls back to the fixed `stop_loss_pct` drawdown when `stop_price` is None. |
+| `swingLowStop4h(lows4h, entry)` | Dashboard JS mirror of `swing_low_stop_price` (used by Autopilot exits). |
+| `downtrend_long_score_threshold` | `config.json › strategy` (= 4.0). Minimum confluence score for a **half-size counter-trend long** in a confirmed daily downtrend. Dashboard const: `SIGNAL_DOWNTREND_LONG_SCORE`. |
+| `SIGNAL_BUY_SCORE` / `SIGNAL_HALF_SCORE` | Dashboard consts (3.5 / 2.5) mirroring `strategy.buy_score_threshold` / `buy_score_half_size_threshold`; used by every signal-score display + Autopilot. |
+| ⚡ Scalping tab | Low-timeframe confluence scanner (`page-scalp`, `loadScalp()`). TF selector maps the (exec, trend, regime) stack down via `SCALP_TF_MAP` (5m→5m·1h·4h, 15m→15m·1h·4h, 1h→1h·4h·1D) and runs the same `calcSignalScore`. Scanner + manual Buy/Sell (`openTradeModal`); no auto-loop. |
+| `SCALP_TF_MAP` | Dashboard map from a scalp timeframe to its `{exec, trend, regime}` bar timeframes. |
+
+---
+
 ## 2026-06-17 — Shared Score Distribution tile
 
 | Term | Meaning |
@@ -81,7 +96,7 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 | Term | Meaning |
 |------|---------|
-| Confluence score | 6-point TA signal score; ≥4 = buy, 3 = half-size, ≤2 = hold; ≤−4 = short, −3 = half-size short, ≥+2 = cover |
+| Confluence score | 6-point TA signal score; ≥3.5 = buy, ≥2.5 = half-size, <2.5 = hold (≥4.0 = half-size counter-trend long in a downtrend); ≤−4 = short, −3 = half-size short, ≥+2 = cover |
 | Markov analysis | Dashboard Markov tab. First-order Markov chain over daily close-to-close returns. 3 states via ±1% band (`MK_THRESH`): Up (r>+1%), Flat (|r|≤1%), Down (r<−1%). Builds transition matrix `P(next\|current)`, stationary distribution (power iteration), and next-day forecast from current state. Run for BTC/USD & ETH/USD over 30/60/90/180/365-day windows. Analysis-only, no order routing. Matrix tables use the `.mk-matrix` CSS class (`min-width:0; table-layout:fixed`) to override the global 760px table min-width so they fit their narrow grid panels without overlapping. |
 | Transition matrix | 3×3 matrix where cell (i,j) = empirical probability of moving from state i to state j on the next day. Rows sum to 1. |
 | Stationary distribution | Long-run state probabilities π satisfying π = πP; computed via power iteration. The Markov tab shows it alongside the empirical state frequencies. |
@@ -279,7 +294,7 @@ Critical implementation details to keep `indicators.py` and `dashboard_professio
 | Concern | Detail |
 |---------|--------|
 | MACD NaN prefix | `macdLine` has NaN for indices 0–24 (ema26 only valid from index 25). Must strip NaN before calling `emaArr` for signal EMA, then re-pad to original length. Otherwise signal line = NaN always (MACD always 0). |
-| Half-size threshold | Python: `score >= 3.0` → half-size. Dashboard pills: `score >= 3 && score < 4` (NOT `=== 3`). Scores of 3.5 are valid half-size entries. |
+| Buy/half thresholds | Loosened 2026-06-19. Python: `score >= 3.5` full, `>= 2.5` (`< 3.5`) half — `strategy.buy_score_threshold` / `buy_score_half_size_threshold`. Dashboard: consts `SIGNAL_BUY_SCORE` (3.5) / `SIGNAL_HALF_SCORE` (2.5). Keep in sync. |
 | EMA seeding | Both sides seed with SMA of first `period` values (not first raw value). |
 | EMA dead zone | Both sides use ±0.05% band: `ema20 > ema50 * 1.0005` = golden; `< 0.9995` = death; else neutral. Applies to 15-min (Signal 1) and 4H (Signal 6). |
 | Volume average | `current / avg(prev-20 bars)` — prev-20 excludes current bar: Python `volumes[-21:-1]`; JS `volumes.slice(-21,-1)`. |
@@ -293,13 +308,13 @@ Critical implementation details to keep `indicators.py` and `dashboard_professio
 |---|------|-------|
 | 1 | Position cap | ≤5% of equity per symbol |
 | 2 | Order type | Limit only; within 0.2% of ask |
-| 3 | Long stop-loss | −5% from entry → immediate SELL |
+| 3 | Long stop-loss | 4H swing low (lowest low of last 20 4H bars, ≤8% below entry) → immediate SELL; −5% fallback if no 4H data |
 | 3b | Short stop-loss | +5% above entry → immediate COVER |
 | 4 | TA exit (long) | Score ≤ −2 → SELL |
 | 4b | TA cover (short) | Score ≥ +2 → COVER |
-| 5 | Buy gate | Score ≥4/6 full size; score=3/6 half-size if R:R≥1:3 |
+| 5 | Buy gate | Score ≥3.5/6 full size; ≥2.5 (<3.5) half-size (loosened 2026-06-19) |
 | 5b | Short gate | Score ≤−4/6 full size; score=−3/6 half-size if R:R≥1:3; downtrend only |
-| 6 | Long regime gate | No buys in daily downtrend (close < 50-SMA AND 20-SMA < 50-SMA) |
+| 6 | Long regime gate | Uptrend/mixed: buy ≥2.5/≥3.5. Downtrend: half-size counter-trend long only at score ≥4.0 |
 | 6b | Short regime gate | Shorts ONLY in confirmed daily downtrend; blocked in uptrend/mixed |
 | 7 | Sizing | ATR: qty=(equity×1%)/(ATR×1.5), cap at 5% equity |
 | 8 | Order routing | All via `scripts/trade.py`; direct API calls forbidden |

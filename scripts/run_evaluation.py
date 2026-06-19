@@ -20,7 +20,8 @@ For each symbol:
        - If pending past escalation_cycles: cancel and replace with wider band.
        - If the order ID is gone (filled/expired): clear position state, done.
   2. Trailing stop triggered (active after +2.5% gain, trails 3% below HWM) -> SELL
-  3. Drawdown >= stop_loss_pct from entry (fixed hard stop)                  -> SELL (stop-loss)
+  3. Swing-low stop hit: price <= previous 4H range low (TA-driven; fixed
+     stop_loss_pct only as a fallback when 4H history is unavailable)        -> SELL (stop-loss)
   4. Signal score <= sell_score_threshold                                     -> SELL (bearish TA)
 
   Short positions (qty < 0):
@@ -30,12 +31,13 @@ For each symbol:
 
   No position:
   8.  Capital preservation mode (daily drawdown gate fired)            -> BLOCK new entries
-  9.  Correlation budget: max 3 positions, max 2 per tier (BTC/ETH vs alts) -> BLOCK if exceeded
+  9.  Correlation budget: max 4 positions, max 3 per tier (BTC/ETH vs alts) -> BLOCK if exceeded
   10. Daily regime != downtrend AND score >= buy_score_threshold       -> BUY  (full size)
   11. Daily regime != downtrend AND score >= buy_score_half_size       -> BUY  (half size)
-  12. Daily regime == downtrend AND score <= short_score_threshold     -> SHORT (full size)
-  13. Daily regime == downtrend AND score <= short_score_half_size     -> SHORT (half size)
-  14. Otherwise                                                         -> HOLD
+  12. Daily regime == downtrend AND score >= downtrend_long_score      -> BUY  (half size, counter-trend)
+  13. Daily regime == downtrend AND score <= short_score_threshold     -> SHORT (full size)
+  14. Daily regime == downtrend AND score <= short_score_half_size     -> SHORT (half size)
+  15. Otherwise                                                         -> HOLD
 
 All thresholds are loaded from config.json at startup.
 
@@ -83,10 +85,12 @@ from _api import api_get
 from risk import (
     LIMIT_BAND_PCT,
     STOP_LOSS_PCT,
+    STOP_LOSS_MODE,
     STOP_LOSS_ESCALATION_CYCLES,
     should_stop_out,
     should_cover_short,
     should_trail_stop_out,
+    swing_low_stop_price,
     correlation_budget_allows,
     daily_drawdown_gate_triggered,
     stop_loss_limit_price,
@@ -132,6 +136,7 @@ SELL_SCORE_THRESHOLD  = float(_STRATEGY.get("sell_score_threshold",           -2
 SHORT_SCORE_THRESHOLD = float(_STRATEGY.get("short_score_threshold",          -4.0))
 SHORT_SCORE_HALF_SIZE = float(_STRATEGY.get("short_score_half_size_threshold", -3.0))
 COVER_SCORE_THRESHOLD = float(_STRATEGY.get("cover_score_threshold",           2.0))
+DOWNTREND_LONG_SCORE  = float(_STRATEGY.get("downtrend_long_score_threshold",  4.0))
 ATR_MULTIPLIER        = float(_STRATEGY.get("atr_multiplier",                  1.5))
 RISK_PER_TRADE_PCT    = float(_STRATEGY.get("risk_per_trade_pct",              0.01))
 FALLBACK_SIZE_PCT     = float(_STRATEGY.get("fallback_size_pct",               0.02))
@@ -333,11 +338,13 @@ def evaluate_symbol(
         )
         return decision
 
-    # ── 4H bars (higher-timeframe trend filter) ─────────────────────────────
+    # ── 4H bars (higher-timeframe trend filter + swing-low stop source) ──────
     closes_4h = None
     try:
         bars_4h   = get_crypto_bars_4h(symbol)
         closes_4h = [float(b.get("c") or 0) for b in bars_4h if b.get("c")]
+        # Capture 4H lows for the swing-low (previous range low) stop.
+        decision["lows_4h"] = [float(b.get("l") or 0) for b in bars_4h if b.get("c")]
         if len(closes_4h) < 51:
             closes_4h = None
             decision["regime_4h"] = "insufficient 4H history (%d bars)" % len(closes_4h or [])
@@ -521,17 +528,30 @@ def evaluate_symbol(
                 return decision
 
             # Hard stop — checked before TA, cannot be overridden.
-            if should_stop_out(entry, cur):
+            # TA-driven: stop sits just below the previous 4H range low (fixed
+            # STOP_LOSS_PCT only as a fallback when 4H history is unavailable).
+            swing_stop = None
+            if STOP_LOSS_MODE == "swing_low_4h":
+                swing_stop = swing_low_stop_price(entry, decision.get("lows_4h"))
+            if should_stop_out(entry, cur, stop_price=swing_stop):
                 cycles_open = ps_pos.get("stop_order_cycles", 0)
                 lim = stop_loss_limit_price(ask, cycles_open)
                 decision["action"]       = "SELL"
                 decision["qty"]          = qty_held
                 decision["limit_price"]  = lim
                 decision["is_stop_loss"] = True
-                decision["reason"] = (
-                    "STOP-LOSS: entry $%.4f, current $%.4f (>= %d%% drawdown)"
-                    % (entry, cur, int(STOP_LOSS_PCT * 100))
-                )
+                if swing_stop:
+                    decision["reason"] = (
+                        "STOP-LOSS (4H swing low): entry $%.4f, current $%.4f <= "
+                        "stop $%.4f (prev 4H range low)"
+                        % (entry, cur, swing_stop)
+                    )
+                else:
+                    decision["reason"] = (
+                        "STOP-LOSS (fallback): entry $%.4f, current $%.4f "
+                        "(>= %d%% drawdown, no 4H data)"
+                        % (entry, cur, int(STOP_LOSS_PCT * 100))
+                    )
                 return decision
 
             # Discretionary exit on strongly bearish TA confluence.
@@ -588,10 +608,23 @@ def evaluate_symbol(
         return min(round((equity * FALLBACK_SIZE_PCT / price) * 0.99, 4), hard_cap)
 
     # ── Long entry ───────────────────────────────────────────────────────────
-    # Regime gate: block buys in a confirmed daily downtrend.
-    if decision["daily_regime"] != "downtrend" and score >= BUY_SCORE_HALF_SIZE:
+    # Regime gate (loosened): longs allowed in uptrend/mixed at score >=
+    # BUY_SCORE_HALF_SIZE; in a confirmed downtrend a half-size counter-trend
+    # long is allowed only at high confluence (score >= DOWNTREND_LONG_SCORE).
+    regime = decision["daily_regime"]
+    in_downtrend = regime == "downtrend"
+    allow_long = (
+        (not in_downtrend and score >= BUY_SCORE_HALF_SIZE)
+        or (in_downtrend and score >= DOWNTREND_LONG_SCORE)
+    )
+    if allow_long:
         base_qty = _compute_qty(ask)
-        if score < BUY_SCORE_THRESHOLD:
+        # Counter-trend (downtrend) longs are half-size only; otherwise the
+        # usual full-size at/above BUY_SCORE_THRESHOLD, half-size below it.
+        if in_downtrend:
+            qty       = round(base_qty * 0.5, 4)
+            size_note = "half-size counter-trend (downtrend, score=%.1f)" % score
+        elif score < BUY_SCORE_THRESHOLD:
             qty       = round(base_qty * 0.5, 4)
             size_note = "half-size (score=%.1f)" % score
         else:
@@ -639,8 +672,9 @@ def evaluate_symbol(
             )
         else:
             decision["reason"] = (
-                "downtrend, longs blocked; shorts disabled (venue unsupported), score=%.1f"
-                % score
+                "downtrend: counter-trend long needs score >= %.1f (have %.1f); "
+                "shorts disabled (venue unsupported)"
+                % (DOWNTREND_LONG_SCORE, score)
             )
     else:
         decision["reason"] = (
@@ -767,13 +801,17 @@ def main() -> int:
     args = parser.parse_args()
 
     print("Starting evaluation...")
+    if STOP_LOSS_MODE == "swing_low_4h":
+        stop_desc = "stop=4H swing low (fallback %.0f%%)" % (STOP_LOSS_PCT * 100)
+    else:
+        stop_desc = "stop=%.0f%%" % (STOP_LOSS_PCT * 100)
     print(
-        "  thresholds: buy=%.1f  half=%.1f  sell=%.1f  "
-        "short=%.1f  short_half=%.1f  cover=%.1f  stop=%.0f%%"
+        "  thresholds: buy=%.1f  half=%.1f  downtrend_long=%.1f  sell=%.1f  "
+        "short=%.1f  short_half=%.1f  cover=%.1f  %s"
         % (
-            BUY_SCORE_THRESHOLD, BUY_SCORE_HALF_SIZE, SELL_SCORE_THRESHOLD,
-            SHORT_SCORE_THRESHOLD, SHORT_SCORE_HALF_SIZE, COVER_SCORE_THRESHOLD,
-            STOP_LOSS_PCT * 100,
+            BUY_SCORE_THRESHOLD, BUY_SCORE_HALF_SIZE, DOWNTREND_LONG_SCORE,
+            SELL_SCORE_THRESHOLD, SHORT_SCORE_THRESHOLD, SHORT_SCORE_HALF_SIZE,
+            COVER_SCORE_THRESHOLD, stop_desc,
         )
     )
 
@@ -782,8 +820,8 @@ def main() -> int:
 
     symbols = [s for s in _CFG.get("watchlist", {}).get("symbols", []) if is_crypto(s)]
     # Universe scout: merge auto-promoted uptrending symbols (config > scout).
-    # Promoted symbols pass through every existing gate unchanged (score >= 4,
-    # regime, correlation budget, default 5% cap, ATR sizing, stops).
+    # Promoted symbols pass through every existing gate unchanged (score gate,
+    # regime, correlation budget, default 5% cap, ATR sizing, swing-low stops).
     if _CFG.get("scout", {}).get("enabled", False):
         try:
             import scout

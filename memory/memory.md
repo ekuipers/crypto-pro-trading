@@ -62,6 +62,24 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-19 — Roadmap: loosen gates + 4H swing-low stop, and a Scalping page (v2026-06-19.1)
+
+Rescan roadmap. Two items: (1) "loosen the very strict trade gates and change the 5% hard stop loss to a stop loss based on previous range lows e.g. on the 4H timeframe"; (2) "add a scalping page that trades on low timeframes (5m/15m/1h) using the same indicators." Decisions taken via question prompt: scalp page = **scanner + manual Buy/Sell** (no new auto-loop); stop = **lowest low of last 20×4H bars ×0.999, clamped ≤8%**, fixed-% fallback; gates = **Moderate + regime**.
+
+> Note: an earlier pass this session implemented the *previous* roadmap wording (ATR-based stop) but the working tree was reverted to pristine before this pass; the roadmap was then rewritten to the range-low spec above. This entry reflects the final swing-low implementation.
+
+**Item 1 — gates + swing-low stop.**
+- `config.json`: `strategy.buy_score_threshold` 4.0→3.5, `buy_score_half_size_threshold` 3.0→2.5, new `downtrend_long_score_threshold` 4.0; `risk.max_open_positions` 3→4, `max_positions_per_tier` 2→3; new `risk.stop_loss_mode="swing_low_4h"`, `swing_low_lookback_bars=20`, `swing_low_buffer_pct=0.001`, `swing_low_max_stop_pct=0.08` (kept `stop_loss_pct=0.05` as fallback).
+- `risk.py`: added `swing_low_stop_price(entry, lows_4h, …)` (lowest low of window ×(1−buffer), clamped to ≤max_stop_pct below entry; returns None when <5 bars or stop ≥ entry so caller falls back). `should_stop_out(entry, current, stop_price=None)` now takes an explicit stop price (falls back to fixed % when None). New consts `STOP_LOSS_MODE`, `SWING_LOW_*`. Updated docstring, self-checks (swing-low + clamp + correlation 4/4 & 3/3), prints. `rebalance.py` calls `should_stop_out(entry, cur)` with no stop_price → uses fixed-% fallback (no 4H bars there) — left unchanged, backward-compatible.
+- `run_evaluation.py`: captures `decision["lows_4h"]` from the 4H fetch; hard-stop computes `swing_low_stop_price` and passes it to `should_stop_out`; new `DOWNTREND_LONG_SCORE`; long-entry block allows uptrend/mixed at ≥2.5 (half) / ≥3.5 (full) and a half-size counter-trend long in a downtrend at ≥4.0; updated docstring, downtrend message, startup print.
+- Dashboard parity (`dashboard_professional.html`): added shared consts `SIGNAL_BUY_SCORE=3.5` / `SIGNAL_HALF_SCORE=2.5` / `SIGNAL_DOWNTREND_LONG_SCORE=4.0` + `swingLowStop4h()` helper (mirrors Python). Updated every signal-score display to the consts (renderScoreDist buckets/labels, Signals notification + scoreBar + actionPill + quick-buy gate, gap-scanner `signalScore` color, Market-Overview color, Scanner KPIs/labels/scoreBar/msActionPill, top-opps filter, watch button, `portActionChip`). Autopilot: thresholds 3.5/2.5, downtrend half-long ≥4, max 4/3, **4H swing-low exit** (fixed-% fallback), half-size sizing. Conviction (gap) score left untouched per the parity rule. Relabeled Command hard-rules stop row + Positions stop tooltips as 4H-swing-low reference. **`barsStart`/`barsEnd` gained `5Min`/`1Hour`** so the scalp window + in-progress-bar cutoff are correct.
+
+**Item 2 — Scalping tab.** New nav button under ⚡ Trade (`switchTab('scalp')`, id `scalp`, in `TAB_ORDER`, no auto-run). Page `page-scalp`: TF selector (5/15/60-min), ▶ Scan, KPIs, shared score-distribution tile, and a table (score, pill, RSI, ATR, regime, Buy/Sell). `loadScalp()` maps the TF down a notch via `SCALP_TF_MAP` (5m→5m·1h·4h, 15m→15m·1h·4h, 1h→1h·4h·1D) and runs the **same `calcSignalScore`** on those bars; `scalpActionPill` reuses the shared gates; Buy/Sell open `openTradeModal`. Manual tickets only — no autonomous scalp loop.
+
+**Verified:** `python scripts/risk.py` → all self-checks pass; `ast.parse` + guarded `import run_evaluation` OK; dashboard inline `<script>` → `new Function()` syntax check 0 errors. Footer v2026-06-19.1. Roadmap cleared.
+
+**Known characteristic:** sizing still uses 1.5×ATR for the qty calc while the exit stop is the 4H range low — realized risk can differ from a strict 1% when the range low sits farther/closer than 1.5×ATR (bounded by the 8% clamp). Documented in CLAUDE.md.
+
 ### 2026-06-18 — Roadmap: last 3 Autopilot-log messages under the trading-status word (v2026-06-18.4)
 
 Rescan roadmap. Bugs list empty; sole roadmap item: *"add the last 3 messages from the Autopilot log to the tradingstatus window/div."*

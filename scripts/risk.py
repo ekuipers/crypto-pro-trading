@@ -7,7 +7,11 @@ Trading rules:
     total portfolio value in a single position.  The default fallback cap is
     config.json > risk.default_position_cap_pct (default 5%).
   - Limit orders only, within config.json > risk.limit_band_pct of ask.
-  - If a position drops config.json > risk.stop_loss_pct from entry, close it.
+  - Stop loss is TA-driven: when risk.stop_loss_mode == "swing_low_4h" the stop
+    sits just below the lowest low of the last swing_low_lookback_bars 4H bars
+    (the "previous range low"), clamped to at most swing_low_max_stop_pct below
+    entry. The fixed risk.stop_loss_pct (5%) is only a fallback when 4H history
+    is unavailable.
   - Take-profit is TA signal-driven (score <= -2), NOT a fixed % target.
 
 Constants (MAX_POSITION_PCT, LIMIT_BAND_PCT, STOP_LOSS_PCT) are loaded from
@@ -42,14 +46,19 @@ def _load_risk_cfg() -> tuple:
             float(r.get("trailing_stop_trail_pct",      0.03)),
             int(  r.get("stop_loss_escalation_cycles",  2)),
             float(r.get("stop_loss_escalation_extra_pct", 0.003)),
-            int(  r.get("max_open_positions",           3)),
+            int(  r.get("max_open_positions",           4)),
             list( r.get("tier1_symbols",                ["BTC/USD", "ETH/USD"])),
-            int(  r.get("max_positions_per_tier",       2)),
+            int(  r.get("max_positions_per_tier",       3)),
             float(r.get("daily_drawdown_gate_pct",      0.03)),
             float(r.get("capital_preservation_stop_pct", 0.03)),
+            str(  r.get("stop_loss_mode",               "swing_low_4h")).lower(),
+            int(  r.get("swing_low_lookback_bars",      20)),
+            float(r.get("swing_low_buffer_pct",         0.001)),
+            float(r.get("swing_low_max_stop_pct",       0.08)),
         )
     except Exception:
-        return 0.05, 0.002, 0.05, 0.005, 0.025, 0.03, 2, 0.003, 3, ["BTC/USD", "ETH/USD"], 2, 0.03, 0.03
+        return (0.05, 0.002, 0.05, 0.005, 0.025, 0.03, 2, 0.003, 4,
+                ["BTC/USD", "ETH/USD"], 3, 0.03, 0.03, "swing_low_4h", 20, 0.001, 0.08)
 
 
 (
@@ -66,6 +75,10 @@ def _load_risk_cfg() -> tuple:
     MAX_POSITIONS_PER_TIER,
     DAILY_DRAWDOWN_GATE_PCT,
     CAPITAL_PRESERVATION_STOP_PCT,
+    STOP_LOSS_MODE,
+    SWING_LOW_LOOKBACK_BARS,
+    SWING_LOW_BUFFER_PCT,
+    SWING_LOW_MAX_STOP_PCT,
 ) = _load_risk_cfg()
 
 
@@ -135,10 +148,55 @@ def check_limit_band(limit_price: float, ask: float) -> RiskCheck:
     return RiskCheck(True, "limit within {:.1%} of ask".format(LIMIT_BAND_PCT))
 
 
-def should_stop_out(entry_price: float, current_price: float) -> bool:
-    """True if a long position is down >= STOP_LOSS_PCT from entry."""
+def swing_low_stop_price(
+    entry_price: float,
+    lows_4h: list | None,
+    lookback: int = SWING_LOW_LOOKBACK_BARS,
+    buffer_pct: float = SWING_LOW_BUFFER_PCT,
+    max_stop_pct: float = SWING_LOW_MAX_STOP_PCT,
+) -> float | None:
+    """
+    TA-driven long stop: just below the lowest low of the last `lookback`
+    completed 4-hour bars ("previous range low"). Volatility/structure-aware.
+
+    Returns None (so the caller can fall back to the fixed % stop) when there
+    is not enough 4H history or the computed level is not a valid long stop
+    (i.e. not below entry). The stop is clamped to at most `max_stop_pct` below
+    entry so an unusually wide range can't blow past the risk budget.
+    """
+    if entry_price <= 0 or not lows_4h:
+        return None
+    window = [lw for lw in lows_4h[-lookback:] if lw and lw > 0]
+    if len(window) < min(lookback, 5):
+        return None
+    stop = min(window) * (1 - buffer_pct)
+    # Must be a real long stop (below entry); otherwise let caller fall back.
+    if stop >= entry_price:
+        return None
+    # Clamp so the stop never sits more than max_stop_pct below entry.
+    floor_price = entry_price * (1 - max_stop_pct)
+    if stop < floor_price:
+        stop = floor_price
+    return round(stop, 6)
+
+
+def should_stop_out(
+    entry_price: float,
+    current_price: float,
+    stop_price: float | None = None,
+) -> bool:
+    """
+    True if a long position has hit its stop loss.
+
+    When an explicit `stop_price` is supplied (e.g. the 4H swing-low stop from
+    swing_low_stop_price), the position stops out at/below that level.
+    Otherwise it falls back to the fixed STOP_LOSS_PCT drawdown so a position
+    is never left without any stop.
+    """
     if entry_price <= 0:
         return False
+    if stop_price is not None and stop_price > 0:
+        return current_price <= stop_price
     drawdown = (entry_price - current_price) / entry_price
     return drawdown >= STOP_LOSS_PCT
 
@@ -342,11 +400,26 @@ if __name__ == "__main__":
     assert not check_limit_band(100.5, 100.0).ok
     assert not check_limit_band(0, 100.0).ok
     assert not check_limit_band(100.0, 0).ok
+    # Fixed-pct fallback (no stop_price supplied)
     assert not should_stop_out(100, 96)
     assert should_stop_out(100, 95)
     assert should_stop_out(100, 90)
     assert not should_stop_out(0, 50)
     assert abs(stop_loss_price(100) - 100 * (1 - STOP_LOSS_PCT)) < 1e-9
+    # Explicit stop_price override
+    assert should_stop_out(100, 96.9, stop_price=97.0)
+    assert not should_stop_out(100, 97.1, stop_price=97.0)
+    # Swing-low stop: lowest low of window, just below it
+    lows = [99, 98, 97.5, 98.2, 99.1] * 4   # 20 bars, min 97.5
+    sl = swing_low_stop_price(100, lows, lookback=20, buffer_pct=0.001, max_stop_pct=0.08)
+    assert sl is not None and abs(sl - 97.5 * 0.999) < 1e-6
+    # Clamp: a very deep low is capped at max_stop_pct below entry
+    sl_cap = swing_low_stop_price(100, [50] * 20, lookback=20, max_stop_pct=0.08)
+    assert abs(sl_cap - 92.0) < 1e-6
+    # Not enough history -> None (caller falls back to fixed %)
+    assert swing_low_stop_price(100, [99, 98], lookback=20) is None
+    # Swing low above entry (no valid long stop) -> None
+    assert swing_low_stop_price(100, [101] * 20, lookback=20) is None
     assert not should_cover_short(100, 104)
     assert should_cover_short(100, 105)
     assert should_cover_short(100, 110)
@@ -356,9 +429,17 @@ if __name__ == "__main__":
     assert not should_trail_stop_out(100, 102.5, 100)
     assert should_trail_stop_out(100, 110, 106)
     assert not should_trail_stop_out(0, 110, 106)
+    # Correlation budget: max 4 open positions, max 3 per tier.
     ok, _ = correlation_budget_allows("SOL/USD", ["BTC/USD", "ETH/USD"])
     assert ok
-    ok, reason = correlation_budget_allows("SOL/USD", ["BTC/USD", "ETH/USD", "ADA/USD"])
+    # 4 positions open -> total cap (4) reached, blocked.
+    ok, reason = correlation_budget_allows(
+        "SOL/USD", ["BTC/USD", "ETH/USD", "ADA/USD", "DOGE/USD"])
+    assert not ok
+    assert "4/4" in reason
+    # 3 Tier-2 positions open -> Tier-2 cap (3) reached, blocked.
+    ok, reason = correlation_budget_allows(
+        "SOL/USD", ["ADA/USD", "DOGE/USD", "LTC/USD"])
     assert not ok
     assert "3/3" in reason
     assert not daily_drawdown_gate_triggered(100_000, 97_001)
@@ -371,7 +452,10 @@ if __name__ == "__main__":
     print("risk.py: all self-checks passed")
     print("  MAX_POSITION_PCT =", MAX_POSITION_PCT)
     print("  LIMIT_BAND_PCT   =", LIMIT_BAND_PCT)
-    print("  STOP_LOSS_PCT    =", STOP_LOSS_PCT)
+    print("  STOP_LOSS_MODE   =", STOP_LOSS_MODE)
+    print("  SWING_LOW_LOOKBACK_BARS =", SWING_LOW_LOOKBACK_BARS)
+    print("  SWING_LOW_MAX_STOP_PCT  =", SWING_LOW_MAX_STOP_PCT)
+    print("  STOP_LOSS_PCT (fallback) =", STOP_LOSS_PCT)
     print("  STOP_LOSS_LIMIT_BAND_PCT =", STOP_LOSS_LIMIT_BAND_PCT)
     print("  TRAILING_STOP_ACTIVATION_PCT =", TRAILING_STOP_ACTIVATION_PCT)
     print("  TRAILING_STOP_TRAIL_PCT =", TRAILING_STOP_TRAIL_PCT)

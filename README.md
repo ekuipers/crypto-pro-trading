@@ -96,10 +96,11 @@ filtered by 4H trend and daily regime. Full strategy detail lives in
 | 5 | Volume | ≥1.2× 20-bar avg +1 | <0.7× avg −0.5 |
 | 6 | 4H trend | 20 EMA > 50 EMA on 4H +1 | 20 EMA < 50 EMA on 4H −1 |
 
-**Long entry rules (uptrend or mixed regime):**
-- score ≥ 4 → BUY full size
-- score = 3 → BUY half-size (R:R ≥ 1:3)
-- score ≤ 2 → HOLD
+**Long entry rules (loosened 2026-06-19):**
+- uptrend/mixed, score ≥ 3.5 → BUY full size
+- uptrend/mixed, score ≥ 2.5 (and < 3.5) → BUY half-size
+- confirmed downtrend, score ≥ 4.0 → BUY half-size (counter-trend; `downtrend_long_score_threshold`)
+- otherwise → HOLD
 
 **Short entry rules (confirmed daily downtrend only):**
 - score ≤ −4 → SHORT full size
@@ -107,7 +108,7 @@ filtered by 4H trend and daily regime. Full strategy detail lives in
 - score > −3 → HOLD
 
 **Exit rules:**
-- Long: TA SELL when score ≤ −2; hard stop at −5% from entry
+- Long: TA SELL when score ≤ −2; **swing-low stop** at the previous 4H range low (lowest low of the last 20 4H bars, clamped ≤8% below entry; −5% fallback when no 4H data)
 - Short: COVER when score ≥ +2 (TA turning bullish); hard stop at +5% from entry (price rose)
 
 All thresholds are configured in `config.json` — edit there, not in source files.
@@ -116,15 +117,15 @@ All thresholds are configured in `config.json` — edit there, not in source fil
 
 - **Limit orders only** — market orders are rejected by `trade.py`.
 - **Limit band** — limit price must be within 0.2% of current ask for normal orders, 0.5% for stop-loss orders (`config.json > risk.limit_band_pct` / `stop_loss_limit_band_pct`).
-- **Long stop-loss** — close immediately if a long position drops 5% from entry (`config.json > risk.stop_loss_pct`).
-- **Trailing stop** — activates at +2.5% profit, then trails 3% below the high-water mark (HWM). HWM is persisted in `data/positions_state.json` and survives evaluation cycles. Once active, the trailing stop supersedes the hard 5% stop.
+- **Long stop-loss (4H swing low)** — TA-driven (set 2026-06-19): close immediately when price falls to/through the previous 4H range low — the lowest low of the last `risk.swing_low_lookback_bars` (20) completed 4H bars, less a small buffer, clamped to at most `risk.swing_low_max_stop_pct` (8%) below entry (`risk.stop_loss_mode = "swing_low_4h"`). Falls back to the fixed −5% (`risk.stop_loss_pct`) only when 4H history is unavailable.
+- **Trailing stop** — activates at +2.5% profit, then trails 3% below the high-water mark (HWM). HWM is persisted in `data/positions_state.json` and survives evaluation cycles. Once active, the trailing stop supersedes the swing-low stop.
 - **Stop-loss deduplication** — before placing any SELL/COVER stop order, `get_open_orders(symbol)` is called. If a pending order exists, re-sending is skipped. After `stop_loss_escalation_cycles` (2) unfilled cycles, the stale order is cancelled and replaced with a slightly wider limit (time-escalation via `stop_loss_limit_price(ask, cycles_open)`).
 - **Short stop-loss** — cover immediately if a short position rises 5% from entry. Enforced by `risk.should_cover_short()`.
 - **TA exit (long)** — SELL when Signal Confluence score drops to ≤ −2.
 - **TA cover (short)** — COVER when Signal Confluence score rises to ≥ +2 (bullish flip).
-- **Regime gate (long)** — no new BUY entries in a confirmed daily downtrend (last close < 50-day SMA and 20-day SMA < 50-day SMA).
+- **Regime gate (long)** — in uptrend/mixed, BUY entries allowed at score ≥ 2.5 (half) / ≥ 3.5 (full). In a confirmed daily downtrend (last close < 50-day SMA and 20-day SMA < 50-day SMA), only a **half-size counter-trend long** at score ≥ 4.0 is allowed; otherwise longs are blocked.
 - **Regime gate (short)** — SHORT entries only in a confirmed daily downtrend. No shorts in uptrend or mixed regime.
-- **Correlation budget** — max 3 open positions total; max 2 per tier (Tier-1: BTC/USD + ETH/USD; Tier-2: all other alts). New entries are blocked when either limit is hit. Enforced by `risk.correlation_budget_allows()`.
+- **Correlation budget** — max 4 open positions total; max 3 per tier (Tier-1: BTC/USD + ETH/USD; Tier-2: all other alts). New entries are blocked when either limit is hit. Enforced by `risk.correlation_budget_allows()`. *(Loosened from 3 / 2 on 2026-06-19.)*
 - **Daily drawdown gate** — if equity drops ≥ 3% vs. day-open equity, capital preservation mode activates: all new entries are blocked and existing stops tighten to 3%. State persists in `data/positions_state.json` and resets at midnight UTC.
 - **ATR-based sizing** — `qty = (equity × 1%) / (ATR × 1.5)`, hard-capped by per-symbol cap in `config.json > portfolio_caps.caps`. Applied identically for long and short entries.
 
@@ -295,7 +296,7 @@ A self-contained HTML dashboard lives in `docs/`. Open either locally in a brows
 Professional trader decision cockpit in a **left sidebar navigation** (sticky 210px vertical column beside the content; collapses to a horizontal scroll bar on mobile ≤700px). The tabs are **grouped by job-to-be-done** under section headers — an *Act → Hold → Analyze* flow:
 
 - **🧭 Command** (home / cockpit)
-- **⚡ Trade** — Signals · 🌐 Market (Overview / Scanner / Breakout sub-tabs) · Execution
+- **⚡ Trade** — Signals · ⚡ Scalping (low-TF 5m/15m/1h confluence scanner + manual Buy/Sell) · 🌐 Market (Overview / Scanner / Breakout sub-tabs) · Execution
 - **💼 Portfolio** — Overview · Allocation · Risk
 - **📊 Analysis** — 🔬 Analytics (Performance / P&L / Edge sub-tabs) · 🧠 Insights · Backtest vs Live · Markov
 - **⚙ Settings**

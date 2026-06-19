@@ -1208,6 +1208,7 @@
 
     <div class="nav-section-label">⚡ Trade</div>
     <button class="tab-btn" onclick="switchTab('signals',this)">📡 Signals</button>
+    <button class="tab-btn" onclick="switchTab('scalp',this)">⚡ Scalping</button>
     <button class="tab-btn" onclick="switchTab('market',this)">🌐 Market</button>
     <button class="tab-btn" onclick="switchTab('execution',this)">🎯 Execution</button>
 
@@ -1261,7 +1262,8 @@
           <div class="panel-title">🤖 Autopilot</div>
           <div class="small" style="color:var(--muted);margin-bottom:10px">
             Automated <b>long-only</b> execution of the 6-point confluence strategy on the 10-symbol watchlist
-            (entry score ≥ 4, regime gate, correlation budget, per-symbol caps, ATR sizing, −5% hard stop,
+            (entry score ≥ 3.5 full / ≥ 2.5 half, half-size counter-trend long in a downtrend at ≥ 4,
+            correlation budget 4 / 3-per-tier, per-symbol caps, ATR sizing, 4H swing-low stop,
             +2.5%/3% trailing stop, TA exit at ≤ −2). Paper mode only. <b>Always OFF on page load.</b>
           </div>
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
@@ -1863,6 +1865,62 @@
       </section>
     </div>
 
+    <!-- Scalping tab — the 6-point confluence engine (calcSignalScore) run on
+         lower timeframes for short-hold trades. TF selector maps exec / trend /
+         regime down a notch (5m·15m·1h). Scanner + manual Buy/Sell tickets
+         (openTradeModal); no autonomous loop. Same gates/pills as Signals. -->
+    <div id="page-scalp" class="page">
+      <section>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
+          <div class="section-title" style="margin-bottom:0">⚡ Scalping — Low-Timeframe Confluence</div>
+          <span class="small">Same 6-point engine as Signals, shifted to lower timeframes for short holds</span>
+          <label class="small" style="margin-left:auto;display:flex;align-items:center;gap:6px">
+            Timeframe
+            <select id="scalpTf" onchange="loadScalp()">
+              <option value="5Min">5 min</option>
+              <option value="15Min" selected>15 min</option>
+              <option value="1Hour">1 hour</option>
+            </select>
+          </label>
+          <button class="btn btn-green" onclick="loadScalp()">▶ Scan</button>
+        </div>
+        <div class="small" style="margin-bottom:14px;color:var(--muted)">
+          Execution / trend / regime timeframes shift down with the selector:
+          <b>5 min</b> → 5m·1h·4h, <b>15 min</b> → 15m·1h·4h, <b>1 hour</b> → 1h·4h·1D.
+          Entry gate, regime gate and pills match the Signals tab (BUY ≥ 3.5, half ≥ 2.5).
+          Scalps are faster and noisier — confirm before trading. Manual tickets only; no auto-trading.
+        </div>
+        <div id="scalpKpis" class="grid-3" style="margin-bottom:14px"></div>
+        <div class="grid-2" style="margin-bottom:14px">
+          <div class="panel">
+            <div class="panel-title">📊 Score Distribution</div>
+            <div id="scalpScoreDist"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">ℹ Scalp notes</div>
+            <div class="small" style="color:var(--muted)">
+              Stops on scalps should sit below the recent low on the chosen timeframe.
+              The portfolio swing-low stop (4H range low) still governs any position the
+              scheduled bot or Autopilot opens — scalps you place here are managed manually.
+            </div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Symbol</th><th class="right">Price</th><th>Score</th><th>Signal</th>
+                <th class="right">RSI</th><th class="right">ATR</th><th>Regime</th><th>Trade</th>
+              </tr>
+            </thead>
+            <tbody id="scalpBody">
+              <tr><td colspan="8" class="placeholder">Pick a timeframe and click “▶ Scan”.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
 
     <!-- ─── PAGE: PORTFOLIO OVERVIEW ─── -->
     <div id="page-port-overview" class="page">
@@ -2188,9 +2246,9 @@
     <span class="footer-sep">·</span>
     <span>Creator: <strong>Erik Kuipers</strong></span>
     <span class="footer-sep">·</span>
-    <span>Last modified: <strong>2026-06-18</strong></span>
+    <span>Last modified: <strong>2026-06-19</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-06-18.4</strong></span>
+    <span>Version: <strong>v2026-06-19.1</strong></span>
   </footer>
 
   <script>
@@ -2207,6 +2265,31 @@
       tradingDaysPerYear: 252,
       maxSignalSymbols: 30
     };
+
+    // 6-point signal-score gates — kept in sync with config.json > strategy
+    // (loosened 2026-06-19). Used by every signal-score display + autopilot.
+    // NOTE: separate from the gap-scanner "Conviction" score (max ±7).
+    const SIGNAL_BUY_SCORE            = 3.5;  // full-size long gate
+    const SIGNAL_HALF_SCORE           = 2.5;  // half-size long gate
+    const SIGNAL_DOWNTREND_LONG_SCORE = 4.0;  // half-size counter-trend long allowed in a downtrend
+    const SWING_LOW_LOOKBACK_4H       = 20;   // bars for the 4H range-low stop
+    const SWING_LOW_MAX_STOP_PCT      = 8;    // clamp: stop never > this % below entry
+
+    // 4H range-low (swing-low) stop — mirrors risk.swing_low_stop_price (Python).
+    // Stop sits just below the lowest low of the last SWING_LOW_LOOKBACK_4H 4H
+    // bars, clamped to at most SWING_LOW_MAX_STOP_PCT below entry. Returns null
+    // when 4H history is missing or the level is not a valid long stop (caller
+    // then falls back to the fixed % stop).
+    function swingLowStop4h(lows4h, entry) {
+      if (!entry || !Array.isArray(lows4h)) return null;
+      const win = lows4h.slice(-SWING_LOW_LOOKBACK_4H).filter(l => l > 0);
+      if (win.length < Math.min(SWING_LOW_LOOKBACK_4H, 5)) return null;
+      let stop = Math.min.apply(null, win) * 0.999;
+      if (stop >= entry) return null;
+      const floor = entry * (1 - SWING_LOW_MAX_STOP_PCT / 100);
+      if (stop < floor) stop = floor;
+      return stop;
+    }
 
     const DEFAULT_BACKTEST = {
       expectedSharpe: 0.75,
@@ -2552,6 +2635,8 @@
         refreshCurrent();
       } else if (id === "signals") {
         loadSignals();
+      } else if (id === "scalp") {
+        // don't auto-run — user picks a timeframe and clicks "▶ Scan"
       } else if (id === "market") {
         // Parent page — restore the last-used sub-tab (Overview auto-loads;
         // Signals/Breakout stay manual). marketSubTab updates the hash.
@@ -3063,10 +3148,10 @@
             note:  c.assumedOpenRiskPct >= L.maxOpenRiskPct ? "⚠ BREACH — reduce exposure" : "OK"
           },
           {
-            label: "Stop-loss at −5%",
-            value: atStop.length ? atStop.length + " position(s) AT stop" : nearStop.length ? nearStop.length + " position(s) within 2% of stop" : "All positions clear",
+            label: "Stop-loss (4H swing low)",
+            value: atStop.length ? atStop.length + " position(s) ≥ 5% underwater" : nearStop.length ? nearStop.length + " position(s) ≥ 3% underwater" : "All positions clear",
             level: atStop.length ? "red" : nearStop.length ? "yellow" : "green",
-            note:  atStop.length ? "⚠ IMMEDIATE CLOSE REQUIRED" : nearStop.length ? "⚠ Monitor closely — approaching stop" : "OK — no positions near −5%"
+            note:  atStop.length ? "⚠ Deep loss — verify 4H swing-low stop" : nearStop.length ? "⚠ Monitor — approaching likely 4H range low" : "OK — stop is the previous 4H range low (≤8% cap)"
           },
           {
             label: "Limit orders only",
@@ -3279,8 +3364,8 @@
                 <td class="right">${fmt(pctEq,1)}%</td>
                 <td class="right ${plClass(unreal)}">${plSign(unreal)}</td>
                 <td class="right ${plClass(unrealPct)}">${pct(unrealPct)}</td>
-                <td class="right ${stopCls}" data-tip="${isShort ? "Adverse move % for short. Red = price risen ≥3% above entry." : "Current P&L % vs −5% hard stop. Red = within 2% of stop."}">${stopDistLabel}<br><span class="small">${stopRemLabel}</span></td>
-                <td class="right mono" data-tip="${isShort ? "Cover stop = entry × 1.05 (+5% rule)" : "Hard stop = entry × 0.95 (−5% rule)"}">${stopPrice ? fmtPrice(stopPrice) : "–"}</td>
+                <td class="right ${stopCls}" data-tip="${isShort ? "Adverse move % for short. Red = price risen ≥3% above entry." : "Current P&L %. Live stop is the previous 4H range low (≤8% cap); −5% reference shown."}">${stopDistLabel}<br><span class="small">${stopRemLabel}</span></td>
+                <td class="right mono" data-tip="${isShort ? "Cover stop = entry × 1.05 (+5% rule)" : "Reference stop (entry × 0.95). Live stop = previous 4H range low, clamped ≤8% below entry."}">${stopPrice ? fmtPrice(stopPrice) : "–"}</td>
                 <td class="right mono" data-tip="${isShort ? "Short target = entry × 0.90 (−10%)" : "Take-profit = entry × 1.10 (+10% rule)"}">${targetPrice ? fmtPrice(targetPrice) : "–"}</td>
                 <td class="right ${rrCls}" data-tip="Live R:R = (target − current) ÷ (current − stop)">${rrStr}</td>
                 <td>
@@ -4309,7 +4394,7 @@
     // unless an explicit `start` date is supplied.  Always pass `start`.
     function barsStart(limit, timeframe, buffer) {
       buffer = buffer || 1.6;
-      const TF_MINUTES = { "15Min": 15, "1H": 60, "4Hour": 240, "1Day": 1440 };
+      const TF_MINUTES = { "5Min": 5, "15Min": 15, "1H": 60, "1Hour": 60, "4Hour": 240, "1Day": 1440 };
       const minutes = TF_MINUTES[timeframe] || 60;
       const ms = limit * minutes * buffer * 60 * 1000;
       return new Date(Date.now() - ms).toISOString().replace(/\.\d+Z$/, "Z");
@@ -4322,7 +4407,7 @@
     // returned with near-zero volume, causing volume_ratio ≈ 0.00× and unstable
     // RSI / MACD / BB values that change wildly depending on when the page loads.
     function barsEnd(timeframe) {
-      const TF_MINUTES = { "15Min": 15, "1H": 60, "4Hour": 240, "1Day": 1440 };
+      const TF_MINUTES = { "5Min": 5, "15Min": 15, "1H": 60, "1Hour": 60, "4Hour": 240, "1Day": 1440 };
       const minutes = TF_MINUTES[timeframe] || 60;
       return new Date(Date.now() - minutes * 60 * 1000).toISOString().replace(/\.\d+Z$/, "Z");
     }
@@ -4564,17 +4649,17 @@
       scores.forEach(s => {
         if (s <= -3) dist["-6to-3"]++;
         else if (s <= 0) dist["-2to0"]++;
-        else if (s < 3) dist["1to3"]++;        // score 2.5 stays HOLD, not BUY
-        else if (s >= 3 && s < 4) dist["3"]++;  // 3.0–3.9 = half-size
-        else dist["4plus"]++;
+        else if (s < SIGNAL_HALF_SCORE) dist["1to3"]++;          // below 2.5 = HOLD
+        else if (s < SIGNAL_BUY_SCORE) dist["3"]++;              // 2.5–3.49 = half-size
+        else dist["4plus"]++;                                    // ≥ 3.5 = full BUY
       });
       const total = scores.length || 1;
       el.innerHTML = `
         <div style="display:grid;gap:6px;margin-top:8px">
           ${[
-            ["≥ 4 (BUY)", dist["4plus"], "#3fb950"],
-            ["3–3.9 (HALF)", dist["3"], "#d29922"],
-            ["0.5–2.9 (HOLD)", dist["1to3"], "#58a6ff"],
+            ["≥ 3.5 (BUY)", dist["4plus"], "#3fb950"],
+            ["2.5–3.4 (HALF)", dist["3"], "#d29922"],
+            ["0.5–2.4 (HOLD)", dist["1to3"], "#58a6ff"],
             ["−2.9–0 (HOLD)", dist["-2to0"], "#8b949e"],
             ["≤ −3 (BEAR)", dist["-6to-3"], "#f85149"]
           ].map(([label, count, color]) => `
@@ -4639,7 +4724,7 @@
 
           // fire notification for strong BUY or SHORT signals
           if (Notification.permission === "granted") {
-            if (res.score >= 4 && res.dailyRegime !== "downtrend") {
+            if (res.score >= SIGNAL_BUY_SCORE && res.dailyRegime !== "downtrend") {
               try {
                 new Notification(`🚀 ${sym} — Score ${res.score}/6`, {
                   body: `BUY signal · RSI ${res.rsi} · ${res.dailyRegime}`,
@@ -4662,7 +4747,7 @@
           if (s === null) return "–";
           const abs = Math.min(Math.abs(s), 6);
           const pct = abs / 6 * 100;
-          const color = s >= 4 ? "#3fb950" : s >= 3 ? "#d29922" : s <= 0 ? "#f85149" : "#58a6ff";
+          const color = s >= SIGNAL_BUY_SCORE ? "#3fb950" : s >= SIGNAL_HALF_SCORE ? "#d29922" : s <= 0 ? "#f85149" : "#58a6ff";
           return `<span style="display:inline-flex;align-items:center;gap:6px">
             <span style="width:52px;height:6px;border-radius:3px;background:rgba(255,255,255,.1);display:inline-block;vertical-align:middle">
               <span style="display:block;height:100%;width:${pct}%;background:${color};border-radius:3px"></span>
@@ -4674,11 +4759,12 @@
         const actionPill = (row) => {
           if (row.score === null) return pill("muted", "Error");
           const down = row.dailyRegime === "downtrend";
-          // Long signals (uptrend / mixed only)
-          if (!down && row.score >= 4) return pill("green", "BUY");
-          if (!down && row.score >= 3) return pill("yellow", "HALF");   // 3.0–3.9 = half-size
-          // Block longs in downtrend
-          if (down && row.score >= 3) return pill("yellow", "Blocked");
+          // Long signals (uptrend / mixed)
+          if (!down && row.score >= SIGNAL_BUY_SCORE) return pill("green", "BUY");
+          if (!down && row.score >= SIGNAL_HALF_SCORE) return pill("yellow", "HALF");   // 2.5–3.49 = half-size
+          // Downtrend: half-size counter-trend long allowed at high confluence (≥4)
+          if (down && row.score >= SIGNAL_DOWNTREND_LONG_SCORE) return pill("yellow", "½ C-Trend");
+          if (down && row.score >= SIGNAL_HALF_SCORE) return pill("muted", "Blocked");
           // Short signals (downtrend only)
           if (down && row.score <= -3) return pill("red", "BEAR");    // informational — shorts unsupported on Alpaca spot
           return pill("muted", "HOLD");
@@ -4761,7 +4847,7 @@
               <td class="right">${qtyHtml}</td>
               <td>
                 ${actionPill(row)}
-                ${!down && row.score >= 3 && row.lastClose ? `<button class="trade-action-btn" style="margin-top:3px;font-size:10px" data-tip="Open BUY trade modal pre-filled with ATR-based qty" onclick="openTradeModal('${orderSym}','${row.sym}','buy','${quickFillQty}',${row.lastClose})">⚡ Buy</button><button class="trade-action-btn" style="margin-top:3px;font-size:10px;margin-left:4px" data-tip="Execute BUY order immediately using this signal" onclick="executeSignalTrade('${orderSym}','${row.sym}','buy','${quickFillQty}',${row.lastClose})">▶ Execute</button>` : ""}
+                ${!down && row.score >= SIGNAL_HALF_SCORE && row.lastClose ? `<button class="trade-action-btn" style="margin-top:3px;font-size:10px" data-tip="Open BUY trade modal pre-filled with ATR-based qty" onclick="openTradeModal('${orderSym}','${row.sym}','buy','${quickFillQty}',${row.lastClose})">⚡ Buy</button><button class="trade-action-btn" style="margin-top:3px;font-size:10px;margin-left:4px" data-tip="Execute BUY order immediately using this signal" onclick="executeSignalTrade('${orderSym}','${row.sym}','buy','${quickFillQty}',${row.lastClose})">▶ Execute</button>` : ""}
               </td>
             </tr>
           `;
@@ -5380,7 +5466,7 @@
     // ═══════════════════════════════════════════════════════════════════════
 
     (function initKeyboardShortcuts() {
-      const TAB_ORDER = ["command","signals","market","execution","port-overview","port-dist","risk","analytics","insights","backtest","markov","settings"];
+      const TAB_ORDER = ["command","signals","scalp","market","execution","port-overview","port-dist","risk","analytics","insights","backtest","markov","settings"];
       document.addEventListener("keydown", function(e) {
         // Ignore when typing in an input/textarea
         if (["INPUT","TEXTAREA","SELECT"].includes(e.target.tagName)) return;
@@ -5840,7 +5926,7 @@
         const gapC    = a.gap24h > 0 ? "green" : a.gap24h < 0 ? "red" : "muted";
         const rPct    = (a.rangePos * 100).toFixed(0);
         const scColor = a.score >= 3 ? "var(--green)" : a.score >= 1 ? "var(--yellow)" : "var(--red)";
-        const ssColor = a.signalScore !== null ? (a.signalScore >= 4 ? "var(--green)" : a.signalScore >= 3 ? "var(--yellow)" : a.signalScore < 0 ? "var(--red)" : "var(--muted)") : "var(--muted)";
+        const ssColor = a.signalScore !== null ? (a.signalScore >= SIGNAL_BUY_SCORE ? "var(--green)" : a.signalScore >= SIGNAL_HALF_SCORE ? "var(--yellow)" : a.signalScore < 0 ? "var(--red)" : "var(--muted)") : "var(--muted)";
         const ssText  = a.signalScore !== null ? (a.signalScore >= 0 ? "+" : "") + a.signalScore.toFixed(1) + "/6" : "–/6";
         const ticker  = a.symbol.replace("/USD", "");
 
@@ -6186,7 +6272,7 @@
         var scoreStr;
         if (row.score !== null && row.score !== undefined) {
           var sc = row.score;
-          var scColor = sc >= 4 ? "var(--green)" : sc >= 3 ? "var(--yellow)" : sc < 0 ? "var(--red)" : "var(--muted)";
+          var scColor = sc >= SIGNAL_BUY_SCORE ? "var(--green)" : sc >= SIGNAL_HALF_SCORE ? "var(--yellow)" : sc < 0 ? "var(--red)" : "var(--muted)";
           scoreStr = '<span style="color:' + scColor + ';font-weight:700">' + (sc > 0 ? "+" : "") + sc + "/6</span>";
         } else {
           scoreStr = '<span style="color:var(--muted)">–</span>';
@@ -6224,6 +6310,109 @@
         '<button class="trade-close-btn" style="font-size:10px;margin-left:4px" data-tip="Open a paper SELL ticket for ' + displaySym + '" ' +
           'onclick="openTradeModal(\'' + orderSym + '\',\'' + row.sym + '\',\'sell\',\'\',' + price + ')">Sell</button>' +
         '</div>';
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  SCALPING — 6-point confluence (calcSignalScore) on lower timeframes.
+    //  Scanner + manual Buy/Sell tickets only (no autonomous loop).
+    // ═══════════════════════════════════════════════════════════════════════
+    // Each scalp timeframe maps the engine's (execution, trend, regime) stack
+    // down a notch. calcSignalScore computes signals 1–5 on the exec bars,
+    // signal 6 on the trend bars, and the regime gate on the regime bars.
+    const SCALP_TF_MAP = {
+      "5Min":  { exec: "5Min",  trend: "1Hour", regime: "4Hour" },
+      "15Min": { exec: "15Min", trend: "1Hour", regime: "4Hour" },
+      "1Hour": { exec: "1Hour", trend: "4Hour", regime: "1Day"  }
+    };
+
+    function scalpActionPill(row) {
+      if (row.score === null) return pill("muted", "Error");
+      const down = row.dailyRegime === "downtrend";
+      if (!down && row.score >= SIGNAL_BUY_SCORE)  return pill("green", "BUY");
+      if (!down && row.score >= SIGNAL_HALF_SCORE) return pill("yellow", "HALF");
+      if (down && row.score >= SIGNAL_DOWNTREND_LONG_SCORE) return pill("yellow", "½ C-Trend");
+      if (down && row.score >= SIGNAL_HALF_SCORE)  return pill("muted", "Blocked");
+      if (down && row.score <= -3) return pill("red", "BEAR");
+      return pill("muted", "HOLD");
+    }
+
+    async function loadScalp() {
+      const s = getSettings();
+      if (!s.apiKey || !s.apiSecret) {
+        $("scalpBody").innerHTML = '<tr><td colspan="8" class="placeholder">Configure API credentials in Settings first.</td></tr>';
+        return;
+      }
+      const tf  = ($("scalpTf") || {}).value || "15Min";
+      const map = SCALP_TF_MAP[tf] || SCALP_TF_MAP["15Min"];
+      const SYMBOLS = getWatchlist();
+      $("scalpBody").innerHTML = '<tr><td colspan="8" class="placeholder">Scanning ' + SYMBOLS.length + ' symbols on ' + tf + '…</td></tr>';
+      $("scalpKpis").innerHTML = kpi("Status", "Scanning…", "Fetching " + map.exec + " / " + map.trend + " / " + map.regime + " bars");
+
+      try {
+        const [bExec, bTrend, bReg] = await Promise.all([
+          fetchBars(SYMBOLS, map.exec,  120),
+          fetchBars(SYMBOLS, map.trend, 60),
+          fetchBars(SYMBOLS, map.regime, 60)
+        ]);
+        if (!bExec) {
+          $("scalpBody").innerHTML = '<tr><td colspan="8" class="placeholder">Error fetching bars — check API credentials.</td></tr>';
+          return;
+        }
+
+        const rows = [], scores = [];
+        for (const sym of SYMBOLS) {
+          const alp = sym.replace("/", "");
+          const e = (bExec[sym]  || bExec[alp]  || []).map(b => ({ c: b.c, h: b.h, l: b.l, v: b.v }));
+          const t = (bTrend[sym] || bTrend[alp] || []).map(b => ({ c: b.c, h: b.h, l: b.l, v: b.v }));
+          const r = (bReg[sym]   || bReg[alp]   || []).map(b => ({ c: b.c, h: b.h, l: b.l, v: b.v }));
+          if (e.length < 55) { rows.push({ sym, score: null, error: "Insufficient bars" }); continue; }
+          const res = calcSignalScore(e, t, r);
+          scores.push(res.score);
+          rows.push({ sym, ...res });
+        }
+
+        // KPIs
+        const valid = rows.filter(r => r.score !== null);
+        const buys  = valid.filter(r => r.score >= SIGNAL_BUY_SCORE).length;
+        const halfs = valid.filter(r => r.score >= SIGNAL_HALF_SCORE && r.score < SIGNAL_BUY_SCORE).length;
+        const avg   = valid.length ? valid.reduce((a, r) => a + r.score, 0) / valid.length : 0;
+        $("scalpKpis").innerHTML =
+          kpi("Timeframe", tf, "exec " + map.exec + " · trend " + map.trend + " · regime " + map.regime) +
+          kpi("BUY / Half", buys + " / " + halfs, "Score ≥ 3.5 full · ≥ 2.5 half", buys > 0 ? "pos" : "") +
+          kpi("Avg Score", (avg >= 0 ? "+" : "") + fmt(avg, 1) + "/6", "Breadth across watchlist", avg >= 2 ? "pos" : avg <= -1 ? "neg" : "");
+
+        renderScoreDist("scalpScoreDist", scores);
+
+        $("scalpBody").innerHTML = rows.map(row => {
+          if (row.score === null) {
+            return '<tr><td><span class="symbol">' + tvLink(row.sym) + '</span></td><td colspan="7" class="placeholder">' + (row.error || "n/a") + '</td></tr>';
+          }
+          const orderSym = row.sym.replace("/", "");
+          const price    = row.lastClose;
+          const sc       = row.score;
+          const scColor  = sc >= SIGNAL_BUY_SCORE ? "var(--green)" : sc >= SIGNAL_HALF_SCORE ? "var(--yellow)" : sc <= 0 ? "var(--red)" : "var(--blue)";
+          const down     = row.dailyRegime === "downtrend";
+          const canBuy   = price && ((!down && sc >= SIGNAL_HALF_SCORE) || (down && sc >= SIGNAL_DOWNTREND_LONG_SCORE));
+          const tradeCell = price
+            ? '<div class="trade-actions">' +
+                (canBuy ? '<button class="trade-action-btn" style="font-size:10px" data-tip="Open a paper BUY ticket" onclick="openTradeModal(\'' + orderSym + '\',\'' + row.sym + '\',\'buy\',\'\',' + price + ')">Buy</button>' : '') +
+                '<button class="trade-close-btn" style="font-size:10px;margin-left:4px" data-tip="Open a paper SELL ticket" onclick="openTradeModal(\'' + orderSym + '\',\'' + row.sym + '\',\'sell\',\'\',' + price + ')">Sell</button>' +
+              '</div>'
+            : '<span class="small" style="color:var(--muted)">–</span>';
+          return '<tr>' +
+            '<td><span class="symbol">' + tvLink(row.sym) + '</span></td>' +
+            '<td class="right mono">' + (price ? fmtPrice(price) : "–") + '</td>' +
+            '<td><b style="color:' + scColor + '">' + (sc > 0 ? "+" : "") + sc + '</b>/6</td>' +
+            '<td>' + scalpActionPill(row) + '</td>' +
+            '<td class="right mono">' + (row.rsi != null ? fmt(row.rsi, 1) : "–") + '</td>' +
+            '<td class="right mono">' + (row.atr != null ? fmt(row.atr, row.atr < 1 ? 5 : 2) : "–") + '</td>' +
+            '<td class="small">' + (row.dailyRegime || "n/a") + '</td>' +
+            '<td>' + tradeCell + '</td>' +
+          '</tr>';
+        }).join("");
+      } catch (e) {
+        $("scalpBody").innerHTML = '<tr><td colspan="8" class="placeholder">Scan failed: ' + e.message + '</td></tr>';
+      }
     }
 
     function renderMoHeatmap(rows) {
@@ -6487,14 +6676,14 @@
 
         // KPIs
         const valid = rows.filter(function(r){ return r.score !== null; });
-        const buys  = valid.filter(function(r){ return r.score >= 4; }).length;
-        const halfs = valid.filter(function(r){ return r.score >= 3 && r.score < 4; }).length;
+        const buys  = valid.filter(function(r){ return r.score >= SIGNAL_BUY_SCORE; }).length;
+        const halfs = valid.filter(function(r){ return r.score >= SIGNAL_HALF_SCORE && r.score < SIGNAL_BUY_SCORE; }).length;
         const holds = valid.filter(function(r){ return r.score <= 2 && r.score >= -2; }).length;
         const sells = valid.filter(function(r){ return r.score <= -3; }).length;
         const avgSc = valid.length ? valid.reduce(function(s,r){ return s+r.score; },0) / valid.length : 0;
         if (kEl) kEl.innerHTML =
-          kpi("BUY Signals", buys,  "Score >= 4/6", buys > 0 ? "pos" : "") +
-          kpi("Half-Size",   halfs, "Score = 3/6") +
+          kpi("BUY Signals", buys,  "Score >= 3.5/6", buys > 0 ? "pos" : "") +
+          kpi("Half-Size",   halfs, "Score 2.5–3.4/6") +
           kpi("HOLD",        holds, "Score -2 to +2") +
           kpi("BEAR/Avoid", sells, "Score <= -3 (bearish — shorts unsupported on spot)", sells > 0 ? "neg" : "") +
           kpi("Avg Score",   (avgSc >= 0 ? "+" : "") + fmt(avgSc,1) + "/6", "Market breadth", avgSc >= 2 ? "pos" : avgSc <= -1 ? "neg" : "");
@@ -6503,7 +6692,7 @@
         function scoreBar(sc) {
           if (sc === null) return "–";
           const pct   = Math.min(Math.abs(sc), 6) / 6 * 100;
-          const color = sc >= 4 ? "#3fb950" : sc >= 3 ? "#d29922" : sc <= 0 ? "#f85149" : "#58a6ff";
+          const color = sc >= SIGNAL_BUY_SCORE ? "#3fb950" : sc >= SIGNAL_HALF_SCORE ? "#d29922" : sc <= 0 ? "#f85149" : "#58a6ff";
           return '<span style="display:inline-flex;align-items:center;gap:5px">' +
             '<span style="width:44px;height:6px;border-radius:3px;background:rgba(255,255,255,.1);display:inline-block">' +
             '<span style="display:block;height:100%;width:' + pct + '%;background:' + color + ';border-radius:3px"></span></span>' +
@@ -6513,9 +6702,10 @@
         function msActionPill(row) {
           if (row.score === null) return pill("muted","N/A");
           const msDown = row.dailyRegime === "downtrend";
-          if (!msDown && row.score >= 4)  return pill("green","BUY");
-          if (!msDown && row.score >= 3)  return pill("yellow","HALF");   // 3.0–3.9 = half-size
-          if (msDown && row.score >= 3)   return pill("yellow","Blocked");
+          if (!msDown && row.score >= SIGNAL_BUY_SCORE)  return pill("green","BUY");
+          if (!msDown && row.score >= SIGNAL_HALF_SCORE) return pill("yellow","HALF");   // 2.5–3.49 = half-size
+          if (msDown && row.score >= SIGNAL_DOWNTREND_LONG_SCORE) return pill("yellow","½ C-Trend");
+          if (msDown && row.score >= SIGNAL_HALF_SCORE)  return pill("muted","Blocked");
           if (msDown && row.score <= -3)  return pill("red","BEAR");    // informational — shorts unsupported on Alpaca spot
           return pill("muted","HOLD");
         }
@@ -6576,7 +6766,7 @@
         const oppsEl = document.getElementById("msTopOpps");
         if (oppsEl) {
           const buyRows = valid
-            .filter(function(r){ return r.score >= 4 && r.dailyRegime !== "downtrend"; })
+            .filter(function(r){ return r.score >= SIGNAL_BUY_SCORE && r.dailyRegime !== "downtrend"; })
             .sort(function(a,b){ return b.score - a.score; }).slice(0,5);
           oppsEl.innerHTML = buyRows.length
             ? buyRows.map(function(r) {
@@ -6624,7 +6814,7 @@
       const inWl   = getWatchlist().includes(row.sym);
       const hasPos = _msOpenPosSyms.has(row.sym);
       const full   = getWatchlist().length >= WL_MAX;
-      if (!inWl && row.score >= 4) {
+      if (!inWl && row.score >= SIGNAL_BUY_SCORE) {
         if (full) return '<span class="small" style="color:var(--muted)" title="Watchlist full (' + WL_MAX + ')">full</span>';
         return '<button class="trade-action-btn" onclick="msAddWatch(\'' + row.sym + '\')" title="Score ≥ buy signal — add to watchlist">+ Watch</button>';
       }
@@ -6667,13 +6857,15 @@
     // ═══════════════════════════════════════════════════════════════════════
     function getApWatchlist() { return getWatchlist(); }   // dynamic — reads settings at call time
     const AP_TIER1 = { "BTC/USD": 1, "ETH/USD": 1 };       // Tier-1; everything else = Tier-2
-    const AP_CASH_RESERVE_PCT = 20;   // hard rule: keep ≥ 20% of equity in cash
-    const AP_ENTRY_SCORE      = 4;    // long score gate
+    const AP_CASH_RESERVE_PCT = 20;                          // hard rule: keep ≥ 20% of equity in cash
+    const AP_ENTRY_SCORE      = SIGNAL_BUY_SCORE;            // full-size long gate (3.5)
+    const AP_HALF_SCORE       = SIGNAL_HALF_SCORE;           // half-size long gate (2.5)
+    const AP_DOWNTREND_LONG   = SIGNAL_DOWNTREND_LONG_SCORE; // half-size counter-trend long in a downtrend (≥4)
     const AP_TA_EXIT_SCORE    = -2;   // TA exit (score turning bearish)
     const AP_TRAIL_ARM_PCT    = 2.5;  // trailing stop arms at +2.5%
     const AP_TRAIL_PCT        = 3;    // trails 3% below HWM
-    const AP_MAX_POSITIONS    = 3;    // correlation budget: max open positions
-    const AP_MAX_PER_TIER     = 2;    // correlation budget: max per tier
+    const AP_MAX_POSITIONS    = 4;    // correlation budget: max open positions
+    const AP_MAX_PER_TIER     = 3;    // correlation budget: max per tier
 
     let _apTimer = null, _apTick = null, _apRunning = false, _apBusy = false;
     let _apCycles = 0, _apOrders = 0, _apLastCycle = null, _apNextAt = null;
@@ -6842,7 +7034,7 @@
         const s = getSettings();
         if (s.mode === "live") { apLog("error", "Live mode detected — autopilot refuses to run."); apStop("live mode"); return; }
         const L = s.limits;
-        const stopPct = Number(L.assumedStopLossPct || 5);   // hard stop, from Settings (default 5%)
+        const fallbackStopPct = Number(L.assumedStopLossPct || 5);   // fallback hard stop when 4H data missing
 
         const [acct, positions] = await Promise.all([
           apiFetch("/v2/account"),
@@ -6875,18 +7067,24 @@
           const qty = Number(p.qty || 0);
           if (qty <= 0) continue;
           const sym   = toSlash(p.symbol);
+          const alp   = sym.replace("/", "");
           const entry = Number(p.avg_entry_price || 0);
           const res   = scores[sym];
           const cur   = (res && res.lastClose) || Number(p.current_price || 0);
           if (!entry || !cur) continue;
           const plPct = (cur - entry) / entry * 100;
+          // 4H swing-low stop (TA-driven); fixed % only when 4H data missing.
+          const lows4h    = ((b4h || {})[sym] || (b4h || {})[alp] || []).map(b => b.l);
+          const swingStop = swingLowStop4h(lows4h, entry);
           let exitReason = null;
           if (plPct >= AP_TRAIL_ARM_PCT) {
             hwm[sym] = Math.max(hwm[sym] || 0, cur);        // persist HWM (localStorage autopilotHwm)
             if (cur <= hwm[sym] * (1 - AP_TRAIL_PCT / 100))
               exitReason = `trailing stop (HWM $${fmt(hwm[sym], cur < 1 ? 6 : 2)}, −${AP_TRAIL_PCT}% band)`;
-          } else if (plPct <= -stopPct) {
-            exitReason = `hard stop (P&L ${fmt(plPct, 2)}% ≤ −${stopPct}%)`;
+          } else if (swingStop && cur <= swingStop) {
+            exitReason = `swing-low stop (price $${fmt(cur, cur < 1 ? 6 : 2)} ≤ 4H range low $${fmt(swingStop, swingStop < 1 ? 6 : 2)})`;
+          } else if (!swingStop && plPct <= -fallbackStopPct) {
+            exitReason = `hard stop fallback (P&L ${fmt(plPct, 2)}% ≤ −${fallbackStopPct}%, no 4H data)`;
           }
           if (!exitReason && res && res.score <= AP_TA_EXIT_SCORE)
             exitReason = `TA exit (score ${res.score} ≤ ${AP_TA_EXIT_SCORE})`;
@@ -6903,7 +7101,8 @@
         Object.keys(hwm).forEach(k => { if (!heldSyms.includes(k)) delete hwm[k]; });
         try { localStorage.setItem("autopilotHwm", JSON.stringify(hwm)); } catch (e) {}
 
-        // (b) ENTRIES — score ≥ 4, regime gate, correlation budget, caps, ATR sizing
+        // (b) ENTRIES — score ≥ 2.5 (half) / 3.5 (full), regime gate (downtrend
+        //     allows half-size counter-trend at ≥4), correlation budget, caps, ATR sizing
         const open  = positions.filter(p => Math.abs(Number(p.qty || 0)) > 0 && !closedSyms.includes(toSlash(p.symbol)));
         let total = open.length;
         let tier1 = open.filter(p => AP_TIER1[toSlash(p.symbol)]).length;
@@ -6912,15 +7111,17 @@
         open.forEach(p => { mvBySym[toSlash(p.symbol)] = Math.abs(Number(p.market_value || 0)); });
 
         const candidates = _apwl
-          .filter(sym => scores[sym] && scores[sym].score >= AP_ENTRY_SCORE)
+          .filter(sym => scores[sym] && scores[sym].score >= AP_HALF_SCORE)
           .sort((a, b) => scores[b].score - scores[a].score);
 
-        if (!candidates.length) apLog("info", `Cycle complete — no entry candidates (no watchlist score ≥ ${AP_ENTRY_SCORE}).`);
+        if (!candidates.length) apLog("info", `Cycle complete — no entry candidates (no watchlist score ≥ ${AP_HALF_SCORE}).`);
 
         for (const sym of candidates) {
           const res = scores[sym];
           const ask = res.lastClose;
-          if (res.dailyRegime === "downtrend") { apLog("block", `${sym} score ${res.score} — blocked: daily regime is downtrend.`); continue; }
+          const isDown = res.dailyRegime === "downtrend";
+          // Downtrend: only a high-confluence (≥4) half-size counter-trend long.
+          if (isDown && res.score < AP_DOWNTREND_LONG) { apLog("block", `${sym} score ${res.score} — blocked: downtrend (counter-trend long needs ≥ ${AP_DOWNTREND_LONG}).`); continue; }
           if (mvBySym[sym])                    { apLog("block", `${sym} score ${res.score} — blocked: position already open.`); continue; }
           if (total >= AP_MAX_POSITIONS)       { apLog("block", `${sym} score ${res.score} — blocked: max ${AP_MAX_POSITIONS} open positions reached.`); continue; }
           const isT1 = !!AP_TIER1[sym];
@@ -6931,7 +7132,10 @@
           const capPct = (PORTFOLIO_CAPS[sym] || 5) / 100;            // per-symbol cap (5% default)
           const rawQty = (equity * 0.01) / (res.atr * 1.5);           // 1% risk / 1.5×ATR stop
           const capQty = (equity * capPct) / ask;
-          let qty = Math.min(rawQty, capQty);
+          // Half-size for counter-trend (downtrend) or below the full-size gate.
+          const halfSize = isDown || res.score < AP_ENTRY_SCORE;
+          const sizeNote = halfSize ? (isDown ? "half-size counter-trend" : "half-size") : "full-size";
+          let qty = Math.min(rawQty, capQty) * (halfSize ? 0.5 : 1);
           const limit = apPrice(ask * 1.001);                         // limit at ask, within 0.2% band
 
           // Cash-reserve gate: keep ≥ 20% of equity in cash AFTER the order
@@ -6942,7 +7146,7 @@
           if (!qty || qty * limit < 10) { apLog("block", `${sym} score ${res.score} — blocked: sized below $10 notional after gates.`); continue; }
 
           try {
-            await apPlaceOrder(sym, "buy", qty, limit, `entry — score ${res.score}/6, regime ${res.dailyRegime}, ATR sizing`);
+            await apPlaceOrder(sym, "buy", qty, limit, `entry — score ${res.score}/6, regime ${res.dailyRegime}, ${sizeNote} ATR sizing`);
             total++; if (isT1) tier1++; else tier2++;
             cash -= qty * limit;
             mvBySym[sym] = qty * limit;
@@ -7682,9 +7886,10 @@ function portScoreBar(score) {
 }
 function portActionChip(score, dailyRegime) {
   const down = dailyRegime === "downtrend";
-  if (!down && score >= 4)  return `<span class="chip chip-green">BUY ≥4/6</span>`;
-  if (!down && score >= 3)  return `<span class="chip chip-yellow">½ BUY 3/6</span>`;
-  if (down && score >= 3)   return `<span class="chip chip-red">Regime Block</span>`;
+  if (!down && score >= SIGNAL_BUY_SCORE)  return `<span class="chip chip-green">BUY ≥3.5/6</span>`;
+  if (!down && score >= SIGNAL_HALF_SCORE)  return `<span class="chip chip-yellow">½ BUY 2.5/6</span>`;
+  if (down && score >= SIGNAL_DOWNTREND_LONG_SCORE)  return `<span class="chip chip-yellow">½ C-Trend ≥4</span>`;
+  if (down && score >= SIGNAL_HALF_SCORE)   return `<span class="chip chip-red">Regime Block</span>`;
   if (down && score <= -4)  return `<span class="chip chip-red">SHORT ≤−4/6</span>`;
   if (score <= -2)          return `<span class="chip chip-red">TA SELL</span>`;
   return `<span class="chip chip-muted">HOLD</span>`;
