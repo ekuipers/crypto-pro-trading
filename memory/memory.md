@@ -62,6 +62,23 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-19 — Roadmap: stablecoin filter on the symbol selector (v2026-06-19.2)
+
+Rescan roadmap. One item: "Add a stablecoin filter to the symbol selector dialog." The symbol selector is the Settings → 📋 Active Watchlist add-symbol control (`<input list="watchlistSymbolOptions">` + `<datalist>`), fed by `getCryptoUniverse()`, which since 2026-06-17 *unconditionally* drops stablecoin bases (`STABLECOIN_BASES`). The roadmap asks to make that a user-controllable filter.
+
+**Decision:** add a **Show stablecoins** checkbox (default **off**, so current behaviour is preserved) that opts stablecoin pairs back into the dropdown only — scans, Market Overview, and the scan universe must stay stablecoin-free (a USDT/USD "pair" is never a tradeable setup).
+
+**Implementation (`docs/dashboard_professional.html`):**
+- HTML: new `#watchlistShowStable` checkbox next to the watchlist add control, `onchange="populateWatchlistOptions()"`.
+- `getCryptoUniverse()`: stablecoin bases that were previously just dropped are now *collected* into a new module-level `_stablecoinUniverse` (via local `stable`/`stableSeen`), set alongside `_cryptoUniverse` only on a real non-empty build. Fallback path leaves it empty (no stablecoins in TOP30).
+- New `getStablecoinPairs()` — `await getCryptoUniverse()` then returns `_stablecoinUniverse`.
+- `populateWatchlistOptions()`: when the checkbox is checked, appends `getStablecoinPairs()` to the symbols before filtering out already-added ones. Manual free-text entry unchanged.
+- Footer bumped to v2026-06-19.2.
+
+**Scope kept minimal:** the trading universe (`getCryptoUniverse()` return value used by Scanner/Market Overview/scan slice) is unchanged — stablecoins never enter scans. The filter is a session toggle (not persisted) defaulting to the prior hidden behaviour.
+
+**Verified:** dashboard inline `<script>` → `new Function()` syntax check 0 errors. Docs updated (CLAUDE.md Settings row + roadmap cleared, README, glossary, dashboard_layout changelog). Roadmap cleared.
+
 ### 2026-06-19 — Roadmap: loosen gates + 4H swing-low stop, and a Scalping page (v2026-06-19.1)
 
 Rescan roadmap. Two items: (1) "loosen the very strict trade gates and change the 5% hard stop loss to a stop loss based on previous range lows e.g. on the 4H timeframe"; (2) "add a scalping page that trades on low timeframes (5m/15m/1h) using the same indicators." Decisions taken via question prompt: scalp page = **scanner + manual Buy/Sell** (no new auto-loop); stop = **lowest low of last 20×4H bars ×0.999, clamped ≤8%**, fixed-% fallback; gates = **Moderate + regime**.

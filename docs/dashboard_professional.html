@@ -2128,6 +2128,9 @@
             <datalist id="watchlistSymbolOptions"></datalist>
             <button class="btn btn-green" onclick="addWatchlistSymbol()">+ Add</button>
             <button class="btn" onclick="resetWatchlist()">↩ Reset defaults</button>
+            <label class="small" style="display:flex;align-items:center;gap:4px;color:var(--muted);white-space:nowrap;cursor:pointer" title="Include stablecoin pairs (USDT/USD, USDC/USD, …) in the symbol dropdown">
+              <input type="checkbox" id="watchlistShowStable" onchange="populateWatchlistOptions()"> Show stablecoins
+            </label>
             <span class="small" style="color:var(--muted)"><span id="watchlistCountEl">0</span>/20</span>
           </div>
           <div class="small" style="margin-top:6px;color:var(--muted)">Used by Autopilot, Daily Journal, Signals tab, and Portfolio tabs. Changes take effect immediately after saving.</div>
@@ -2248,7 +2251,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-06-19</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-06-19.1</strong></span>
+    <span>Version: <strong>v2026-06-19.2</strong></span>
   </footer>
 
   <script>
@@ -5276,7 +5279,16 @@
       try {
         const universe = await getCryptoUniverse();
         const wl = getWatchlist();
-        dl.innerHTML = universe
+        let syms = universe.slice();
+        // Stablecoin filter: getCryptoUniverse() always drops stablecoin bases
+        // (USDT/USD, USDC/USD, …). The "Show stablecoins" checkbox lets the user
+        // opt them back into the symbol selector dropdown only — scans and the
+        // overview universe stay stablecoin-free. Default off = current behaviour.
+        const showStable = document.getElementById("watchlistShowStable");
+        if (showStable && showStable.checked) {
+          syms = syms.concat(await getStablecoinPairs());
+        }
+        dl.innerHTML = syms
           .filter(function(sym) { return !wl.includes(sym); })
           .map(function(sym) { return '<option value="' + sym + '">'; })
           .join("");
@@ -6536,6 +6548,11 @@
       USDT:1, USDC:1, DAI:1, USDP:1, PYUSD:1, TUSD:1, BUSD:1, GUSD:1,
       USDG:1, FDUSD:1, USDD:1, FRAX:1, LUSD:1, USTC:1
     };
+    // Stablecoin USD pairs found in the tradable universe, collected (not just
+    // dropped) by getCryptoUniverse() so the Settings symbol selector can offer
+    // them when the "Show stablecoins" filter is on. Built alongside
+    // _cryptoUniverse; empty on the TOP30 fallback path (no stablecoins there).
+    let _stablecoinUniverse = [];
     // sym -> 1-based position in the ordered universe. Used as the rank fallback
     // for symbols outside TOP30_INFO so every row shows a real number, not "?".
     let _universeRank = {};
@@ -6555,6 +6572,8 @@
         const assets = await apiFetch("/v2/assets?asset_class=crypto&status=active");
         const seen = {};
         const usd = [];
+        const stableSeen = {};
+        const stable = [];
         (assets || []).forEach(function(a) {
           if (!a || !a.tradable || typeof a.symbol !== "string") return;
           let sym = a.symbol.toUpperCase();
@@ -6563,7 +6582,10 @@
             sym = sym.slice(0, -3) + "/USD";         // BTCUSD -> BTC/USD
           }
           if (!sym.endsWith("/USD")) return;         // drop non-USD quotes (USDT/USDC/BTC pairs)
-          if (STABLECOIN_BASES[sym.slice(0, -4)]) return;  // drop stablecoin bases (USDT/USD, USDC/USD, …)
+          if (STABLECOIN_BASES[sym.slice(0, -4)]) {  // stablecoin base: keep aside for the opt-in filter
+            if (!stableSeen[sym]) { stableSeen[sym] = 1; stable.push(sym); }
+            return;
+          }
           if (seen[sym]) return;
           seen[sym] = 1;
           usd.push(sym);
@@ -6573,6 +6595,7 @@
         const full  = known.concat(extra);
         if (full.length) {
           _cryptoUniverse = full;     // cache only a real, non-empty result
+          _stablecoinUniverse = stable.sort();
           rebuildUniverseRank();
           return _cryptoUniverse;
         }
@@ -6589,6 +6612,14 @@
       _universeRank = {};
       fallback.forEach(function(s, i) { _universeRank[s] = i + 1; });
       return fallback;
+    }
+
+    // Stablecoin USD pairs available in the tradable universe, for the Settings
+    // symbol selector's opt-in "Show stablecoins" filter. Triggers the universe
+    // build (which populates _stablecoinUniverse) if it hasn't run yet.
+    async function getStablecoinPairs() {
+      await getCryptoUniverse();
+      return _stablecoinUniverse || [];
     }
 
     function updateScanBtnLabel() {
