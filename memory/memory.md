@@ -62,6 +62,22 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-22 — Roadmap: user-configurable open-position cap (v2026-06-22.1)
+
+Rescan roadmap. Bugs list empty; sole roadmap item: *"Remove the hard limit for max. 4 open positions."* User chose (via clarifying question) to **make the caps user-configurable in Settings** rather than hard-remove them. Landed on top of the 2026-06-19 loosening that had already raised the baseline to 4 total / 3 per tier.
+
+**Problem:** The dashboard Autopilot hardcoded `AP_MAX_POSITIONS` / `AP_MAX_PER_TIER` as module-level consts (4 / 3 after the 2026-06-19 loosening), so the position-count budget couldn't be changed without editing the HTML. Python already reads its caps from `config.json › risk.max_open_positions` / `max_positions_per_tier`, so only the dashboard side was hardcoded.
+
+**Fix (`docs/dashboard_professional.html`):**
+- `DEFAULT_LIMITS`: added `maxOpenPositions: 4`, `maxPositionsPerTier: 3` (matching the `config.json` baseline).
+- Settings DOM: new **🔗 Correlation Budget (Autopilot)** section (after 🔭 Signals Analysis) with two number inputs — `setMaxOpenPositions` and `setMaxPositionsPerTier` (min 1).
+- `loadSettingsForm()`: populates both inputs from `s.limits`.
+- `saveSettings()`: persists both (rounded, clamped to ≥ 1) into `limits`.
+- Autopilot: removed the two hardcoded consts; added `apMaxPositions()` / `apMaxPerTier()` helpers that read `getSettings().limits` live. The entry loop now sets local `AP_MAX_POSITIONS` / `AP_MAX_PER_TIER` from those helpers at the start of each cycle's entry pass, so a saved change takes effect next cycle without reload.
+- Python side unchanged (already config-driven). Footer → v2026-06-22.1.
+
+**Verified:** extracted inline `<script>`s and validated each via `vm.Script` (`node`) → 2 scripts checked, 0 errors. Reconciled with the 2026-06-19 work during a rebase (correlation-budget docs updated to the 4/3 baseline). Docs updated across CLAUDE.md, README.md, glossary.md, dashboard_layout.md; roadmap cleared.
+
 ### 2026-06-19 — Roadmap: allow USDT/USDC-quoted pairs in the symbol selector (v2026-06-19.3)
 
 Rescan roadmap. One item: "allow multiple stablecoin pairs like USDT and USDC in the symbol selector. It is currently limited to USD." This is about stablecoin **quote** currencies (BTC/USDT, ETH/USDC), distinct from the previous session's stablecoin-*base* filter (USDT/USD). The dashboard universe (`getCryptoUniverse()`) kept only `/USD` quotes and `addWatchlistSymbol()` hard-rejected anything not `/USD`.

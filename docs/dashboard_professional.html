@@ -2121,6 +2121,18 @@
             </div>
           </div>
 
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">🔗 Correlation Budget (Autopilot)</div>
+          <div class="form-grid" style="margin-bottom:20px">
+            <div>
+              <label>Max Open Positions (total)</label>
+              <input id="setMaxOpenPositions" type="number" step="1" min="1">
+            </div>
+            <div>
+              <label>Max Positions Per Tier (BTC/ETH vs alts)</label>
+              <input id="setMaxPositionsPerTier" type="number" step="1" min="1">
+            </div>
+          </div>
+
           <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">📋 Active Watchlist (up to 20 symbols)</div>
           <div class="wl-tag-editor" id="watchlistTagsEl"></div>
           <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
@@ -2249,9 +2261,9 @@
     <span class="footer-sep">·</span>
     <span>Creator: <strong>Erik Kuipers</strong></span>
     <span class="footer-sep">·</span>
-    <span>Last modified: <strong>2026-06-19</strong></span>
+    <span>Last modified: <strong>2026-06-22</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-06-19.3</strong></span>
+    <span>Version: <strong>v2026-06-22.1</strong></span>
   </footer>
 
   <script>
@@ -2266,7 +2278,9 @@
       warningSinglePositionPct: 20.0,
       assumedStopLossPct: 5.0,
       tradingDaysPerYear: 252,
-      maxSignalSymbols: 30
+      maxSignalSymbols: 30,
+      maxOpenPositions: 4,
+      maxPositionsPerTier: 3
     };
 
     // 6-point signal-score gates — kept in sync with config.json > strategy
@@ -3552,6 +3566,8 @@
       $("setMaxDailyLoss").value = s.limits.maxDailyLossPct;
       $("setMaxOpenRisk").value = s.limits.maxOpenRiskPct;
       $("setMaxSignalSymbols").value = s.limits.maxSignalSymbols;
+      $("setMaxOpenPositions").value = s.limits.maxOpenPositions;
+      $("setMaxPositionsPerTier").value = s.limits.maxPositionsPerTier;
 
       renderWatchlistTags();
       $("lastUpdated").textContent = "Settings loaded";
@@ -3564,6 +3580,10 @@
       const maxOpenRisk = Number($("setMaxOpenRisk").value || DEFAULT_LIMITS.maxOpenRiskPct);
       let maxSignalSymbols = Math.round(Number($("setMaxSignalSymbols").value || DEFAULT_LIMITS.maxSignalSymbols));
       maxSignalSymbols = Math.max(1, maxSignalSymbols || DEFAULT_LIMITS.maxSignalSymbols);
+      let maxOpenPositions = Math.round(Number($("setMaxOpenPositions").value || DEFAULT_LIMITS.maxOpenPositions));
+      maxOpenPositions = Math.max(1, maxOpenPositions || DEFAULT_LIMITS.maxOpenPositions);
+      let maxPositionsPerTier = Math.round(Number($("setMaxPositionsPerTier").value || DEFAULT_LIMITS.maxPositionsPerTier));
+      maxPositionsPerTier = Math.max(1, maxPositionsPerTier || DEFAULT_LIMITS.maxPositionsPerTier);
 
       const saved = {
         paperApiKey:    $("setPaperApiKey").value.trim(),
@@ -3577,7 +3597,9 @@
           warningDailyLossPct: maxDaily / 2,
           maxOpenRiskPct: maxOpenRisk,
           warningOpenRiskPct: maxOpenRisk * 0.6,
-          maxSignalSymbols: maxSignalSymbols
+          maxSignalSymbols: maxSignalSymbols,
+          maxOpenPositions: maxOpenPositions,
+          maxPositionsPerTier: maxPositionsPerTier
         })
       };
 
@@ -6921,8 +6943,10 @@
     const AP_TA_EXIT_SCORE    = -2;   // TA exit (score turning bearish)
     const AP_TRAIL_ARM_PCT    = 2.5;  // trailing stop arms at +2.5%
     const AP_TRAIL_PCT        = 3;    // trails 3% below HWM
-    const AP_MAX_POSITIONS    = 4;    // correlation budget: max open positions
-    const AP_MAX_PER_TIER     = 3;    // correlation budget: max per tier
+    // Correlation budget caps are user-configurable (Settings › 🔗 Correlation Budget).
+    // Read live at the start of each entry pass via apMaxPositions()/apMaxPerTier().
+    function apMaxPositions() { return Math.max(1, Math.round(getSettings().limits.maxOpenPositions || DEFAULT_LIMITS.maxOpenPositions)); }
+    function apMaxPerTier()   { return Math.max(1, Math.round(getSettings().limits.maxPositionsPerTier || DEFAULT_LIMITS.maxPositionsPerTier)); }
 
     let _apTimer = null, _apTick = null, _apRunning = false, _apBusy = false;
     let _apCycles = 0, _apOrders = 0, _apLastCycle = null, _apNextAt = null;
@@ -7160,6 +7184,8 @@
 
         // (b) ENTRIES — score ≥ 2.5 (half) / 3.5 (full), regime gate (downtrend
         //     allows half-size counter-trend at ≥4), correlation budget, caps, ATR sizing
+        const AP_MAX_POSITIONS = apMaxPositions();   // configurable: Settings › Correlation Budget
+        const AP_MAX_PER_TIER  = apMaxPerTier();
         const open  = positions.filter(p => Math.abs(Number(p.qty || 0)) > 0 && !closedSyms.includes(toSlash(p.symbol)));
         let total = open.length;
         let tier1 = open.filter(p => AP_TIER1[toSlash(p.symbol)]).length;
