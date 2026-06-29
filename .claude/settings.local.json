@@ -7,7 +7,10 @@
       "Bash(where gh *)",
       "PowerShell(gh auth status 2>&1)",
       "PowerShell(ls \"$env:USERPROFILE\\\\.claude\\\\skills\\\\\" 2>&1)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(python -m py_compile scripts/run_evaluation.py scripts/rebalance.py)",
+      "Bash(node -e ' *)",
+      "Bash(git commit -q -m 'feat: drop the /6 suffix from all score values *)"
     ]
   }
 }
