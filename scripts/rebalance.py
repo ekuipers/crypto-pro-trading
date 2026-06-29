@@ -231,7 +231,7 @@ def evaluate_rebalance(symbol: str, pos: dict | None,
         result["reason"] = "signal computation failed"
         return result
     if score < 3.0:
-        result["reason"] = "no entry: score=%.1f/6 (need >= 3)" % score
+        result["reason"] = "no entry: score=%.1f (need >= 3)" % score
         return result
 
     # Sizing: ATR-based, hard-capped at remaining gap to cap.
@@ -249,10 +249,10 @@ def evaluate_rebalance(symbol: str, pos: dict | None,
 
     if score < 4.0:
         qty       = round(base_qty * 0.5, 4)
-        size_note = "half-size (score=%.1f/6)" % score
+        size_note = "half-size (score=%.1f)" % score
     else:
         qty       = base_qty
-        size_note = "full-size (score=%.1f/6)" % score
+        size_note = "full-size (score=%.1f)" % score
 
     if qty <= 0:
         result["reason"] = "computed qty <= 0"

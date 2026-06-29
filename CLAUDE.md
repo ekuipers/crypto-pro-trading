@@ -20,7 +20,7 @@ Creator: Erik Kuipers
 ---
 
 ## Roadmap
-*(none — all listed roadmap items implemented; see `memory/memory.md` session history)*
+*(none — see `memory/memory.md` session history for completed items)*
 
 
 ## Bugs
@@ -293,8 +293,8 @@ Every evaluation must be logged to `journal/YYYY-MM-DD.md`:
 ```
 ## Evaluation HH:MM GMT+2
 
-- SYMBOL ACTION score=+X.X/6 ask=$Y (reason)
-    score   : +X.X/6
+- SYMBOL ACTION score=+X.X ask=$Y (reason)
+    score   : +X.X
     ema_x   : golden / death / neutral
     rsi     : XX.X
     macd    : line=X sig=X hist=X (BULLISH/BEARISH FLIP)

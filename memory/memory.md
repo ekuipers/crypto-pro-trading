@@ -62,6 +62,19 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-29 — Roadmap: remove the `/6` suffix from all score values (v2026-06-29.1)
+
+Rescan roadmap. One item: "Remove '/6' from all score values. The reason for this is that 6 is the maximum score anyway and it messes up the sorting of the columns." The `/6` suffix turned numeric score cells into strings (e.g. `+5/6`), so table columns sorted lexically instead of numerically.
+
+**Decision:** the stated reason is column sorting (a dashboard concern), but the instruction says "all score values," so removed `/6` from every displayed/emitted score for consistency — dashboard UI **and** the Python journal output. Left it intact in historical journals/reports/`data/market_research/` (append-only logs — not rewritten) and in CLAUDE.md threshold *prose* that explains the 6-point scale (documentation, not a value).
+
+**Implementation:**
+- `docs/dashboard_professional.html` — stripped `/6` from: BUY/BEAR notifications, the closing-journal scan narrative + table, Breakout `ssText` (incl. the `–/6`→`–` fallback) and its `Signal /6` header, Market Overview score cell (sortable column), Scalping score cell (sortable column) + Avg-Score KPI, Market Signals Avg-Score KPI + BUY/Half KPI descriptions + Top-Opportunities rows, Autopilot entry-log note, Breakout legend, and the `portActionChip` threshold chips (`BUY ≥3.5`, `½ BUY 2.5`, `SHORT ≤−4`). Grep confirms zero `/6` remain in the dashboard. Footer → v2026-06-29.1, date 2026-06-29.
+- `scripts/run_evaluation.py` — `format_decision_line` (`score=%+.1f`) and `format_indicator_block` (`score   : %+.1f`).
+- `scripts/rebalance.py` — the three `score=%.1f` reason/size-note strings.
+
+**Verified:** repo-wide grep for `/6` shows only historical logs + scale-explaining prose left; no live UI or emitted-format string still carries it. CLAUDE.md Output Format block updated to the new `score=+X.X` form so docs match code. Roadmap cleared.
+
 ### 2026-06-22 — Roadmap: user-configurable open-position cap (v2026-06-22.1)
 
 Rescan roadmap. Bugs list empty; sole roadmap item: *"Remove the hard limit for max. 4 open positions."* User chose (via clarifying question) to **make the caps user-configurable in Settings** rather than hard-remove them. Landed on top of the 2026-06-19 loosening that had already raised the baseline to 4 total / 3 per tier.

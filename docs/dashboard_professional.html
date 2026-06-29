@@ -1816,7 +1816,7 @@
           <span><span class="pill yellow" style="font-size:9px">MEDIUM</span> Mixed signals — wait for ORB confirmation</span>
           <span><span class="pill red" style="font-size:9px">LOW</span> Fade risk — avoid chasing, watch for reversal</span>
           <span><span class="pill red" style="font-size:9px">⚠ AVOID</span> Downtrend + negative gap or very high risk</span>
-          <span style="color:var(--muted)">Conviction: +7 max → −6 min · Signal /6: same 6-point score as Signals &amp; Market Signals tabs</span>
+          <span style="color:var(--muted)">Conviction: +7 max → −6 min · Signal: same 6-point score as Signals &amp; Market Signals tabs</span>
         </div>
 
         <div id="ggContainer">
@@ -2261,9 +2261,9 @@
     <span class="footer-sep">·</span>
     <span>Creator: <strong>Erik Kuipers</strong></span>
     <span class="footer-sep">·</span>
-    <span>Last modified: <strong>2026-06-22</strong></span>
+    <span>Last modified: <strong>2026-06-29</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-06-22.1</strong></span>
+    <span>Version: <strong>v2026-06-29.1</strong></span>
   </footer>
 
   <script>
@@ -4763,14 +4763,14 @@
           if (Notification.permission === "granted") {
             if (res.score >= SIGNAL_BUY_SCORE && res.dailyRegime !== "downtrend") {
               try {
-                new Notification(`🚀 ${sym} — Score ${res.score}/6`, {
+                new Notification(`🚀 ${sym} — Score ${res.score}`, {
                   body: `BUY signal · RSI ${res.rsi} · ${res.dailyRegime}`,
                   tag: sym
                 });
               } catch(e) {}
             } else if (res.score <= -4 && res.dailyRegime === "downtrend") {
               try {
-                new Notification(`🔻 ${sym} — Score ${res.score}/6`, {
+                new Notification(`🔻 ${sym} — Score ${res.score}`, {
                   body: `BEAR signal (no short — spot venue) · RSI ${res.rsi} · downtrend`,
                   tag: sym
                 });
@@ -5474,13 +5474,13 @@
           const up = scan.filter(r => r.regime === "uptrend").length;
           const dn = scan.filter(r => r.regime === "downtrend").length;
           const mx = scan.filter(r => r.regime === "mixed").length;
-          let obs = `Closing watchlist scan: strongest setup is ${top.sym} at ${(top.score >= 0 ? "+" : "−") + Math.abs(top.score).toFixed(1)}/6, weakest is ${bot.sym} at ${(bot.score >= 0 ? "+" : "−") + Math.abs(bot.score).toFixed(1)}/6. `;
+          let obs = `Closing watchlist scan: strongest setup is ${top.sym} at ${(top.score >= 0 ? "+" : "−") + Math.abs(top.score).toFixed(1)}, weakest is ${bot.sym} at ${(bot.score >= 0 ? "+" : "−") + Math.abs(bot.score).toFixed(1)}. `;
           obs += `Daily regimes: ${up} uptrend, ${dn} downtrend, ${mx} mixed. `;
           obs += dayPL >= 0 ? `Portfolio finished the day up ${jPct(dayPct)}. ` : `Portfolio finished the day down ${jPct(dayPct)}. `;
           obs += cashPct >= 20 ? `Cash reserve at ${cashPct.toFixed(1)}% — above the 20% minimum.` : `Cash reserve at ${cashPct.toFixed(1)}% — below the 20% minimum; rebalance to restore the buffer.`;
           md += obs + `\n\n`;
           md += `| Symbol | Score | Daily Regime |\n|--------|-------|--------------|\n`;
-          scan.forEach(r => { md += `| ${r.sym} | ${(r.score >= 0 ? "+" : "−") + Math.abs(r.score).toFixed(1)}/6 | ${r.regime} |\n`; });
+          scan.forEach(r => { md += `| ${r.sym} | ${(r.score >= 0 ? "+" : "−") + Math.abs(r.score).toFixed(1)} | ${r.regime} |\n`; });
           md += `\n`;
         } else {
           md += `Watchlist scan unavailable (insufficient bar data). Day P&L ${jPct(dayPct)}; cash reserve ${cashPct.toFixed(1)}%.\n\n`;
@@ -5978,7 +5978,7 @@
         const rPct    = (a.rangePos * 100).toFixed(0);
         const scColor = a.score >= 3 ? "var(--green)" : a.score >= 1 ? "var(--yellow)" : "var(--red)";
         const ssColor = a.signalScore !== null ? (a.signalScore >= SIGNAL_BUY_SCORE ? "var(--green)" : a.signalScore >= SIGNAL_HALF_SCORE ? "var(--yellow)" : a.signalScore < 0 ? "var(--red)" : "var(--muted)") : "var(--muted)";
-        const ssText  = a.signalScore !== null ? (a.signalScore >= 0 ? "+" : "") + a.signalScore.toFixed(1) + "/6" : "–/6";
+        const ssText  = a.signalScore !== null ? (a.signalScore >= 0 ? "+" : "") + a.signalScore.toFixed(1) : "–";
         const ticker  = baseTicker(a.symbol);
 
         const newsLinks = `
@@ -6023,7 +6023,7 @@
     </div>
     <div style="display:flex;gap:16px;align-items:flex-start">
       <div style="text-align:right">
-        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px">Signal /6</div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px">Signal</div>
         <div style="font-size:20px;font-weight:800;color:${ssColor}">${ssText}</div>
       </div>
       <div style="text-align:right">
@@ -6324,7 +6324,7 @@
         if (row.score !== null && row.score !== undefined) {
           var sc = row.score;
           var scColor = sc >= SIGNAL_BUY_SCORE ? "var(--green)" : sc >= SIGNAL_HALF_SCORE ? "var(--yellow)" : sc < 0 ? "var(--red)" : "var(--muted)";
-          scoreStr = '<span style="color:' + scColor + ';font-weight:700">' + (sc > 0 ? "+" : "") + sc + "/6</span>";
+          scoreStr = '<span style="color:' + scColor + ';font-weight:700">' + (sc > 0 ? "+" : "") + sc + "</span>";
         } else {
           scoreStr = '<span style="color:var(--muted)">–</span>';
         }
@@ -6430,7 +6430,7 @@
         $("scalpKpis").innerHTML =
           kpi("Timeframe", tf, "exec " + map.exec + " · trend " + map.trend + " · regime " + map.regime) +
           kpi("BUY / Half", buys + " / " + halfs, "Score ≥ 3.5 full · ≥ 2.5 half", buys > 0 ? "pos" : "") +
-          kpi("Avg Score", (avg >= 0 ? "+" : "") + fmt(avg, 1) + "/6", "Breadth across watchlist", avg >= 2 ? "pos" : avg <= -1 ? "neg" : "");
+          kpi("Avg Score", (avg >= 0 ? "+" : "") + fmt(avg, 1), "Breadth across watchlist", avg >= 2 ? "pos" : avg <= -1 ? "neg" : "");
 
         renderScoreDist("scalpScoreDist", scores);
 
@@ -6453,7 +6453,7 @@
           return '<tr>' +
             '<td><span class="symbol">' + tvLink(row.sym) + '</span></td>' +
             '<td class="right mono">' + (price ? fmtPrice(price) : "–") + '</td>' +
-            '<td><b style="color:' + scColor + '">' + (sc > 0 ? "+" : "") + sc + '</b>/6</td>' +
+            '<td><b style="color:' + scColor + '">' + (sc > 0 ? "+" : "") + sc + '</b></td>' +
             '<td>' + scalpActionPill(row) + '</td>' +
             '<td class="right mono">' + (row.rsi != null ? fmt(row.rsi, 1) : "–") + '</td>' +
             '<td class="right mono">' + (row.atr != null ? fmt(row.atr, row.atr < 1 ? 5 : 2) : "–") + '</td>' +
@@ -6761,11 +6761,11 @@
         const sells = valid.filter(function(r){ return r.score <= -3; }).length;
         const avgSc = valid.length ? valid.reduce(function(s,r){ return s+r.score; },0) / valid.length : 0;
         if (kEl) kEl.innerHTML =
-          kpi("BUY Signals", buys,  "Score >= 3.5/6", buys > 0 ? "pos" : "") +
-          kpi("Half-Size",   halfs, "Score 2.5–3.4/6") +
+          kpi("BUY Signals", buys,  "Score >= 3.5", buys > 0 ? "pos" : "") +
+          kpi("Half-Size",   halfs, "Score 2.5–3.4") +
           kpi("HOLD",        holds, "Score -2 to +2") +
           kpi("BEAR/Avoid", sells, "Score <= -3 (bearish — shorts unsupported on spot)", sells > 0 ? "neg" : "") +
-          kpi("Avg Score",   (avgSc >= 0 ? "+" : "") + fmt(avgSc,1) + "/6", "Market breadth", avgSc >= 2 ? "pos" : avgSc <= -1 ? "neg" : "");
+          kpi("Avg Score",   (avgSc >= 0 ? "+" : "") + fmt(avgSc,1), "Market breadth", avgSc >= 2 ? "pos" : avgSc <= -1 ? "neg" : "");
 
         // Score bar renderer
         function scoreBar(sc) {
@@ -6853,7 +6853,7 @@
                 return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px">' +
                   tvLink(r.sym, baseTicker(r.sym)) +
                   '<span style="color:var(--muted);font-size:11px;flex:1">' + (inf.name||"") + "</span>" +
-                  '<span style="color:var(--green);font-weight:800">+' + r.score + "/6</span>" +
+                  '<span style="color:var(--green);font-weight:800">+' + r.score + "</span>" +
                   '<span style="color:var(--muted);font-size:11px">' + (r.dailyRegime||"") + "</span>" +
                   "</div>";
               }).join("")
@@ -7229,7 +7229,7 @@
           if (!qty || qty * limit < 10) { apLog("block", `${sym} score ${res.score} — blocked: sized below $10 notional after gates.`); continue; }
 
           try {
-            await apPlaceOrder(sym, "buy", qty, limit, `entry — score ${res.score}/6, regime ${res.dailyRegime}, ${sizeNote} ATR sizing`);
+            await apPlaceOrder(sym, "buy", qty, limit, `entry — score ${res.score}, regime ${res.dailyRegime}, ${sizeNote} ATR sizing`);
             total++; if (isT1) tier1++; else tier2++;
             cash -= qty * limit;
             mvBySym[sym] = qty * limit;
@@ -7969,11 +7969,11 @@ function portScoreBar(score) {
 }
 function portActionChip(score, dailyRegime) {
   const down = dailyRegime === "downtrend";
-  if (!down && score >= SIGNAL_BUY_SCORE)  return `<span class="chip chip-green">BUY ≥3.5/6</span>`;
-  if (!down && score >= SIGNAL_HALF_SCORE)  return `<span class="chip chip-yellow">½ BUY 2.5/6</span>`;
+  if (!down && score >= SIGNAL_BUY_SCORE)  return `<span class="chip chip-green">BUY ≥3.5</span>`;
+  if (!down && score >= SIGNAL_HALF_SCORE)  return `<span class="chip chip-yellow">½ BUY 2.5</span>`;
   if (down && score >= SIGNAL_DOWNTREND_LONG_SCORE)  return `<span class="chip chip-yellow">½ C-Trend ≥4</span>`;
   if (down && score >= SIGNAL_HALF_SCORE)   return `<span class="chip chip-red">Regime Block</span>`;
-  if (down && score <= -4)  return `<span class="chip chip-red">SHORT ≤−4/6</span>`;
+  if (down && score <= -4)  return `<span class="chip chip-red">SHORT ≤−4</span>`;
   if (score <= -2)          return `<span class="chip chip-red">TA SELL</span>`;
   return `<span class="chip chip-muted">HOLD</span>`;
 }

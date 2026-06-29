@@ -706,7 +706,7 @@ def fmt_bb(b: tuple | None) -> str:
 def format_decision_line(d: dict) -> str:
     parts = [d["symbol"], d["action"]]
     if d["score"] is not None:
-        parts.append("score=%+.1f/6" % d["score"])
+        parts.append("score=%+.1f" % d["score"])
     if d["qty"] is not None and d["limit_price"] is not None:
         parts.append("qty=%s limit=$%.4f" % (str(d["qty"]), d["limit_price"]))
     if d["ask"]:
@@ -719,7 +719,7 @@ def format_decision_line(d: dict) -> str:
 def format_indicator_block(d: dict) -> str:
     """Multi-line indicator readout for the journal."""
     out = []
-    score_str = ("%+.1f/6" % d["score"]) if d["score"] is not None else "n/a"
+    score_str = ("%+.1f" % d["score"]) if d["score"] is not None else "n/a"
     out.append("    score   : %s" % score_str)
     out.append("    ema_x   : %s" % (d.get("ema_cross") or "n/a"))
     out.append("    rsi     : %s" % ("%.2f" % d["rsi"] if d["rsi"] is not None else "n/a"))
