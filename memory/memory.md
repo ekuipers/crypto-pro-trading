@@ -62,6 +62,15 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-29 — Fix: resolve committed merge-conflict markers in backtest tooling
+
+After the `/6` rescan, a repo-wide grep surfaced **committed, unresolved `<<<<<<< / ======= / >>>>>>>` markers** (from old auto-merges under SHA `96f6b1b…`) in two source files, leaving them un-importable.
+
+- `scripts/metrics.py` — both conflict sides were **byte-for-byte identical** (a pure duplicate of the whole module). Rewrote the single clean copy.
+- `scripts/walkforward_evaluate.py` — the two sides genuinely differed; took the newer `96f6b1b` side at all 13 conflicts. That side is config-driven (`_load_sim_defaults()` / `default_sim_config()` read thresholds from `config.json`), has the half-size buy logic (`buy_score_half_size`, `size_mult`, `cap × size_mult`), reads symbols from `config.json › watchlist.symbols`, and uses a correct `"\n".join(...)` in `write_reports` (the HEAD side had a syntactically broken multiline string). Dataclass defaults (4.0/3.0) are fallbacks only; live `config.json` (3.5/2.5) wins via `default_sim_config()`.
+
+**Verified:** `python -m py_compile` passes on both; grep confirms zero markers remain in either file. Remaining markers live only in append-only `journal/*.md` history (cosmetic, left untouched).
+
 ### 2026-06-29 — Roadmap: remove the `/6` suffix from all score values (v2026-06-29.1)
 
 Rescan roadmap. One item: "Remove '/6' from all score values. The reason for this is that 6 is the maximum score anyway and it messes up the sorting of the columns." The `/6` suffix turned numeric score cells into strings (e.g. `+5/6`), so table columns sorted lexically instead of numerically.
