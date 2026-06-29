@@ -62,6 +62,14 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-06-29 — Chore: stop tracking `ruvector.db` runtime state
+
+`ruvector.db` (RuVector runtime state binary) mutates continuously while the agent/process runs, so it reappeared as a modified tracked file every cycle and repeatedly tripped the Stop hook ("tracked files changed this session"). It is generated runtime state, not source.
+
+**Fix:** added `ruvector.db` to `.gitignore` and ran `git rm --cached ruvector.db` (file kept on disk, only removed from the index). No code/logic changed. This is the resolution for the previous string of `chore: ruvector.db runtime state` commits — the file no longer needs committing each session.
+
+**Verified:** `git status` no longer lists `ruvector.db`; working tree clean after committing the `.gitignore` change + index removal.
+
 ### 2026-06-29 — Fix: resolve committed merge-conflict markers in backtest tooling
 
 After the `/6` rescan, a repo-wide grep surfaced **committed, unresolved `<<<<<<< / ======= / >>>>>>>` markers** (from old auto-merges under SHA `96f6b1b…`) in two source files, leaving them un-importable.
