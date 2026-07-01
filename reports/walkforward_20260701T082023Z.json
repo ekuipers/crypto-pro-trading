@@ -1,0 +1,2429 @@
+{
+  "params": {
+    "symbols": [
+      "BTC/USDC",
+      "ETH/USDC"
+    ],
+    "timeframes": [
+      "1H",
+      "4H",
+      "1D"
+    ],
+    "start": "2024-01-01",
+    "end": "2026-05-01",
+    "train_days": 90,
+    "test_days": 30,
+    "initial_equity": 10000.0,
+    "fee_bps": 5.0,
+    "slippage_bps": 5.0,
+    "out": "reports"
+  },
+  "timeframes": {
+    "1H": {
+      "BTC/USDC": {
+        "windows": [
+          {
+            "train_start": "2024-01-01 00:00:00+00:00",
+            "train_end": "2024-03-30 23:00:00+00:00",
+            "test_start": "2024-03-31 00:00:00+00:00",
+            "test_end": "2024-05-02 22:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.002479043161765393,
+              "annualized_return": -0.027525975162668304,
+              "annualized_volatility": 0.00853913213012361,
+              "sharpe": -3.2644359549865047,
+              "sortino": -0.042558267593730915,
+              "max_drawdown": -0.004318618371589642,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 2
+            }
+          },
+          {
+            "train_start": "2024-01-31 00:00:00+00:00",
+            "train_end": "2024-05-02 22:00:00+00:00",
+            "test_start": "2024-05-02 23:00:00+00:00",
+            "test_end": "2024-06-01 22:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.001429968581741159,
+              "annualized_return": 0.016198573770595637,
+              "annualized_volatility": 0.008418822558801584,
+              "sharpe": 1.9128784946292943,
+              "sortino": 0.029256094925974883,
+              "max_drawdown": -0.001984796615302084,
+              "win_rate": 0.5,
+              "profit_factor": 1.8814774537459307,
+              "trades": 4
+            }
+          },
+          {
+            "train_start": "2024-03-01 00:00:00+00:00",
+            "train_end": "2024-06-01 22:00:00+00:00",
+            "test_start": "2024-06-01 23:00:00+00:00",
+            "test_end": "2024-07-02 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -8.41773526460976e-05,
+              "annualized_return": -0.0009461819292213569,
+              "annualized_volatility": 0.004749903825154383,
+              "sharpe": -0.1969226252873893,
+              "sortino": -0.0030197026249737307,
+              "max_drawdown": -0.002097849318342378,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 2
+            }
+          },
+          {
+            "train_start": "2024-03-31 00:00:00+00:00",
+            "train_end": "2024-07-02 00:00:00+00:00",
+            "test_start": "2024-07-02 01:00:00+00:00",
+            "test_end": "2024-08-01 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.000638996203515374,
+              "annualized_return": 0.007209198480083279,
+              "annualized_volatility": 0.008038231204727865,
+              "sharpe": 0.8976606706449596,
+              "sortino": 0.013769607813934784,
+              "max_drawdown": -0.0022919846028429543,
+              "win_rate": 0.3333333333333333,
+              "profit_factor": 3.5682225478429426,
+              "trades": 3
+            }
+          },
+          {
+            "train_start": "2024-05-02 23:00:00+00:00",
+            "train_end": "2024-08-01 00:00:00+00:00",
+            "test_start": "2024-08-01 01:00:00+00:00",
+            "test_end": "2024-08-31 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0011572793970405781,
+              "annualized_return": -0.012936947253041176,
+              "annualized_volatility": 0.008079297968350253,
+              "sharpe": -1.6076586850664254,
+              "sortino": -0.02377285897859268,
+              "max_drawdown": -0.003174790866030182,
+              "win_rate": 0.25,
+              "profit_factor": 0.5507108142668372,
+              "trades": 4
+            }
+          },
+          {
+            "train_start": "2024-06-01 23:00:00+00:00",
+            "train_end": "2024-08-31 00:00:00+00:00",
+            "test_start": "2024-08-31 01:00:00+00:00",
+            "test_end": "2024-09-30 01:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.004347195689486494,
+              "annualized_return": 0.04998835670776369,
+              "annualized_volatility": 0.007676472947387523,
+              "sharpe": 6.358211140719355,
+              "sortino": 0.11072059856996112,
+              "max_drawdown": -0.0010079441568307847,
+              "win_rate": 1.0,
+              "profit_factor": Infinity,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2024-07-02 01:00:00+00:00",
+            "train_end": "2024-09-30 01:00:00+00:00",
+            "test_start": "2024-09-30 02:00:00+00:00",
+            "test_end": "2024-10-30 01:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0018784071602770958,
+              "annualized_return": 0.021327471838496814,
+              "annualized_volatility": 0.007199681305708065,
+              "sharpe": 2.9347318273758503,
+              "sortino": 0.04733844468631715,
+              "max_drawdown": -0.0009476724307712371,
+              "win_rate": 1.0,
+              "profit_factor": Infinity,
+              "trades": 2
+            }
+          },
+          {
+            "train_start": "2024-08-01 01:00:00+00:00",
+            "train_end": "2024-10-30 01:00:00+00:00",
+            "test_start": "2024-10-30 02:00:00+00:00",
+            "test_end": "2025-01-11 02:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.004891685754200514,
+              "annualized_return": 0.056407301664812115,
+              "annualized_volatility": 0.011435872322438473,
+              "sharpe": 4.804118709559927,
+              "sortino": 0.07872821693218751,
+              "max_drawdown": -0.0016269098400172085,
+              "win_rate": 0.6666666666666666,
+              "profit_factor": 3.1511887298403383,
+              "trades": 6
+            }
+          },
+          {
+            "train_start": "2024-08-31 01:00:00+00:00",
+            "train_end": "2025-01-11 02:00:00+00:00",
+            "test_start": "2025-01-11 03:00:00+00:00",
+            "test_end": "2025-02-10 02:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0002684031244684082,
+              "annualized_return": 0.0030223963713238433,
+              "annualized_volatility": 0.01008094190968774,
+              "sharpe": 0.3043945858911941,
+              "sortino": 0.0046014317022814695,
+              "max_drawdown": -0.0036539926865777105,
+              "win_rate": 0.25,
+              "profit_factor": 1.115381578661862,
+              "trades": 4
+            }
+          },
+          {
+            "train_start": "2024-09-30 02:00:00+00:00",
+            "train_end": "2025-02-10 02:00:00+00:00",
+            "test_start": "2025-02-10 03:00:00+00:00",
+            "test_end": "2025-03-12 02:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0012605809851657934,
+              "annualized_return": 0.014267361625968089,
+              "annualized_volatility": 0.008400206395088622,
+              "sharpe": 1.6906472590680377,
+              "sortino": 0.028146285878689312,
+              "max_drawdown": -0.001334324757027068,
+              "win_rate": 0.25,
+              "profit_factor": 2.009350991444467,
+              "trades": 4
+            }
+          },
+          {
+            "train_start": "2024-10-30 02:00:00+00:00",
+            "train_end": "2025-03-12 02:00:00+00:00",
+            "test_start": "2025-03-12 03:00:00+00:00",
+            "test_end": "2025-04-11 03:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.000470218436691594,
+              "annualized_return": 0.005300448987166861,
+              "annualized_volatility": 0.006405491565230342,
+              "sharpe": 0.8284988119971008,
+              "sortino": 0.012203522819008897,
+              "max_drawdown": -0.0014103153304521933,
+              "win_rate": 0.3333333333333333,
+              "profit_factor": 1.1920857675694445,
+              "trades": 3
+            }
+          },
+          {
+            "train_start": "2025-01-11 03:00:00+00:00",
+            "train_end": "2025-04-11 03:00:00+00:00",
+            "test_start": "2025-04-11 04:00:00+00:00",
+            "test_end": "2025-05-11 03:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.005150507943191274,
+              "annualized_return": 0.05947105202203384,
+              "annualized_volatility": 0.008293248787910414,
+              "sharpe": 6.970044206270448,
+              "sortino": 0.11611345831330307,
+              "max_drawdown": -0.0011270440662819038,
+              "win_rate": 1.0,
+              "profit_factor": Infinity,
+              "trades": 2
+            }
+          },
+          {
+            "train_start": "2025-02-10 03:00:00+00:00",
+            "train_end": "2025-05-11 03:00:00+00:00",
+            "test_start": "2025-05-11 04:00:00+00:00",
+            "test_end": "2025-06-10 03:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0008199362928077436,
+              "annualized_return": -0.00918170666803686,
+              "annualized_volatility": 0.007637333713482511,
+              "sharpe": -1.203952327162562,
+              "sortino": -0.017528371108307954,
+              "max_drawdown": -0.003042829969126554,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 3
+            }
+          },
+          {
+            "train_start": "2025-03-12 03:00:00+00:00",
+            "train_end": "2025-06-10 03:00:00+00:00",
+            "test_start": "2025-06-10 04:00:00+00:00",
+            "test_end": "2025-07-10 06:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0006513752755982205,
+              "annualized_return": -0.007300444210456392,
+              "annualized_volatility": 0.0038440123426500715,
+              "sharpe": -1.9042189638826317,
+              "sortino": -0.028481697392152724,
+              "max_drawdown": -0.0013170051601402166,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 3
+            }
+          },
+          {
+            "train_start": "2025-04-11 04:00:00+00:00",
+            "train_end": "2025-07-10 06:00:00+00:00",
+            "test_start": "2025-07-10 07:00:00+00:00",
+            "test_end": "2025-08-09 06:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0007254451878051515,
+              "annualized_return": 0.00818814961241432,
+              "annualized_volatility": 0.00640404724338074,
+              "sharpe": 1.2765819135664476,
+              "sortino": 0.02079369457065115,
+              "max_drawdown": -0.0029010015262278385,
+              "win_rate": 0.2,
+              "profit_factor": 1.1779464795950345,
+              "trades": 5
+            }
+          },
+          {
+            "train_start": "2025-05-11 04:00:00+00:00",
+            "train_end": "2025-08-09 06:00:00+00:00",
+            "test_start": "2025-08-09 07:00:00+00:00",
+            "test_end": "2025-09-08 07:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0028954379930290486,
+              "annualized_return": -0.032081091782154236,
+              "annualized_volatility": 0.006362732207407322,
+              "sharpe": -5.121493139007069,
+              "sortino": -0.06816121897409544,
+              "max_drawdown": -0.004814444097002761,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 3
+            }
+          },
+          {
+            "train_start": "2025-06-10 04:00:00+00:00",
+            "train_end": "2025-09-08 07:00:00+00:00",
+            "test_start": "2025-09-08 08:00:00+00:00",
+            "test_end": "2025-10-08 12:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0005526292610926742,
+              "annualized_return": 0.006232041266424959,
+              "annualized_volatility": 0.0033604328315087807,
+              "sharpe": 1.8504590964004837,
+              "sortino": 0.02956687972596603,
+              "max_drawdown": -0.0012267906832839391,
+              "win_rate": 0.5,
+              "profit_factor": 1.8435240405879922,
+              "trades": 2
+            }
+          },
+          {
+            "train_start": "2025-07-10 07:00:00+00:00",
+            "train_end": "2025-10-08 12:00:00+00:00",
+            "test_start": "2025-10-08 13:00:00+00:00",
+            "test_end": "2025-11-11 04:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.001409205278745329,
+              "annualized_return": -0.01573287654476141,
+              "annualized_volatility": 0.0035623095134775956,
+              "sharpe": -4.449809891842081,
+              "sortino": -0.058015293292549786,
+              "max_drawdown": -0.0017429150797055094,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-08-09 07:00:00+00:00",
+            "train_end": "2025-11-11 04:00:00+00:00",
+            "test_start": "2025-11-11 05:00:00+00:00",
+            "test_end": "2025-12-11 04:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 6.907437800518501e-05,
+              "annualized_return": 0.0007770291430813092,
+              "annualized_volatility": 0.007696348568782389,
+              "sharpe": 0.10476517545230037,
+              "sortino": 0.0014849937250302815,
+              "max_drawdown": -0.0022653091270389367,
+              "win_rate": 0.5,
+              "profit_factor": 1.10154715958407,
+              "trades": 2
+            }
+          },
+          {
+            "train_start": "2025-09-08 08:00:00+00:00",
+            "train_end": "2025-12-11 04:00:00+00:00",
+            "test_start": "2025-12-11 05:00:00+00:00",
+            "test_end": "2026-01-10 04:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0010958168024762793,
+              "annualized_return": -0.012253724651839826,
+              "annualized_volatility": 0.005644586649498995,
+              "sharpe": -2.18147054381398,
+              "sortino": -0.02840386399306805,
+              "max_drawdown": -0.001783822770235588,
+              "win_rate": 0.2,
+              "profit_factor": 0.3253668031942183,
+              "trades": 5
+            }
+          },
+          {
+            "train_start": "2025-10-08 13:00:00+00:00",
+            "train_end": "2026-01-10 04:00:00+00:00",
+            "test_start": "2026-01-10 05:00:00+00:00",
+            "test_end": "2026-02-09 06:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0001926847161012324,
+              "annualized_return": -0.002164638061829316,
+              "annualized_volatility": 0.005511887678365655,
+              "sharpe": -0.39039486211218705,
+              "sortino": -0.005787266949035988,
+              "max_drawdown": -0.0025229653839656608,
+              "win_rate": 0.3333333333333333,
+              "profit_factor": 0.9080235210504929,
+              "trades": 3
+            }
+          },
+          {
+            "train_start": "2025-11-11 05:00:00+00:00",
+            "train_end": "2026-02-09 06:00:00+00:00",
+            "test_start": "2026-02-09 07:00:00+00:00",
+            "test_end": "2026-03-11 06:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.002512439589764659,
+              "annualized_return": -0.02789203170007626,
+              "annualized_volatility": 0.00836370865066867,
+              "sharpe": -3.378097663295727,
+              "sortino": -0.049394904582036825,
+              "max_drawdown": -0.00431739814484502,
+              "win_rate": 0.2,
+              "profit_factor": 0.4944304736327699,
+              "trades": 5
+            }
+          },
+          {
+            "train_start": "2025-12-11 05:00:00+00:00",
+            "train_end": "2026-03-11 06:00:00+00:00",
+            "test_start": "2026-03-11 07:00:00+00:00",
+            "test_end": "2026-04-10 07:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0011321196309026504,
+              "annualized_return": 0.012804985576811534,
+              "annualized_volatility": 0.008400347527646845,
+              "sharpe": 1.5188587591168485,
+              "sortino": 0.02342348697804511,
+              "max_drawdown": -0.00305201441109141,
+              "win_rate": 0.5,
+              "profit_factor": 0.6812384443865442,
+              "trades": 2
+            }
+          }
+        ],
+        "summary": {
+          "windows": 23,
+          "avg_sharpe": 0.33710417366242135,
+          "median_max_drawdown": -0.002097849318342378
+        }
+      },
+      "ETH/USDC": {
+        "windows": [
+          {
+            "train_start": "2024-01-01 00:00:00+00:00",
+            "train_end": "2024-03-30 23:00:00+00:00",
+            "test_start": "2024-03-31 00:00:00+00:00",
+            "test_end": "2024-05-02 22:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.001039246249990966,
+              "annualized_return": -0.011624501588680669,
+              "annualized_volatility": 0.006572185378414094,
+              "sharpe": -1.7758194822617401,
+              "sortino": -0.024431697692226223,
+              "max_drawdown": -0.0019479803892782626,
+              "win_rate": 0.5,
+              "profit_factor": 0.20922923293589762,
+              "trades": 2
+            }
+          },
+          {
+            "train_start": "2024-01-31 00:00:00+00:00",
+            "train_end": "2024-05-02 22:00:00+00:00",
+            "test_start": "2024-05-02 23:00:00+00:00",
+            "test_end": "2024-06-01 22:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0018099749167799217,
+              "annualized_return": 0.020543274303992165,
+              "annualized_volatility": 0.010659838439171256,
+              "sharpe": 1.9129583976770432,
+              "sortino": 0.03975365052360569,
+              "max_drawdown": -0.0025048374260876975,
+              "win_rate": 0.5,
+              "profit_factor": 2.1506721596404397,
+              "trades": 4
+            }
+          },
+          {
+            "train_start": "2024-03-01 00:00:00+00:00",
+            "train_end": "2024-06-01 22:00:00+00:00",
+            "test_start": "2024-06-01 23:00:00+00:00",
+            "test_end": "2024-07-02 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.001560228773477501,
+              "annualized_return": -0.01740550758969639,
+              "annualized_volatility": 0.00568657150499507,
+              "sharpe": -3.0849166844066924,
+              "sortino": -0.0467060345449917,
+              "max_drawdown": -0.0023937642858499713,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 3
+            }
+          },
+          {
+            "train_start": "2024-03-31 00:00:00+00:00",
+            "train_end": "2024-07-02 00:00:00+00:00",
+            "test_start": "2024-07-02 01:00:00+00:00",
+            "test_end": "2024-08-01 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.00036152799681699044,
+              "annualized_return": 0.004072987065584455,
+              "annualized_volatility": 0.007497793482744015,
+              "sharpe": 0.5458655790731316,
+              "sortino": 0.008548870550982995,
+              "max_drawdown": -0.0014038691135188576,
+              "win_rate": 0.25,
+              "profit_factor": 1.168355155900261,
+              "trades": 4
+            }
+          },
+          {
+            "train_start": "2024-05-02 23:00:00+00:00",
+            "train_end": "2024-08-01 00:00:00+00:00",
+            "test_start": "2024-08-01 01:00:00+00:00",
+            "test_end": "2024-08-31 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0007905039967047722,
+              "annualized_return": -0.00885345527192083,
+              "annualized_volatility": 0.006763375020365927,
+              "sharpe": -1.3114800912638835,
+              "sortino": -0.018548653120885952,
+              "max_drawdown": -0.002264237296340363,
+              "win_rate": 0.5,
+              "profit_factor": 0.7290307422040175,
+              "trades": 4
+            }
+          },
+          {
+            "train_start": "2024-06-01 23:00:00+00:00",
+            "train_end": "2024-08-31 00:00:00+00:00",
+            "test_start": "2024-08-31 01:00:00+00:00",
+            "test_end": "2024-09-30 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0014920028174910671,
+              "annualized_return": -0.01665020537612716,
+              "annualized_volatility": 0.006763462210642614,
+              "sharpe": -2.479132581049828,
+              "sortino": -0.03728685192958833,
+              "max_drawdown": -0.002974614332162317,
+              "win_rate": 0.5,
+              "profit_factor": 0.15831631050630726,
+              "trades": 2
+            }
+          },
+          {
+            "train_start": "2024-07-02 01:00:00+00:00",
+            "train_end": "2024-09-30 00:00:00+00:00",
+            "test_start": "2024-09-30 01:00:00+00:00",
+            "test_end": "2024-10-30 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0019085567548555726,
+              "annualized_return": 0.021673144530424793,
+              "annualized_volatility": 0.008341667285522818,
+              "sharpe": 2.5745926026268102,
+              "sortino": 0.04103494723415508,
+              "max_drawdown": -0.0010376742542377328,
+              "win_rate": 0.3333333333333333,
+              "profit_factor": 4.363173457793106,
+              "trades": 3
+            }
+          },
+          {
+            "train_start": "2024-08-01 01:00:00+00:00",
+            "train_end": "2024-10-30 00:00:00+00:00",
+            "test_start": "2024-10-30 01:00:00+00:00",
+            "test_end": "2025-01-11 01:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.004244571966104171,
+              "annualized_return": -0.04670663374638495,
+              "annualized_volatility": 0.010251540310797972,
+              "sharpe": -4.660760692506347,
+              "sortino": -0.06468642179545811,
+              "max_drawdown": -0.004754789758438571,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 5
+            }
+          },
+          {
+            "train_start": "2024-08-31 01:00:00+00:00",
+            "train_end": "2025-01-11 01:00:00+00:00",
+            "test_start": "2025-01-11 02:00:00+00:00",
+            "test_end": "2025-02-10 01:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0024893935072978213,
+              "annualized_return": -0.027639438197259558,
+              "annualized_volatility": 0.01037619895498517,
+              "sharpe": -2.6960534934073115,
+              "sortino": -0.040219327164646136,
+              "max_drawdown": -0.004614267656473436,
+              "win_rate": 0.25,
+              "profit_factor": 0.12531037605036005,
+              "trades": 4
+            }
+          },
+          {
+            "train_start": "2024-09-30 01:00:00+00:00",
+            "train_end": "2025-02-10 01:00:00+00:00",
+            "test_start": "2025-02-10 02:00:00+00:00",
+            "test_end": "2025-03-12 01:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0042091919842259795,
+              "annualized_return": -0.046325675665456534,
+              "annualized_volatility": 0.012959379770614439,
+              "sharpe": -3.653649520123035,
+              "sortino": -0.04736948578940326,
+              "max_drawdown": -0.0059950968774383565,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 3
+            }
+          },
+          {
+            "train_start": "2024-10-30 01:00:00+00:00",
+            "train_end": "2025-03-12 01:00:00+00:00",
+            "test_start": "2025-03-12 02:00:00+00:00",
+            "test_end": "2025-04-11 01:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.002067862384668828,
+              "annualized_return": -0.023008740390721538,
+              "annualized_volatility": 0.0071747673911937435,
+              "sharpe": -3.240778411516516,
+              "sortino": -0.041518558001076906,
+              "max_drawdown": -0.0037033129021996685,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 2
+            }
+          },
+          {
+            "train_start": "2025-01-11 02:00:00+00:00",
+            "train_end": "2025-04-11 01:00:00+00:00",
+            "test_start": "2025-04-11 02:00:00+00:00",
+            "test_end": "2025-05-11 01:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.004128921270216912,
+              "annualized_return": 0.04742513212069843,
+              "annualized_volatility": 0.012929111388041429,
+              "sharpe": 3.5902306417839696,
+              "sortino": 0.0564896297886649,
+              "max_drawdown": -0.0021582644051376543,
+              "win_rate": 1.0,
+              "profit_factor": Infinity,
+              "trades": 3
+            }
+          },
+          {
+            "train_start": "2025-02-10 02:00:00+00:00",
+            "train_end": "2025-05-11 01:00:00+00:00",
+            "test_start": "2025-05-11 02:00:00+00:00",
+            "test_end": "2025-06-10 01:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0014362827601362982,
+              "annualized_return": -0.016032958590221802,
+              "annualized_volatility": 0.01222941946911447,
+              "sharpe": -1.315529499882462,
+              "sortino": -0.017684751272480637,
+              "max_drawdown": -0.003630434221778063,
+              "win_rate": 0.25,
+              "profit_factor": 0.6709570498682875,
+              "trades": 4
+            }
+          },
+          {
+            "train_start": "2025-03-12 02:00:00+00:00",
+            "train_end": "2025-06-10 01:00:00+00:00",
+            "test_start": "2025-06-10 02:00:00+00:00",
+            "test_end": "2025-07-10 01:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.00391806591239674,
+              "annualized_return": 0.04495444534455251,
+              "annualized_volatility": 0.008110155737454099,
+              "sharpe": 5.426066335168452,
+              "sortino": 0.10028666285652407,
+              "max_drawdown": -0.0012376726461378522,
+              "win_rate": 1.0,
+              "profit_factor": Infinity,
+              "trades": 2
+            }
+          },
+          {
+            "train_start": "2025-04-11 02:00:00+00:00",
+            "train_end": "2025-07-10 01:00:00+00:00",
+            "test_start": "2025-07-10 02:00:00+00:00",
+            "test_end": "2025-08-09 01:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.007274450621366002,
+              "annualized_return": 0.08492021754316093,
+              "annualized_volatility": 0.011586670794732792,
+              "sharpe": 7.040319901703523,
+              "sortino": 0.11492299055448736,
+              "max_drawdown": -0.0020842013381359866,
+              "win_rate": 0.75,
+              "profit_factor": 15.54071008787722,
+              "trades": 4
+            }
+          },
+          {
+            "train_start": "2025-05-11 02:00:00+00:00",
+            "train_end": "2025-08-09 01:00:00+00:00",
+            "test_start": "2025-08-09 02:00:00+00:00",
+            "test_end": "2025-09-08 01:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.000750815361289181,
+              "annualized_return": -0.008410660482416343,
+              "annualized_volatility": 0.007058350288585724,
+              "sharpe": -1.1931044263767507,
+              "sortino": -0.01864857548518958,
+              "max_drawdown": -0.0033256944150234506,
+              "win_rate": 0.25,
+              "profit_factor": 0.7455815271291011,
+              "trades": 4
+            }
+          },
+          {
+            "train_start": "2025-06-10 02:00:00+00:00",
+            "train_end": "2025-09-08 01:00:00+00:00",
+            "test_start": "2025-09-08 02:00:00+00:00",
+            "test_end": "2025-10-08 01:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0034716490698805114,
+              "annualized_return": 0.03974109076996979,
+              "annualized_volatility": 0.0074804518483414725,
+              "sharpe": 5.213556377404096,
+              "sortino": 0.09232809420780103,
+              "max_drawdown": -0.0026252936784756905,
+              "win_rate": 0.75,
+              "profit_factor": 5.898040417628619,
+              "trades": 4
+            }
+          },
+          {
+            "train_start": "2025-07-10 02:00:00+00:00",
+            "train_end": "2025-10-08 01:00:00+00:00",
+            "test_start": "2025-10-08 02:00:00+00:00",
+            "test_end": "2025-11-10 17:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.00022381622391776101,
+              "annualized_return": -0.0025139714643517275,
+              "annualized_volatility": 0.008280104446467585,
+              "sharpe": -0.29986364381906105,
+              "sortino": -0.004644552080667175,
+              "max_drawdown": -0.002675032805221429,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 2
+            }
+          },
+          {
+            "train_start": "2025-08-09 02:00:00+00:00",
+            "train_end": "2025-11-10 17:00:00+00:00",
+            "test_start": "2025-11-10 18:00:00+00:00",
+            "test_end": "2025-12-10 17:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0018082735014366413,
+              "annualized_return": 0.020523783969683906,
+              "annualized_volatility": 0.00911604993261466,
+              "sharpe": 2.233151736617764,
+              "sortino": 0.03923159618902646,
+              "max_drawdown": -0.0018953707049820779,
+              "win_rate": 0.3333333333333333,
+              "profit_factor": 0.6974302252047103,
+              "trades": 3
+            }
+          },
+          {
+            "train_start": "2025-09-08 02:00:00+00:00",
+            "train_end": "2025-12-10 17:00:00+00:00",
+            "test_start": "2025-12-10 18:00:00+00:00",
+            "test_end": "2026-01-09 17:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.00031102768820145954,
+              "annualized_return": 0.003503142150207861,
+              "annualized_volatility": 0.006711261810042137,
+              "sharpe": 0.5244190720409182,
+              "sortino": 0.007666824324719812,
+              "max_drawdown": -0.001636038153033705,
+              "win_rate": 0.25,
+              "profit_factor": 1.1359733927162694,
+              "trades": 4
+            }
+          },
+          {
+            "train_start": "2025-10-08 02:00:00+00:00",
+            "train_end": "2026-01-09 17:00:00+00:00",
+            "test_start": "2026-01-09 18:00:00+00:00",
+            "test_end": "2026-02-08 17:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.003032456589589727,
+              "annualized_return": -0.03357573915622569,
+              "annualized_volatility": 0.005217600527086212,
+              "sharpe": -6.542985515094089,
+              "sortino": -0.07967135370985981,
+              "max_drawdown": -0.003364451396686269,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 2
+            }
+          },
+          {
+            "train_start": "2025-11-10 18:00:00+00:00",
+            "train_end": "2026-02-08 17:00:00+00:00",
+            "test_start": "2026-02-08 18:00:00+00:00",
+            "test_end": "2026-03-10 17:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0033026331945823495,
+              "annualized_return": -0.03651676190387343,
+              "annualized_volatility": 0.0040121116032363555,
+              "sharpe": -9.269949002585436,
+              "sortino": -0.10992731569183031,
+              "max_drawdown": -0.0033026331945823495,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 4
+            }
+          },
+          {
+            "train_start": "2025-12-10 18:00:00+00:00",
+            "train_end": "2026-03-10 17:00:00+00:00",
+            "test_start": "2026-03-10 18:00:00+00:00",
+            "test_end": "2026-04-09 18:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.004053457655164738,
+              "annualized_return": 0.04654028023499657,
+              "annualized_volatility": 0.0099637555367414,
+              "sharpe": 4.5705096351302075,
+              "sortino": 0.07858169583758516,
+              "max_drawdown": -0.0018309332938656279,
+              "win_rate": 0.6666666666666666,
+              "profit_factor": 3.8267738394231445,
+              "trades": 3
+            }
+          }
+        ],
+        "summary": {
+          "windows": 23,
+          "avg_sharpe": -0.34314577239422783,
+          "median_max_drawdown": -0.0025048374260876975
+        }
+      }
+    },
+    "4H": {
+      "BTC/USDC": {
+        "windows": [
+          {
+            "train_start": "2024-01-01 00:00:00+00:00",
+            "train_end": "2024-03-30 20:00:00+00:00",
+            "test_start": "2024-03-31 00:00:00+00:00",
+            "test_end": "2024-05-02 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0027450988501921403,
+              "annualized_return": -0.024873841329649427,
+              "annualized_volatility": 0.0045620225224252235,
+              "sharpe": -5.519023938140243,
+              "sortino": -0.12362700783564792,
+              "max_drawdown": -0.0028123251380621707,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 2
+            }
+          },
+          {
+            "train_start": "2024-01-31 00:00:00+00:00",
+            "train_end": "2024-05-02 16:00:00+00:00",
+            "test_start": "2024-05-02 20:00:00+00:00",
+            "test_end": "2024-06-01 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0005417877862416987,
+              "annualized_return": -0.004953534879372556,
+              "annualized_volatility": 0.0037994336941056086,
+              "sharpe": -1.305102726447498,
+              "sortino": -0.038565691221254673,
+              "max_drawdown": -0.001139535646395859,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2024-03-01 00:00:00+00:00",
+            "train_end": "2024-06-01 16:00:00+00:00",
+            "test_start": "2024-06-01 20:00:00+00:00",
+            "test_end": "2024-07-01 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0008261316984240485,
+              "annualized_return": -0.007544518179995574,
+              "annualized_volatility": 0.0054322928727611524,
+              "sharpe": -1.391385655623622,
+              "sortino": -0.038080430638107315,
+              "max_drawdown": -0.0019637463746234583,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2024-03-31 00:00:00+00:00",
+            "train_end": "2024-07-01 16:00:00+00:00",
+            "test_start": "2024-07-01 20:00:00+00:00",
+            "test_end": "2024-07-31 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0006937791647625424,
+              "annualized_return": 0.006375255051493722,
+              "annualized_volatility": 0.004560214086020529,
+              "sharpe": 1.3958517354264979,
+              "sortino": 0.04297141601249595,
+              "max_drawdown": -0.0016405841707898584,
+              "win_rate": 1.0,
+              "profit_factor": Infinity,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2024-05-02 20:00:00+00:00",
+            "train_end": "2024-07-31 16:00:00+00:00",
+            "test_start": "2024-07-31 20:00:00+00:00",
+            "test_end": "2024-08-30 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0023796512027826067,
+              "annualized_return": -0.02159458266700154,
+              "annualized_volatility": 0.007755557060034454,
+              "sharpe": -2.8110293677684504,
+              "sortino": -0.07864622984563961,
+              "max_drawdown": -0.0026536783642806664,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 3
+            }
+          },
+          {
+            "train_start": "2024-06-01 20:00:00+00:00",
+            "train_end": "2024-08-30 16:00:00+00:00",
+            "test_start": "2024-08-30 20:00:00+00:00",
+            "test_end": "2024-09-29 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0024652264937543578,
+              "annualized_return": 0.0228179515769098,
+              "annualized_volatility": 0.00550271281712182,
+              "sharpe": 4.102831643655226,
+              "sortino": 0.1819947206534076,
+              "max_drawdown": -0.00114085433105182,
+              "win_rate": 1.0,
+              "profit_factor": Infinity,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2024-07-01 20:00:00+00:00",
+            "train_end": "2024-09-29 16:00:00+00:00",
+            "test_start": "2024-09-29 20:00:00+00:00",
+            "test_end": "2024-10-29 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0012996197510719565,
+              "annualized_return": 0.011972015628415988,
+              "annualized_volatility": 0.005392501555336678,
+              "sharpe": 2.2096290663584273,
+              "sortino": 0.07485729443269644,
+              "max_drawdown": -0.0013242652587672765,
+              "win_rate": 0.5,
+              "profit_factor": 1.9813892967954512,
+              "trades": 2
+            }
+          },
+          {
+            "train_start": "2024-07-31 20:00:00+00:00",
+            "train_end": "2024-10-29 16:00:00+00:00",
+            "test_start": "2024-10-29 20:00:00+00:00",
+            "test_end": "2025-01-10 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.00046174809748122936,
+              "annualized_return": -0.004223115502754005,
+              "annualized_volatility": 0.0018301529920848347,
+              "sharpe": -2.311493110925825,
+              "sortino": -0.057243472071064394,
+              "max_drawdown": -0.0006999070983365559,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2024-08-30 20:00:00+00:00",
+            "train_end": "2025-01-10 16:00:00+00:00",
+            "test_start": "2025-01-10 20:00:00+00:00",
+            "test_end": "2025-02-09 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.001595443775010419,
+              "annualized_return": -0.014524499770143584,
+              "annualized_volatility": 0.0028102787217315884,
+              "sharpe": -5.204832672375119,
+              "sortino": -0.11263757755739962,
+              "max_drawdown": -0.0016678303572638567,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2024-09-29 20:00:00+00:00",
+            "train_end": "2025-02-09 16:00:00+00:00",
+            "test_start": "2025-02-09 20:00:00+00:00",
+            "test_end": "2025-03-11 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.00027380281263533757,
+              "annualized_return": -0.002506102437863089,
+              "annualized_volatility": 0.003324880673290789,
+              "sharpe": -0.7530320728644503,
+              "sortino": -0.020770701499350605,
+              "max_drawdown": -0.0008407640968967092,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2024-10-29 20:00:00+00:00",
+            "train_end": "2025-03-11 16:00:00+00:00",
+            "test_start": "2025-03-11 20:00:00+00:00",
+            "test_end": "2025-04-10 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0017065747271837184,
+              "annualized_return": -0.015529169292344824,
+              "annualized_volatility": 0.0027134700663405207,
+              "sharpe": -5.766522844213868,
+              "sortino": -0.1301315213534876,
+              "max_drawdown": -0.0017065747271837184,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-01-10 20:00:00+00:00",
+            "train_end": "2025-04-10 16:00:00+00:00",
+            "test_start": "2025-04-10 20:00:00+00:00",
+            "test_end": "2025-05-10 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-02-09 20:00:00+00:00",
+            "train_end": "2025-05-10 16:00:00+00:00",
+            "test_start": "2025-05-10 20:00:00+00:00",
+            "test_end": "2025-06-09 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.00013762200110534195,
+              "annualized_return": 0.0012617637449765517,
+              "annualized_volatility": 0.0065957756669112935,
+              "sharpe": 0.19446222015050066,
+              "sortino": 0.0061722211311769646,
+              "max_drawdown": -0.001968372253932133,
+              "win_rate": 1.0,
+              "profit_factor": Infinity,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-03-11 20:00:00+00:00",
+            "train_end": "2025-06-09 16:00:00+00:00",
+            "test_start": "2025-06-09 20:00:00+00:00",
+            "test_end": "2025-07-09 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.00033596703168981,
+              "annualized_return": 0.003082751266156869,
+              "annualized_volatility": 0.0036836686255001445,
+              "sharpe": 0.837416997135123,
+              "sortino": 0.03200665753534137,
+              "max_drawdown": -0.0014895686379534881,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-04-10 20:00:00+00:00",
+            "train_end": "2025-07-09 16:00:00+00:00",
+            "test_start": "2025-07-09 20:00:00+00:00",
+            "test_end": "2025-08-08 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0012989017933444647,
+              "annualized_return": -0.01183916629974413,
+              "annualized_volatility": 0.003976137191427459,
+              "sharpe": -2.993332824708847,
+              "sortino": -0.07501652323376949,
+              "max_drawdown": -0.0016885333922583685,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-05-10 20:00:00+00:00",
+            "train_end": "2025-08-08 16:00:00+00:00",
+            "test_start": "2025-08-08 20:00:00+00:00",
+            "test_end": "2025-09-07 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.00025808281350714335,
+              "annualized_return": -0.002362369673088449,
+              "annualized_volatility": 0.004399404876716619,
+              "sharpe": -0.5354192454679977,
+              "sortino": -0.015608082508770486,
+              "max_drawdown": -0.0018319094078360152,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-06-09 20:00:00+00:00",
+            "train_end": "2025-09-07 16:00:00+00:00",
+            "test_start": "2025-09-07 20:00:00+00:00",
+            "test_end": "2025-10-07 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0005373494832445758,
+              "annualized_return": 0.004934643002308281,
+              "annualized_volatility": 0.004757927545420552,
+              "sharpe": 1.036960877526377,
+              "sortino": 0.03246800732283513,
+              "max_drawdown": -0.0019445970309219058,
+              "win_rate": 1.0,
+              "profit_factor": Infinity,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-07-09 20:00:00+00:00",
+            "train_end": "2025-10-07 16:00:00+00:00",
+            "test_start": "2025-10-07 20:00:00+00:00",
+            "test_end": "2025-11-10 04:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0013181327617246552,
+              "annualized_return": -0.012013509632404329,
+              "annualized_volatility": 0.0035524195073488632,
+              "sharpe": -3.4004815825161225,
+              "sortino": -0.0829894289878423,
+              "max_drawdown": -0.0013181327617246552,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-08-08 20:00:00+00:00",
+            "train_end": "2025-11-10 04:00:00+00:00",
+            "test_start": "2025-11-10 08:00:00+00:00",
+            "test_end": "2025-12-10 04:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0008496028156983471,
+              "annualized_return": 0.007812114795633374,
+              "annualized_volatility": 0.0035886844949309534,
+              "sharpe": 2.170205768014913,
+              "sortino": 0.07687966009681814,
+              "max_drawdown": -0.000554390769787365,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-09-07 20:00:00+00:00",
+            "train_end": "2025-12-10 04:00:00+00:00",
+            "test_start": "2025-12-10 08:00:00+00:00",
+            "test_end": "2026-01-09 04:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0009464719255825038,
+              "annualized_return": -0.008639264576862815,
+              "annualized_volatility": 0.004851468454141279,
+              "sharpe": -1.7860697789831617,
+              "sortino": -0.04671637715764572,
+              "max_drawdown": -0.001849335211043912,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-10-07 20:00:00+00:00",
+            "train_end": "2026-01-09 04:00:00+00:00",
+            "test_start": "2026-01-09 08:00:00+00:00",
+            "test_end": "2026-02-08 04:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0003301602125321823,
+              "annualized_return": -0.0030212437878734955,
+              "annualized_volatility": 0.004707847670100807,
+              "sharpe": -0.6403732232062241,
+              "sortino": -0.01951275120231128,
+              "max_drawdown": -0.00245564280548677,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-11-10 08:00:00+00:00",
+            "train_end": "2026-02-08 04:00:00+00:00",
+            "test_start": "2026-02-08 08:00:00+00:00",
+            "test_end": "2026-03-10 04:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0006095535423189524,
+              "annualized_return": -0.005571572679275105,
+              "annualized_volatility": 0.006235766821544327,
+              "sharpe": -0.8928789714091336,
+              "sortino": -0.028115581139991123,
+              "max_drawdown": -0.002817415089614583,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-12-10 08:00:00+00:00",
+            "train_end": "2026-03-10 04:00:00+00:00",
+            "test_start": "2026-03-10 08:00:00+00:00",
+            "test_end": "2026-04-09 04:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0013233075602492317,
+              "annualized_return": -0.012060418431638853,
+              "annualized_volatility": 0.006422988230696513,
+              "sharpe": -1.8859072590576058,
+              "sortino": -0.05419926328205289,
+              "max_drawdown": -0.0029272580624032036,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          }
+        ],
+        "summary": {
+          "windows": 23,
+          "avg_sharpe": -1.1477057711564138,
+          "median_max_drawdown": -0.0016885333922583685
+        }
+      },
+      "ETH/USDC": {
+        "windows": [
+          {
+            "train_start": "2024-01-01 00:00:00+00:00",
+            "train_end": "2024-03-30 20:00:00+00:00",
+            "test_start": "2024-03-31 00:00:00+00:00",
+            "test_end": "2024-05-02 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.001682214625538192,
+              "annualized_return": -0.015309022071584577,
+              "annualized_volatility": 0.00365633534019855,
+              "sharpe": -4.217528768312587,
+              "sortino": -0.08994614093100496,
+              "max_drawdown": -0.001682214625538192,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2024-01-31 00:00:00+00:00",
+            "train_end": "2024-05-02 16:00:00+00:00",
+            "test_start": "2024-05-02 20:00:00+00:00",
+            "test_end": "2024-06-01 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 8.677667120160493e-05,
+              "annualized_return": 0.0007954319408358668,
+              "annualized_volatility": 0.002856171154591189,
+              "sharpe": 0.27980738090069823,
+              "sortino": 0.008270108474983901,
+              "max_drawdown": -0.00047599657900643244,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2024-03-01 00:00:00+00:00",
+            "train_end": "2024-06-01 16:00:00+00:00",
+            "test_start": "2024-06-01 20:00:00+00:00",
+            "test_end": "2024-07-01 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2024-03-31 00:00:00+00:00",
+            "train_end": "2024-07-01 16:00:00+00:00",
+            "test_start": "2024-07-01 20:00:00+00:00",
+            "test_end": "2024-07-31 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.001372782108038928,
+              "annualized_return": -0.012508797886679024,
+              "annualized_volatility": 0.00207339225489563,
+              "sharpe": -6.070011258187005,
+              "sortino": -0.1293263524007239,
+              "max_drawdown": -0.001372782108038928,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2024-05-02 20:00:00+00:00",
+            "train_end": "2024-07-31 16:00:00+00:00",
+            "test_start": "2024-07-31 20:00:00+00:00",
+            "test_end": "2024-08-30 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0013488434552403339,
+              "annualized_return": -0.012291868569763276,
+              "annualized_volatility": 0.0022034954386465945,
+              "sharpe": -5.611804320977347,
+              "sortino": -0.11972358526874695,
+              "max_drawdown": -0.0013488434552403339,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2024-06-01 20:00:00+00:00",
+            "train_end": "2024-08-30 16:00:00+00:00",
+            "test_start": "2024-08-30 20:00:00+00:00",
+            "test_end": "2024-09-29 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.001562968345500515,
+              "annualized_return": -0.014230736121213616,
+              "annualized_volatility": 0.002443769671252191,
+              "sharpe": -5.8638679810705,
+              "sortino": -0.12460248220686267,
+              "max_drawdown": -0.001562968345500515,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2024-07-01 20:00:00+00:00",
+            "train_end": "2024-09-29 16:00:00+00:00",
+            "test_start": "2024-09-29 20:00:00+00:00",
+            "test_end": "2024-10-29 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.002738457617200485,
+              "annualized_return": 0.025375292298306595,
+              "annualized_volatility": 0.005169198521950343,
+              "sharpe": 4.850293131180863,
+              "sortino": 0.23903302616556718,
+              "max_drawdown": -0.000622836553939124,
+              "win_rate": 1.0,
+              "profit_factor": Infinity,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2024-07-31 20:00:00+00:00",
+            "train_end": "2024-10-29 16:00:00+00:00",
+            "test_start": "2024-10-29 20:00:00+00:00",
+            "test_end": "2025-01-10 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0007388035509972024,
+              "annualized_return": 0.0067902401686008584,
+              "annualized_volatility": 0.009469514918111441,
+              "sharpe": 0.7193555155784009,
+              "sortino": 0.02213753570878883,
+              "max_drawdown": -0.002536391448046358,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2024-08-30 20:00:00+00:00",
+            "train_end": "2025-01-10 16:00:00+00:00",
+            "test_start": "2025-01-10 20:00:00+00:00",
+            "test_end": "2025-02-09 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.006748031362655893,
+              "annualized_return": -0.06015752328851365,
+              "annualized_volatility": 0.007718981840435455,
+              "sharpe": -8.033758805921089,
+              "sortino": -0.18172879909648826,
+              "max_drawdown": -0.006761414428542758,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 4
+            }
+          },
+          {
+            "train_start": "2024-09-29 20:00:00+00:00",
+            "train_end": "2025-02-09 16:00:00+00:00",
+            "test_start": "2025-02-09 20:00:00+00:00",
+            "test_end": "2025-03-11 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0023132109706224258,
+              "annualized_return": -0.020997342564548993,
+              "annualized_volatility": 0.005175277830109544,
+              "sharpe": -4.097843217778799,
+              "sortino": -0.09541249669195877,
+              "max_drawdown": -0.002855350883774276,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2024-10-29 20:00:00+00:00",
+            "train_end": "2025-03-11 16:00:00+00:00",
+            "test_start": "2025-03-11 20:00:00+00:00",
+            "test_end": "2025-04-10 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.001984720503648729,
+              "annualized_return": -0.018039722822690396,
+              "annualized_volatility": 0.004214241115185476,
+              "sharpe": -4.317621751985358,
+              "sortino": -0.09589536894167691,
+              "max_drawdown": -0.002046397403158727,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-01-10 20:00:00+00:00",
+            "train_end": "2025-04-10 16:00:00+00:00",
+            "test_start": "2025-04-10 20:00:00+00:00",
+            "test_end": "2025-05-10 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.002850938130249059,
+              "annualized_return": 0.02642972174738678,
+              "annualized_volatility": 0.006531932678957338,
+              "sharpe": 3.996960757134866,
+              "sortino": 0.22349341935187536,
+              "max_drawdown": -0.0009969614765488848,
+              "win_rate": 1.0,
+              "profit_factor": Infinity,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-02-09 20:00:00+00:00",
+            "train_end": "2025-05-10 16:00:00+00:00",
+            "test_start": "2025-05-10 20:00:00+00:00",
+            "test_end": "2025-06-09 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0028289339257705493,
+              "annualized_return": 0.026223371104489468,
+              "annualized_volatility": 0.010597240940558361,
+              "sharpe": 2.4479500449372886,
+              "sortino": 0.0712501120391683,
+              "max_drawdown": -0.0022901899476783405,
+              "win_rate": 1.0,
+              "profit_factor": Infinity,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-03-11 20:00:00+00:00",
+            "train_end": "2025-06-09 16:00:00+00:00",
+            "test_start": "2025-06-09 20:00:00+00:00",
+            "test_end": "2025-07-09 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0006401162914713154,
+              "annualized_return": -0.005850199397516298,
+              "annualized_volatility": 0.0014007072001834533,
+              "sharpe": -4.188165825993477,
+              "sortino": -0.10166021300025828,
+              "max_drawdown": -0.000693524222428854,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-04-10 20:00:00+00:00",
+            "train_end": "2025-07-09 16:00:00+00:00",
+            "test_start": "2025-07-09 20:00:00+00:00",
+            "test_end": "2025-08-08 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.001322601866175499,
+              "annualized_return": -0.012054021533898007,
+              "annualized_volatility": 0.007034459864954154,
+              "sharpe": -1.7204714164666914,
+              "sortino": -0.04878370417144364,
+              "max_drawdown": -0.0029931674888097255,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-05-10 20:00:00+00:00",
+            "train_end": "2025-08-08 16:00:00+00:00",
+            "test_start": "2025-08-08 20:00:00+00:00",
+            "test_end": "2025-09-07 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0037224437404701494,
+              "annualized_return": -0.03359576050048474,
+              "annualized_volatility": 0.00796805183846502,
+              "sharpe": -4.284758679676391,
+              "sortino": -0.10785935920995686,
+              "max_drawdown": -0.00455412082912525,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 3
+            }
+          },
+          {
+            "train_start": "2025-06-09 20:00:00+00:00",
+            "train_end": "2025-09-07 16:00:00+00:00",
+            "test_start": "2025-09-07 20:00:00+00:00",
+            "test_end": "2025-10-07 16:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0003695943332631124,
+              "annualized_return": -0.0033815549919229415,
+              "annualized_volatility": 0.0025686478303813096,
+              "sharpe": -1.3174237549244614,
+              "sortino": -0.04010297596184977,
+              "max_drawdown": -0.0009579445461600552,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-07-09 20:00:00+00:00",
+            "train_end": "2025-10-07 16:00:00+00:00",
+            "test_start": "2025-10-07 20:00:00+00:00",
+            "test_end": "2025-11-10 04:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0035532953701938874,
+              "annualized_return": -0.032091256025760906,
+              "annualized_volatility": 0.005515073515547524,
+              "sharpe": -5.9114483778657005,
+              "sortino": -0.1301245966254324,
+              "max_drawdown": -0.003962037228409267,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 2
+            }
+          },
+          {
+            "train_start": "2025-08-08 20:00:00+00:00",
+            "train_end": "2025-11-10 04:00:00+00:00",
+            "test_start": "2025-11-10 08:00:00+00:00",
+            "test_end": "2025-12-10 04:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0011963594253210363,
+              "annualized_return": 0.011016140063128566,
+              "annualized_volatility": 0.005938151642318708,
+              "sharpe": 1.8479627668800225,
+              "sortino": 0.07527991520093238,
+              "max_drawdown": -0.0011964241350879146,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-09-07 20:00:00+00:00",
+            "train_end": "2025-12-10 04:00:00+00:00",
+            "test_start": "2025-12-10 08:00:00+00:00",
+            "test_end": "2026-01-09 04:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0024492827150581764,
+              "annualized_return": 0.022668899406606435,
+              "annualized_volatility": 0.003613495177148231,
+              "sharpe": 6.205181469288872,
+              "sortino": 0.2648471386706046,
+              "max_drawdown": -0.0003961190545214046,
+              "win_rate": 1.0,
+              "profit_factor": Infinity,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-10-07 20:00:00+00:00",
+            "train_end": "2026-01-09 04:00:00+00:00",
+            "test_start": "2026-01-09 08:00:00+00:00",
+            "test_end": "2026-02-08 04:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0015113873715618675,
+              "annualized_return": -0.013763988705338681,
+              "annualized_volatility": 0.006367515819716014,
+              "sharpe": -2.173431368780554,
+              "sortino": -0.06096669924020547,
+              "max_drawdown": -0.003491744604235252,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-11-10 08:00:00+00:00",
+            "train_end": "2026-02-08 04:00:00+00:00",
+            "test_start": "2026-02-08 08:00:00+00:00",
+            "test_end": "2026-03-10 04:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0030020619517118208,
+              "annualized_return": -0.02717377281227973,
+              "annualized_volatility": 0.010483656091904851,
+              "sharpe": -2.622645128742338,
+              "sortino": -0.07541833325936063,
+              "max_drawdown": -0.004793434968022541,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 2
+            }
+          },
+          {
+            "train_start": "2025-12-10 08:00:00+00:00",
+            "train_end": "2026-03-10 04:00:00+00:00",
+            "test_start": "2026-03-10 08:00:00+00:00",
+            "test_end": "2026-04-09 04:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.00018847978284564082,
+              "annualized_return": -0.0017257461252682127,
+              "annualized_volatility": 0.006093673321437162,
+              "sharpe": -0.2804134596560087,
+              "sortino": -0.008601806894158398,
+              "max_drawdown": -0.0028260554716638673,
+              "win_rate": 0.3333333333333333,
+              "profit_factor": 0.932563393553251,
+              "trades": 3
+            }
+          }
+        ],
+        "summary": {
+          "windows": 23,
+          "avg_sharpe": -1.834712865928968,
+          "median_max_drawdown": -0.001682214625538192
+        }
+      }
+    },
+    "1D": {
+      "BTC/USDC": {
+        "windows": [
+          {
+            "train_start": "2024-01-01 00:00:00+00:00",
+            "train_end": "2024-03-30 00:00:00+00:00",
+            "test_start": "2024-03-31 00:00:00+00:00",
+            "test_end": "2024-05-01 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0013115702580541733,
+              "annualized_return": -0.005367982841854246,
+              "annualized_volatility": 0.003536806014613014,
+              "sharpe": -1.5200764697254228,
+              "sortino": -0.09126857251567343,
+              "max_drawdown": -0.0024591053801785484,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2024-01-31 00:00:00+00:00",
+            "train_end": "2024-05-01 00:00:00+00:00",
+            "test_start": "2024-05-02 00:00:00+00:00",
+            "test_end": "2024-05-31 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0003750662798339688,
+              "annualized_return": -0.001537298848150459,
+              "annualized_volatility": 0.0014396826540626214,
+              "sharpe": -1.0679115144575313,
+              "sortino": -0.06967372407634871,
+              "max_drawdown": -0.0007002957705695923,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2024-03-01 00:00:00+00:00",
+            "train_end": "2024-05-31 00:00:00+00:00",
+            "test_start": "2024-06-01 00:00:00+00:00",
+            "test_end": "2024-06-30 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.001176139065334203,
+              "annualized_return": 0.004832295408247145,
+              "annualized_volatility": 0.005721929140200278,
+              "sharpe": 0.8453208836985389,
+              "sortino": 0.08204412392596779,
+              "max_drawdown": -0.002269327017665983,
+              "win_rate": 0.5,
+              "profit_factor": 1.8815228626897371,
+              "trades": 2
+            }
+          },
+          {
+            "train_start": "2024-03-31 00:00:00+00:00",
+            "train_end": "2024-06-30 00:00:00+00:00",
+            "test_start": "2024-07-01 00:00:00+00:00",
+            "test_end": "2024-07-30 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2024-05-02 00:00:00+00:00",
+            "train_end": "2024-07-30 00:00:00+00:00",
+            "test_start": "2024-07-31 00:00:00+00:00",
+            "test_end": "2024-08-29 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2024-06-01 00:00:00+00:00",
+            "train_end": "2024-08-29 00:00:00+00:00",
+            "test_start": "2024-08-30 00:00:00+00:00",
+            "test_end": "2024-09-28 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2024-07-01 00:00:00+00:00",
+            "train_end": "2024-09-28 00:00:00+00:00",
+            "test_start": "2024-09-29 00:00:00+00:00",
+            "test_end": "2024-10-28 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2024-07-31 00:00:00+00:00",
+            "train_end": "2024-10-28 00:00:00+00:00",
+            "test_start": "2024-10-29 00:00:00+00:00",
+            "test_end": "2025-01-08 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2024-08-30 00:00:00+00:00",
+            "train_end": "2025-01-08 00:00:00+00:00",
+            "test_start": "2025-01-09 00:00:00+00:00",
+            "test_end": "2025-02-07 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2024-09-29 00:00:00+00:00",
+            "train_end": "2025-02-07 00:00:00+00:00",
+            "test_start": "2025-02-08 00:00:00+00:00",
+            "test_end": "2025-03-09 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0015875797310686002,
+              "annualized_return": -0.006494851109656308,
+              "annualized_volatility": 0.0034692811551147286,
+              "sharpe": -1.8764761737080904,
+              "sortino": -0.11099314839772924,
+              "max_drawdown": -0.0017895694935195405,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2024-10-29 00:00:00+00:00",
+            "train_end": "2025-03-09 00:00:00+00:00",
+            "test_start": "2025-03-10 00:00:00+00:00",
+            "test_end": "2025-04-08 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-01-09 00:00:00+00:00",
+            "train_end": "2025-04-08 00:00:00+00:00",
+            "test_start": "2025-04-09 00:00:00+00:00",
+            "test_end": "2025-05-08 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-02-08 00:00:00+00:00",
+            "train_end": "2025-05-08 00:00:00+00:00",
+            "test_start": "2025-05-09 00:00:00+00:00",
+            "test_end": "2025-06-07 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-03-10 00:00:00+00:00",
+            "train_end": "2025-06-07 00:00:00+00:00",
+            "test_start": "2025-06-08 00:00:00+00:00",
+            "test_end": "2025-07-07 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0010259197240836126,
+              "annualized_return": -0.0042007354280609865,
+              "annualized_volatility": 0.0029065593492950204,
+              "sharpe": -1.4468592645301033,
+              "sortino": -0.09762304458630951,
+              "max_drawdown": -0.0016411801888132072,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-04-09 00:00:00+00:00",
+            "train_end": "2025-07-07 00:00:00+00:00",
+            "test_start": "2025-07-08 00:00:00+00:00",
+            "test_end": "2025-08-06 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.002461429351249933,
+              "annualized_return": 0.010133219586472952,
+              "annualized_volatility": 0.002773022996720494,
+              "sharpe": 3.637244157521338,
+              "sortino": 0.825432291118358,
+              "max_drawdown": -0.0002651984900229373,
+              "win_rate": 1.0,
+              "profit_factor": Infinity,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-05-09 00:00:00+00:00",
+            "train_end": "2025-08-06 00:00:00+00:00",
+            "test_start": "2025-08-07 00:00:00+00:00",
+            "test_end": "2025-09-05 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0015104478344085681,
+              "annualized_return": -0.006180040733211545,
+              "annualized_volatility": 0.005043849188655108,
+              "sharpe": -1.2265602265972182,
+              "sortino": -0.08324438421193193,
+              "max_drawdown": -0.0032846224595631003,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-06-08 00:00:00+00:00",
+            "train_end": "2025-09-05 00:00:00+00:00",
+            "test_start": "2025-09-06 00:00:00+00:00",
+            "test_end": "2025-10-05 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-07-08 00:00:00+00:00",
+            "train_end": "2025-10-05 00:00:00+00:00",
+            "test_start": "2025-10-06 00:00:00+00:00",
+            "test_end": "2025-11-06 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-08-07 00:00:00+00:00",
+            "train_end": "2025-11-06 00:00:00+00:00",
+            "test_start": "2025-11-07 00:00:00+00:00",
+            "test_end": "2025-12-06 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-09-06 00:00:00+00:00",
+            "train_end": "2025-12-06 00:00:00+00:00",
+            "test_start": "2025-12-07 00:00:00+00:00",
+            "test_end": "2026-01-05 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-10-06 00:00:00+00:00",
+            "train_end": "2026-01-05 00:00:00+00:00",
+            "test_start": "2026-01-06 00:00:00+00:00",
+            "test_end": "2026-02-04 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-11-07 00:00:00+00:00",
+            "train_end": "2026-02-04 00:00:00+00:00",
+            "test_start": "2026-02-05 00:00:00+00:00",
+            "test_end": "2026-03-06 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-12-07 00:00:00+00:00",
+            "train_end": "2026-03-06 00:00:00+00:00",
+            "test_start": "2026-03-07 00:00:00+00:00",
+            "test_end": "2026-04-05 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          }
+        ],
+        "summary": {
+          "windows": 23,
+          "avg_sharpe": -0.37933122968549843,
+          "median_max_drawdown": 0.0
+        }
+      },
+      "ETH/USDC": {
+        "windows": [
+          {
+            "train_start": "2024-01-01 00:00:00+00:00",
+            "train_end": "2024-03-30 00:00:00+00:00",
+            "test_start": "2024-03-31 00:00:00+00:00",
+            "test_end": "2024-05-01 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.002665179368274373,
+              "annualized_return": -0.010885144793880475,
+              "annualized_volatility": 0.005863438576162552,
+              "sharpe": -1.8636923857295586,
+              "sortino": -0.10621524298215465,
+              "max_drawdown": -0.002949379513960782,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2024-01-31 00:00:00+00:00",
+            "train_end": "2024-05-01 00:00:00+00:00",
+            "test_start": "2024-05-02 00:00:00+00:00",
+            "test_end": "2024-05-31 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2024-03-01 00:00:00+00:00",
+            "train_end": "2024-05-31 00:00:00+00:00",
+            "test_start": "2024-06-01 00:00:00+00:00",
+            "test_end": "2024-06-30 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0024709960561828392,
+              "annualized_return": -0.01009510018268367,
+              "annualized_volatility": 0.004173372964539793,
+              "sharpe": -2.429125556853458,
+              "sortino": -0.14684163740185194,
+              "max_drawdown": -0.0035930134853637925,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2024-03-31 00:00:00+00:00",
+            "train_end": "2024-06-30 00:00:00+00:00",
+            "test_start": "2024-07-01 00:00:00+00:00",
+            "test_end": "2024-07-30 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.002405223320888994,
+              "annualized_return": -0.009827392334110563,
+              "annualized_volatility": 0.004127744603079108,
+              "sharpe": -2.390514845445169,
+              "sortino": -0.12814960445899534,
+              "max_drawdown": -0.0028727321725040356,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2024-05-02 00:00:00+00:00",
+            "train_end": "2024-07-30 00:00:00+00:00",
+            "test_start": "2024-07-31 00:00:00+00:00",
+            "test_end": "2024-08-29 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2024-06-01 00:00:00+00:00",
+            "train_end": "2024-08-29 00:00:00+00:00",
+            "test_start": "2024-08-30 00:00:00+00:00",
+            "test_end": "2024-09-28 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2024-07-01 00:00:00+00:00",
+            "train_end": "2024-09-28 00:00:00+00:00",
+            "test_start": "2024-09-29 00:00:00+00:00",
+            "test_end": "2024-10-28 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2024-07-31 00:00:00+00:00",
+            "train_end": "2024-10-28 00:00:00+00:00",
+            "test_start": "2024-10-29 00:00:00+00:00",
+            "test_end": "2025-01-08 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.001410310948664839,
+              "annualized_return": -0.0057712240015120875,
+              "annualized_volatility": 0.0027659414241154932,
+              "sharpe": -2.0911904590563974,
+              "sortino": -0.10941715665754667,
+              "max_drawdown": -0.001410310948664839,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2024-08-30 00:00:00+00:00",
+            "train_end": "2025-01-08 00:00:00+00:00",
+            "test_start": "2025-01-09 00:00:00+00:00",
+            "test_end": "2025-02-07 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2024-09-29 00:00:00+00:00",
+            "train_end": "2025-02-07 00:00:00+00:00",
+            "test_start": "2025-02-08 00:00:00+00:00",
+            "test_end": "2025-03-09 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2024-10-29 00:00:00+00:00",
+            "train_end": "2025-03-09 00:00:00+00:00",
+            "test_start": "2025-03-10 00:00:00+00:00",
+            "test_end": "2025-04-08 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-01-09 00:00:00+00:00",
+            "train_end": "2025-04-08 00:00:00+00:00",
+            "test_start": "2025-04-09 00:00:00+00:00",
+            "test_end": "2025-05-08 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-02-08 00:00:00+00:00",
+            "train_end": "2025-05-08 00:00:00+00:00",
+            "test_start": "2025-05-09 00:00:00+00:00",
+            "test_end": "2025-06-07 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-03-10 00:00:00+00:00",
+            "train_end": "2025-06-07 00:00:00+00:00",
+            "test_start": "2025-06-08 00:00:00+00:00",
+            "test_end": "2025-07-07 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0005647141937690225,
+              "annualized_return": 0.0023179914200897045,
+              "annualized_volatility": 0.004323791899157353,
+              "sharpe": 0.5376192999854129,
+              "sortino": 0.050806425753087345,
+              "max_drawdown": -0.0008164831352199808,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-04-09 00:00:00+00:00",
+            "train_end": "2025-07-07 00:00:00+00:00",
+            "test_start": "2025-07-08 00:00:00+00:00",
+            "test_end": "2025-08-06 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-05-09 00:00:00+00:00",
+            "train_end": "2025-08-06 00:00:00+00:00",
+            "test_start": "2025-08-07 00:00:00+00:00",
+            "test_end": "2025-09-05 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-06-08 00:00:00+00:00",
+            "train_end": "2025-09-05 00:00:00+00:00",
+            "test_start": "2025-09-06 00:00:00+00:00",
+            "test_end": "2025-10-05 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0001305394347850264,
+              "annualized_return": 0.0005354667276444847,
+              "annualized_volatility": 0.0004736217125524557,
+              "sharpe": 1.1305113141425511,
+              "sortino": 0.10160072145266036,
+              "max_drawdown": -0.00013621090046388968,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-07-08 00:00:00+00:00",
+            "train_end": "2025-10-05 00:00:00+00:00",
+            "test_start": "2025-10-06 00:00:00+00:00",
+            "test_end": "2025-11-06 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-08-07 00:00:00+00:00",
+            "train_end": "2025-11-06 00:00:00+00:00",
+            "test_start": "2025-11-07 00:00:00+00:00",
+            "test_end": "2025-12-06 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-09-06 00:00:00+00:00",
+            "train_end": "2025-12-06 00:00:00+00:00",
+            "test_start": "2025-12-07 00:00:00+00:00",
+            "test_end": "2026-01-05 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-10-06 00:00:00+00:00",
+            "train_end": "2026-01-05 00:00:00+00:00",
+            "test_start": "2026-01-06 00:00:00+00:00",
+            "test_end": "2026-02-04 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": -0.0015091540725926667,
+              "annualized_return": -0.0061747596592572895,
+              "annualized_volatility": 0.005899536136650183,
+              "sharpe": -1.046970531197014,
+              "sortino": -0.07247624989584543,
+              "max_drawdown": -0.0033923325068231486,
+              "win_rate": 0.0,
+              "profit_factor": 0.0,
+              "trades": 1
+            }
+          },
+          {
+            "train_start": "2025-11-07 00:00:00+00:00",
+            "train_end": "2026-02-04 00:00:00+00:00",
+            "test_start": "2026-02-05 00:00:00+00:00",
+            "test_end": "2026-03-06 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0,
+              "annualized_return": 0.0,
+              "annualized_volatility": 0.0,
+              "sharpe": null,
+              "sortino": null,
+              "max_drawdown": 0.0,
+              "win_rate": null,
+              "profit_factor": null,
+              "trades": 0
+            }
+          },
+          {
+            "train_start": "2025-12-07 00:00:00+00:00",
+            "train_end": "2026-03-06 00:00:00+00:00",
+            "test_start": "2026-03-07 00:00:00+00:00",
+            "test_end": "2026-04-05 00:00:00+00:00",
+            "metrics": {
+              "cumulative_return": 0.0026373815630313935,
+              "annualized_return": 0.01086054165304473,
+              "annualized_volatility": 0.005579047982344512,
+              "sharpe": 1.9389525674373307,
+              "sortino": 3.2616597838580725,
+              "max_drawdown": -7.70691615321617e-05,
+              "win_rate": 1.0,
+              "profit_factor": Infinity,
+              "trades": 1
+            }
+          }
+        ],
+        "summary": {
+          "windows": 23,
+          "avg_sharpe": -0.776801324589538,
+          "median_max_drawdown": 0.0
+        }
+      }
+    }
+  }
+}
