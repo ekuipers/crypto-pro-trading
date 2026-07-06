@@ -24,8 +24,7 @@ Creator: Erik Kuipers
 
 
 ## Bugs
-*(none — all listed bugs fixed; see `memory/memory.md` session history)*
-
+1. The total profit kpi's are not correct. Please fix.
 ---
 
 # Coding instructions
