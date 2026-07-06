@@ -62,6 +62,21 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-07-06 — Bug: Total P&L / realized-profit KPIs were computed on a truncated 100-fill window (v2026-07-06.1)
+
+Rescan roadmap. Bugs list had one item: *"The total profit kpi's are not correct. Please fix."*
+
+**Problem (root cause):** The shared realized-P&L engine `computeFifoStats()` was fed only a **single 100-fill page** (`/v2/account/activities?activity_type=FILL&page_size=100&sort=desc`) in three places:
+- `loadContext()` — drives the Overview **Total P&L** KPI, the Command tab, and the Backtest vs Live tab (`c.fifoStats`).
+- `loadPnl()` — drives the P&L tab **Total Realized P&L** KPI + attribution + calendar + day-of-week.
+- `generateDailyJournal()` — computes today's realized-P&L slice.
+
+Once an account exceeds 100 fills, FIFO matching runs on a truncated tail: (1) the realized total is understated, and (2) any SELL whose matching BUY predates the 100-fill window hits an empty queue → `realizedPnl` stays 0 → booked as a **$0 "win"**, which also corrupts win rate and profit factor. The Edge and Insights tabs already did it correctly via `edgeFetchAllFills()` (paginates all fills, 10k cap), so they silently disagreed with the "matches P&L tab" KPIs.
+
+**Fix (`docs/dashboard_professional.html`):** routed all three feeders through the existing `edgeFetchAllFills()` helper (mode-aware — uses `apiFetch` → `getBaseUrl()`/`getHeaders()`, paginates via the activities `id` cursor with `direction=desc`, 10k safety cap). It is a hoisted function declaration in the same script block, so the earlier-defined `loadContext`/`loadPnl`/`generateDailyJournal` can call it. `loadPnl` dropped its now-unused local `baseUrl`; `generateDailyJournal` uses `edgeFetchAllFills().catch(() => [])` to preserve its "empty on failure" behaviour. Now every realized-P&L KPI (Overview Total P&L, P&L tab, Backtest, Edge, Insights, daily journal) reads the same complete fill history and cannot diverge. Footer → v2026-07-06.1.
+
+**Verified:** extracted both inline `<script>` blocks and validated each with `new vm.Script` (`node`) → 2 blocks checked, 0 errors. Repo grep confirms the only remaining `activity_type=FILL` URL string is inside `edgeFetchAllFills()` itself; no feeder still uses `page_size=100&sort=desc`. Bugs list cleared in CLAUDE.md.
+
 ### 2026-06-29 — Chore: stop tracking `ruvector.db` runtime state
 
 `ruvector.db` (RuVector runtime state binary) mutates continuously while the agent/process runs, so it reappeared as a modified tracked file every cycle and repeatedly tripped the Stop hook ("tracked files changed this session"). It is generated runtime state, not source.
