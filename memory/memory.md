@@ -62,6 +62,29 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-07-07 — Analysis: dashboard effectiveness & strategy-consistency review → 10 roadmap candidates (no code changed)
+
+User asked to analyze the dashboard's effectiveness and strategy consistency and add suggested improvements to the roadmap for owner selection. **Analysis-only session — no code, config, or dashboard changes; CLAUDE.md roadmap + this entry are the only edits.**
+
+**Method.** Reviewed `docs/dashboard_professional.html` (Autopilot `apCycle()` block ~6940–7253, signal engine consts ~2272–2300, order paths), `config.json`, `scripts/risk.py`, `run_evaluation.py`, `position_state.py` for cross-engine drift, against the CLAUDE.md hard rules and parity checklist.
+
+**Findings (ranked, all added to the CLAUDE.md roadmap as candidates 1–10):**
+
+1. **Autopilot has no daily-drawdown gate** — Python blocks entries at −3% day drawdown (`daily_drawdown_gate_triggered` + capital-preservation mode); `apCycle()` has no counterpart, so the in-browser loop keeps buying through a portfolio slide.
+2. **Autopilot limit prices are stale** — entries/exits use `res.lastClose` (last *completed* 15-min bar, by design of `barsEnd()` up to ~15–30 min old) instead of a fresh snapshot quote; in a fast move the ±0.1%/−0.5% bands anchor to a stale price.
+3. **No stale-order lifecycle** — Autopilot orders are GTC; only the ⛔ kill switch ever cancels. An unfilled exit is skipped every cycle by the `qty_available` dedup ("qty locked"), leaving the position unprotected, where Python cancel-replaces after `stop_loss_escalation_cycles` (2) with a wider band. Unfilled entries also linger indefinitely.
+4. **Autopilot strategy consts hardcoded** (TA exit −2, trail 2.5/3, cash reserve 20, swing-low params) vs Python reading `config.json` — engines can silently fork.
+5. **Min-bars drift** — dashboard scores at ≥55 bars, Python `min_bars_for_signal` = 60.
+6. **Scout promotions invisible to the dashboard** — Python merges `data/watchlist_dynamic.json`; the dashboard never reads it (no `scout`/`watchlist_dynamic` reference in the HTML), so Signals/Autopilot see a narrower universe than the bot trades.
+7. **ADX/OBV journal-only** — the 2026-07-07 informational indicators have no dashboard display (score-parity exemption intact; this is about *showing* them, not scoring).
+8. **No R:R computation anywhere** despite Decision Checklist item 12 ("prefer R:R ≥ 1:2").
+9. **Correlation budget is static tiers** while the Risk tab already computes a live ρ matrix that could gate correlated entries.
+10. **Trailing-stop HWM state split** — Python `data/positions_state.json` vs Autopilot `localStorage.autopilotHwm`; two engines managing the same position trail from different HWMs.
+
+**Confirmed consistent (no action):** score gates 3.5/2.5/4.0 shared via `SIGNAL_*` consts and matching `config.json`; trailing 2.5%/3% matches `risk.trailing_*`; swing-low stop params (20 bars / 0.999 / 8% clamp) mirrored in `swingLowStop4h()`; entry band ×1.001 within the 0.2% rule and exit band ×0.995 within 0.5%; cash-reserve 20% post-order gate present; correlation-budget caps read live from Settings; all realized-P&L KPIs on the shared `edgeFetchAllFills()`/`computeFifoStats()` path (2026-07-06/07 fixes verified still in place); annualization 365 both sides.
+
+**Verified:** findings grep-confirmed against the live files (`daily_drawdown|capital_preservation` absent from the HTML; `length >= 55` at lines 6204/7147 vs `min_bars_for_signal` 60; `cancel` only in the kill switch; no `watchlist_dynamic` in the HTML). Roadmap items are proposals — owner selects; nothing moved to "completed".
+
 ### 2026-07-07 — Roadmap: skills-gap analysis — `hourly-research` + `crypto-catalysts` skills added
 
 User added roadmap item 1 ("look at the skills in this project and add any skill that could benefit this project, with the focus on crypto. Don't overlap skills and don't add too many") and requested "rescan roadmap" (= implementation per workflow rule 8).
