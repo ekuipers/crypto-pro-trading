@@ -15,13 +15,12 @@ Creator: Erik Kuipers
 5. Update readme.md to reflect changes.
 6. Add footer to the webpage. Add Project descirption, creator, last modified dat and version number to the Footer
 7. Before analyzing any code change, read the memory for earlier changes.
-8. a "rescan roadmap"request triggers implementation, not just a status report.
+8. a "rescan roadmap" request triggers implementation, not just a status report.
 
 ---
 
 ## Roadmap
-*(none — see `memory/memory.md` session history for completed items)*
-
+*(none — the indicator-list analysis was completed 2026-07-07: ADX + OBV added as informational indicators; see `memory/memory.md`)*
 
 ## Bugs
 *(none — the Total P&L / realized-profit KPIs were fixed 2026-07-06; see `memory/memory.md`)*
@@ -300,6 +299,8 @@ Every evaluation must be logged to `journal/YYYY-MM-DD.md`:
     macd    : line=X sig=X hist=X (BULLISH/BEARISH FLIP)
     bb      : lower=X mid=X upper=X bw=X pb=X trend=tightening SQUEEZE
     atr     : X.XXXX  stop_1.5x=X.XXXX
+    adx     : XX.X (ranging/weak | emerging trend | trending | strong trend)
+    obv     : rising / falling / flat
     4h      : golden / death / neutral
     daily   : ma20=X ma50=X last=X regime=uptrend/downtrend/mixed
     signals :
@@ -454,6 +455,8 @@ Compare the following point-by-point before committing:
 10. **Bar completeness** — both sides pass `end = now − 1 bar period`.
 11. **Bar recency** — Python passes `sort=desc` (then reverses to chronological); dashboard paginates via `next_page_token`. Both must end at the latest complete bar — verify last bar timestamp ≈ now − 1 period.
 12. **Annualization factor** — crypto trades 24/7, so annualized KPIs (Sharpe, Sortino, Calmar, annualized volatility) use **365**, not the equity-market 252. Dashboard: `DEFAULT_LIMITS.tradingDaysPerYear = 365`. Python: `scripts/metrics.py` `annualization_factor("1D") = 365.0`. Keep the two equal (corrected from 252 on 2026-07-07). A SELL that matches no prior BUY in `computeFifoStats()` must not be booked as a $0 "win" — it's excluded from win/loss stats (aligns with `edgeFifoTrades`/`insRoundTrips`).
+
+**Note on informational indicators (ADX, OBV)** — Added 2026-07-07 (roadmap). `indicators.py` also computes **ADX(14)** (Wilder trend *strength*, with `adx_label()` buckets: <20 ranging/weak, 20–25 emerging, 25–40 trending, ≥40 strong) and **OBV trend** (`obv_trend()`: cumulative signed volume over the last 20 bars with a 5%-of-window-volume dead zone → rising/falling/flat). Both are **informational only**: they appear as `adx` / `obv` lines in the journal indicator block so the hourly agent can weigh trend strength and volume flow, but they do **not** contribute to the 6-point `signal_score()` and are therefore **exempt from the dashboard parity checklist** (no `calcSignalScore()` counterpart required). Do not fold them into the score without re-tuning every gate threshold on both sides.
 
 **Note on the Breakout Scanner scoring** — The Breakout Scanner tab shows two scores side-by-side in each card header: (1) **Conviction** — a gap/breakout-specific score using daily bars, gap magnitude, volume tier, and range position (max ±7); (2) **Signal /6** — the standard 6-point `calcSignalScore()` result using 15-min + 4H + daily bars, identical to the Signals and Market Signals tabs. The Conviction score is intentionally separate from the execution 6-point score and should not be kept in sync with `indicators.py`. The Signal /6 score must be kept in sync (it uses the same `calcSignalScore` function).
 

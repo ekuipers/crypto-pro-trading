@@ -77,6 +77,7 @@ Key principles applied across both dashboards:
 
 | Date | Change |
 |------|--------|
+| 2026-07-07 | *(no dashboard change)* Python-side roadmap item: ADX(14) + OBV trend added to `scripts/indicators.py` as **informational** journal indicators (`adx :` / `obv :` lines). Not part of the 6-point score — `calcSignalScore()` intentionally unchanged, parity exemption documented in CLAUDE.md. |
 | 2026-05-09 | Initial version — 3 tabs: Overview, Hot Symbols, Morning Brief. |
 | 2026-05-10 | Added Allocation (donut) and Settings tabs. |
 | 2026-05-11 | Equity curve added to Overview (Chart.js + portfolio-history endpoint). |

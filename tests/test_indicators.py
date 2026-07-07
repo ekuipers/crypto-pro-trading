@@ -214,6 +214,76 @@ class TestAtr:
 
 
 # ---------------------------------------------------------------------------
+# ADX
+# ---------------------------------------------------------------------------
+
+class TestAdx:
+    def test_value_in_range(self, sine_ohlcv):
+        closes, highs, lows, _ = sine_ohlcv
+        result = ind.adx(highs, lows, closes)
+        assert result is not None
+        assert 0.0 <= result <= 100.0
+
+    def test_returns_none_for_insufficient_data(self):
+        # Needs at least 2 × period + 1 bars.
+        assert ind.adx([1.0] * 20, [1.0] * 20, [1.0] * 20, period=14) is None
+
+    def test_returns_none_when_lengths_mismatch(self):
+        assert ind.adx([1.0] * 40, [1.0] * 39, [1.0] * 40) is None
+
+    def test_strong_trend_scores_high(self):
+        # Steadily rising market with clean directional movement → high ADX.
+        n = 80
+        closes = [100.0 + i for i in range(n)]
+        highs  = [c + 0.5 for c in closes]
+        lows   = [c - 0.5 for c in closes]
+        result = ind.adx(highs, lows, closes)
+        assert result is not None
+        assert result > 25
+
+    def test_label_buckets(self):
+        assert ind.adx_label(None) == "n/a"
+        assert ind.adx_label(10) == "ranging/weak"
+        assert ind.adx_label(22) == "emerging trend"
+        assert ind.adx_label(30) == "trending"
+        assert ind.adx_label(50) == "strong trend"
+
+
+# ---------------------------------------------------------------------------
+# OBV
+# ---------------------------------------------------------------------------
+
+class TestObv:
+    def test_series_length_matches_input(self, sine_ohlcv):
+        closes, _, _, volumes = sine_ohlcv
+        series = ind.obv_series(closes, volumes)
+        assert len(series) == len(closes)
+
+    def test_series_empty_when_lengths_mismatch(self):
+        assert ind.obv_series([1.0, 2.0, 3.0], [100.0, 100.0]) == []
+
+    def test_rising_on_up_moves(self):
+        # Every close up with volume → OBV must be rising.
+        closes  = [float(i) for i in range(1, 31)]
+        volumes = [100.0] * 30
+        assert ind.obv_trend(closes, volumes) == "rising"
+
+    def test_falling_on_down_moves(self):
+        closes  = [float(31 - i) for i in range(1, 31)]
+        volumes = [100.0] * 30
+        assert ind.obv_trend(closes, volumes) == "falling"
+
+    def test_flat_when_unchanged(self):
+        # Unchanged closes accumulate no signed volume → flat.
+        closes  = [100.0] * 30
+        volumes = [100.0] * 30
+        assert ind.obv_trend(closes, volumes) == "flat"
+
+    def test_returns_none_for_insufficient_data(self):
+        assert ind.obv_trend([1.0] * 10, [100.0] * 10, lookback=20) is None
+
+
+# ---------------------------------------------------------------------------
 # Volume ratio
 # ---------------------------------------------------------------------------
 

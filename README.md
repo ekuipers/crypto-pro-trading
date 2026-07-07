@@ -137,7 +137,7 @@ All thresholds are configured in `config.json` — edit there, not in source fil
 |--------|---------|
 | `scripts/run_evaluation.py` | Core evaluation loop — fetches bars, scores signals, decides BUY/SELL/HOLD, applies trailing stop + dedup + correlation budget + drawdown gate, places orders, writes journal. Bar fetch passes explicit `start`, `end = now − 1 period` (exclude in-progress bar) and `sort=desc` then reverses to chronological — without `sort=desc` Alpaca returns the *oldest* N bars of the window (daily bars were 54 d stale until 2026-06-11). `rebalance.py` and `research.py` reuse this fetcher. |
 | `scripts/trade.py` | Single gateway for all orders — enforces limit-only, limit-band (wider for stop-loss), position-cap, and crypto 24/7 rules. Exposes `get_open_orders()`, `cancel_order()`, `get_order()`. |
-| `scripts/indicators.py` | Pure-function TA library — EMA, SMA, RSI, MACD, Bollinger Bands, ATR, signal_score |
+| `scripts/indicators.py` | Pure-function TA library — EMA, SMA, RSI, MACD, Bollinger Bands, ATR, signal_score, plus informational ADX (trend strength) and OBV trend (volume flow) — journal-only, not scored |
 | `scripts/risk.py` | Pure-function risk checks — position-cap, limit-band, stop-loss, trailing stop, correlation budget, daily drawdown gate, stop-loss limit-price helpers (all loaded from `config.json`) |
 | `scripts/position_state.py` | Persistent state manager — per-symbol HWM, stop order ID + cycle count; portfolio-level day-open equity, capital preservation mode. Atomic writes to `data/positions_state.json`. |
 | `scripts/_api.py` | Shared HTTP helper — exponential-backoff retry (3 attempts, 5 s → 10 s → 20 s) for all Alpaca API calls |
@@ -189,7 +189,7 @@ A pytest suite in `tests/` covers all pure-function modules without hitting the 
 ```
 tests/
 ├── conftest.py          # sys.path setup + dummy env vars
-├── test_indicators.py   # 41 tests — SMA, EMA, RSI, MACD, Bollinger, ATR, volume, signal_score
+├── test_indicators.py   # 52 tests — SMA, EMA, RSI, MACD, Bollinger, ATR, ADX, OBV, volume, signal_score
 └── test_risk.py         # 34 tests — position cap, limit band, stop-loss, RiskCheck
 ```
 
@@ -451,7 +451,7 @@ alpaca-trading-agent/
 ├── scripts/
 │   ├── _api.py                # HTTP retry helper (exponential backoff)
 │   ├── _env.py                # .env loader
-│   ├── indicators.py          # Pure-function TA (EMA/RSI/MACD/BB/ATR)
+│   ├── indicators.py          # Pure-function TA (EMA/RSI/MACD/BB/ATR + informational ADX/OBV)
 │   ├── metrics.py             # Performance metrics (Sharpe/MDD/PF)
 │   ├── position_state.py      # Persistent state manager (HWM, stop order dedup, drawdown gate)
 │   ├── rebalance.py           # Portfolio rebalancer (trim over-cap, top-up under-cap)
@@ -465,7 +465,7 @@ alpaca-trading-agent/
 │   └── SKILL.md               # Full trading strategy playbook
 ├── tests/
 │   ├── conftest.py            # pytest setup (sys.path + dummy env vars)
-│   ├── test_indicators.py     # 41 indicator unit tests
+│   ├── test_indicators.py     # 52 indicator unit tests
 │   └── test_risk.py           # 34 risk rule unit tests
 ├── .env                       # API credentials (git-ignored)
 ├── .gitignore

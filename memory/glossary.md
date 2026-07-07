@@ -92,6 +92,11 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-07 — Informational indicators ADX + OBV
+
+- `indicators.py` gained `adx()`, `adx_label()`, `obv_series()`, `obv_trend()` — journal-only, not in `signal_score()`, exempt from dashboard parity.
+- Journal indicator block now has `adx :` and `obv :` lines between `atr` and `4h`.
+
 ## Trading Terms
 
 | Term | Meaning |
@@ -106,6 +111,8 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | Death cross | 20 EMA crosses below 50 EMA → bearish |
 | EMA cross state | Detected from last two bars; "golden" / "death" / "neutral" |
 | 4H regime | Primary trend filter: 20 EMA vs 50 EMA on 4-hour bars |
+| ADX | Average Directional Index (14, Wilder) — trend *strength* 0–100, direction-agnostic. Journal-only informational line (`adx :`), not part of the 6-point score. Labels via `adx_label()`: <20 ranging/weak, 20–25 emerging trend, 25–40 trending, ≥40 strong trend |
+| OBV / OBV trend | On-Balance Volume — cumulative volume signed by close-to-close direction. `obv_trend()` compares OBV now vs 20 bars ago with a 5%-of-window-volume dead zone → rising/falling/flat. Journal-only informational line (`obv :`), not scored |
 | Wyckoff | Market cycle phases: Accumulation → Mark-Up → Distribution → Mark-Down |
 | Mark-Up | Wyckoff trend phase: consistent HH/HL, buy pullbacks |
 | Mark-Down | Wyckoff downtrend phase: consistent LH/LL, stay flat |

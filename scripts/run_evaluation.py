@@ -297,6 +297,8 @@ def evaluate_symbol(
         "bb_trend":            None,
         "bb_squeeze":          None,
         "ema_cross":           None,
+        "adx":                 None,
+        "obv_trend":           None,
         "indicator_breakdown": None,
         "daily_ma20":          None,
         "daily_ma50":          None,
@@ -372,6 +374,9 @@ def evaluate_symbol(
     decision["bb_squeeze"]          = ind.bollinger_squeeze(closes)
     decision["ema_cross"]           = ind.ema_cross_state(closes)
     decision["atr"]                 = ind.atr(highs, lows, closes)
+    # Informational only — not part of the 6-point score (see indicators.py).
+    decision["adx"]                 = ind.adx(highs, lows, closes)
+    decision["obv_trend"]           = ind.obv_trend(closes, volumes)
 
     # ── Daily-bars regime filter (20/50-day SMA gate for new buys) ──────────
     try:
@@ -736,6 +741,10 @@ def format_indicator_block(d: dict) -> str:
         out.append("    atr     : %.4f  stop_%.1fx=%.4f" % (
             d["atr"], ATR_MULTIPLIER, d["atr"] * ATR_MULTIPLIER
         ))
+    if d.get("adx") is not None:
+        out.append("    adx     : %.1f (%s)" % (d["adx"], ind.adx_label(d["adx"])))
+    if d.get("obv_trend"):
+        out.append("    obv     : %s" % d["obv_trend"])
     out.append("    4h      : %s" % (d.get("regime_4h") or "n/a"))
     if d.get("daily_ma20") is not None and d.get("daily_ma50") is not None:
         out.append(

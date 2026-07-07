@@ -92,6 +92,110 @@ def atr(highs, lows, closes, period=14):
     return avg
 
 
+# ---------- ADX (Average Directional Index) --------------------------------
+
+def adx(highs, lows, closes, period=14):
+    """
+    Wilder's ADX — trend *strength* (0..100), direction-agnostic.
+    Complements the EMA cross (which gives direction but not strength):
+    a golden cross with ADX < 20 is a ranging market prone to whipsaw.
+
+    Informational only — not part of the 6-point signal_score.
+    Returns the current ADX value or None if insufficient data.
+    """
+    n = len(closes)
+    if n < 2 * period + 1 or len(highs) != n or len(lows) != n:
+        return None
+    plus_dm, minus_dm, trs = [], [], []
+    for i in range(1, n):
+        up = highs[i] - highs[i - 1]
+        down = lows[i - 1] - lows[i]
+        plus_dm.append(up if up > down and up > 0 else 0.0)
+        minus_dm.append(down if down > up and down > 0 else 0.0)
+        trs.append(max(
+            highs[i] - lows[i],
+            abs(highs[i] - closes[i - 1]),
+            abs(lows[i] - closes[i - 1]),
+        ))
+    # Wilder smoothing of TR and directional movement.
+    tr_s  = sum(trs[:period])
+    pdm_s = sum(plus_dm[:period])
+    mdm_s = sum(minus_dm[:period])
+    dx_values = []
+    for i in range(period, len(trs)):
+        tr_s  = tr_s - tr_s / period + trs[i]
+        pdm_s = pdm_s - pdm_s / period + plus_dm[i]
+        mdm_s = mdm_s - mdm_s / period + minus_dm[i]
+        if tr_s == 0:
+            continue
+        plus_di  = 100.0 * pdm_s / tr_s
+        minus_di = 100.0 * mdm_s / tr_s
+        di_sum = plus_di + minus_di
+        if di_sum == 0:
+            continue
+        dx_values.append(100.0 * abs(plus_di - minus_di) / di_sum)
+    if len(dx_values) < period:
+        return None
+    avg = sum(dx_values[:period]) / period
+    for v in dx_values[period:]:
+        avg = (avg * (period - 1) + v) / period
+    return avg
+
+
+def adx_label(value):
+    """Plain-language strength bucket for an ADX value."""
+    if value is None:
+        return "n/a"
+    if value >= 40:
+        return "strong trend"
+    if value >= 25:
+        return "trending"
+    if value >= 20:
+        return "emerging trend"
+    return "ranging/weak"
+
+
+# ---------- OBV (On-Balance Volume) -----------------------------------------
+
+def obv_series(closes, volumes):
+    """
+    On-Balance Volume series: cumulative volume signed by the close-to-close
+    direction. Rising OBV = accumulation; falling = distribution.
+    """
+    if len(closes) < 2 or len(closes) != len(volumes):
+        return []
+    out = [0.0]
+    for i in range(1, len(closes)):
+        if closes[i] > closes[i - 1]:
+            out.append(out[-1] + volumes[i])
+        elif closes[i] < closes[i - 1]:
+            out.append(out[-1] - volumes[i])
+        else:
+            out.append(out[-1])
+    return out
+
+
+def obv_trend(closes, volumes, lookback=20):
+    """
+    'rising' / 'falling' / 'flat' — direction of cumulative volume flow over
+    the last `lookback` bars. Dead zone: the OBV change must exceed 5% of the
+    total volume traded in the window to count as a trend.
+
+    Complements volume_ratio (single-bar snapshot) with a multi-bar
+    accumulation/distribution read. Informational only — not scored.
+    """
+    s = obv_series(closes, volumes)
+    if len(s) < lookback + 1:
+        return None
+    delta = s[-1] - s[-(lookback + 1)]
+    threshold = 0.05 * sum(volumes[-lookback:])
+    if delta > threshold:
+        return "rising"
+    if delta < -threshold:
+        return "falling"
+    return "flat"
+
+
 # ---------- RSI ------------------------------------------------------------
 
 def rsi(values, period=14):
@@ -452,6 +556,12 @@ if __name__ == "__main__":
     vr = volume_ratio(volumes)
     assert vr is not None, "volume_ratio failed"
 
+    ax = adx(highs, lows, closes)
+    assert ax is not None and 0 <= ax <= 100, "adx out of range: %r" % ax
+
+    ot = obv_trend(closes, volumes)
+    assert ot in ("rising", "falling", "flat"), "obv_trend failed: %r" % ot
+
     cross = ema_cross_state(closes)
     assert cross in ("golden", "death", "neutral"), "ema_cross_state: %r" % cross
 
@@ -462,6 +572,8 @@ if __name__ == "__main__":
     print("  bb          = lower=%.2f middle=%.2f upper=%.2f pb=%.2f" % (lower, middle, upper, pb))
     print("  atr         =", round(a, 4))
     print("  volume_ratio=", round(vr, 2))
+    print("  adx         = %.1f (%s)" % (ax, adx_label(ax)))
+    print("  obv_trend   =", ot)
     print("  ema_cross   =", cross)
     print("  score       =", score)
     for k, v in parts.items():

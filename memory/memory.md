@@ -62,6 +62,20 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-07-07 — Roadmap: indicator-list analysis — ADX + OBV added as informational indicators
+
+User re-added roadmap item 1 ("Analyze the technical indicators list and add more indicator when you deemed it necessary") and requested "rescan roadmap" (= implementation per workflow rule 8).
+
+**Analysis.** The 6-point confluence set covers direction (EMA cross, MACD), momentum (RSI), mean-reversion (BB %b), single-bar participation (volume ratio), and HTF regime (4H EMA). Two genuine gaps: (1) **trend strength** — the EMA cross gives direction but not conviction, so a golden cross in a chop is indistinguishable from one in a real trend (whipsaw trap); (2) **cumulative volume flow** — `volume_ratio` is a one-bar snapshot and cannot see multi-bar accumulation/distribution. Rejected as redundant: Stochastic RSI / CCI / Williams %R (overlap RSI/BB), VWAP (session-ambiguous on a 24/7 venue).
+
+**Change (`scripts/indicators.py`).** Added `adx(highs, lows, closes, period=14)` (Wilder ADX: smoothed ±DM/TR → DX → Wilder-averaged; needs ≥ 2×period+1 bars), `adx_label(value)` (<20 ranging/weak, 20–25 emerging trend, 25–40 trending, ≥40 strong trend), `obv_series(closes, volumes)` (cumulative signed volume), and `obv_trend(closes, volumes, lookback=20)` (rising/falling/flat; dead zone = 5% of window volume so noise reads flat). Self-test block extended.
+
+**Change (`scripts/run_evaluation.py`).** `evaluate_symbol()` computes `decision["adx"]` and `decision["obv_trend"]`; `format_indicator_block()` prints `adx : XX.X (label)` and `obv : rising/falling/flat` lines between `atr` and `4h`.
+
+**Deliberately NOT scored.** Both indicators are informational-only journal context for the hourly agent. Folding them into `signal_score()` would silently shift every trading gate (buy ≥3.5, TA exit ≤−2, scout ≥4 …) and break Python↔dashboard scoring parity; the dashboard `calcSignalScore()` is untouched and needs no counterpart (parity exemption noted in CLAUDE.md).
+
+**Verified:** `python scripts/indicators.py` self-checks pass (ADX 38.6 "trending" and OBV "rising" on the rising sine fixture — sane); `python -m pytest tests/ -q` → **95 passed** (11 new tests: TestAdx — range, insufficient data, length mismatch, high-ADX-on-clean-trend, label buckets; TestObv — series length, mismatch, rising/falling/flat, insufficient data). Roadmap item moved out of CLAUDE.md per workflow rule 3.
+
 ### 2026-07-07 — Dashboard KPI audit: crypto annualization factor + unmatched-SELL win-rate hardening (v2026-07-07.1)
 
 User asked to "check the dashboard on inconsistencies and incorrect KPIs." Audited every KPI computation path in `docs/dashboard_professional.html` and cross-checked against `scripts/metrics.py`. Two fixes applied.
@@ -923,3 +937,5 @@ Final qty  = min(1.892, 0.048) × 0.99 = 0.0475 BTC
 | BB %b | 20/2σ | <0.25=+1, >0.75=−1 |
 | Volume | vs 20-bar avg | ≥1.2×=+1, <0.7×=−0.5 |
 | 4H regime | 20 EMA vs 50 EMA on 4H | Golden=+1, Death=−1 |
+| ADX *(informational)* | 14 Wilder | <20 ranging, 20–25 emerging, 25–40 trending, ≥40 strong — not scored |
+| OBV trend *(informational)* | 20-bar lookback, 5% dead zone | rising/falling/flat volume flow — not scored |
