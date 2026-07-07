@@ -62,6 +62,20 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-07-07 — Roadmap: skills-gap analysis — `hourly-research` + `crypto-catalysts` skills added
+
+User added roadmap item 1 ("look at the skills in this project and add any skill that could benefit this project, with the focus on crypto. Don't overlap skills and don't add too many") and requested "rescan roadmap" (= implementation per workflow rule 8).
+
+**Analysis.** The existing three skills split cleanly into 1 knowledge playbook (`crypto-trader/SKILL.md` — scoring, Wyckoff, entries/exits, sizing, on-chain metrics, regimes) and 2 scheduled-routine procedures (`morning-brief-SKILL.md` 07:00, `daily-journal-SKILL.md` 23:21). Two genuine gaps, both crypto-focused: (1) the **hourly research routine** — the first core responsibility in CLAUDE.md (top-of-hour `Research HH:MM GMT+2` block feeding the `:23` evaluation) had **no skill**, while both other scheduled routines did; (2) **news/catalyst interpretation** — the Decision Checklist asks "What does recent news say? Any macro catalysts?" and `research.py news` fetches headlines, but nothing taught how to weigh crypto-specific events (crypto-trader §8 covers on-chain *metrics* only, not events/headlines). Rejected as overlapping: a weekly performance-review skill (covered by the market-researcher agent's mission 1 + the dashboard Edge/Insights tabs) and any second TA playbook (crypto-trader owns that). Stopped at two skills per the "don't add too many" constraint.
+
+**Added `skills/hourly-research-SKILL.md` (procedure, flat-file form matching the other routines).** Defines the top-of-hour research pass: symbol set = `config.json › watchlist.symbols` + fresh scout promotions from `data/watchlist_dynamic.json`; data via dry-run `run_evaluation.py` + `research.py news`; appends a per-symbol `Research HH:MM GMT+2` block (15-min/4H EMA state, daily regime, RSI/MACD/BB, informational ADX/OBV, top headlines, a terse `Read:` line). Hard rules: research-only (no orders), never skip a symbol, append-only, news can flag a close (take-profit-on-research rule) but never justify an entry below the score gates.
+
+**Added `skills/crypto-catalysts/SKILL.md` (knowledge, directory form matching crypto-trader).** News & event interpretation guide with a T1/T2/T3 severity ladder — T1 structural (hack, depeg, delisting, enforcement, chain halt) → flag open positions for close + block entries; T2 flow (large unlocks, ETF flow streaks, funding > +0.1%/8h, listings, OI extremes) → downsize/skip borderline entries; T3 noise → record only. Plus macro-window handling (skip half-size-gate entries within ±2h of FOMC/CPI), weekend/thin-liquidity skepticism, and an output convention for `Read:` lines (`flagged to close: SYMBOL — T1 …`). Prime directive: **defensive only** — catalysts veto/downsize/flag, never override score gates, regime gate, correlation budget, or any hard rule. No strategy thresholds, config, or Python/dashboard code changed — scoring parity untouched.
+
+**Docs updated.** CLAUDE.md: roadmap cleared (rule 3), hourly-research skill referenced in the Core Responsibilities bullet, new "Project skills" table under Trading Strategy Skill. README.md: skills table under Trading Strategy + project-structure tree updated to show all five skills.
+
+**Verified:** both SKILL.md files lint-clean frontmatter (name/description) consistent with existing skills; no code paths touched, so no tests affected (`tests/` unchanged). Roadmap item moved out of CLAUDE.md per workflow rule 3.
+
 ### 2026-07-07 — Roadmap: indicator-list analysis — ADX + OBV added as informational indicators
 
 User re-added roadmap item 1 ("Analyze the technical indicators list and add more indicator when you deemed it necessary") and requested "rescan roadmap" (= implementation per workflow rule 8).

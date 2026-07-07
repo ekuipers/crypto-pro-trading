@@ -85,6 +85,17 @@ The agent uses a **6-point Signal Confluence** scoring system applied to 15-min 
 filtered by 4H trend and daily regime. Full strategy detail lives in
 `skills/crypto-trader/SKILL.md`.
 
+The agent's operating knowledge is split across five skills in `skills/` (2 knowledge
+playbooks + 3 scheduled-routine procedures; the last two skills were added 2026-07-07):
+
+| Skill | Role |
+|-------|------|
+| `crypto-trader/SKILL.md` | Execution playbook — scoring, Wyckoff, entries/exits, sizing |
+| `crypto-catalysts/SKILL.md` | News & event interpretation — T1/T2/T3 catalyst severity ladder (hacks, depegs, unlocks, ETF flows, funding extremes, macro windows). Defensive only: news can veto/downsize entries or flag positions for close, never justify an entry below the score gates |
+| `hourly-research-SKILL.md` | Top-of-hour research routine — per-symbol TA + news block appended to the daily journal (research-only, no orders) |
+| `morning-brief-SKILL.md` | Daily 07:00 portfolio brief |
+| `daily-journal-SKILL.md` | Daily 23:21 closing journal |
+
 ### Signal Confluence Table
 
 | # | Indicator | Bullish | Bearish |
@@ -461,8 +472,14 @@ alpaca-trading-agent/
 │   ├── trade.py               # Alpaca order gateway (retry via _api.py)
 │   ├── verify.py              # Credential/connectivity check
 │   └── walkforward_evaluate.py # Walk-forward backtester
-├── skills/crypto-trader/
-│   └── SKILL.md               # Full trading strategy playbook
+├── skills/
+│   ├── crypto-trader/
+│   │   └── SKILL.md           # Full trading strategy playbook
+│   ├── crypto-catalysts/
+│   │   └── SKILL.md           # News & event interpretation (T1/T2/T3 catalyst ladder)
+│   ├── hourly-research-SKILL.md # Top-of-hour research routine (research-only)
+│   ├── morning-brief-SKILL.md   # Daily 07:00 brief routine
+│   └── daily-journal-SKILL.md   # Daily 23:21 closing journal routine
 ├── tests/
 │   ├── conftest.py            # pytest setup (sys.path + dummy env vars)
 │   ├── test_indicators.py     # 52 indicator unit tests

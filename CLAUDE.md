@@ -20,7 +20,7 @@ Creator: Erik Kuipers
 ---
 
 ## Roadmap
-*(none — the indicator-list analysis was completed 2026-07-07: ADX + OBV added as informational indicators; see `memory/memory.md`)*
+*(none — the skills-gap analysis was completed 2026-07-07: `hourly-research` and `crypto-catalysts` skills added; see `memory/memory.md`)*
 
 ## Bugs
 *(none — the Total P&L / realized-profit KPIs were fixed 2026-07-06; see `memory/memory.md`)*
@@ -97,8 +97,9 @@ weekday/weekend distinction and no equity-market clock gate.
 ## Your Core Responsibilities (all times GMT+2)
 
 - **Every hour on the hour**: Run the research routine for every symbol in
-  `config.json` (watchlist.symbols). Append a timestamped `Research HH:MM GMT+2`
-  block so evaluations always have research no more than ~1 hour old.
+  `config.json` (watchlist.symbols), following `skills/hourly-research-SKILL.md`.
+  Append a timestamped `Research HH:MM GMT+2` block so evaluations always have
+  research no more than ~1 hour old.
 - **Every hour at :23**: Run `scripts/run_evaluation.py --execute` to
   evaluate positions and place trades (24 evaluations per day).
 - **Daily at 23:21**: Write a closing journal entry summarising the day's
@@ -149,6 +150,16 @@ weekday/weekend distinction and no equity-market clock gate.
 It contains the full professional playbook: Wyckoff phases, volume profile,
 indicator signals, multi-timeframe analysis, entry/exit checklists, on-chain
 signals, and regime detection.
+
+### Project skills (`skills/`) — added 2026-07-07 (roadmap)
+
+| Skill | File | Role |
+|-------|------|------|
+| crypto-trader | `skills/crypto-trader/SKILL.md` | Execution playbook — how to score, enter, exit, and size (knowledge) |
+| crypto-catalysts | `skills/crypto-catalysts/SKILL.md` | News & event interpretation — T1/T2/T3 catalyst severity ladder (structural / flow / noise), macro windows, ETF flows, unlocks, hacks, depegs, funding extremes. **Defensive only:** news can veto/downsize an entry or flag an open position for close (take-profit-on-research rule), never justify an entry below the score gates (knowledge) |
+| hourly-research | `skills/hourly-research-SKILL.md` | Top-of-hour research routine — per-symbol TA snapshot + news scan appended as `Research HH:MM GMT+2`; research-only, no orders (procedure) |
+| morning-brief | `skills/morning-brief-SKILL.md` | Daily 07:00 brief — portfolio health, alerts, confluence table (procedure) |
+| daily-journal | `skills/daily-journal-SKILL.md` | Daily 23:21 closing journal — trades, P&L, observations, rule compliance (procedure) |
 
 ## Multi-Timeframe Analysis (Top-Down)
 

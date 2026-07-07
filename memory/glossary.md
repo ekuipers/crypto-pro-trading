@@ -97,6 +97,14 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 - `indicators.py` gained `adx()`, `adx_label()`, `obv_series()`, `obv_trend()` — journal-only, not in `signal_score()`, exempt from dashboard parity.
 - Journal indicator block now has `adx :` and `obv :` lines between `atr` and `4h`.
 
+## 2026-07-07 — New skills: hourly-research + crypto-catalysts
+
+- `skills/hourly-research-SKILL.md` — procedure for the top-of-hour research pass (per-symbol TA + news block `Research HH:MM GMT+2`); research-only, no orders. Symbol set = watchlist + fresh scout promotions.
+- `skills/crypto-catalysts/SKILL.md` — knowledge guide for weighing crypto news/events; defensive only (veto/downsize/flag-to-close, never entries below score gates).
+- **Catalyst severity ladder (T1/T2/T3)** — T1 structural (hack, stablecoin depeg, delisting, enforcement naming the asset, chain halt → flag position close + block entries), T2 flow (large token unlock, ETF flow streak, funding > +0.1%/8h, listing, OI extreme → downsize/skip borderline entries), T3 noise (record only). Cited in the research block's `Read:` line, e.g. `flagged to close: SOL/USD — T1 venue exploit headline`.
+- **Unlock veto** — skip new entries in an alt with a large (>2–3% supply) token-unlock cliff inside ~7 days, even at full-size score.
+- **Skill split convention** — knowledge playbooks live in directories (`skills/<name>/SKILL.md`: crypto-trader, crypto-catalysts); scheduled-routine procedures are flat files (`skills/<name>-SKILL.md`: hourly-research, morning-brief, daily-journal).
+
 ## Trading Terms
 
 | Term | Meaning |
