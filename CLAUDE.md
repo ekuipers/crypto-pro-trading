@@ -453,6 +453,7 @@ Compare the following point-by-point before committing:
 9. **ATR sizing** — `equity × 0.01 / (ATR × 1.5)`, capped at `(equity × cap_pct) / ask`.
 10. **Bar completeness** — both sides pass `end = now − 1 bar period`.
 11. **Bar recency** — Python passes `sort=desc` (then reverses to chronological); dashboard paginates via `next_page_token`. Both must end at the latest complete bar — verify last bar timestamp ≈ now − 1 period.
+12. **Annualization factor** — crypto trades 24/7, so annualized KPIs (Sharpe, Sortino, Calmar, annualized volatility) use **365**, not the equity-market 252. Dashboard: `DEFAULT_LIMITS.tradingDaysPerYear = 365`. Python: `scripts/metrics.py` `annualization_factor("1D") = 365.0`. Keep the two equal (corrected from 252 on 2026-07-07). A SELL that matches no prior BUY in `computeFifoStats()` must not be booked as a $0 "win" — it's excluded from win/loss stats (aligns with `edgeFifoTrades`/`insRoundTrips`).
 
 **Note on the Breakout Scanner scoring** — The Breakout Scanner tab shows two scores side-by-side in each card header: (1) **Conviction** — a gap/breakout-specific score using daily bars, gap magnitude, volume tier, and range position (max ±7); (2) **Signal /6** — the standard 6-point `calcSignalScore()` result using 15-min + 4H + daily bars, identical to the Signals and Market Signals tabs. The Conviction score is intentionally separate from the execution 6-point score and should not be kept in sync with `indicators.py`. The Signal /6 score must be kept in sync (it uses the same `calcSignalScore` function).
 

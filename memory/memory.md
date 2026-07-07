@@ -62,6 +62,18 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-07-07 — Dashboard KPI audit: crypto annualization factor + unmatched-SELL win-rate hardening (v2026-07-07.1)
+
+User asked to "check the dashboard on inconsistencies and incorrect KPIs." Audited every KPI computation path in `docs/dashboard_professional.html` and cross-checked against `scripts/metrics.py`. Two fixes applied.
+
+**Fix 1 — annualization factor 252 → 365 (incorrect KPI).** `DEFAULT_LIMITS.tradingDaysPerYear` was `252` (the equity-market convention). This is a 24/7 crypto product; the portfolio-history feed (`period=3M&timeframe=1D&intraday_reporting=continuous`) returns ~365 daily points/year, so every annualized KPI was scaled by the wrong √N. It feeds five sites: Performance **Annualized Volatility**, Risk **Sharpe/Sortino/Calmar**, Backtest **Live Sharpe**, and Analytics **rolling 30/90-day Sharpe & vol**. It also contradicted the backend — `scripts/metrics.py:17` documents *"markets are 24/7; annualization uses 365 days"* and `annualization_factor("1D")` returns `365.0`. Effect: Sharpe/Sortino/Calmar/vol were understated by √(252/365) ≈ 0.83 (~17% low), which could flip the Backtest "Strategy Health" colour. One-line change to `365`.
+
+**Fix 2 — `computeFifoStats` no longer books unmatched SELLs as $0 "wins" (cross-tab consistency).** When a SELL hit an empty FIFO queue (no matching prior BUY), `realizedPnl` stayed `0` and `realizedPnl >= 0` counted it as a win — the same class of phantom-$0-win bug the 2026-07-06 fix addressed in the *data source* but not the *logic*. The Edge (`edgeFifoTrades`) and Insights (`insRoundTrips`) engines already skip these (require `entryT`/`cost>0`), so Overview/P&L/Backtest win-rate & trade count could diverge from Edge/Insights. Now tracks `matchedQty`; a SELL is only counted as a realized trade when `matchedQty > 1e-9`, otherwise it stays in the trade log with `pnl: null` (renders "–", excluded from stats and the P&L calendar). Latent today (paper acct from cash, shorts disabled) but future-proofs the shared engine.
+
+**Not changed (reported as LOW, left as-is):** break-even $0 round-trips count as wins across all three engines (internally consistent); dashboard `downsideStd` uses sample-std-of-negatives while `metrics.py` uses RMS-of-downside (Sortino methodology differs — parity note only); `portLoadDist` invested/donut uses signed `market_value` vs `loadContext`'s `Math.abs()` (latent — shorts disabled).
+
+**Verified:** re-extracted the inline `<script>` and validated with `new vm.Script` (`node`) → 1 non-src block checked, 0 errors. Grep confirms `tradingDaysPerYear`/`252` now reads `365` at the single definition and no other `252` literal drives annualization. Footer → v2026-07-07.1.
+
 ### 2026-07-06 — Bug: Total P&L / realized-profit KPIs were computed on a truncated 100-fill window (v2026-07-06.1)
 
 Rescan roadmap. Bugs list had one item: *"The total profit kpi's are not correct. Please fix."*

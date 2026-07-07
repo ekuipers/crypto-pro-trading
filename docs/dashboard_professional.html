@@ -2261,9 +2261,9 @@
     <span class="footer-sep">·</span>
     <span>Creator: <strong>Erik Kuipers</strong></span>
     <span class="footer-sep">·</span>
-    <span>Last modified: <strong>2026-07-06</strong></span>
+    <span>Last modified: <strong>2026-07-07</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-07-06.1</strong></span>
+    <span>Version: <strong>v2026-07-07.1</strong></span>
   </footer>
 
   <script>
@@ -2277,7 +2277,7 @@
       maxSinglePositionPct: 30.0,
       warningSinglePositionPct: 20.0,
       assumedStopLossPct: 5.0,
-      tradingDaysPerYear: 252,
+      tradingDaysPerYear: 365,   // crypto trades 24/7 — annualize on calendar days, matches scripts/metrics.py (365)
       maxSignalSymbols: 30,
       maxOpenPositions: 4,
       maxPositionsPerTier: 3
@@ -2902,18 +2902,30 @@
         } else if (side === "sell") {
           let remaining = qty;
           let realizedPnl = 0;
+          let matchedQty = 0;
           while (remaining > 0 && queues[sym] && queues[sym].length > 0) {
             const entry = queues[sym][0];
             const matched = Math.min(remaining, entry.qty);
             realizedPnl += matched * (price - entry.price);
+            matchedQty += matched;
             entry.qty -= matched;
             remaining -= matched;
             if (entry.qty < 0.000001) queues[sym].shift();
           }
-          totalPnl += realizedPnl;
-          if (realizedPnl >= 0) { wins++; winPnl += realizedPnl; }
-          else { losses++; lossPnl += Math.abs(realizedPnl); }
-          trades.push({ date, sym, side: "SELL", qty, price, pnl: realizedPnl, status: act.order_status || "filled" });
+          if (matchedQty > 1e-9) {
+            // Only a SELL that matched a prior BUY is a realized round-trip. An
+            // unmatched SELL (empty FIFO queue) would otherwise book a phantom
+            // $0 "win" (realizedPnl stays 0) and inflate the win rate — the same
+            // class of bug the 2026-07-06 full-history fix addressed in the data
+            // source. Edge/Insights already skip these; align the shared engine.
+            totalPnl += realizedPnl;
+            if (realizedPnl >= 0) { wins++; winPnl += realizedPnl; }
+            else { losses++; lossPnl += Math.abs(realizedPnl); }
+            trades.push({ date, sym, side: "SELL", qty, price, pnl: realizedPnl, status: act.order_status || "filled" });
+          } else {
+            // Keep it in the trade log (pnl null → shows "–", not counted).
+            trades.push({ date, sym, side: "SELL", qty, price, pnl: null, status: act.order_status || "filled" });
+          }
         }
       }
 
