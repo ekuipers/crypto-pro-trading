@@ -62,6 +62,38 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-07-08 — Roadmap: all 10 dashboard effectiveness/consistency candidates implemented (v2026-07-08.1)
+
+Rescan roadmap. The owner left all 10 candidates from the 2026-07-07 analysis in place → implemented every one. All changes in `docs/dashboard_professional.html` (single file); Python untouched. Roadmap cleared per workflow rule 3.
+
+**Foundation (new shared plumbing):**
+- `STRAT_CFG` const object — dashboard-side strategy/risk params (TA-exit score −2, trail arm 2.5 / trail 3, cash reserve 20, swing-low lookback 20 / buffer 0.1% / clamp 8%, min-bars 60, daily-drawdown gate 3%, escalation 2 cycles / +0.3% band). Defaults mirror `config.json`; `seedStrategyConfig(cfg)` overwrites them from the file on load.
+- `fetchLocalJson(paths)` — graceful multi-path relative JSON fetch. `loadConfigFromFile()` now tries `./config.json` **then `../config.json`** (the Python engine's file — `docs/config.json` doesn't exist in this repo, so previously the dashboard never actually loaded any config file).
+- `calcADX()` / `adxLabel()` / `calcObvTrend()` — JS ports of `indicators.adx/adx_label/obv_trend` (Wilder ADX, OBV with 5%-of-window dead zone). Informational only; `calcSignalScore()` untouched.
+- `loadScoutPromotions()` / `scoutExtraSymbols()` — reads `data/watchlist_dynamic.json` (TTL from `config.json › scout.ttl_hours`, seeded into `_scoutTtlHours`).
+
+**Item 1 (HIGH) — Autopilot daily-drawdown gate.** `apCycle()` snapshots day-open equity per GMT+2 day (`localStorage.autopilotDayOpen`, `en-CA` date key, reset at day roll); when equity is ≥ `STRAT_CFG.dailyDrawdownGatePct` below it, the candidates list is emptied (all new entries blocked, `[BLOCK]` log), exits stay fully active. Mirrors `risk.daily_drawdown_gate_triggered` + capital preservation.
+
+**Item 2 (HIGH) — fresh quotes for limit prices.** `apCycle()` fetches `fetchSnapshotsInBatches(_apwl)` once per cycle into `liveQuote{}`; entry ask (`×1.001`) and exit limits (`×0.995`, escalated band) anchor to `liveQuote[sym] || lastClose`. `lastClose` stays scoring-only. Graceful fallback + log line when snapshots fail.
+
+**Item 3 (HIGH) — stale-order lifecycle.** Open orders fetched each cycle; per-order age counter persisted in `localStorage.autopilotOrderAge` (pruned when no longer open). Unfilled BUY limits older than 1 cycle → cancelled via new `apCancelOrder()` (DELETE `/v2/orders/{id}`, 404 = success). Exit path: when `qty_available` is locked and the tracked SELL order age ≥ `STRAT_CFG.escalationCycles` (2), cancel-replace with the full position qty at a wider band (0.5% + `escalationExtraPct` 0.3%). Kill switch clears the tracker.
+
+**Item 4 (MEDIUM) — config-seeded Autopilot constants.** Removed hardcoded `AP_CASH_RESERVE_PCT`/`AP_TA_EXIT_SCORE`/`AP_TRAIL_ARM_PCT`/`AP_TRAIL_PCT` consts and the `SWING_LOW_LOOKBACK_4H`/`SWING_LOW_MAX_STOP_PCT` consts; `apCycle()` reads them from `STRAT_CFG` at cycle start and `swingLowStop4h()` reads lookback/buffer/clamp from `STRAT_CFG` (buffer was hardcoded `×0.999`, now `1 − swingLowBufferPct/100` — same 0.999 default).
+
+**Item 5 (MEDIUM) — min-bars 55 → 60.** All five scoring paths (Signals, Scalping, Breakout, Market Scanner, Autopilot) now gate on `STRAT_CFG.minBarsForSignal` (60, = `config.json › data.min_bars_for_signal`). Added as item 13 of the Python ↔ Dashboard consistency checklist; item 14 documents the STRAT_CFG seeding rule.
+
+**Item 6 (MEDIUM) — scout promotions surfaced.** Signals scan and Autopilot merge fresh (≤ TTL) promotions into their symbol set; promoted rows get a blue **SCOUT** tag; Command tab shows a 🔭 chip (`renderScoutChip()`) listing promotions with freshness (stale promotions shown greyed, excluded from scans). Promoted symbols use the default 5% cap + Tier-2 budget — same as Python.
+
+**Item 7 (MEDIUM) — ADX + OBV columns.** Signals table and Scalping table gained display-only ADX (with `adxLabel()` tooltip) and OBV columns on the exec timeframe. Score-parity exemption intact — not folded into `calcSignalScore`. Signals table is now 16 columns (was 13), Scalping 10 (was 8); all placeholder/error colspans updated.
+
+**Item 8 (LOW) — R:R preview.** New Signals **R:R** column: risk = distance to `swingLowStop4h`, reward = distance to BB-upper target; `1:X` green ≥ 2 / yellow ≥ 1 / red < 1; "–" with tooltip when price sits at/above the BB upper. Values cached in `_signalRrMap`; `openTradeModal()` shows the same numbers in a new `#tradeRrInfo` box. Display-only — no gate.
+
+**Item 9 (LOW) — correlation-aware entry gate.** New `apMaxCorrWith(sym, openSyms, bD)` computes max Pearson ρ of 30-day daily log-returns vs open positions; ρ > `AP_CORR_LIMIT` (0.9) → **half-size** the entry (chose half-size over hard block — the static tier budget already caps count; log line records ρ and the correlated symbol).
+
+**Item 10 (LOW) — HWM state merge.** `apCycle()` reads `data/positions_state.json` each cycle and seeds `hwm[sym] = max(localStorage, file high_water_mark)` before trailing; Command tab shows `renderHwmSplitWarning()` (`#hwmSplitWarning`) when both engines carry an active HWM for the same symbol.
+
+**Verified:** `node` `vm.Script` on the extracted inline script → 1 block, 0 errors; `</html>` intact; repo grep confirms no `>= 55`/`< 55` scoring gates, no removed consts referenced, and the only `activity_type=FILL` URL remains in `edgeFetchAllFills()`. Footer → v2026-07-08.1. Docs updated across CLAUDE.md (roadmap cleared, Autopilot/Signals/Scalping/Command/Settings rows, checklist items 13–14, ADX/OBV note), README.md, glossary.md, dashboard_layout.md.
+
 ### 2026-07-07 — Analysis: dashboard effectiveness & strategy-consistency review → 10 roadmap candidates (no code changed)
 
 User asked to analyze the dashboard's effectiveness and strategy consistency and add suggested improvements to the roadmap for owner selection. **Analysis-only session — no code, config, or dashboard changes; CLAUDE.md roadmap + this entry are the only edits.**

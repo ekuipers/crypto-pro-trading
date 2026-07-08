@@ -1236,6 +1236,7 @@
         <div id="tradingStatus" class="status-main reduce" data-tip="Final trading permission based on risk limits, drawdown, open risk, concentration, and journal discipline.">Connect Alpaca</div>
         <div id="tradingStatusLog" class="small" data-tip="Last 3 entries from the Autopilot activity log." style="text-align:center;margin:6px 0 8px;line-height:1.5;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px"></div>
         <div id="sessionBanner" style="display:none;text-align:center;font-size:12px;color:var(--muted);margin-bottom:8px"></div>
+        <div id="scoutChip" style="display:none;text-align:center;font-size:12px;margin-bottom:8px"></div>
         <div id="tickerStrip" class="ticker-strip">
           <div style="padding:10px 16px;color:var(--muted);font-size:12px;align-self:center">Connect Alpaca to see live prices</div>
         </div>
@@ -1261,11 +1262,16 @@
         <div class="panel">
           <div class="panel-title">🤖 Autopilot</div>
           <div class="small" style="color:var(--muted);margin-bottom:10px">
-            Automated <b>long-only</b> execution of the 6-point confluence strategy on the 10-symbol watchlist
-            (entry score ≥ 3.5 full / ≥ 2.5 half, half-size counter-trend long in a downtrend at ≥ 4,
-            correlation budget 4 / 3-per-tier, per-symbol caps, ATR sizing, 4H swing-low stop,
-            +2.5%/3% trailing stop, TA exit at ≤ −2). Paper mode only. <b>Always OFF on page load.</b>
+            Automated <b>long-only</b> execution of the 6-point confluence strategy on the watchlist
+            + fresh scout promotions (entry score ≥ 3.5 full / ≥ 2.5 half, half-size counter-trend long
+            in a downtrend at ≥ 4, correlation budget + live-ρ half-sizing above 0.9, per-symbol caps,
+            ATR sizing, 4H swing-low stop, trailing stop, TA exit — thresholds seeded from
+            <code>config.json</code>). Daily-drawdown gate blocks new entries once equity falls 3% below
+            day open; limit prices anchor to a live snapshot quote; stale orders are
+            cancelled (entries) or cancel-replaced with a wider band (exits). Paper mode only.
+            <b>Always OFF on page load.</b>
           </div>
+          <div id="hwmSplitWarning" class="small" style="display:none;color:var(--yellow);margin-bottom:8px"></div>
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
             <button id="apToggleBtn" class="btn" onclick="apToggle()" data-tip="Start/stop the autopilot loop. Never auto-resumes after a reload.">▶ Autopilot OFF</button>
             <label class="small" style="color:var(--muted)">Interval
@@ -1602,13 +1608,16 @@
                 <th data-tip="MACD histogram direction.">MACD</th>
                 <th class="right" data-tip="Bollinger %b. &lt;0.25 bullish +1, &gt;0.75 bearish −1.">BB %b</th>
                 <th class="right" data-tip="Volume vs 20-bar average. ≥1.2× bullish, &lt;0.7× bearish.">Volume</th>
+                <th class="right" data-tip="ADX(14) trend strength — informational only, not scored. &lt;20 ranging, 20–25 emerging, 25–40 trending, ≥40 strong.">ADX</th>
+                <th data-tip="OBV volume-flow trend over 20 bars — informational only, not scored. Rising = accumulation, falling = distribution.">OBV</th>
                 <th data-tip="4H EMA 20/50 regime. Golden = uptrend, Death = downtrend.">4H Regime</th>
                 <th data-tip="Daily regime gate. Uptrend = buys allowed.">Daily</th>
                 <th class="right" data-tip="ATR-based suggested quantity using 1% equity risk rule. Requires account data loaded first.">ATR Qty</th>
+                <th class="right" data-tip="Implied reward:risk — 4H swing-low stop vs BB-upper target. Display-only; the Decision Checklist prefers ≥ 1:2.">R:R</th>
                 <th data-tip="Recommended action. BUY button pre-fills trade modal with ATR sizing.">Action</th>
               </tr>
             </thead>
-            <tbody id="signalBody"><tr><td colspan="13" class="placeholder">Click Scan Now or Refresh to load signals.</td></tr></tbody>
+            <tbody id="signalBody"><tr><td colspan="16" class="placeholder">Click Scan Now or Refresh to load signals.</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -1910,11 +1919,14 @@
             <thead>
               <tr>
                 <th>Symbol</th><th class="right">Price</th><th>Score</th><th>Signal</th>
-                <th class="right">RSI</th><th class="right">ATR</th><th>Regime</th><th>Trade</th>
+                <th class="right">RSI</th><th class="right">ATR</th>
+                <th class="right" data-tip="ADX(14) trend strength on the exec timeframe — informational only, not scored.">ADX</th>
+                <th data-tip="OBV 20-bar volume-flow trend on the exec timeframe — informational only, not scored.">OBV</th>
+                <th>Regime</th><th>Trade</th>
               </tr>
             </thead>
             <tbody id="scalpBody">
-              <tr><td colspan="8" class="placeholder">Pick a timeframe and click “▶ Scan”.</td></tr>
+              <tr><td colspan="10" class="placeholder">Pick a timeframe and click “▶ Scan”.</td></tr>
             </tbody>
           </table>
         </div>
@@ -2211,6 +2223,8 @@
           Fill in quantity and limit price to see estimated notional value.
         </div>
 
+        <div class="small" id="tradeRrInfo" style="display:none;margin-top:8px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;line-height:1.6"></div>
+
         <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
           <div class="small" style="margin-bottom:8px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">ATR Position Sizer (1% risk rule)</div>
           <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">
@@ -2261,9 +2275,9 @@
     <span class="footer-sep">·</span>
     <span>Creator: <strong>Erik Kuipers</strong></span>
     <span class="footer-sep">·</span>
-    <span>Last modified: <strong>2026-07-07</strong></span>
+    <span>Last modified: <strong>2026-07-08</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-07-07.1</strong></span>
+    <span>Version: <strong>v2026-07-08.1</strong></span>
   </footer>
 
   <script>
@@ -2289,21 +2303,38 @@
     const SIGNAL_BUY_SCORE            = 3.5;  // full-size long gate
     const SIGNAL_HALF_SCORE           = 2.5;  // half-size long gate
     const SIGNAL_DOWNTREND_LONG_SCORE = 4.0;  // half-size counter-trend long allowed in a downtrend
-    const SWING_LOW_LOOKBACK_4H       = 20;   // bars for the 4H range-low stop
-    const SWING_LOW_MAX_STOP_PCT      = 8;    // clamp: stop never > this % below entry
+
+    // Strategy/risk parameters shared with the Python engine. Defaults mirror
+    // config.json › strategy/risk/data; loadConfigFromFile() overwrites them
+    // from the file on page load (roadmap 2026-07-08) so a config change can't
+    // silently fork the two engines. All *Pct values are in percent.
+    const STRAT_CFG = {
+      taExitScore:          -2,   // strategy.sell_score_threshold
+      trailArmPct:          2.5,  // risk.trailing_stop_activation_pct × 100
+      trailPct:             3,    // risk.trailing_stop_trail_pct × 100
+      cashReservePct:       20,   // risk.min_cash_reserve_pct × 100
+      swingLowLookback:     20,   // risk.swing_low_lookback_bars
+      swingLowBufferPct:    0.1,  // risk.swing_low_buffer_pct × 100
+      swingLowMaxStopPct:   8,    // risk.swing_low_max_stop_pct × 100
+      minBarsForSignal:     60,   // data.min_bars_for_signal (aligned 2026-07-08; was 55)
+      dailyDrawdownGatePct: 3,    // risk.daily_drawdown_gate_pct × 100
+      escalationCycles:     2,    // risk.stop_loss_escalation_cycles
+      escalationExtraPct:   0.3   // risk.stop_loss_escalation_extra_pct × 100
+    };
 
     // 4H range-low (swing-low) stop — mirrors risk.swing_low_stop_price (Python).
-    // Stop sits just below the lowest low of the last SWING_LOW_LOOKBACK_4H 4H
-    // bars, clamped to at most SWING_LOW_MAX_STOP_PCT below entry. Returns null
-    // when 4H history is missing or the level is not a valid long stop (caller
-    // then falls back to the fixed % stop).
+    // Stop sits just below the lowest low of the last STRAT_CFG.swingLowLookback
+    // 4H bars, clamped to at most STRAT_CFG.swingLowMaxStopPct below entry.
+    // Returns null when 4H history is missing or the level is not a valid long
+    // stop (caller then falls back to the fixed % stop).
     function swingLowStop4h(lows4h, entry) {
       if (!entry || !Array.isArray(lows4h)) return null;
-      const win = lows4h.slice(-SWING_LOW_LOOKBACK_4H).filter(l => l > 0);
-      if (win.length < Math.min(SWING_LOW_LOOKBACK_4H, 5)) return null;
-      let stop = Math.min.apply(null, win) * 0.999;
+      const lookback = STRAT_CFG.swingLowLookback;
+      const win = lows4h.slice(-lookback).filter(l => l > 0);
+      if (win.length < Math.min(lookback, 5)) return null;
+      let stop = Math.min.apply(null, win) * (1 - STRAT_CFG.swingLowBufferPct / 100);
       if (stop >= entry) return null;
-      const floor = entry * (1 - SWING_LOW_MAX_STOP_PCT / 100);
+      const floor = entry * (1 - STRAT_CFG.swingLowMaxStopPct / 100);
       if (stop < floor) stop = floor;
       return stop;
     }
@@ -2474,30 +2505,91 @@
       `;
     }
 
-    // ── config.json load (same directory as this HTML) ───────────────────
+    // ── project-local JSON fetch (graceful) ───────────────────────────────
+    // Tries each relative path in order and returns the first parsed object,
+    // else null. The Python engine's files (config.json, data/*.json) sit one
+    // level above docs/, so callers pass both candidate paths.
+    async function fetchLocalJson(paths) {
+      for (const p of paths) {
+        try {
+          const r = await fetch(p, { cache: "no-store" });
+          if (!r.ok) continue;
+          const j = await r.json();
+          if (j && typeof j === "object") return j;
+        } catch (e) { /* try next path */ }
+      }
+      return null;
+    }
+
+    // ── config.json load (same directory as this HTML, then project root) ─
     async function loadConfigFromFile() {
       // config.json is the source of truth on page load. Falls back to
       // browser-stored settings if the file is missing or fetch is blocked.
-      try {
-        const res = await fetch("./config.json", { cache: "no-store" });
-        if (!res.ok) return false;
-        const cfg = await res.json();
-        if (cfg && typeof cfg === "object") {
-          const existing = JSON.parse(localStorage.getItem("proDashboardSettings") || "{}");
-          const merged = Object.assign({}, existing);
-          ["mode","paperApiKey","paperApiSecret","liveApiKey","liveApiSecret"].forEach(function(k){
-            if (cfg[k] !== undefined && cfg[k] !== "") merged[k] = cfg[k];
-          });
-          // localStorage (user-saved limits) wins; config.json only fills gaps.
-          merged.limits = Object.assign({}, cfg.limits || {}, existing.limits || {});
-          localStorage.setItem("proDashboardSettings", JSON.stringify(merged));
-          if (document.getElementById("setPaperApiKey")) loadSettingsForm();
-          return true;
-        }
-      } catch (e) {
-        console.info("config.json not loaded (using browser-stored settings):", e.message);
+      const cfg = await fetchLocalJson(["./config.json", "../config.json"]);
+      if (!cfg) {
+        console.info("config.json not loaded (using browser-stored settings)");
+        return false;
       }
-      return false;
+      const existing = JSON.parse(localStorage.getItem("proDashboardSettings") || "{}");
+      const merged = Object.assign({}, existing);
+      ["mode","paperApiKey","paperApiSecret","liveApiKey","liveApiSecret"].forEach(function(k){
+        if (cfg[k] !== undefined && cfg[k] !== "") merged[k] = cfg[k];
+      });
+      // localStorage (user-saved limits) wins; config.json only fills gaps.
+      merged.limits = Object.assign({}, cfg.limits || {}, existing.limits || {});
+      localStorage.setItem("proDashboardSettings", JSON.stringify(merged));
+      seedStrategyConfig(cfg);
+      if (document.getElementById("setPaperApiKey")) loadSettingsForm();
+      return true;
+    }
+
+    // Seed STRAT_CFG from config.json › strategy/risk/data so the Autopilot and
+    // signal engine use the same thresholds as the Python loop (roadmap item 4).
+    // Fractional config values (0.03) are converted to percent (3).
+    function seedStrategyConfig(cfg) {
+      const st = cfg.strategy || {}, rk = cfg.risk || {}, dt = cfg.data || {};
+      const num = v => (typeof v === "number" && isFinite(v)) ? v : null;
+      if (num(st.sell_score_threshold)           !== null) STRAT_CFG.taExitScore          = st.sell_score_threshold;
+      if (num(rk.trailing_stop_activation_pct)   !== null) STRAT_CFG.trailArmPct          = rk.trailing_stop_activation_pct * 100;
+      if (num(rk.trailing_stop_trail_pct)        !== null) STRAT_CFG.trailPct             = rk.trailing_stop_trail_pct * 100;
+      if (num(rk.min_cash_reserve_pct)           !== null) STRAT_CFG.cashReservePct       = rk.min_cash_reserve_pct * 100;
+      if (num(rk.swing_low_lookback_bars)        !== null) STRAT_CFG.swingLowLookback     = rk.swing_low_lookback_bars;
+      if (num(rk.swing_low_buffer_pct)           !== null) STRAT_CFG.swingLowBufferPct    = rk.swing_low_buffer_pct * 100;
+      if (num(rk.swing_low_max_stop_pct)         !== null) STRAT_CFG.swingLowMaxStopPct   = rk.swing_low_max_stop_pct * 100;
+      if (num(dt.min_bars_for_signal)            !== null) STRAT_CFG.minBarsForSignal     = dt.min_bars_for_signal;
+      if (num(rk.daily_drawdown_gate_pct)        !== null) STRAT_CFG.dailyDrawdownGatePct = rk.daily_drawdown_gate_pct * 100;
+      if (num(rk.stop_loss_escalation_cycles)    !== null) STRAT_CFG.escalationCycles     = rk.stop_loss_escalation_cycles;
+      if (num(rk.stop_loss_escalation_extra_pct) !== null) STRAT_CFG.escalationExtraPct   = rk.stop_loss_escalation_extra_pct * 100;
+      if (cfg.scout && num(cfg.scout.ttl_hours)  !== null) _scoutTtlHours                 = cfg.scout.ttl_hours;
+    }
+
+    // ── Scout promotions (data/watchlist_dynamic.json) ─────────────────────
+    // scripts/scout.py auto-promotes uptrending high-confluence pairs and the
+    // Python loop merges them into every evaluation. Surface them here too so
+    // Signals, Autopilot, and Command see the bot's real universe (roadmap
+    // item 6). Promotions older than the scout TTL are shown but marked stale
+    // and excluded from scans.
+    let _scoutTtlHours = 6;           // config.json › scout.ttl_hours (seeded above)
+    let _scoutPromos   = null;        // { symbols, details, generated, ageHours, fresh }
+    async function loadScoutPromotions() {
+      const j = await fetchLocalJson(["./data/watchlist_dynamic.json", "../data/watchlist_dynamic.json"]);
+      if (!j || !Array.isArray(j.symbols)) { _scoutPromos = null; return null; }
+      const gen = j.generated ? new Date(j.generated) : null;
+      const ageHours = (gen && !isNaN(gen)) ? (Date.now() - gen.getTime()) / 3600000 : null;
+      _scoutPromos = {
+        symbols: j.symbols.filter(s => typeof s === "string" && s.includes("/")),
+        details: Array.isArray(j.details) ? j.details : [],
+        generated: gen,
+        ageHours,
+        fresh: ageHours !== null && ageHours <= _scoutTtlHours
+      };
+      return _scoutPromos;
+    }
+
+    // Fresh promoted symbols not already in `base` (respects the scout TTL).
+    function scoutExtraSymbols(base) {
+      if (!_scoutPromos || !_scoutPromos.fresh) return [];
+      return _scoutPromos.symbols.filter(s => !base.includes(s));
     }
 
     function getSettings() {
@@ -3069,8 +3161,49 @@
 
     
 
+    // 🔭 Scout-promotions chip (Command tab, roadmap item 6) — shows the pairs
+    // scripts/scout.py promoted into the Python bot's universe. Best-effort async.
+    async function renderScoutChip() {
+      const el = $("scoutChip");
+      if (!el) return;
+      try {
+        const p = await loadScoutPromotions();
+        if (!p || !p.symbols.length) { el.style.display = "none"; el.innerHTML = ""; return; }
+        const age = p.ageHours !== null ? `${fmt(p.ageHours, 1)}h old` : "age unknown";
+        const state = p.fresh ? `fresh · ${age}` : `STALE · ${age} > ${_scoutTtlHours}h TTL — excluded from scans`;
+        const col = p.fresh ? "var(--blue)" : "var(--muted)";
+        el.style.display = "block";
+        el.innerHTML = `<span style="border:1px solid var(--border);border-radius:12px;padding:3px 10px;color:${col}" data-tip="Universe-scout promotions from data/watchlist_dynamic.json — the Python bot merges these into every evaluation; fresh promotions are also merged into the dashboard Signals scan and Autopilot.">🔭 Scout: ${p.symbols.map(s => tvLink(s, baseTicker(s))).join(", ")} <span style="color:var(--muted)">(${state})</span></span>`;
+      } catch (e) { el.style.display = "none"; }
+    }
+
+    // ⚠ Split trailing-stop HWM warning (Command tab, roadmap item 10): fires
+    // when data/positions_state.json carries an active Python HWM for a symbol
+    // the dashboard Autopilot is also trailing in localStorage.
+    async function renderHwmSplitWarning() {
+      const el = $("hwmSplitWarning");
+      if (!el) return;
+      try {
+        let local = {};
+        try { local = JSON.parse(localStorage.getItem("autopilotHwm") || "{}"); } catch (e) {}
+        const st = await fetchLocalJson(["./data/positions_state.json", "../data/positions_state.json"]);
+        const both = [];
+        if (st && st.positions) {
+          for (const [sym, ps] of Object.entries(st.positions)) {
+            const fileHwm = Number((ps && ps.high_water_mark) || 0);
+            if (fileHwm > 0 && local[sym]) both.push(`${sym} (python $${fmt(fileHwm)} · dashboard $${fmt(local[sym])})`);
+          }
+        }
+        if (!both.length) { el.style.display = "none"; el.innerHTML = ""; return; }
+        el.style.display = "block";
+        el.innerHTML = `⚠ Trailing-stop HWM is tracked by BOTH engines for ${both.join(", ")} — the Autopilot seeds max(local, file) each cycle, but avoid managing the same position from two loops.`;
+      } catch (e) { el.style.display = "none"; }
+    }
+
     function renderCommand(c) {
       const L = getSettings().limits;
+      renderScoutChip();          // best-effort async — fills #scoutChip
+      renderHwmSplitWarning();    // best-effort async — fills #hwmSplitWarning
       const rules = [];
 
       function add(level, title, detail) {
@@ -3745,6 +3878,25 @@
       $("tradeLimitPrice").value = currentPrice || "";
       $("tradeModalSymbol").textContent = displaySymbol || orderSymbol;
 
+      // R:R preview (roadmap item 8) — pre-filled from the last Signals scan
+      // (4H swing-low stop vs BB-upper target). Display-only decision aid.
+      const rrEl = $("tradeRrInfo");
+      if (rrEl) {
+        const rr = _signalRrMap[displaySymbol] || _signalRrMap[toSlash(orderSymbol)] || null;
+        if (rr && rr.stop) {
+          const stopStr = "$" + fmt(rr.stop, rr.stop < 1 ? 6 : 2);
+          const tgtStr  = rr.target ? "$" + fmt(rr.target, rr.target < 1 ? 6 : 2) : "–";
+          const rrStr   = rr.rr != null
+            ? `<b style="color:${rr.rr >= 2 ? "var(--green)" : rr.rr >= 1 ? "var(--yellow)" : "var(--red)"}">1:${fmt(rr.rr, 1)}</b>`
+            : '<span style="color:var(--muted)">n/a (price at/above BB-upper target)</span>';
+          rrEl.style.display = "block";
+          rrEl.innerHTML = `<b>R:R preview</b> (last Signals scan) — stop: 4H swing low ${stopStr} (−${fmt(rr.stopDistPct, 1)}%) · target: BB upper ${tgtStr} · R:R ${rrStr}. Checklist prefers ≥ 1:2.`;
+        } else {
+          rrEl.style.display = "none";
+          rrEl.innerHTML = "";
+        }
+      }
+
       const warning = $("tradeModeWarning");
 
       if (settings.mode === "live") {
@@ -4193,6 +4345,67 @@
       return avg === 0 ? null : volumes[volumes.length - 1] / avg;
     }
 
+    /** ADX(14) — Wilder trend strength (0..100), mirrors Python indicators.adx().
+     *  INFORMATIONAL ONLY — never part of the 6-point calcSignalScore()
+     *  (score-parity exemption, see CLAUDE.md). Display columns only. */
+    function calcADX(highs, lows, closes, period = 14) {
+      const n = closes.length;
+      if (n < 2 * period + 1 || highs.length !== n || lows.length !== n) return null;
+      const plusDm = [], minusDm = [], trs = [];
+      for (let i = 1; i < n; i++) {
+        const up = highs[i] - highs[i - 1];
+        const down = lows[i - 1] - lows[i];
+        plusDm.push(up > down && up > 0 ? up : 0);
+        minusDm.push(down > up && down > 0 ? down : 0);
+        trs.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i - 1]), Math.abs(lows[i] - closes[i - 1])));
+      }
+      let trS = 0, pdmS = 0, mdmS = 0;
+      for (let i = 0; i < period; i++) { trS += trs[i]; pdmS += plusDm[i]; mdmS += minusDm[i]; }
+      const dx = [];
+      for (let i = period; i < trs.length; i++) {
+        trS  = trS  - trS  / period + trs[i];
+        pdmS = pdmS - pdmS / period + plusDm[i];
+        mdmS = mdmS - mdmS / period + minusDm[i];
+        if (trS === 0) continue;
+        const plusDi = 100 * pdmS / trS, minusDi = 100 * mdmS / trS;
+        const diSum = plusDi + minusDi;
+        if (diSum === 0) continue;
+        dx.push(100 * Math.abs(plusDi - minusDi) / diSum);
+      }
+      if (dx.length < period) return null;
+      let avg = dx.slice(0, period).reduce((a, b) => a + b, 0) / period;
+      for (let i = period; i < dx.length; i++) avg = (avg * (period - 1) + dx[i]) / period;
+      return avg;
+    }
+
+    /** Plain-language ADX strength bucket — mirrors Python indicators.adx_label(). */
+    function adxLabel(v) {
+      if (v == null) return "n/a";
+      if (v >= 40) return "strong trend";
+      if (v >= 25) return "trending";
+      if (v >= 20) return "emerging trend";
+      return "ranging/weak";
+    }
+
+    /** OBV trend over the last `lookback` bars — mirrors Python indicators.obv_trend().
+     *  Dead zone: OBV change must exceed 5% of window volume to count as a trend.
+     *  INFORMATIONAL ONLY — not scored (same exemption as ADX). */
+    function calcObvTrend(closes, volumes, lookback = 20) {
+      if (closes.length < 2 || closes.length !== volumes.length) return null;
+      const s = [0];
+      for (let i = 1; i < closes.length; i++) {
+        if (closes[i] > closes[i - 1]) s.push(s[s.length - 1] + volumes[i]);
+        else if (closes[i] < closes[i - 1]) s.push(s[s.length - 1] - volumes[i]);
+        else s.push(s[s.length - 1]);
+      }
+      if (s.length < lookback + 1) return null;
+      const delta = s[s.length - 1] - s[s.length - 1 - lookback];
+      const threshold = 0.05 * volumes.slice(-lookback).reduce((a, b) => a + b, 0);
+      if (delta > threshold) return "rising";
+      if (delta < -threshold) return "falling";
+      return "flat";
+    }
+
     /**
      * Compute the 6-point Signal Confluence score.
      * @param bars15  array of 15-min bar objects {c, h, l, v} — at least 60 bars
@@ -4329,6 +4542,7 @@
     let _signalCache  = null;
     let _prevScoreMap = {};       // sym → previous scan score
     let _corrCache    = null;     // correlation matrix populated by loadSignals
+    let _signalRrMap  = {};       // sym → {stop, stopDistPct, target, rr} from last Signals scan (R:R preview, item 8)
 
     // ── Live price ticker strip ──────────────────────────────────────────────
 
@@ -4466,7 +4680,8 @@
     // all symbols (not per-symbol), so a single request for 10 symbols × 120 bars
     // only returns the first ~12 bars per symbol.  Without pagination only the
     // first alphabetical symbol (AAVE) accumulates enough bars; every other symbol
-    // falls below the 55-bar threshold and shows "Insufficient bars".
+    // falls below the min-bars threshold (STRAT_CFG.minBarsForSignal, 60 —
+    // matches config.json › data.min_bars_for_signal) and shows "Insufficient bars".
     async function fetchBars(symbols, timeframe, limit) {
       const s = getSettings();
       if (!s.apiKey || !s.apiSecret) return null;
@@ -4727,13 +4942,18 @@
     async function loadSignals() {
       const s = getSettings();
       if (!s.apiKey || !s.apiSecret) {
-        $("signalBody").innerHTML = '<tr><td colspan="13" class="placeholder">Configure API credentials in Settings first.</td></tr>';
+        $("signalBody").innerHTML = '<tr><td colspan="16" class="placeholder">Configure API credentials in Settings first.</td></tr>';
         return;
       }
-      $("signalBody").innerHTML = '<tr><td colspan="13" class="placeholder">Scanning all symbols…</td></tr>';
+      $("signalBody").innerHTML = '<tr><td colspan="16" class="placeholder">Scanning all symbols…</td></tr>';
       $("signalKpis").innerHTML = kpi("Status", "Scanning…", "Fetching bars from Alpaca Data API");
 
-      const SYMBOLS = getWatchlist();
+      // Merge fresh scout promotions so the scan matches the Python bot's
+      // real universe (roadmap item 6). Graceful: file missing → watchlist only.
+      await loadScoutPromotions().catch(() => null);
+      const baseWl = getWatchlist();
+      const scoutSyms = scoutExtraSymbols(baseWl);
+      const SYMBOLS = baseWl.concat(scoutSyms);
 
       try {
         const [bars15, bars4h, barsD] = await Promise.all([
@@ -4749,7 +4969,7 @@
         }
 
         if (!bars15) {
-          $("signalBody").innerHTML = '<tr><td colspan="13" class="placeholder">Error fetching bars — check API credentials.</td></tr>';
+          $("signalBody").innerHTML = '<tr><td colspan="16" class="placeholder">Error fetching bars — check API credentials.</td></tr>';
           return;
         }
 
@@ -4762,14 +4982,18 @@
           const b4h = (bars4h[sym] || bars4h[alpacaSym] || []).map(b => ({ c: b.c, h: b.h, l: b.l, v: b.v }));
           const bD  = (barsD[sym]  || barsD[alpacaSym]  || []).map(b => ({ c: b.c, h: b.h, l: b.l, v: b.v }));
 
-          if (b15.length < 55) {
-            rows.push({ sym, score: null, error: "Insufficient bars" });
+          if (b15.length < STRAT_CFG.minBarsForSignal) {
+            rows.push({ sym, score: null, error: "Insufficient bars", scout: scoutSyms.includes(sym) });
             continue;
           }
 
           const res = calcSignalScore(b15, b4h, bD);
           scores.push(res.score);
-          rows.push({ sym, ...res });
+          // Informational ADX/OBV (display-only — parity exemption) + R:R inputs
+          const adxVal = calcADX(b15.map(b => b.h), b15.map(b => b.l), b15.map(b => b.c));
+          const obvVal = calcObvTrend(b15.map(b => b.c), b15.map(b => b.v));
+          const swingStop = swingLowStop4h(b4h.map(b => b.l), res.lastClose);
+          rows.push({ sym, ...res, adxVal, obvVal, swingStop, scout: scoutSyms.includes(sym) });
 
           // fire notification for strong BUY or SHORT signals
           if (Notification.permission === "granted") {
@@ -4839,8 +5063,12 @@
         const equity = lastContext ? lastContext.equity : 0;
 
         rows.sort((a, b) => (b.score !== null ? b.score : -99) - (a.score !== null ? a.score : -99));
+        _signalRrMap = {};   // rebuilt every scan — feeds the trade-modal R:R preview
+        const scoutTag = row => row.scout
+          ? ` <span style="font-size:9px;background:rgba(88,166,255,.15);color:var(--blue);border-radius:4px;padding:1px 5px;vertical-align:middle" data-tip="Scout promotion (data/watchlist_dynamic.json) — auto-promoted by scripts/scout.py and traded by the Python bot at the default 5% cap.">SCOUT</span>`
+          : "";
         $("signalBody").innerHTML = rows.map(row => {
-          if (row.error) return `<tr><td><span class="symbol">${tvLink(row.sym)}</span></td><td colspan="12" style="color:var(--muted)">${row.error}</td></tr>`;
+          if (row.error) return `<tr><td><span class="symbol">${tvLink(row.sym)}</span>${scoutTag(row)}</td><td colspan="15" style="color:var(--muted)">${row.error}</td></tr>`;
           const down = row.dailyRegime === "downtrend";
           const emaLabel = (row.ema20 > row.ema50) ? "Golden" : "Death";
           const regime4hLabel = (row.ema4h_20 > row.ema4h_50) ? "Golden" : "Death";
@@ -4880,9 +5108,27 @@
           })() : "";
           const orderSym = row.sym.replace("/","");
 
+          // R:R preview (roadmap item 8, display-only): risk = distance to the
+          // 4H swing-low stop; reward = distance to the BB-upper target.
+          let rrHtml = '<span style="color:var(--muted)">–</span>';
+          if (row.swingStop && row.lastClose > row.swingStop) {
+            const stopDistPct = (row.lastClose - row.swingStop) / row.lastClose * 100;
+            const target = row.bb && row.bb.upper > row.lastClose ? row.bb.upper : null;
+            const stopStr = fmt(row.swingStop, row.swingStop < 1 ? 6 : 2);
+            if (target) {
+              const rr = (target - row.lastClose) / (row.lastClose - row.swingStop);
+              const rrCol = rr >= 2 ? "var(--green)" : rr >= 1 ? "var(--yellow)" : "var(--red)";
+              rrHtml = `<span style="color:${rrCol};font-weight:700" data-tip="Stop = 4H swing low $${stopStr} (−${fmt(stopDistPct,1)}%) · target = BB upper $${fmt(target, target < 1 ? 6 : 2)} · Decision Checklist prefers ≥ 1:2">1:${fmt(rr,1)}</span>`;
+              _signalRrMap[row.sym] = { stop: row.swingStop, stopDistPct, target, rr };
+            } else {
+              rrHtml = `<span style="color:var(--muted)" data-tip="Stop = 4H swing low $${stopStr} (−${fmt(stopDistPct,1)}%) · price at/above BB upper — no upside target">–</span>`;
+              _signalRrMap[row.sym] = { stop: row.swingStop, stopDistPct, target: null, rr: null };
+            }
+          }
+
           return `
             <tr>
-              <td><span class="symbol">${tvLink(row.sym)}</span></td>
+              <td><span class="symbol">${tvLink(row.sym)}</span>${scoutTag(row)}</td>
               <td class="right mono">${row.lastClose ? fmtPrice(row.lastClose) : "–"}</td>
               <td class="right">${scoreBar(row.score)}</td>
               <td style="text-align:center">${trendHtml}</td>
@@ -4891,9 +5137,12 @@
               <td class="${macdCls(row)}">${row.signals && row.signals.macd ? row.signals.macd.replace(/[+−0]\s/, "") : "–"}</td>
               <td class="right ${row.bb && row.bb.pb < 0.25 ? "pos" : row.bb && row.bb.pb > 0.75 ? "neg" : ""}">${row.bb ? fmt(row.bb.pb, 2) : "–"}</td>
               <td class="right ${row.volRatio >= 1.2 ? "pos" : row.volRatio < 0.7 ? "neg" : ""}">${row.volRatio !== null ? fmt(row.volRatio, 2) + "×" : "–"}</td>
+              <td class="right mono" data-tip="ADX(14): ${adxLabel(row.adxVal)} — informational, not scored">${row.adxVal != null ? fmt(row.adxVal, 1) : "–"}</td>
+              <td class="small ${row.obvVal === "rising" ? "pos" : row.obvVal === "falling" ? "neg" : ""}" data-tip="OBV 20-bar volume-flow trend — informational, not scored">${row.obvVal || "–"}</td>
               <td class="${regime4hCls}">${regime4hLabel}</td>
               <td class="${regimeCls(row)}">${row.dailyRegime}</td>
               <td class="right">${qtyHtml}</td>
+              <td class="right">${rrHtml}</td>
               <td>
                 ${actionPill(row)}
                 ${!down && row.score >= SIGNAL_HALF_SCORE && row.lastClose ? `<button class="trade-action-btn" style="margin-top:3px;font-size:10px" data-tip="Open BUY trade modal pre-filled with ATR-based qty" onclick="openTradeModal('${orderSym}','${row.sym}','buy','${quickFillQty}',${row.lastClose})">⚡ Buy</button><button class="trade-action-btn" style="margin-top:3px;font-size:10px;margin-left:4px" data-tip="Execute BUY order immediately using this signal" onclick="executeSignalTrade('${orderSym}','${row.sym}','buy','${quickFillQty}',${row.lastClose})">▶ Execute</button>` : ""}
@@ -4922,7 +5171,7 @@
         _signalCache = rows;
 
       } catch(e) {
-        $("signalBody").innerHTML = `<tr><td colspan="13" class="placeholder">Error: ${e.message}</td></tr>`;
+        $("signalBody").innerHTML = `<tr><td colspan="16" class="placeholder">Error: ${e.message}</td></tr>`;
       }
     }
 
@@ -6201,7 +6450,7 @@
           const b15 = ((b15All && (b15All[sym] || b15All[alpSym2])) || []).map(b => ({c:b.c,h:b.h,l:b.l,v:b.v}));
           const b4h = ((b4hAll && (b4hAll[sym] || b4hAll[alpSym2])) || []).map(b => ({c:b.c,h:b.h,l:b.l,v:b.v}));
           const bDd = daily.map(b => ({c:b.c,h:b.h,l:b.l,v:b.v}));
-          const sigRes = b15.length >= 55 ? calcSignalScore(b15, b4h, bDd) : null;
+          const sigRes = b15.length >= STRAT_CFG.minBarsForSignal ? calcSignalScore(b15, b4h, bDd) : null;
           const ggA = ggAnalyze(sym, daily, hourly);
           ggA.signalScore = sigRes ? sigRes.score : null;
           analyses.push(ggA);
@@ -6397,13 +6646,13 @@
     async function loadScalp() {
       const s = getSettings();
       if (!s.apiKey || !s.apiSecret) {
-        $("scalpBody").innerHTML = '<tr><td colspan="8" class="placeholder">Configure API credentials in Settings first.</td></tr>';
+        $("scalpBody").innerHTML = '<tr><td colspan="10" class="placeholder">Configure API credentials in Settings first.</td></tr>';
         return;
       }
       const tf  = ($("scalpTf") || {}).value || "15Min";
       const map = SCALP_TF_MAP[tf] || SCALP_TF_MAP["15Min"];
       const SYMBOLS = getWatchlist();
-      $("scalpBody").innerHTML = '<tr><td colspan="8" class="placeholder">Scanning ' + SYMBOLS.length + ' symbols on ' + tf + '…</td></tr>';
+      $("scalpBody").innerHTML = '<tr><td colspan="10" class="placeholder">Scanning ' + SYMBOLS.length + ' symbols on ' + tf + '…</td></tr>';
       $("scalpKpis").innerHTML = kpi("Status", "Scanning…", "Fetching " + map.exec + " / " + map.trend + " / " + map.regime + " bars");
 
       try {
@@ -6413,7 +6662,7 @@
           fetchBars(SYMBOLS, map.regime, 60)
         ]);
         if (!bExec) {
-          $("scalpBody").innerHTML = '<tr><td colspan="8" class="placeholder">Error fetching bars — check API credentials.</td></tr>';
+          $("scalpBody").innerHTML = '<tr><td colspan="10" class="placeholder">Error fetching bars — check API credentials.</td></tr>';
           return;
         }
 
@@ -6423,10 +6672,13 @@
           const e = (bExec[sym]  || bExec[alp]  || []).map(b => ({ c: b.c, h: b.h, l: b.l, v: b.v }));
           const t = (bTrend[sym] || bTrend[alp] || []).map(b => ({ c: b.c, h: b.h, l: b.l, v: b.v }));
           const r = (bReg[sym]   || bReg[alp]   || []).map(b => ({ c: b.c, h: b.h, l: b.l, v: b.v }));
-          if (e.length < 55) { rows.push({ sym, score: null, error: "Insufficient bars" }); continue; }
+          if (e.length < STRAT_CFG.minBarsForSignal) { rows.push({ sym, score: null, error: "Insufficient bars" }); continue; }
           const res = calcSignalScore(e, t, r);
           scores.push(res.score);
-          rows.push({ sym, ...res });
+          // Informational ADX/OBV on the exec timeframe (display-only — parity exemption)
+          const adxVal = calcADX(e.map(b => b.h), e.map(b => b.l), e.map(b => b.c));
+          const obvVal = calcObvTrend(e.map(b => b.c), e.map(b => b.v));
+          rows.push({ sym, ...res, adxVal, obvVal });
         }
 
         // KPIs
@@ -6443,7 +6695,7 @@
 
         $("scalpBody").innerHTML = rows.map(row => {
           if (row.score === null) {
-            return '<tr><td><span class="symbol">' + tvLink(row.sym) + '</span></td><td colspan="7" class="placeholder">' + (row.error || "n/a") + '</td></tr>';
+            return '<tr><td><span class="symbol">' + tvLink(row.sym) + '</span></td><td colspan="9" class="placeholder">' + (row.error || "n/a") + '</td></tr>';
           }
           const orderSym = row.sym.replace("/", "");
           const price    = row.lastClose;
@@ -6464,12 +6716,14 @@
             '<td>' + scalpActionPill(row) + '</td>' +
             '<td class="right mono">' + (row.rsi != null ? fmt(row.rsi, 1) : "–") + '</td>' +
             '<td class="right mono">' + (row.atr != null ? fmt(row.atr, row.atr < 1 ? 5 : 2) : "–") + '</td>' +
+            '<td class="right mono" data-tip="ADX(14): ' + adxLabel(row.adxVal) + ' — informational, not scored">' + (row.adxVal != null ? fmt(row.adxVal, 1) : "–") + '</td>' +
+            '<td class="small ' + (row.obvVal === "rising" ? "pos" : row.obvVal === "falling" ? "neg" : "") + '" data-tip="OBV 20-bar volume-flow trend — informational, not scored">' + (row.obvVal || "–") + '</td>' +
             '<td class="small">' + (row.dailyRegime || "n/a") + '</td>' +
             '<td>' + tradeCell + '</td>' +
           '</tr>';
         }).join("");
       } catch (e) {
-        $("scalpBody").innerHTML = '<tr><td colspan="8" class="placeholder">Scan failed: ' + e.message + '</td></tr>';
+        $("scalpBody").innerHTML = '<tr><td colspan="10" class="placeholder">Scan failed: ' + e.message + '</td></tr>';
       }
     }
 
@@ -6751,7 +7005,7 @@
           const snap = snaps[sym] || snaps[alpSym] || null;
           const livePrice = snap && snap.latestTrade ? snap.latestTrade.p : (b15.length ? b15[b15.length-1].c : null);
 
-          if (b15.length < 55) {
+          if (b15.length < STRAT_CFG.minBarsForSignal) {
             rows.push({ sym, score:null, error: b15.length ? "Insufficient bars (" + b15.length + ")" : "Not available on Alpaca", livePrice });
             continue;
           }
@@ -6943,17 +7197,49 @@
     // ═══════════════════════════════════════════════════════════════════════
     function getApWatchlist() { return getWatchlist(); }   // dynamic — reads settings at call time
     const AP_TIER1 = { "BTC/USD": 1, "ETH/USD": 1 };       // Tier-1; everything else = Tier-2
-    const AP_CASH_RESERVE_PCT = 20;                          // hard rule: keep ≥ 20% of equity in cash
     const AP_ENTRY_SCORE      = SIGNAL_BUY_SCORE;            // full-size long gate (3.5)
     const AP_HALF_SCORE       = SIGNAL_HALF_SCORE;           // half-size long gate (2.5)
     const AP_DOWNTREND_LONG   = SIGNAL_DOWNTREND_LONG_SCORE; // half-size counter-trend long in a downtrend (≥4)
-    const AP_TA_EXIT_SCORE    = -2;   // TA exit (score turning bearish)
-    const AP_TRAIL_ARM_PCT    = 2.5;  // trailing stop arms at +2.5%
-    const AP_TRAIL_PCT        = 3;    // trails 3% below HWM
+    const AP_CORR_LIMIT       = 0.9;  // correlation-aware entry gate: ρ > 0.9 vs any open position → half-size
+    // TA-exit score, trailing-stop params, cash reserve, swing-low stop params,
+    // daily-drawdown gate, and stop-order escalation now live in STRAT_CFG —
+    // seeded from config.json › strategy/risk on page load (roadmap item 4) so
+    // a config change can't silently fork the Python and dashboard engines.
     // Correlation budget caps are user-configurable (Settings › 🔗 Correlation Budget).
     // Read live at the start of each entry pass via apMaxPositions()/apMaxPerTier().
     function apMaxPositions() { return Math.max(1, Math.round(getSettings().limits.maxOpenPositions || DEFAULT_LIMITS.maxOpenPositions)); }
     function apMaxPerTier()   { return Math.max(1, Math.round(getSettings().limits.maxPositionsPerTier || DEFAULT_LIMITS.maxPositionsPerTier)); }
+
+    // Max Pearson ρ (30-day daily log-returns) between a candidate and the open
+    // positions — the live-data upgrade to the static tier budget (roadmap item 9).
+    // Returns { sym, rho } for the most-correlated open position, or null.
+    function apMaxCorrWith(sym, openSyms, dailyBarsMap) {
+      const closesOf = s => {
+        const alp = s.replace("/", "");
+        return ((dailyBarsMap || {})[s] || (dailyBarsMap || {})[alp] || []).map(b => b.c).slice(-31);
+      };
+      const rets = closes => {
+        const r = [];
+        for (let i = 1; i < closes.length; i++) if (closes[i - 1] > 0) r.push(Math.log(closes[i] / closes[i - 1]));
+        return r;
+      };
+      const ra = rets(closesOf(sym));
+      let worst = null;
+      for (const os of openSyms) {
+        if (os === sym) continue;
+        const rb = rets(closesOf(os));
+        const n = Math.min(ra.length, rb.length);
+        if (n < 10) continue;
+        const xa = ra.slice(-n), xb = rb.slice(-n);
+        const ma = xa.reduce((s, v) => s + v, 0) / n, mb = xb.reduce((s, v) => s + v, 0) / n;
+        let num = 0, da = 0, db = 0;
+        for (let i = 0; i < n; i++) { const ai = xa[i] - ma, bi = xb[i] - mb; num += ai * bi; da += ai * ai; db += bi * bi; }
+        if (!da || !db) continue;
+        const rho = num / Math.sqrt(da * db);
+        if (!worst || rho > worst.rho) worst = { sym: os, rho };
+      }
+      return worst;
+    }
 
     let _apTimer = null, _apTick = null, _apRunning = false, _apBusy = false;
     let _apCycles = 0, _apOrders = 0, _apLastCycle = null, _apNextAt = null;
@@ -7086,6 +7372,7 @@
 
     async function apKillSwitch() {
       apStop("kill switch");
+      try { localStorage.removeItem("autopilotOrderAge"); } catch (e) {}   // stale-order tracker reset
       try {
         const r = await fetch(getBaseUrl() + "/v2/orders", { method: "DELETE", headers: getHeaders() });
         if (!r.ok) throw new Error(r.status + " " + r.statusText);
@@ -7099,6 +7386,13 @@
 
     function apRoundQty(n) { return Math.floor(n * 1e6) / 1e6; }
     function apPrice(p)    { return p < 1 ? Number(p.toFixed(6)) : Number(p.toFixed(2)); }
+
+    // Cancel a single order (stale-order lifecycle, roadmap item 3).
+    // 404 = already filled/cancelled — treated as success.
+    async function apCancelOrder(id) {
+      const r = await fetch(getBaseUrl() + "/v2/orders/" + id, { method: "DELETE", headers: getHeaders() });
+      if (!r.ok && r.status !== 404) throw new Error(r.status + " " + r.statusText);
+    }
 
     async function apPlaceOrder(sym, side, qty, limitPrice, reason) {
       const result = await apiPost("/v2/orders", {
@@ -7123,16 +7417,66 @@
         if (s.mode === "live") { apLog("error", "Live mode detected — autopilot refuses to run."); apStop("live mode"); return; }
         const L = s.limits;
         const fallbackStopPct = Number(L.assumedStopLossPct || 5);   // fallback hard stop when 4H data missing
+        // Strategy params — seeded from config.json › strategy/risk (roadmap item 4)
+        const AP_CASH_RESERVE_PCT = STRAT_CFG.cashReservePct;
+        const AP_TA_EXIT_SCORE    = STRAT_CFG.taExitScore;
+        const AP_TRAIL_ARM_PCT    = STRAT_CFG.trailArmPct;
+        const AP_TRAIL_PCT        = STRAT_CFG.trailPct;
 
-        const [acct, positions] = await Promise.all([
+        const [acct, positions, openOrders] = await Promise.all([
           apiFetch("/v2/account"),
-          apiFetch("/v2/positions")
+          apiFetch("/v2/positions"),
+          apiFetch("/v2/orders?status=open&limit=100&direction=desc").catch(() => [])
         ]);
         const equity = Number(acct.equity || 0);
         let cash = Number(acct.cash || 0);
 
-        // (a) Scan the watchlist with the shared signal engine
-        const _apwl = getApWatchlist();
+        // Daily-drawdown gate (roadmap item 1 — mirrors Python risk.daily_drawdown_gate_triggered
+        // + capital-preservation mode): snapshot day-open equity per GMT+2 day in
+        // localStorage; once equity falls ≥ daily_drawdown_gate_pct below it, block
+        // ALL new entries for the rest of the day. Exits stay fully active.
+        const apDay = new Date().toLocaleDateString("en-CA", { timeZone: "Etc/GMT-2" });
+        let dayOpen = null;
+        try { dayOpen = JSON.parse(localStorage.getItem("autopilotDayOpen") || "null"); } catch (e) {}
+        if (!dayOpen || dayOpen.day !== apDay || !(Number(dayOpen.equity) > 0)) {
+          dayOpen = { day: apDay, equity };                    // day roll — reset the snapshot
+          try { localStorage.setItem("autopilotDayOpen", JSON.stringify(dayOpen)); } catch (e) {}
+        }
+        const dayDrawdownPct = dayOpen.equity > 0 ? (dayOpen.equity - equity) / dayOpen.equity * 100 : 0;
+        const ddGateActive = dayDrawdownPct >= STRAT_CFG.dailyDrawdownGatePct;
+        if (ddGateActive)
+          apLog("block", `Daily-drawdown gate — equity −${fmt(dayDrawdownPct, 2)}% from day open ($${fmt(dayOpen.equity, 0)}) ≥ ${STRAT_CFG.dailyDrawdownGatePct}%. New entries blocked; exits stay active.`);
+
+        // Stale-order lifecycle (roadmap item 3 — mirrors Python stop_loss_escalation_cycles):
+        // count the cycles each open order has survived. Unfilled ENTRY limits are
+        // cancelled after 1 full cycle (the signal is stale); unfilled EXIT limits
+        // are cancel-replaced with a wider band after escalationCycles (below).
+        let orderAge = {};
+        try { orderAge = JSON.parse(localStorage.getItem("autopilotOrderAge") || "{}"); } catch (e) {}
+        const openIds = new Set((openOrders || []).map(o => o.id));
+        Object.keys(orderAge).forEach(id => { if (!openIds.has(id)) delete orderAge[id]; });
+        (openOrders || []).forEach(o => { orderAge[o.id] = (orderAge[o.id] || 0) + 1; });
+        const openSellBySym = {};
+        (openOrders || []).forEach(o => {
+          const oSym = toSlash(o.symbol);
+          if (o.side === "sell" && !openSellBySym[oSym]) openSellBySym[oSym] = o;
+        });
+        for (const o of (openOrders || [])) {
+          if (o.side !== "buy" || o.type !== "limit" || orderAge[o.id] <= 1) continue;
+          try {
+            await apCancelOrder(o.id);
+            delete orderAge[o.id];
+            apLog("info", `Cancelled stale entry limit ${toSlash(o.symbol)} @ $${o.limit_price} — unfilled ≥ 1 cycle, signal stale.`);
+          } catch (e) { apLog("error", `Cancel stale entry ${toSlash(o.symbol)} failed: ${e.message}`); }
+        }
+
+        // (a) Scan the watchlist (+ fresh scout promotions, roadmap item 6 —
+        //     same merge the Python loop does with data/watchlist_dynamic.json)
+        const baseWl = getApWatchlist();
+        await loadScoutPromotions().catch(() => null);
+        const scoutSyms = scoutExtraSymbols(baseWl);
+        if (scoutSyms.length) apLog("info", `Scout promotions merged into scan: ${scoutSyms.join(", ")} (TTL ${_scoutTtlHours}h).`);
+        const _apwl = baseWl.concat(scoutSyms);
         const [b15, b4h, bD] = await Promise.all([
           fetchBars(_apwl, "15Min", 120),
           fetchBars(_apwl, "4Hour", 60),
@@ -7144,12 +7488,38 @@
           const a  = ((b15 || {})[sym] || (b15 || {})[alp] || []).map(b => ({ c: b.c, h: b.h, l: b.l, v: b.v }));
           const c4 = ((b4h || {})[sym] || (b4h || {})[alp] || []).map(b => ({ c: b.c, h: b.h, l: b.l, v: b.v }));
           const d  = ((bD  || {})[sym] || (bD  || {})[alp] || []).map(b => ({ c: b.c, h: b.h, l: b.l, v: b.v }));
-          scores[sym] = a.length >= 55 ? calcSignalScore(a, c4, d) : null;
+          scores[sym] = a.length >= STRAT_CFG.minBarsForSignal ? calcSignalScore(a, c4, d) : null;
         }
+
+        // Fresh snapshot quotes at order time (roadmap item 2): lastClose is the
+        // last COMPLETED 15-min bar — up to ~15–30 min stale by design of barsEnd().
+        // Limit bands must anchor to the live market; lastClose stays scoring-only.
+        const liveQuote = {};
+        try {
+          const snaps = await fetchSnapshotsInBatches(_apwl);
+          for (const sym of _apwl) {
+            const snap = snaps[sym] || snaps[sym.replace("/", "")];
+            const px = snap ? (snap.latestTrade ? snap.latestTrade.p : (snap.dailyBar ? snap.dailyBar.c : null)) : null;
+            if (px > 0) liveQuote[sym] = px;
+          }
+        } catch (e) { apLog("info", "Snapshot quotes unavailable — falling back to last bar close for limit prices."); }
 
         // (c) EXITS first — long positions only; shorts are never auto-managed
         let hwm = {};
         try { hwm = JSON.parse(localStorage.getItem("autopilotHwm") || "{}"); } catch (e) {}
+        // Merge the Python engine's persisted HWMs (data/positions_state.json,
+        // roadmap item 10): when both loops manage a symbol, trail from
+        // max(localStorage, file) so a closed browser can't have missed highs.
+        const pyState = await fetchLocalJson(["./data/positions_state.json", "../data/positions_state.json"]);
+        if (pyState && pyState.positions) {
+          for (const [psym, pst] of Object.entries(pyState.positions)) {
+            const fileHwm = Number((pst && pst.high_water_mark) || 0);
+            if (fileHwm > 0 && fileHwm > (hwm[psym] || 0)) {
+              hwm[psym] = fileHwm;
+              apLog("info", `${psym} HWM seeded from Python state file ($${fmt(fileHwm, fileHwm < 1 ? 6 : 2)} > local).`);
+            }
+          }
+        }
         const closedSyms = [];
         for (const p of positions) {
           const qty = Number(p.qty || 0);
@@ -7177,10 +7547,32 @@
           if (!exitReason && res && res.score <= AP_TA_EXIT_SCORE)
             exitReason = `TA exit (score ${res.score} ≤ ${AP_TA_EXIT_SCORE})`;
           if (!exitReason) continue;
+          const freshPx = liveQuote[sym] || cur;   // live quote for the limit band (item 2)
           const avail = Math.abs(Number(p.qty_available != null ? p.qty_available : p.qty));
-          if (!avail) { apLog("block", `${sym} exit skipped — qty locked by an existing open order (dedup).`); continue; }
+          if (!avail) {
+            // Qty locked by an unfilled exit order. Mirror Python's cancel-replace
+            // (item 3): after escalationCycles, cancel it and re-place with a
+            // wider band so the position never sits unprotected indefinitely.
+            const stale = openSellBySym[sym];
+            const age = stale ? (orderAge[stale.id] || 0) : 0;
+            if (!stale || age < STRAT_CFG.escalationCycles) {
+              apLog("block", `${sym} exit skipped — qty locked by an existing open order (dedup${stale ? `, age ${age}/${STRAT_CFG.escalationCycles} cycles` : ""}).`);
+              continue;
+            }
+            try {
+              await apCancelOrder(stale.id);
+              delete orderAge[stale.id];
+              const escBand = 0.005 + STRAT_CFG.escalationExtraPct / 100;   // 0.5% + escalation extra
+              const qtyAll = apRoundQty(Math.abs(Number(p.qty || 0)));
+              await apPlaceOrder(sym, "sell", qtyAll, apPrice(freshPx * (1 - escBand)),
+                `${exitReason} — escalated cancel-replace (exit unfilled ${age} cycles, band −${fmt(escBand * 100, 2)}%)`);
+              closedSyms.push(sym);
+              delete hwm[sym];
+            } catch (e) { apLog("error", `Cancel-replace exit ${sym} failed: ${e.message}`); }
+            continue;
+          }
           try {
-            await apPlaceOrder(sym, "sell", avail, apPrice(cur * 0.995), exitReason);  // 0.5% band below fresh ask
+            await apPlaceOrder(sym, "sell", avail, apPrice(freshPx * 0.995), exitReason);  // 0.5% band below live quote
             closedSyms.push(sym);
             delete hwm[sym];
           } catch (e) { apLog("error", `SELL ${sym} failed: ${e.message}`); }
@@ -7188,6 +7580,7 @@
         const heldSyms = positions.filter(p => Number(p.qty || 0) > 0).map(p => toSlash(p.symbol));
         Object.keys(hwm).forEach(k => { if (!heldSyms.includes(k)) delete hwm[k]; });
         try { localStorage.setItem("autopilotHwm", JSON.stringify(hwm)); } catch (e) {}
+        try { localStorage.setItem("autopilotOrderAge", JSON.stringify(orderAge)); } catch (e) {}
 
         // (b) ENTRIES — score ≥ 2.5 (half) / 3.5 (full), regime gate (downtrend
         //     allows half-size counter-trend at ≥4), correlation budget, caps, ATR sizing
@@ -7200,15 +7593,16 @@
         const mvBySym = {};
         open.forEach(p => { mvBySym[toSlash(p.symbol)] = Math.abs(Number(p.market_value || 0)); });
 
-        const candidates = _apwl
+        // Daily-drawdown gate (item 1): capital preservation — no new entries.
+        const candidates = ddGateActive ? [] : _apwl
           .filter(sym => scores[sym] && scores[sym].score >= AP_HALF_SCORE)
           .sort((a, b) => scores[b].score - scores[a].score);
 
-        if (!candidates.length) apLog("info", `Cycle complete — no entry candidates (no watchlist score ≥ ${AP_HALF_SCORE}).`);
+        if (!candidates.length && !ddGateActive) apLog("info", `Cycle complete — no entry candidates (no watchlist score ≥ ${AP_HALF_SCORE}).`);
 
         for (const sym of candidates) {
           const res = scores[sym];
-          const ask = res.lastClose;
+          const ask = liveQuote[sym] || res.lastClose;   // live quote at order time (item 2)
           const isDown = res.dailyRegime === "downtrend";
           // Downtrend: only a high-confluence (≥4) half-size counter-trend long.
           if (isDown && res.score < AP_DOWNTREND_LONG) { apLog("block", `${sym} score ${res.score} — blocked: downtrend (counter-trend long needs ≥ ${AP_DOWNTREND_LONG}).`); continue; }
@@ -7219,14 +7613,24 @@
           if (!isT1 && tier2 >= AP_MAX_PER_TIER) { apLog("block", `${sym} score ${res.score} — blocked: Tier-2 budget full (${AP_MAX_PER_TIER}).`); continue; }
           if (!ask || !res.atr)                { apLog("block", `${sym} — blocked: missing price/ATR.`); continue; }
 
+          // Correlation-aware gate (item 9): ρ > 0.9 (30-day daily log-returns)
+          // vs any open position → half-size the entry (live-data upgrade to the
+          // static tier budget; the Risk tab shows the same matrix).
+          const corr = apMaxCorrWith(sym, Object.keys(mvBySym), bD);
+          const corrHalf = !!(corr && corr.rho > AP_CORR_LIMIT);
+          if (corrHalf) apLog("info", `${sym} score ${res.score} — high correlation with open ${corr.sym} (ρ ${fmt(corr.rho, 2)} > ${AP_CORR_LIMIT}) — half-sizing entry.`);
+
           const capPct = (PORTFOLIO_CAPS[sym] || 5) / 100;            // per-symbol cap (5% default)
           const rawQty = (equity * 0.01) / (res.atr * 1.5);           // 1% risk / 1.5×ATR stop
           const capQty = (equity * capPct) / ask;
-          // Half-size for counter-trend (downtrend) or below the full-size gate.
-          const halfSize = isDown || res.score < AP_ENTRY_SCORE;
-          const sizeNote = halfSize ? (isDown ? "half-size counter-trend" : "half-size") : "full-size";
+          // Half-size for counter-trend (downtrend), below the full-size gate,
+          // or a >0.9 correlation with an open position.
+          const halfSize = isDown || res.score < AP_ENTRY_SCORE || corrHalf;
+          const sizeNote = isDown ? "half-size counter-trend"
+            : corrHalf ? `half-size (ρ ${fmt(corr.rho, 2)} vs ${corr.sym})`
+            : (res.score < AP_ENTRY_SCORE ? "half-size" : "full-size");
           let qty = Math.min(rawQty, capQty) * (halfSize ? 0.5 : 1);
-          const limit = apPrice(ask * 1.001);                         // limit at ask, within 0.2% band
+          const limit = apPrice(ask * 1.001);                         // limit at live ask, within 0.2% band
 
           // Cash-reserve gate: keep ≥ 20% of equity in cash AFTER the order
           const headroom = cash - equity * AP_CASH_RESERVE_PCT / 100;

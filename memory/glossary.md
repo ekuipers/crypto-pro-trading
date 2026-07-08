@@ -4,6 +4,26 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-08 — Roadmap sweep: Autopilot hardening + dashboard parity (v2026-07-08.1)
+
+| Term | Meaning |
+|------|---------|
+| `STRAT_CFG` | Dashboard const object holding the strategy/risk params shared with Python: `taExitScore` (−2), `trailArmPct` (2.5), `trailPct` (3), `cashReservePct` (20), `swingLowLookback` (20), `swingLowBufferPct` (0.1), `swingLowMaxStopPct` (8), `minBarsForSignal` (60), `dailyDrawdownGatePct` (3), `escalationCycles` (2), `escalationExtraPct` (0.3). Defaults are fallbacks; `seedStrategyConfig(cfg)` overwrites from `config.json › strategy/risk/data` on page load. Replaced the hardcoded `AP_TA_EXIT_SCORE`/`AP_TRAIL_*`/`AP_CASH_RESERVE_PCT`/`SWING_LOW_*` consts. |
+| `seedStrategyConfig(cfg)` | Called by `loadConfigFromFile()`; maps config keys → `STRAT_CFG` (fractions ×100 to percent) + `_scoutTtlHours` from `scout.ttl_hours`. |
+| `fetchLocalJson(paths)` | Graceful multi-path relative JSON fetch (first parsed object wins, else null). Used for `./config.json` → `../config.json`, `data/watchlist_dynamic.json`, and `data/positions_state.json`. |
+| `localStorage.autopilotDayOpen` | `{day, equity}` — day-open equity snapshot per GMT+2 day (`en-CA` date). Drives the Autopilot **daily-drawdown gate**: equity ≥ `dailyDrawdownGatePct` below it → entries blocked (exits active), reset at day roll. Mirrors `risk.daily_drawdown_gate_triggered`. |
+| `localStorage.autopilotOrderAge` | `{orderId: cycles}` — how many Autopilot cycles each open order has survived. Entry limits cancelled at age > 1; exit limits cancel-replaced at age ≥ `escalationCycles` with band `0.5% + escalationExtraPct`. Cleared by the ⛔ kill switch. |
+| `apCancelOrder(id)` | DELETE `/v2/orders/{id}`; 404 (already filled/cancelled) counts as success. |
+| `liveQuote{}` | Per-cycle map of live snapshot prices (`fetchSnapshotsInBatches`) used for **all Autopilot limit prices**; `res.lastClose` (last completed 15-min bar) stays scoring-only. |
+| `apMaxCorrWith(sym, openSyms, bD)` | Max Pearson ρ of 30-day daily log-returns between a candidate and each open position. ρ > `AP_CORR_LIMIT` (0.9) → half-size entry (correlation-aware gate). |
+| `loadScoutPromotions()` / `scoutExtraSymbols(base)` | Reads `data/watchlist_dynamic.json` → `_scoutPromos {symbols, details, generated, ageHours, fresh}`. `fresh` = age ≤ `_scoutTtlHours` (config `scout.ttl_hours`, default 6). Fresh promotions merge into the Signals scan + Autopilot; rows get a blue **SCOUT** tag; Command tab shows the 🔭 chip (`renderScoutChip()`). |
+| `renderHwmSplitWarning()` | Command-tab warning (`#hwmSplitWarning`) when `data/positions_state.json` and `localStorage.autopilotHwm` both hold an active trailing HWM for one symbol. The Autopilot also seeds `hwm[sym] = max(local, file)` each cycle. |
+| `calcADX()` / `adxLabel()` / `calcObvTrend()` | JS ports of `indicators.adx` / `adx_label` / `obv_trend` — display-only ADX + OBV columns in Signals + Scalping. NOT part of `calcSignalScore` (parity exemption). |
+| `_signalRrMap` | sym → `{stop, stopDistPct, target, rr}` cached by the Signals scan. Drives the **R:R column** (risk = 4H swing-low stop distance, reward = BB-upper distance) and the trade-modal `#tradeRrInfo` box. Display-only. |
+| Min-bars 60 | All five dashboard scoring paths (Signals, Scalping, Breakout, Scanner, Autopilot) gate on `STRAT_CFG.minBarsForSignal` = `data.min_bars_for_signal` (60). Was 55 — parity checklist item 13. |
+
+---
+
 ## 2026-06-19 — Loosened gates, 4H swing-low stop, Scalping tab
 
 | Term | Meaning |
