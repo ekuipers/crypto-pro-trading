@@ -2277,7 +2277,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-07-08</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-07-08.1</strong></span>
+    <span>Version: <strong>v2026-07-08.2</strong></span>
   </footer>
 
   <script>
@@ -7401,7 +7401,10 @@
         side: side,
         type: "limit",
         time_in_force: "gtc",
-        limit_price: String(limitPrice)
+        limit_price: String(limitPrice),
+        // "ap-" tag identifies Autopilot orders so the stale-entry sweep never
+        // cancels Python-engine or manual trade-modal orders (bugfix 2026-07-08).
+        client_order_id: "ap-" + sym.replace("/", "") + "-" + Date.now()
       });
       _apOrders++;
       apLog(side === "buy" ? "entry" : "exit",
@@ -7462,7 +7465,11 @@
           if (o.side === "sell" && !openSellBySym[oSym]) openSellBySym[oSym] = o;
         });
         for (const o of (openOrders || [])) {
+          // Only sweep the Autopilot's OWN stale entries ("ap-" client_order_id
+          // tag) — Python-engine entries and manual resting buy limits must
+          // never be cancelled by this loop (bugfix 2026-07-08).
           if (o.side !== "buy" || o.type !== "limit" || orderAge[o.id] <= 1) continue;
+          if (!String(o.client_order_id || "").startsWith("ap-")) continue;
           try {
             await apCancelOrder(o.id);
             delete orderAge[o.id];
@@ -7535,8 +7542,13 @@
           const lows4h    = ((b4h || {})[sym] || (b4h || {})[alp] || []).map(b => b.l);
           const swingStop = swingLowStop4h(lows4h, entry);
           let exitReason = null;
-          if (plPct >= AP_TRAIL_ARM_PCT) {
+          if (plPct >= AP_TRAIL_ARM_PCT)
             hwm[sym] = Math.max(hwm[sym] || 0, cur);        // persist HWM (localStorage autopilotHwm)
+          // Armed by the HWM (≥ activation above entry), NOT current P&L —
+          // mirrors Python risk.should_trail_stop_out. A pullback below the
+          // arm threshold must still fire the trail from the recorded HWM.
+          const trailArmed = (hwm[sym] || 0) >= entry * (1 + AP_TRAIL_ARM_PCT / 100);
+          if (trailArmed) {
             if (cur <= hwm[sym] * (1 - AP_TRAIL_PCT / 100))
               exitReason = `trailing stop (HWM $${fmt(hwm[sym], cur < 1 ? 6 : 2)}, −${AP_TRAIL_PCT}% band)`;
           } else if (swingStop && cur <= swingStop) {

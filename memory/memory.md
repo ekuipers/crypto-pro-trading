@@ -62,6 +62,16 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-07-08 — Bug rescan of v2026-07-08.1 → two Autopilot defects fixed (v2026-07-08.2)
+
+"Rescan bugs" pass over yesterday's +558-line Autopilot commit (`fd16c7f`). Reviewed the full diff, re-verified the `seedStrategyConfig()` unit conversions against `config.json` (all `*_pct` are fractions — ×100 correct), confirmed the `AP_MAX_POSITIONS`/`AP_MAX_PER_TIER` locals exist, and found **two real bugs**, both in `apCycle()` in `docs/dashboard_professional.html`:
+
+**Bug 1 (HIGH) — trailing stop un-armed itself on a pullback below +2.5%.** The exit logic gated the entire trailing-stop check on *current* P&L (`if (plPct >= AP_TRAIL_ARM_PCT) { …trail check… }`). Python arms from the **HWM** (`risk.should_trail_stop_out`: `(hwm − entry)/entry ≥ activation`), so once armed the trail fires at HWM−3% regardless of current P&L. Failure case: entry $100 → run to $106 (HWM recorded) → pull back to $102.40. Trail should fire at $102.82; the dashboard skipped the branch (plPct 2.4 < 2.5) and fell through to the far-lower 4H swing-low stop, giving back profit and breaking Python parity. Fix: HWM still only ratchets while plPct ≥ arm, but arming is now `trailArmed = hwm ≥ entry × (1 + arm/100)` and the trail check runs whenever armed. Verified with a 5-case standalone node test (pullback-below-arm fires trail; within-band holds; unarmed falls to swing stop; new high ratchets; Python-file-seeded HWM arms correctly).
+
+**Bug 2 (MEDIUM-HIGH) — stale-entry sweep cancelled orders it didn't own.** The item-3 lifecycle cancelled **every** open `buy`+`limit` order older than 1 cycle — including the Python engine's entries and any manual resting buy limit placed via the trade modal (e.g. a deliberate below-market bid). Fix: `apPlaceOrder()` now tags every Autopilot order with `client_order_id = "ap-<SYM>-<ms>"`, and the sweep skips any order whose `client_order_id` doesn't start with `ap-`. The exit cancel-replace path stays untargeted on purpose — it immediately re-places a protective SELL for the full qty at a wider band (mirrors Python's escalation and never leaves the position unprotected), so acting on a foreign sell order is safe there.
+
+Verified: `vm.Script` parse on the inline script (1 block, 0 errors), `</html>` intact, behavioral test green, pytest suite still 95/95 (Python untouched). Footer → v2026-07-08.2. Docs updated: CLAUDE.md (Autopilot row + Bugs note), README.md, glossary.md, dashboard_layout.md.
+
 ### 2026-07-08 — Roadmap: all 10 dashboard effectiveness/consistency candidates implemented (v2026-07-08.1)
 
 Rescan roadmap. The owner left all 10 candidates from the 2026-07-07 analysis in place → implemented every one. All changes in `docs/dashboard_professional.html` (single file); Python untouched. Roadmap cleared per workflow rule 3.
