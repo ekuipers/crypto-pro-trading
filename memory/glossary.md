@@ -4,6 +4,21 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-09 — Trader-effectiveness analysis: 8 roadmap candidates (docs-only, not yet implemented)
+
+| Term | Meaning |
+|------|---------|
+| Round-trip cost | Total cost of a completed trade: taker fee both sides (~0.15–0.25%/side on Alpaca crypto base tier) + bid-ask spread. Roadmap item 1 makes R:R, expectancy, and the walk-forward net of this cost. |
+| Net-of-cost R:R | Reward:risk after subtracting round-trip cost from the reward leg — the number a scalper actually earns. Proposed for `_signalRrMap` + trade modal. |
+| Scalp viability gate | Proposed Scalping-tab check: distance to target must be ≥ 2× round-trip cost or the ticket is flagged/blocked. |
+| Position rotation | Proposed rule: when the correlation budget is full, a candidate scoring ≥ 4.0 and ≥ 2.0 pts above the weakest open holding (which must score ≤ 0) replaces it. Config keys `strategy.rotation_enabled` / `rotation_min_score` / `rotation_score_margin`. Motivated by 2026-07-08 journals: UNI +4.0 blocked while AAVE held at −1.0. |
+| Over-budget reconciliation | Proposed check for open positions exceeding `risk.max_open_positions` (seen live: 5/4). Journal warning + Command-tab chip + optional trim (`risk.enforce_budget_on_open_positions`). |
+| Break-even ladder / +1R scale-out | Proposed partial exit: at +1R (R = entry − swing-low stop distance) sell 50% and move the remaining stop to breakeven; remainder rides the trailing stop. |
+| Stale-position exit | Proposed `risk.max_hold_hours` (e.g. 48): exit positions older than the limit that never armed their trailing stop and score below the half-size gate. Frees budget slots. |
+| 4H aggregation fallback | Proposed fix for `insufficient 4H history (0 bars)`: build synthetic 4H bars from 1H (or 15-min) bars when the native 4H fetch returns < 51 bars, plus an explicit DATA-QUALITY WARNING line. Today Signal 6 silently reads 0 and the stop falls back to −5%. |
+| R:R soft gate | Proposed entry gate: net R:R < 1.0 block, 1.0–1.5 half-size, ≥ 1.5 full (`strategy.min_rr_full` / `min_rr_half`). Currently R:R is display-only. |
+| Session-edge filter | Proposed (OFF by default): half-size entries in hour-of-day / weekday buckets with materially negative realized expectancy (min 20 round trips per bucket), sourced from the Edge-tab analytics. |
+
 ## 2026-07-08 — Roadmap sweep: Autopilot hardening + dashboard parity (v2026-07-08.1)
 
 | Term | Meaning |

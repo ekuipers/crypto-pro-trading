@@ -496,6 +496,12 @@ alpaca-trading-agent/
 
 ---
 
+## Roadmap
+
+Eight open improvement candidates from the **2026-07-09 trader-effectiveness analysis** live in `CLAUDE.md › Roadmap` (prioritized HIGH → LOW): fee- & spread-aware trade economics (net-of-cost R:R, scalp viability gate), position rotation at the correlation budget, over-budget reconciliation + warning, partial take-profit at +1R with a break-even ladder, time-based stale-position exit, a 4H data-fetch fallback (stop silent signal degradation), an R:R soft entry gate, and a session-edge feedback filter. Evidence and rationale are logged in `memory/memory.md` (2026-07-09 entry). Not yet implemented — a "rescan roadmap" request triggers implementation.
+
+---
+
 ## Dependencies
 
 See `requirements.txt`. Core packages: `requests`, `numpy`, `pandas`.

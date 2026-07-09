@@ -17,11 +17,30 @@ Creator: Erik Kuipers
 7. Before analyzing any code change, read the memory for earlier changes.
 8. a "rescan roadmap" request triggers implementation, not just a status report.
 
+## Self-learning
+When I correct you, or you catch yourself making a mistake: before continuing, add the lesson as a one line rule under ## lessons in the memory.md file, so it never happens again.
+
 ---
 
 ## Roadmap
 
-*(empty — all 10 candidates from the 2026-07-07 dashboard effectiveness & strategy-consistency analysis were implemented 2026-07-08 (v2026-07-08.1); see `memory/memory.md` for the full change log.)*
+*(2026-07-09 trader-effectiveness analysis — 8 candidates from a review of the trading rules, live journals, walk-forward reports, and dashboard. Scalping items target round-trip cost and capital turnover; swing items target capital allocation and exit quality. Priorities: 1–3 HIGH, 4–6 MEDIUM, 7–8 LOW/experimental.)*
+
+1. **[HIGH] Fee- & spread-aware trade economics (scalping-critical).** Nothing in the project accounts for Alpaca's crypto taker fee (~0.15–0.25% per side on the base tier) or the quoted bid-ask spread: the P&L/Edge tabs show gross FIFO P&L, the Signals/Scalping R:R column ignores round-trip cost, and `walkforward_evaluate.py` defaults `fee_bps=0`. A scalp targeting a sub-1% move can lose most of its edge to a ~0.5% round-trip cost. Add: (a) a live **Spread** column in the Signals + Scalping tabs (bid/ask already available from the snapshots the ticker fetches); (b) **net-of-cost R:R** — subtract round-trip fee + spread from the reward leg in `_signalRrMap` and the trade modal; (c) a **scalp viability gate** in the Scalping tab: flag (or block) tickets where the distance to target < 2× round-trip cost; (d) run the walk-forward with a realistic `--fee-bps` default (e.g. 25/side) so reports stop overstating Sharpe.
+
+2. **[HIGH] Position rotation at the correlation budget.** Observed live 2026-07-08: budget full (5/4 positions) blocked a UNI/USD entry at score **+4.0** for multiple cycles while AAVE/USD was held at score **−1.0**. The budget gates entries but never re-ranks holdings, so capital gets stuck in the weakest names. Add rotation to `run_evaluation.py` + Autopilot: when the budget is full and a candidate scores ≥ `strategy.rotation_min_score` (4.0) **and** ≥ `rotation_score_margin` (2.0) above the weakest open holding's live score **and** that holding scores ≤ 0, SELL the weakest and enter the candidate (same cycle, respecting all existing gates). Config-flagged (`strategy.rotation_enabled`).
+
+3. **[HIGH] Over-budget reconciliation + dashboard warning.** The portfolio ran **5 open positions against a 4-position budget** (journals 2026-07-08) — the cap only gates new entries, so scout promotions/older entries can leave the book permanently over budget with no visibility. Add: an evaluation-cycle check that logs a `BUDGET EXCEEDED n/m` warning line in the journal, a red chip on the Command tab (next to the scout chip), and an optional config-flagged trim (`risk.enforce_budget_on_open_positions`) that sells the weakest-scoring overflow position.
+
+4. **[MEDIUM] Partial take-profit + break-even ladder.** Exits are currently all-or-nothing (trailing stop / swing-low stop / TA exit). Add a scale-out: when an open long reaches **+1R** (R = entry − swing-low stop distance), SELL 50% and raise the remaining stop to breakeven; the remainder rides the existing trailing stop. Locks in the scalp leg while keeping swing upside, and materially improves expectancy when win rate is < 50%. Needs: partial-exit state in `data/positions_state.json` (+ `localStorage.autopilotHwm`-style mirror), `trade.py` support for partial qty, both engines + docs.
+
+5. **[MEDIUM] Time-based stale-position exit (capital efficiency).** No max-hold rule exists anywhere. Under a 4-position budget, a position drifting at ±0.1% for days (e.g. AAVE at −0.13%, score −1.0) blocks a slot that rotation candidates score +4.0 on. Add `risk.max_hold_hours` (e.g. 48): at each evaluation, if a position is older than the limit, has never armed its trailing stop, and its live score is below the half-size entry gate (2.5), exit at the normal limit band. Exempt positions with armed trailing stops (winners run).
+
+6. **[MEDIUM] 4H data fallback — stop silent signal degradation.** Journals log `insufficient 4H history (0 bars)` for ADA/USD and AAVE/USD across 2026-07-07/08. When that happens, Signal 6 (4H regime) silently contributes 0 **and** the swing-low stop falls back to the fixed −5% — both engines quietly trade a degraded strategy. Fix: when the native 4H fetch returns < 51 bars, aggregate fetched 1H bars (or 15-min bars) into synthetic 4H bars; if that also fails, print an explicit `DATA-QUALITY WARNING` journal line and show a ⚠ marker in the dashboard Signals row so the degradation is visible, not silent.
+
+7. **[LOW] R:R soft entry gate.** The decision checklist says "Prefer R:R ≥ 1:2" but nothing enforces it — the dashboard only displays R:R. Add a soft gate to both engines: computed net R:R (after item 1's costs) < 1.0 → block entry; 1.0–1.5 → half-size; ≥ 1.5 → full size (still subject to all score/regime gates). Config keys `strategy.min_rr_full` / `min_rr_half`.
+
+8. **[LOW/experimental] Session-edge feedback loop.** The Edge tab already computes realized P&L by hour-of-day and day-of-week (GMT+2) but it is display-only. Feed it back: with a minimum sample (≥ 20 round trips in a bucket), half-size new entries during hours/weekdays whose historical expectancy is materially negative. Ship OFF by default (`strategy.session_filter_enabled=false`) until the fill history is large enough to be statistically meaningful; re-evaluate monthly against the Insights tab.
 
 ## Bugs
 

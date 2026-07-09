@@ -14,6 +14,11 @@ An autonomous paper crypto trading agent built on the Alpaca API. It evaluates 1
 
 ---
 
+## Lessons
+
+
+---
+
 ## Architecture
 
 ```
@@ -61,6 +66,19 @@ alpaca-trading-agent/
 ---
 
 ## Session History
+
+### 2026-07-09 — Trader-effectiveness analysis → 8 new roadmap candidates (docs-only, no code change)
+
+Owner asked for a professional-trader review of the dashboard + trading rules (scalping and longer-term) with improvements added to the CLAUDE.md roadmap. Reviewed: CLAUDE.md hard rules, `config.json`, recent journals (2026-07-07/08), the latest walk-forward report (`walkforward_20260708T063702Z.md`), and the dashboard/scripts (grep-verified — no fee/spread accounting, no partial-TP/break-even, no max-hold logic exists anywhere).
+
+**Evidence found in live data:**
+- Journals 2026-07-08 show `BLOCKED: correlation budget: 5/4 positions open` — the book was **over** budget (cap only gates entries), and a UNI/USD score **+4.0** setup was repeatedly blocked while AAVE/USD sat open at score **−1.0**. Capital allocation is not re-ranked once the budget is full.
+- Journals 2026-07-07/08 repeatedly log `insufficient 4H history (0 bars)` for ADA/USD and AAVE/USD → Signal 6 silently contributes 0 and the swing-low stop silently falls back to fixed −5%.
+- `walkforward_evaluate.py` defaults `fee_bps=0`; latest report shows negative avg Sharpe on 4H/1D even before costs. No P&L surface (P&L/Edge/R:R column) accounts for Alpaca taker fees (~0.15–0.25%/side) or spread — critical for scalping economics.
+
+**8 roadmap items added (CLAUDE.md › Roadmap):** (1) HIGH fee- & spread-aware economics (Spread column, net-of-cost R:R, scalp viability gate, walk-forward fee default); (2) HIGH position rotation at the correlation budget (rotate weakest holding out for a ≥4.0 candidate scoring ≥2.0 pts higher); (3) HIGH over-budget reconciliation + Command-tab warning chip; (4) MEDIUM partial take-profit at +1R + break-even ladder; (5) MEDIUM time-based stale-position exit (`risk.max_hold_hours`); (6) MEDIUM 4H data fallback via 1H-bar aggregation + explicit data-quality warning; (7) LOW R:R soft entry gate (block <1.0, half 1.0–1.5); (8) LOW session-edge feedback loop (hour/day expectancy → half-size, OFF by default).
+
+No code changed — roadmap/docs only (CLAUDE.md, README.md, memory.md, glossary.md; dashboard_layout.md untouched — no dashboard change). Implementation deferred until a "rescan roadmap" request per workflow rule 8.
 
 ### 2026-07-08 — Bug rescan of v2026-07-08.1 → two Autopilot defects fixed (v2026-07-08.2)
 
