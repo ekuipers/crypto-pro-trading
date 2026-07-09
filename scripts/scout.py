@@ -39,6 +39,7 @@ from pathlib import Path
 import _env  # noqa: F401
 import indicators as ind
 from _api import api_get
+from symbols import to_slash
 from run_evaluation import (
     _CFG,
     _headers,
@@ -79,12 +80,7 @@ def get_universe() -> list:
     for a in r.json():
         if not a.get("tradable"):
             continue
-        sym = a.get("symbol") or ""
-        if "/" not in sym:                       # bare form e.g. BTCUSD
-            if sym.endswith("USD"):
-                sym = sym[:-3] + "/USD"
-            else:
-                continue
+        sym = to_slash(a.get("symbol") or "")    # canonical BASE/QUOTE form
         if not sym.endswith("/USD") or sym.endswith(_QUOTE_SUFFIXES):
             continue
         if sym in wl or sym in out:

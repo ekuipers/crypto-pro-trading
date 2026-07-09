@@ -31,6 +31,7 @@ from zoneinfo import ZoneInfo
 import _env  # noqa: F401
 import indicators as ind
 from risk import LIMIT_BAND_PCT, should_stop_out
+from symbols import to_slash
 from trade import (
     TradeRejected,
     get_account,
@@ -58,15 +59,6 @@ DATA_URL = "https://data.alpaca.markets"
 BASE_URL = os.getenv("APCA_BASE_URL", "https://paper-api.alpaca.markets")
 
 # ── helpers ──────────────────────────────────────────────────────────────────
-
-def _to_slash(sym: str) -> str:
-    """'BTCUSD' → 'BTC/USD'; already-slashed symbols unchanged."""
-    if "/" in sym:
-        return sym
-    if sym.endswith("USD"):
-        return sym[:-3] + "/USD"
-    return sym
-
 
 def _load_caps() -> dict:
     return _CFG.get("portfolio_caps", {"caps": {}, "default_cap": 0.05})
@@ -340,8 +332,8 @@ def main() -> int:
     pos_by_symbol: dict[str, dict] = {}
     for p in raw_positions:
         raw = p.get("symbol", "")
-        pos_by_symbol[raw]            = p
-        pos_by_symbol[_to_slash(raw)] = p
+        pos_by_symbol[raw]           = p
+        pos_by_symbol[to_slash(raw)] = p
 
     print("=" * 60)
     print("REBALANCE  equity=$%.2f  cash=$%.2f" % (equity, cash))

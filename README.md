@@ -163,6 +163,7 @@ All thresholds are configured in `config.json` — edit there, not in source fil
 | `scripts/metrics.py` | Performance metrics — Sharpe, Sortino, max drawdown, profit factor |
 | `scripts/rebalance.py` | Portfolio rebalancer — trims over-cap positions and tops up under-cap ones using signal-confluence gate + ATR sizing; logs to journal |
 | `scripts/scout.py` | Universe scout — auto-promotes uptrending score-≥4 `*/USD` pairs outside the watchlist into `data/watchlist_dynamic.json`; merged by `run_evaluation` when `scout.enabled` (default 5% cap + all gates apply) |
+| `scripts/symbols.py` | Canonical symbol notation — single `to_slash()` converter (`BTCUSD → BTC/USD`, USDT/USDC/USD quotes, longest match first). The project-wide notation is the slash pair `BASE/QUOTE`; Alpaca's no-slash form exists only at the API boundary. Imported by `rebalance.py`, `run_evaluation.py`, `trade.py`, `scout.py`; mirrors the dashboard's `toSlash()`. |
 | `scripts/verify.py` | Credential and connectivity verification |
 | `scripts/_env.py` | Loads `.env` into `os.environ` at import time |
 
@@ -492,6 +493,7 @@ alpaca-trading-agent/
 │   ├── research.py            # Market research helper
 │   ├── risk.py                # Risk rule enforcement (reads config.json)
 │   ├── run_evaluation.py      # Main evaluation + order placement
+│   ├── symbols.py             # Canonical symbol notation (to_slash: BTCUSD → BTC/USD)
 │   ├── trade.py               # Alpaca order gateway (retry via _api.py)
 │   ├── verify.py              # Credential/connectivity check
 │   └── walkforward_evaluate.py # Walk-forward backtester
@@ -520,7 +522,9 @@ alpaca-trading-agent/
 
 ## Roadmap
 
-Empty — all eight candidates from the **2026-07-09 trader-effectiveness analysis** were implemented on 2026-07-09 (v2026-07-09.1): fee- & spread-aware trade economics (Spread columns, net-of-cost R:R, scalp viability gate, walk-forward fee default 25 bps/side), position rotation at the correlation budget, over-budget reconciliation + Command-tab chip, partial take-profit at +1R with a break-even ladder, time-based stale-position exit, a 4H data fallback via 1H-bar aggregation, a net-R:R soft entry gate, and a session-edge feedback filter (ships OFF). Implementation notes are in `memory/memory.md` (2026-07-09 entry).
+Empty — the **symbol-notation consistency item** was implemented on 2026-07-09 (v2026-07-09.3): the canonical project-wide notation is the slash pair `BASE/QUOTE` (e.g. `BTC/USD`), with Alpaca's no-slash form confined to the API boundary. New shared converter `scripts/symbols.py › to_slash()` replaced four duplicated local implementations; the dashboard's remaining bare-base display labels (scout chip, ticker strip, Market Overview KPIs/heatmap/tooltips) now show the full pair. See CLAUDE.md › "Symbol notation (canonical)" and `memory/memory.md`.
+
+Earlier: all eight candidates from the **2026-07-09 trader-effectiveness analysis** were implemented on 2026-07-09 (v2026-07-09.1): fee- & spread-aware trade economics (Spread columns, net-of-cost R:R, scalp viability gate, walk-forward fee default 25 bps/side), position rotation at the correlation budget, over-budget reconciliation + Command-tab chip, partial take-profit at +1R with a break-even ladder, time-based stale-position exit, a 4H data fallback via 1H-bar aggregation, a net-R:R soft entry gate, and a session-edge feedback filter (ships OFF). Implementation notes are in `memory/memory.md` (2026-07-09 entry).
 
 ---
 

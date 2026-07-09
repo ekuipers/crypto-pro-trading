@@ -4,6 +4,14 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-09 — Canonical symbol notation BASE/QUOTE (v2026-07-09.3)
+
+| Term | Meaning |
+|------|---------|
+| Canonical symbol notation | The one symbol format used project-wide: the slash pair `BASE/QUOTE` (`BTC/USD`, `BTC/USDT`) — config, journals, logs, state files, and every dashboard label. Alpaca's no-slash form (`BTCUSD`) lives only at the API boundary (positions/orders/activities responses, order payloads, bars/snapshot map keys). Rule documented in CLAUDE.md › "Symbol notation (canonical)". |
+| `scripts/symbols.py` / `to_slash()` | Single Python converter `'BTCUSD' → 'BTC/USD'` (quotes USDT/USDC/USD, longest match first, so `BTCUSDT → BTC/USDT`). Replaced four duplicated local `_to_slash`/`_slash` implementations in `rebalance.py`, `run_evaluation.py`, `trade.py`, `scout.py`. Mirrors the dashboard's `toSlash()` — keep the two in sync. Tested in `tests/test_symbols.py`. |
+| `baseTicker()` exemptions | The dashboard helper is no longer used for symbol labels. Remaining functional uses: news-site URL slugs in Breakout cards (CryptoPanic/CoinGecko want the bare base), the space-capped 4-char correlation-matrix axis ticks, and the `symbolInfo()` asset-*name* fallback. Each site carries a comment referencing the notation rule. |
+
 ## 2026-07-09 — All 8 trader-effectiveness items implemented (v2026-07-09.1)
 
 | Term | Meaning |

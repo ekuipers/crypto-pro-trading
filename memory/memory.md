@@ -69,6 +69,21 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-07-09 — Rescan roadmap: canonical symbol notation BASE/QUOTE everywhere (v2026-07-09.3)
+
+**Roadmap item (owner):** "different notations for symbols … bad design practice. Always use a consistent format throughout this project like e.g BTC/USD or BTC/USDT." Audit found (a) four duplicated local `'BTCUSD' → 'BTC/USD'` converters on the Python side and (b) dashboard surfaces still labelling symbols with the bare base (`BTC`) while tables showed the full pair.
+
+**Canonical rule (now in CLAUDE.md › "Symbol notation (canonical)"):** the slash pair `BASE/QUOTE` (`BTC/USD`) is the one notation for config, journals, logs, state files, and every display label. Alpaca's no-slash form (`BTCUSD`) exists only at the API boundary (positions/orders/activities responses, order payloads, bars/snapshot keys).
+
+**Python (DRY consolidation):**
+- New `scripts/symbols.py` — single `to_slash()` converter, USDT/USDC/USD quotes longest-match-first (mirrors the dashboard's `toSlash()`; the old duplicates only handled `USD`, so `BTCUSDT` passed through unnormalised). Self-checks under `__main__`.
+- `rebalance.py` (module-level `_to_slash` removed), `run_evaluation.py` (nested `_to_slash` removed), `trade.py` (nested `_slash` in `get_open_orders` removed), `scout.py` (inline bare-symbol block replaced) — all now `from symbols import to_slash`. Behavior-preserving: scout still drops non-`/USD` quotes; both symbol forms are still indexed in `pos_by_symbol`.
+- New `tests/test_symbols.py` (10 parametrized cases incl. USDT/USDC, stablecoin base `USDTUSD`, unknown quote, empty input).
+
+**Dashboard (`docs/dashboard_professional.html`, v2026-07-09.3):** bare-base display labels → full pair: Command-tab 🔭 Scout chip (`tvLink(s)` instead of `tvLink(s, baseTicker(s))`), live ticker strip items, Market Overview "Best/Worst 24h" KPIs, Market Overview momentum-heatmap tiles, and Market Overview Buy/Sell button tooltips. **Documented exemptions (functional, not labels):** `baseTicker()` remains for news-site URL slugs (CryptoPanic/CoinGecko need the base), the space-capped 10×10 correlation-matrix axis ticks, and the `symbolInfo()` asset-*name* fallback — each now carries an explanatory comment, and the `baseTicker()` doc-comment states it is not for symbol labels. Footer bumped to v2026-07-09.3.
+
+**Verified:** pytest 120 → **130 passed**; `python scripts/symbols.py` self-checks pass; `py_compile` clean on all five touched scripts; node parse of the dashboard inline script (1 block, 0 errors, `</html>` intact). Docs updated: CLAUDE.md (roadmap cleared → new canonical-notation section), README.md, glossary.md, dashboard_layout.md.
+
 ### 2026-07-09 — Rescan bugs: Scanner duplicate-symbol fix — USD-only scan universe (v2026-07-09.2)
 
 **Bug (owner-reported, CLAUDE.md Bugs #1):** the Market › Scanner results table listed the same symbol up to three times — once per quote currency (BTC/USD, BTC/USDT, BTC/USDC) — because the 2026-06-19 roadmap broadened `ALLOWED_QUOTES` to USDT/USDC and the symbol cell showed only the base ticker (`baseTicker()` → "BTC"), making the rows look like exact duplicates. Alpaca executes trades against USD, so the non-USD rows were noise on a trading surface.

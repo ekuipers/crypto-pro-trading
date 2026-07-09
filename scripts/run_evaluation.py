@@ -82,6 +82,7 @@ import _env  # noqa: F401  -- load .env into os.environ
 import indicators as ind
 import position_state as ps
 from _api import api_get
+from symbols import to_slash
 from risk import (
     LIMIT_BAND_PCT,
     STOP_LOSS_PCT,
@@ -1267,23 +1268,15 @@ def main() -> int:
 
     # Alpaca returns crypto symbols without a slash (e.g. "BTCUSD") in the
     # positions response.  Index both forms so holds are found regardless
-    # of which the API returns on a given day.
-    def _to_slash(sym: str) -> str:
-        """Convert 'BTCUSD' → 'BTC/USD'. Leaves already-slashed symbols alone."""
-        if "/" in sym:
-            return sym
-        if sym.endswith("USD"):
-            return sym[:-3] + "/USD"
-        return sym
-
+    # of which the API returns on a given day (canonical form: symbols.to_slash).
     pos_by_symbol: dict = {}
     for p in positions:
         raw = p.get("symbol", "")
-        pos_by_symbol[raw]           = p   # keep no-slash form too
-        pos_by_symbol[_to_slash(raw)] = p  # canonical slash form for lookups
+        pos_by_symbol[raw]          = p   # keep no-slash form too
+        pos_by_symbol[to_slash(raw)] = p  # canonical slash form for lookups
 
     # Build the list of open symbols (slash form) for the correlation budget.
-    open_symbols = [_to_slash(p.get("symbol", "")) for p in positions]
+    open_symbols = [to_slash(p.get("symbol", "")) for p in positions]
 
     # Over-budget reconciliation (roadmap 2026-07-09 item 3): the budget only
     # gates NEW entries, so scout promotions / older entries can leave the book

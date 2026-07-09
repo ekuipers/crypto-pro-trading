@@ -29,6 +29,7 @@ from pathlib import Path
 
 import _env  # noqa: F401  -- side-effect: load .env into os.environ
 from _api import api_delete, api_get, api_post
+from symbols import to_slash
 from risk import (
     STOP_LOSS_LIMIT_BAND_PCT,
     check_limit_band,
@@ -249,15 +250,8 @@ def get_open_orders(symbol=None) -> list:
     if symbol is None:
         return orders
 
-    def _slash(s: str) -> str:
-        if "/" in s:
-            return s
-        if s.endswith("USD"):
-            return s[:-3] + "/USD"
-        return s
-
-    target = _slash(symbol).upper()
-    return [o for o in orders if _slash(o.get("symbol", "")).upper() == target]
+    target = to_slash(symbol).upper()
+    return [o for o in orders if to_slash(o.get("symbol", "")).upper() == target]
 
 
 def get_order(order_id: str) -> dict:

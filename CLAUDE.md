@@ -24,7 +24,14 @@ When I correct you, or you catch yourself making a mistake: before continuing, a
 
 ## Roadmap
 
-*(empty — all 8 items from the 2026-07-09 trader-effectiveness analysis were implemented on 2026-07-09, v2026-07-09.1: (1) fee- & spread-aware trade economics, (2) position rotation at the correlation budget, (3) over-budget reconciliation + Command-tab chip, (4) partial take-profit + break-even ladder, (5) time-based stale-position exit, (6) 4H data fallback via 1H aggregation, (7) net-R:R soft entry gate, (8) session-edge feedback loop (ships OFF). Full implementation notes in `memory/memory.md`.)*
+*(empty — the symbol-notation consistency item was implemented in v2026-07-09.3: canonical notation is the slash pair `BASE/QUOTE` (e.g. `BTC/USD`) everywhere; see "Symbol notation (canonical)" below and `memory/memory.md`.)*
+
+## Symbol notation (canonical)
+
+**One notation everywhere: the slash pair `BASE/QUOTE` — e.g. `BTC/USD`, `BTC/USDT`** (roadmap item implemented 2026-07-09, v2026-07-09.3). This applies to config, journals, console/log output, state files, and every dashboard display label. Alpaca returns crypto symbols *without* the slash (`BTCUSD`) in the positions/orders/activities responses, and the no-slash form is used in order payloads and bars/snapshot map keys — convert at that API boundary only, never in display or storage:
+
+- **Python:** `scripts/symbols.py › to_slash()` is the single converter (USDT/USDC/USD quotes, longest match first). `rebalance.py`, `run_evaluation.py`, `trade.py`, and `scout.py` import it — never re-implement the conversion locally.
+- **Dashboard:** `toSlash()` (canonical form — mirrors `symbols.py`, keep the two in sync) and `tvLink(sym)` (linked full-pair label). `baseTicker()` is **not** for symbol labels; its only remaining uses are functional — external news-site URL slugs and the space-capped correlation-matrix axis ticks (documented exemptions). The `symbolInfo()` `name` fallback also uses the base (it is an asset *name*, not a symbol).
 
 ## Bugs
 
