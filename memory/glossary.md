@@ -4,12 +4,25 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-09 — Command › 🐦 Socials sub-tab (v2026-07-09.6)
+
+| Term | Meaning |
+|------|---------|
+| Socials sub-tab (Command) | `subpage-socials` under the 🧭 Command parent tab (deep link `#socials`). Crypto tweets + stats from curated >0.5M-follower accounts, T1/T2-badged, GMT+2 timestamps, 10-min cache. Stats live via fxtwitter; tweets best-effort via Nitter mirrors. Analysis-only, defensive input only. |
+| fxtwitter API | `GET https://api.fxtwitter.com/<handle>` — the FixTweet service's keyless JSON API with `Access-Control-Allow-Origin: *` (verified 2026-07-09). `j.user` carries live `followers`, `tweets`, `name`, etc. The **only** keyless CORS-open X endpoint found working; used by `socFetchStats()`. No timeline endpoint — tweet text still needs the mirror RSS path. |
+| `SOC_ACCOUNTS` | Curated 14-account list, every one >0.5M followers (the roadmap gate — enforced by curation). Fields: `h` (handle), `name`, `followersM` (static snapshot in millions, 2026-07 — render fallback when fxtwitter fails, marked `*`), optional `general:true` (non-crypto-native → crypto-keyword filter applies). |
+| Nitter-mirror RSS | X/Twitter has no keyless API and blocks CORS. Nitter mirrors expose `https://<host>/<handle>/rss`; fetched through the same rss2json bridge as News. `SOC_NITTER_HOSTS` = xcancel.com, nitter.poast.org, nitter.privacyredirect.com, lightbrd.com — tried in order per account (`socFetchAccount()`), mirrors die often. Retweet items start with an `RT by` prefix in the title and are skipped. |
+| `SOC_CRYPTO_RE` | Crypto-keyword gate applied to `general:true` accounts only (bitcoin/btc/eth/solana/doge/defi/nft/etc.) so e.g. non-crypto Musk tweets stay out. |
+| `socToXUrl()` | Rewrites the mirror status link back to `https://x.com/...` and strips Nitter's `#m` anchor. |
+| `SOC_CACHE_MS` / `SOC_MAX_ITEMS` / `SOC_MAX_PER_ACCT` | 10-min auto-load cache / 60 rendered tweets / 8 tweets per account (keeps one account from flooding the feed). |
+| `.soc-acct` chips | Per-account stat chips (`#socAccts`): @handle · follower count (`socFollowersLabel()`) · tweets fetched; `.soc-dead` (red ✕) when all mirrors failed for that account. |
+
 ## 2026-07-09 — Command › 📰 News sub-tab (v2026-07-09.5)
 
 | Term | Meaning |
 |------|---------|
 | News sub-tab (Command) | `subpage-news` under the 🧭 Command parent tab. Aggregated crypto headlines from 4 sources, deduped, T1/T2-badged, GMT+2 timestamps, 5-min cache. Analysis-only. Deep link `#news`. |
-| `COMMAND_SUBS` | `["command-overview","news"]` — Command's sub-tab ids; `commandSubTab(subId)` mirrors `marketSubTab`/`analyticsSubTab`. |
+| `COMMAND_SUBS` | `["command-overview","news"]` — Command's sub-tab ids; `commandSubTab(subId)` mirrors `marketSubTab`/`analyticsSubTab`. *(v2026-07-09.6: `"socials"` appended.)* |
 | `subParentOf(id)` / `subTabFnOf(parent)` | Shared helpers (added v2026-07-09.5) mapping a sub-tab id to its parent tab and the parent to its `<parent>SubTab` function — single source of truth for the sub-tab redirects in `switchTab()` and `applyTabFromUrl()`. |
 | Alpaca News API | `GET https://data.alpaca.markets/v1beta1/news?symbols=BTCUSD,…&limit=50&sort=desc` with the standard `APCA-API-KEY-ID`/`SECRET` headers. Benzinga-sourced. Response: `{ news: [{ id, headline, created_at, url, source, symbols[] }] }`. Skipped when no keys are stored. |
 | rss2json bridge | `https://api.rss2json.com/v1/api.json?rss_url=<feed>` — keyless RSS→JSON proxy with `Access-Control-Allow-Origin: *`. Used because direct RSS fetches are CORS-blocked in the browser and the CryptoCompare (`min-api.cryptocompare.com`, now 401) and CoinGecko (`/api/v3/news`, now PRO-only 10005) news APIs both require keys as of 2026-07. `pubDate` comes back as `"YYYY-MM-DD HH:MM:SS"` in UTC — parse as `replace(" ","T")+"Z"`. |

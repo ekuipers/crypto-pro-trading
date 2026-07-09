@@ -888,6 +888,23 @@
     .news-item a.news-headline:hover { color:var(--blue); text-decoration:underline; }
     .news-syms { color:var(--blue); font-size:11px; white-space:nowrap; }
     .news-filter-btn.active { color:var(--blue); border-color:rgba(88,166,255,.4); background:rgba(88,166,255,.1); }
+    /* 🐦 Command › Socials sub-tab (roadmap 2026-07-09) — tweet items reuse the
+       .news-item family; only the per-account stat chips are new. */
+    .soc-acct {
+      display:inline-flex;
+      align-items:center;
+      gap:5px;
+      font-size:11px;
+      padding:2px 8px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      margin:0 6px 6px 0;
+      color:var(--muted);
+      white-space:nowrap;
+    }
+    .soc-acct b { color:var(--text); font-weight:600; }
+    .soc-acct.soc-dead { color:var(--red); border-color:rgba(239,68,68,.35); }
+    .soc-followers { color:var(--blue); font-size:10px; }
     .gg-level-row {
       display:flex;
       justify-content:space-between;
@@ -1272,13 +1289,15 @@
     <div id="globalError" class="error"></div>
 
 
-    <!-- Command parent page — sub-tabs: 🧭 Overview (the original command center)
-         and 📰 News (aggregated crypto headlines, roadmap 2026-07-09). Deep links
-         #news / #command-overview resolve here via COMMAND_SUBS in applyTabFromUrl(). -->
+    <!-- Command parent page — sub-tabs: 🧭 Overview (the original command center),
+         📰 News (aggregated crypto headlines) and 🐦 Socials (crypto tweets from
+         >0.5M-follower accounts) — roadmap 2026-07-09. Deep links #news / #socials /
+         #command-overview resolve here via COMMAND_SUBS in applyTabFromUrl(). -->
     <div id="page-command" class="page active">
       <div class="subnav">
         <button id="subtab-command-overview" class="subtab-btn active" onclick="commandSubTab('command-overview')">🧭 Overview</button>
         <button id="subtab-news" class="subtab-btn" onclick="commandSubTab('news')">📰 News</button>
+        <button id="subtab-socials" class="subtab-btn" onclick="commandSubTab('socials')">🐦 Socials</button>
       </div>
 
     <div id="subpage-command-overview" class="subpage active">
@@ -1372,6 +1391,40 @@
         <div id="newsList"><div class="small" style="color:var(--muted)">Loading news…</div></div>
       </section>
     </div><!-- /subpage-news -->
+
+    <!-- 🐦 Socials sub-tab — crypto tweets + stats from >0.5M-follower accounts
+         (roadmap 2026-07-09). X/Twitter has no keyless API and blocks CORS.
+         Stats: live follower/tweet counts via the keyless fxtwitter API
+         (api.fxtwitter.com, ACAO:* — verified working). Tweets: Nitter-mirror
+         RSS through the keyless rss2json bridge the News tab uses, per-account
+         mirror fallback — best-effort, mirrors come and go. The >0.5M gate is
+         enforced by the curated SOC_ACCOUNTS list; static followersM snapshots
+         are the render fallback. Analysis-only — never places orders. -->
+    <div id="subpage-socials" class="subpage">
+      <section>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap">
+          <div class="section-title" style="margin-bottom:0">🐦 Crypto Socials</div>
+          <span id="socStatus" class="small" style="color:var(--muted)"></span>
+          <div style="display:flex;gap:6px;margin-left:auto">
+            <button id="socFilterAll" class="btn news-filter-btn active" onclick="socSetFilter('all')" data-tip="Show every fetched tweet.">All</button>
+            <button id="socFilterKey" class="btn news-filter-btn" onclick="socSetFilter('key')" data-tip="Only T1/T2 catalyst tweets (hacks, depegs, enforcement, ETF flows, unlocks, macro).">⚡ Key only</button>
+            <button class="btn" onclick="loadSocials(true)" data-tip="Re-fetch timelines from all accounts now.">↻ Refresh</button>
+          </div>
+        </div>
+        <div class="small" style="color:var(--muted);margin-bottom:12px">
+          Latest original tweets (retweets skipped) from curated crypto accounts with
+          <b>&gt; 0.5M followers</b>. Account stats (follower counts) refresh <b>live via the
+          keyless fxtwitter API</b>; a <b>*</b> marks a static snapshot when that call fails.
+          Tweet text is read via public Nitter-mirror RSS, which is flaky — accounts whose
+          mirrors are all down show a red ✕ chip (stats still live); hit ↻ Refresh to retry.
+          Generalist accounts are filtered to crypto-keyword tweets only, and tweets get the
+          same <b>T1/T2</b> catalyst badges as the News tab. Social flow is a
+          <b>defensive input only</b> — it never justifies an entry below the score gates.
+        </div>
+        <div id="socAccts" style="margin-bottom:10px"></div>
+        <div id="socList"><div class="small" style="color:var(--muted)">Loading tweets…</div></div>
+      </section>
+    </div><!-- /subpage-socials -->
     </div>
 
     <!-- Analytics parent page — merges Performance + P&L + Edge (roadmap). Deep
@@ -2364,7 +2417,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-07-09</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-07-09.5</strong></span>
+    <span>Version: <strong>v2026-07-09.6</strong></span>
   </footer>
 
   <script>
@@ -2960,7 +3013,7 @@
         analyticsSubTab(_analyticsSub || "performance");
       } else if (id === "command") {
         // Parent page — restore the last-used sub-tab (Overview refreshes the
-        // command data; News auto-loads with a 5-min cache).
+        // command data; News auto-loads with a 5-min cache; Socials with 10-min).
         commandSubTab(_commandSub || "command-overview");
       } else if (id === "markov") {
         // don't auto-run — user clicks "Run Markov Analysis"
@@ -2990,7 +3043,7 @@
     // state is preserved because the sub-pages keep their rendered DOM.
     const MARKET_SUBS    = ["market-overview", "market-signals", "gapgo"];
     const ANALYTICS_SUBS = ["performance", "pnl", "edge"];
-    const COMMAND_SUBS   = ["command-overview", "news"];
+    const COMMAND_SUBS   = ["command-overview", "news", "socials"];
     let _marketSub    = "market-overview";
     let _analyticsSub = "performance";
     let _commandSub   = "command-overview";
@@ -3050,6 +3103,7 @@
       _activateSubTab("command", subId);
       if (subId === "command-overview") refreshCurrent();  // reload account/positions context
       else if (subId === "news")        loadNews();        // 5-min cache; ↻ forces
+      else if (subId === "socials")     loadSocials();     // 10-min cache; ↻ forces
     }
 
     // ── 📰 Command › News (roadmap 2026-07-09) ────────────────────────────────
@@ -3221,6 +3275,217 @@
         return '<div class="news-item"><span class="news-time">' + when + '</span>' +
                '<div style="min-width:0">' + badge + headline +
                ' <span class="news-src">— ' + escapeHtml(it.source) + "</span>" + syms + "</div></div>";
+      }).join("");
+    }
+
+    // ── 🐦 Command › Socials (roadmap 2026-07-09) ─────────────────────────────
+    // Crypto tweets + stats from accounts with > 0.5M followers. X/Twitter has
+    // no keyless API and blocks CORS, so the tab splits the job:
+    //   Stats  — live follower/tweet counts via the keyless fxtwitter API
+    //            (api.fxtwitter.com/<handle>, ACAO:* — verified 2026-07-09).
+    //   Tweets — Nitter-mirror RSS through the same keyless rss2json bridge the
+    //            News tab uses; each account tries the mirrors in order and
+    //            Promise.allSettled keeps dead accounts from blanking the tab.
+    //            Best-effort: public mirrors come and go.
+    // The >0.5M-follower gate is enforced by curation (SOC_ACCOUNTS); static
+    // followersM snapshots are only the render fallback when fxtwitter fails.
+    // Retweets are skipped; generalist accounts (general:true) keep only
+    // crypto-keyword tweets. Tier badges reuse newsCatalystTier(); coin chips
+    // reuse newsDetectCoins(). Analysis-only — never places orders.
+    let _socItems = [];
+    let _socErrors = [];
+    let _socFetchedAt = 0;
+    let _socFilter = "all";                    // "all" | "key" (T1/T2 only)
+    let _socAcctStats = {};                    // handle → tweet count in feed (timeline reachable)
+    let _socLiveStats = {};                    // handle → { followers, tweets } from fxtwitter
+    const SOC_CACHE_MS     = 10 * 60 * 1000;   // auto-load re-uses items younger than this
+    const SOC_MAX_ITEMS    = 60;
+    const SOC_MAX_PER_ACCT = 8;                // keep one account from flooding the feed
+
+    // Curated accounts, every one > 0.5M followers (the roadmap gate).
+    // followersM = follower count in millions, static snapshot (2026-07).
+    const SOC_ACCOUNTS = [
+      { h: "elonmusk",        name: "Elon Musk",         followersM: 220, general: true },
+      { h: "binance",         name: "Binance",           followersM: 14 },
+      { h: "cz_binance",      name: "CZ",                followersM: 10 },
+      { h: "coinbase",        name: "Coinbase",          followersM: 5.9 },
+      { h: "VitalikButerin",  name: "Vitalik Buterin",   followersM: 5.8 },
+      { h: "saylor",          name: "Michael Saylor",    followersM: 4.4 },
+      { h: "justinsuntron",   name: "Justin Sun",        followersM: 3.9 },
+      { h: "WatcherGuru",     name: "Watcher.Guru",      followersM: 3.4 },
+      { h: "whale_alert",     name: "Whale Alert",       followersM: 2.9 },
+      { h: "BitcoinMagazine", name: "Bitcoin Magazine",  followersM: 2.7 },
+      { h: "Cointelegraph",   name: "Cointelegraph",     followersM: 2.3 },
+      { h: "APompliano",      name: "Anthony Pompliano", followersM: 1.7 },
+      { h: "ErikVoorhees",    name: "Erik Voorhees",     followersM: 0.7 },
+      { h: "novogratz",       name: "Mike Novogratz",    followersM: 0.6 }
+    ];
+
+    // Public Nitter mirrors, tried in order per account.
+    const SOC_NITTER_HOSTS = ["xcancel.com", "nitter.poast.org", "nitter.privacyredirect.com", "lightbrd.com"];
+
+    // Crypto-keyword gate for generalist (non-crypto-native) accounts.
+    const SOC_CRYPTO_RE = /\b(bitcoin|btc|ethereum|eth|crypto(?:currenc\w*)?|blockchain|doge(?:coin)?|solana|xrp|stablecoin|defi|nft|web3|altcoin|halving|satoshi|hodl|token|binance|coinbase|mining rig|memecoin)\b/i;
+
+    // Nitter RSS titles carry the raw tweet text (may include HTML entities).
+    function socCleanText(s) {
+      const el = document.createElement("textarea");
+      el.innerHTML = String(s);
+      return el.value.replace(/\s+/g, " ").trim().slice(0, 280);
+    }
+
+    // Rewrite the Nitter status link back to x.com and strip the "#m" anchor.
+    function socToXUrl(link, host) {
+      return String(link).replace("https://" + host + "/", "https://x.com/").replace(/#m$/, "");
+    }
+
+    // Live account stats via the keyless FixTweet API (api.fxtwitter.com/<handle>,
+    // Access-Control-Allow-Origin: * — verified 2026-07-09). Gives real follower
+    // and total-tweet counts, so the >0.5M gate is checkable live; the static
+    // followersM snapshots stay as the render fallback when this call fails.
+    async function socFetchStats(acct) {
+      const r = await fetch("https://api.fxtwitter.com/" + encodeURIComponent(acct.h));
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const j = await r.json();
+      if (!j.user) throw new Error("no user data");
+      return { followers: j.user.followers || 0, tweets: j.user.tweets || 0 };
+    }
+
+    async function socFetchAccount(acct) {
+      let lastErr = null;
+      for (const host of SOC_NITTER_HOSTS) {
+        try {
+          const r = await fetch("https://api.rss2json.com/v1/api.json?rss_url=" +
+            encodeURIComponent("https://" + host + "/" + acct.h + "/rss"));
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          const j = await r.json();
+          if (j.status !== "ok" || !(j.items || []).length) throw new Error(j.message || "empty feed");
+          return (j.items || [])
+            .filter(n => !/^RT by /.test(n.title || ""))     // original tweets only
+            .slice(0, SOC_MAX_PER_ACCT)
+            .map(n => ({
+              // rss2json normalizes pubDate to "YYYY-MM-DD HH:MM:SS" in UTC.
+              t: new Date(String(n.pubDate || "").replace(" ", "T") + "Z").getTime() || 0,
+              text: socCleanText(n.title || ""),
+              url: socToXUrl(n.link || "", host),
+              acct
+            }))
+            .filter(it => it.text && (!acct.general || SOC_CRYPTO_RE.test(it.text)));
+        } catch (e) { lastErr = e; }
+      }
+      throw new Error("@" + acct.h + ": " + ((lastErr && lastErr.message) || "all mirrors failed"));
+    }
+
+    async function loadSocials(force) {
+      const list = $("socList");
+      if (!list) return;
+      if (!force && _socItems.length && Date.now() - _socFetchedAt < SOC_CACHE_MS) {
+        renderSocials();
+        return;
+      }
+      const st = $("socStatus");
+      if (st) st.textContent = "fetching " + SOC_ACCOUNTS.length + " accounts…";
+      // Timelines (Nitter mirrors, flaky) and live stats (fxtwitter, reliable)
+      // fetched in parallel; each account degrades independently.
+      const [results, statRes] = await Promise.all([
+        Promise.allSettled(SOC_ACCOUNTS.map(a => socFetchAccount(a))),
+        Promise.allSettled(SOC_ACCOUNTS.map(a => socFetchStats(a)))
+      ]);
+      const items = [];
+      _socErrors = [];
+      _socAcctStats = {};
+      _socLiveStats = {};
+      results.forEach((res, i) => {
+        if (res.status === "fulfilled") {
+          items.push(...res.value);
+          _socAcctStats[SOC_ACCOUNTS[i].h] = res.value.length;
+        } else {
+          _socErrors.push((res.reason && res.reason.message) || String(res.reason));
+        }
+      });
+      statRes.forEach((res, i) => {
+        if (res.status === "fulfilled") _socLiveStats[SOC_ACCOUNTS[i].h] = res.value;
+      });
+      _socItems = items.sort((a, b) => b.t - a.t).slice(0, SOC_MAX_ITEMS)
+        .map(it => Object.assign(it, { tier: newsCatalystTier(it.text), syms: newsDetectCoins(it.text) }));
+      _socFetchedAt = Date.now();
+      renderSocials();
+    }
+
+    function socSetFilter(f) {
+      _socFilter = f;
+      const all = $("socFilterAll"), key = $("socFilterKey");
+      if (all) all.classList.toggle("active", f === "all");
+      if (key) key.classList.toggle("active", f === "key");
+      renderSocials();
+    }
+
+    // Live follower count from fxtwitter when available, else the static snapshot.
+    function socFollowersM(a) {
+      const live = _socLiveStats[a.h];
+      return live && live.followers ? live.followers / 1e6 : a.followersM;
+    }
+    function socFollowersLabel(m) {
+      return m >= 100 ? Math.round(m) + "M" : (Math.round(m * 10) / 10) + "M";
+    }
+
+    function renderSocials() {
+      const list = $("socList");
+      if (!list) return;
+      // Per-account stat chips: @handle · followers (live when fxtwitter answered)
+      // · tweets in feed (red ✕ when every Nitter mirror failed for the account).
+      const chips = $("socAccts");
+      if (chips) {
+        chips.innerHTML = SOC_ACCOUNTS.map(a => {
+          const n = _socAcctStats[a.h];
+          const dead = !(a.h in _socAcctStats);
+          const live = _socLiveStats[a.h];
+          const tip = escapeHtml(a.name) + " — " + socFollowersLabel(socFollowersM(a)) +
+            " followers (" + (live ? "live via fxtwitter" + (live.tweets ? ", " + Math.round(live.tweets / 1000) + "k tweets total" : "") : "static snapshot") +
+            "; curated >0.5M list)" + (dead ? " — tweet mirrors unreachable" : "");
+          return '<span class="soc-acct' + (dead ? " soc-dead" : "") + '" data-tip="' + tip + '"><b>@' +
+            escapeHtml(a.h) + '</b><span class="soc-followers">' + socFollowersLabel(socFollowersM(a)) +
+            (live ? "" : "*") + "</span>" + (dead ? "✕" : (n || 0) + " tw") + "</span>";
+        }).join("");
+      }
+      const items = _socFilter === "key" ? _socItems.filter(it => it.tier) : _socItems;
+      const st = $("socStatus");
+      if (st) {
+        const reachable = Object.keys(_socAcctStats).length;
+        const liveCount = Object.keys(_socLiveStats).length;
+        const reachM = SOC_ACCOUNTS.reduce((s, a) => s + socFollowersM(a), 0);
+        const at = _socFetchedAt
+          ? new Date(_socFetchedAt).toLocaleTimeString("en-GB", { timeZone: "Etc/GMT-2", hour: "2-digit", minute: "2-digit" }) + " GMT+2"
+          : "–";
+        st.textContent = _socItems.length + " tweets · " + reachable + "/" + SOC_ACCOUNTS.length +
+          " timelines · stats live for " + liveCount + "/" + SOC_ACCOUNTS.length +
+          " · reach ≈ " + Math.round(reachM) + "M followers · " +
+          _socItems.filter(it => it.tier).length + " key · fetched " + at;
+      }
+      if (!items.length) {
+        list.innerHTML = '<div class="small" style="color:var(--muted)">' +
+          (_socItems.length ? "No T1/T2 catalyst tweets right now."
+            : "No tweets loaded — the public Nitter mirrors are all unreachable right now " +
+              "(they come and go). Live account stats above still refresh via fxtwitter; " +
+              "hit ↻ Refresh to retry the mirrors.") + "</div>";
+        return;
+      }
+      list.innerHTML = items.map(it => {
+        const when = new Date(it.t).toLocaleString("en-GB",
+          { timeZone: "Etc/GMT-2", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+        const badge = it.tier === "T1" ? '<span class="news-badge news-t1" data-tip="Structural catalyst — flag positions for close, block new entries in the symbol until resolved.">T1</span>'
+                    : it.tier === "T2" ? '<span class="news-badge news-t2" data-tip="Flow catalyst — downsize or skip borderline entries, tighten attention on stops.">T2</span>'
+                    : "";
+        const text = it.url
+          ? '<a class="news-headline" href="' + escapeHtml(it.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(it.text) + "</a>"
+          : escapeHtml(it.text);
+        const syms = it.syms && it.syms.length
+          ? ' <span class="news-syms">' + it.syms.map(s => escapeHtml(s)).join(" ") + "</span>"
+          : "";
+        return '<div class="news-item"><span class="news-time">' + when + '</span>' +
+               '<div style="min-width:0">' + badge + text +
+               ' <span class="news-src">— @' + escapeHtml(it.acct.h) + " · " +
+               socFollowersLabel(socFollowersM(it.acct)) + "</span>" + syms + "</div></div>";
       }).join("");
     }
 
