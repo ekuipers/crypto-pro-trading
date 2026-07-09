@@ -2283,7 +2283,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-07-09</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-07-09.1</strong></span>
+    <span>Version: <strong>v2026-07-09.2</strong></span>
   </footer>
 
   <script>
@@ -6742,7 +6742,7 @@
         }
         return "<tr>" +
           '<td style="color:var(--muted);font-weight:700;font-size:12px">#' + info.rank + "</td>" +
-          "<td>" + tvLink(row.sym, baseTicker(row.sym)) +
+          "<td>" + tvLink(row.sym) +
             '<span style="color:var(--muted);font-size:11px;margin-left:5px">' + info.name + "</span></td>" +
           '<td class="right mono">' + moFmtPrice(row.price) + "</td>" +
           '<td class="right">' + moChgHtml(row.chg24h) + "</td>" +
@@ -6937,7 +6937,7 @@
           '<tr><td colspan="10" class="placeholder">Configure API credentials in Settings first.</td></tr>';
         return;
       }
-      const universe = await getCryptoUniverse();
+      const universe = usdPairsOnly(await getCryptoUniverse());
       const maxSyms  = Math.max(1, Math.round(s.limits.maxSignalSymbols || universe.length));
       const MO_SYMBOLS = universe.slice(0, maxSyms);
       document.getElementById("moTableBody").innerHTML =
@@ -7022,6 +7022,10 @@
     // so pairs like BTC/USDT and ETH/USDC are included (roadmap 2026-06-19);
     // other quotes (BTC-quoted pairs, etc.) are dropped, as are stablecoin bases
     // (USDT/USD, USDC/USD, … — see STABLECOIN_BASES).
+    // NOTE (bug fix 2026-07-09): the Scanner and Market Overview pass this
+    // universe through usdPairsOnly() before slicing — Alpaca trades against
+    // USD, and the mixed quotes made the same base appear up to 3× per scan.
+    // The USDT/USDC pairs remain only for the Settings watchlist selector.
     let _cryptoUniverse = null;
     // Quote currencies the dashboard universe accepts: USD plus the major
     // stablecoin quotes, so BTC/USDT, ETH/USDC, … are selectable and scannable.
@@ -7112,6 +7116,16 @@
       return _stablecoinUniverse || [];
     }
 
+    // Alpaca executes trades against USD only, so the trading scan surfaces
+    // (Market › Scanner and Market Overview) restrict the shared universe to
+    // /USD pairs — otherwise the same base shows up to three times (BTC/USD,
+    // BTC/USDT, BTC/USDC) in the results table (bug fix 2026-07-09).
+    // USDT/USDC-quoted pairs stay in the full universe for the Settings
+    // watchlist selector only.
+    function usdPairsOnly(universe) {
+      return (universe || []).filter(function(s) { return s.endsWith("/USD"); });
+    }
+
     function updateScanBtnLabel() {
       const btn = document.getElementById("msScanBtn");
       if (!btn) return;
@@ -7120,7 +7134,7 @@
       // Alpaca only lists ~33 tradable USD pairs, so a Max Symbols of e.g. 60
       // can never be reached. Show "(all available)" so the cap is honest
       // instead of implying 60 symbols exist to scan.
-      const uni = _cryptoUniverse ? _cryptoUniverse.length : null;
+      const uni = _cryptoUniverse ? usdPairsOnly(_cryptoUniverse).length : null;
       if (uni && n > uni) {
         btn.textContent = "▶ Scan Top " + uni + " (all available)";
       } else {
@@ -7135,7 +7149,7 @@
           '<tr><td colspan="14" class="placeholder">Configure API credentials in Settings first.</td></tr>';
         return;
       }
-      const universe = await getCryptoUniverse();
+      const universe = usdPairsOnly(await getCryptoUniverse());
       const maxSyms = Math.max(1, Math.round(s.limits.maxSignalSymbols || universe.length));
       const SCAN_SYMBOLS = universe.slice(0, maxSyms);
       updateScanBtnLabel();
@@ -7235,7 +7249,7 @@
           if (row.error) {
             return '<tr data-unavailable="1">' +
               '<td style="color:var(--muted);font-size:12px">#' + info.rank + "</td>" +
-              '<td>' + tvLink(row.sym, baseTicker(row.sym)) + "</td>" +
+              '<td>' + tvLink(row.sym) + "</td>" +
               '<td class="right mono" style="color:var(--muted)">' + moFmtPrice(row.livePrice) + "</td>" +
               '<td colspan="11" style="color:var(--muted);font-size:12px">' + row.error + "</td>" +
               "</tr>";
@@ -7257,7 +7271,7 @@
           const pbFmt   = (row.bb_pb !== undefined && row.bb_pb !== null) ? fmt(row.bb_pb,2) : "–";
           return "<tr>" +
             '<td style="color:var(--muted);font-size:12px">#' + info.rank + "</td>" +
-            '<td>' + tvLink(row.sym, baseTicker(row.sym)) + "</td>" +
+            '<td>' + tvLink(row.sym) + "</td>" +
             '<td class="right mono">' + moFmtPrice(row.livePrice || row.lastClose) + "</td>" +
             '<td class="right">' + scoreBar(row.score) + "</td>" +
             "<td>" + trendHtml + "</td>" +
@@ -7292,7 +7306,7 @@
             ? buyRows.map(function(r) {
                 const inf = symbolInfo(r.sym);
                 return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px">' +
-                  tvLink(r.sym, baseTicker(r.sym)) +
+                  tvLink(r.sym) +
                   '<span style="color:var(--muted);font-size:11px;flex:1">' + (inf.name||"") + "</span>" +
                   '<span style="color:var(--green);font-weight:800">+' + r.score + "</span>" +
                   '<span style="color:var(--muted);font-size:11px">' + (r.dailyRegime||"") + "</span>" +

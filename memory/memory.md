@@ -69,6 +69,20 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-07-09 — Rescan bugs: Scanner duplicate-symbol fix — USD-only scan universe (v2026-07-09.2)
+
+**Bug (owner-reported, CLAUDE.md Bugs #1):** the Market › Scanner results table listed the same symbol up to three times — once per quote currency (BTC/USD, BTC/USDT, BTC/USDC) — because the 2026-06-19 roadmap broadened `ALLOWED_QUOTES` to USDT/USDC and the symbol cell showed only the base ticker (`baseTicker()` → "BTC"), making the rows look like exact duplicates. Alpaca executes trades against USD, so the non-USD rows were noise on a trading surface.
+
+**Fix (`docs/dashboard_professional.html`):**
+
+- New `usdPairsOnly(universe)` helper next to `getCryptoUniverse()` — filters to symbols ending `/USD`.
+- `loadMarketSignals()` (Scanner) and `loadMarketOverview()` now slice from `usdPairsOnly(await getCryptoUniverse())`, so each base appears exactly once and the "tradable USD pairs" capped-scan notes are accurate again.
+- `updateScanBtnLabel()` clamps against the USD-only count instead of the full mixed-quote universe length.
+- Symbol cells in the Scanner table (normal + error rows), the Top Opportunities panel, and the Market Overview table now render `tvLink(row.sym)` (full pair, e.g. `BTC/USD`) instead of the bare base — per the owner's request to show the quote in the symbol.
+- Scope deliberately narrow: the full USD/USDT/USDC universe is unchanged and still feeds the Settings watchlist selector dropdown (`populateWatchlistOptions()`), which was a deliberate 2026-06-19 feature. Only the two scan surfaces filter.
+
+**Verified:** all inline `<script>` blocks parse clean via `new Function` under node (2 blocks, 0 errors). Footer bumped to v2026-07-09.2. Docs updated: CLAUDE.md (bug closed, Scanner/Market Overview/Settings rows corrected), README.md, glossary.md, dashboard_layout.md.
+
 ### 2026-07-09 — Rescan roadmap: all 8 trader-effectiveness items implemented (v2026-07-09.1)
 
 "Rescan roadmap" → implemented every candidate from the same-day analysis, across the Python engine AND the dashboard Autopilot (both engines stay in parity — new consistency-checklist item 15). Roadmap cleared per workflow rule 3.
