@@ -24,18 +24,10 @@ When I correct you, or you catch yourself making a mistake: before continuing, a
 
 ## Roadmap
 
-*(empty — the 2026-07-09 item "Add total amount in currency to the order table in the Execution page" was implemented in v2026-07-09.4: the Execution › Recent Orders table has a sortable **Total** column (USD) = filled qty × avg fill for filled orders, else qty × limit price, else the order's notional. See `memory/memory.md`.)*
 
-## Symbol notation (canonical)
-
-**One notation everywhere: the slash pair `BASE/QUOTE` — e.g. `BTC/USD`, `BTC/USDT`** (roadmap item implemented 2026-07-09, v2026-07-09.3). This applies to config, journals, console/log output, state files, and every dashboard display label. Alpaca returns crypto symbols *without* the slash (`BTCUSD`) in the positions/orders/activities responses, and the no-slash form is used in order payloads and bars/snapshot map keys — convert at that API boundary only, never in display or storage:
-
-- **Python:** `scripts/symbols.py › to_slash()` is the single converter (USDT/USDC/USD quotes, longest match first). `rebalance.py`, `run_evaluation.py`, `trade.py`, and `scout.py` import it — never re-implement the conversion locally.
-- **Dashboard:** `toSlash()` (canonical form — mirrors `symbols.py`, keep the two in sync) and `tvLink(sym)` (linked full-pair label). `baseTicker()` is **not** for symbol labels; its only remaining uses are functional — external news-site URL slugs and the space-capped correlation-matrix axis ticks (documented exemptions). The `symbolInfo()` `name` fallback also uses the base (it is an asset *name*, not a symbol).
 
 ## Bugs
 
-*(none — the 2026-07-09 duplicate-symbol bug in the Market › Scanner table (same base listed up to 3× as BTC/USD, BTC/USDT, BTC/USDC) was fixed in v2026-07-09.2: the Scanner and Market Overview scan universes are now filtered to `/USD` pairs via `usdPairsOnly()` (Alpaca trades against USD), and symbol cells show the full pair (e.g. `BTC/USD`) instead of the bare base. USDT/USDC-quoted pairs remain available only in the Settings watchlist selector. See `memory/memory.md`.)*
 
 ---
 
