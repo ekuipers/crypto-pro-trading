@@ -197,3 +197,104 @@ class TestRiskCheck:
         check = risk.RiskCheck(ok=False, reason="test reason")
         assert check.ok is False
         assert check.reason == "test reason"
+
+
+# ---------------------------------------------------------------------------
+# Trade economics (roadmap 2026-07-09 item 1)
+# ---------------------------------------------------------------------------
+
+class TestTradeEconomics:
+    def test_spread_pct(self):
+        assert risk.spread_pct(99.9, 100.1) == pytest.approx(0.002)
+
+    def test_spread_pct_invalid_quotes(self):
+        assert risk.spread_pct(0, 100) == 0.0
+        assert risk.spread_pct(101, 100) == 0.0   # crossed quote
+
+    def test_round_trip_cost(self):
+        # 2 x 25 bps + 0.2% spread = 0.7%
+        rt = risk.round_trip_cost_pct(99.9, 100.1, fee_bps_per_side=25)
+        assert rt == pytest.approx(0.007)
+
+    def test_net_rr(self):
+        # entry 100, stop 96 (risk 4), target 112 (reward 12), cost 0.6%
+        nr = risk.net_rr(100, 96, 112, cost_pct=0.006)
+        assert nr == pytest.approx((12 - 0.6) / 4)
+
+    def test_net_rr_invalid_geometry(self):
+        assert risk.net_rr(100, 104, 112) is None   # stop above entry
+        assert risk.net_rr(100, 96, 99) is None     # target below entry
+        assert risk.net_rr(100, None, 112) is None
+
+
+# ---------------------------------------------------------------------------
+# Partial take-profit ladder (roadmap 2026-07-09 item 4)
+# ---------------------------------------------------------------------------
+
+class TestPartialTakeProfit:
+    def test_trigger_price(self):
+        assert risk.partial_tp_trigger_price(100, 96, 1.0) == pytest.approx(104)
+
+    def test_fires_at_one_r(self):
+        assert risk.should_partial_tp(100, 104.1, 96, already_done=False, r_multiple=1.0)
+
+    def test_below_trigger_holds(self):
+        assert not risk.should_partial_tp(100, 103.9, 96, already_done=False, r_multiple=1.0)
+
+    def test_never_fires_twice(self):
+        assert not risk.should_partial_tp(100, 110, 96, already_done=True, r_multiple=1.0)
+
+    def test_invalid_stop(self):
+        assert risk.partial_tp_trigger_price(100, 104, 1.0) is None
+        assert not risk.should_partial_tp(100, 110, 104, already_done=False)
+
+
+# ---------------------------------------------------------------------------
+# Stale-position exit (roadmap 2026-07-09 item 5)
+# ---------------------------------------------------------------------------
+
+class TestStalePosition:
+    def _iso(self, hours_ago):
+        from datetime import datetime, timedelta, timezone
+        return (datetime.now(timezone.utc) - timedelta(hours=hours_ago)).isoformat()
+
+    def test_old_weak_unarmed_is_stale(self):
+        assert risk.is_stale_position(self._iso(49), False, 1.0, 2.5, max_hold_hours=48)
+
+    def test_young_position_not_stale(self):
+        assert not risk.is_stale_position(self._iso(2), False, 1.0, 2.5, max_hold_hours=48)
+
+    def test_armed_trailing_exempt(self):
+        assert not risk.is_stale_position(self._iso(49), True, 1.0, 2.5, max_hold_hours=48)
+
+    def test_strong_score_exempt(self):
+        assert not risk.is_stale_position(self._iso(49), False, 3.0, 2.5, max_hold_hours=48)
+
+    def test_missing_timestamp(self):
+        assert not risk.is_stale_position(None, False, 1.0, 2.5, max_hold_hours=48)
+
+    def test_disabled_via_zero_hours(self):
+        assert not risk.is_stale_position(self._iso(999), False, 1.0, 2.5, max_hold_hours=0)
+
+
+# ---------------------------------------------------------------------------
+# Rotation at the correlation budget (roadmap 2026-07-09 item 2)
+# ---------------------------------------------------------------------------
+
+class TestRotationAllows:
+    def test_live_scenario_2026_07_08(self):
+        # UNI/USD +4.0 blocked while AAVE/USD held at -1.0 -> rotate.
+        assert risk.rotation_allows(4.0, -1.0, min_score=4.0, margin=2.0)
+
+    def test_candidate_below_min_score(self):
+        assert not risk.rotation_allows(3.5, -1.0, min_score=4.0, margin=2.0)
+
+    def test_holding_still_positive(self):
+        assert not risk.rotation_allows(4.0, 0.5, min_score=4.0, margin=2.0)
+
+    def test_margin_not_met(self):
+        assert not risk.rotation_allows(4.0, 2.5, min_score=4.0, margin=2.0)
+
+    def test_none_scores(self):
+        assert not risk.rotation_allows(None, -1.0)
+        assert not risk.rotation_allows(4.0, None)

@@ -11,7 +11,18 @@
     "atr_multiplier": 1.5,
     "risk_per_trade_pct": 0.01,
     "fallback_size_pct": 0.02,
-    "shorts_enabled": false
+    "shorts_enabled": false,
+    "rotation_enabled": true,
+    "rotation_min_score": 4.0,
+    "rotation_score_margin": 2.0,
+    "min_rr_full": 1.5,
+    "min_rr_half": 1.0,
+    "session_filter_enabled": false,
+    "session_min_sample": 20
+  },
+  "costs": {
+    "_comment": "Trade-economics model (roadmap 2026-07-09 item 1). taker_fee_bps_per_side: Alpaca crypto taker fee per side in basis points (base tier ~25 bps = 0.25%). Round-trip cost = 2 x fee + live bid-ask spread.",
+    "taker_fee_bps_per_side": 25
   },
   "risk": {
     "stop_loss_mode": "swing_low_4h",
@@ -27,14 +38,19 @@
     "trailing_stop_trail_pct": 0.03,
     "stop_loss_escalation_cycles": 2,
     "stop_loss_escalation_extra_pct": 0.003,
-    "max_open_positions": 4,
+    "max_open_positions": 15,
     "tier1_symbols": [
       "BTC/USD",
       "ETH/USD"
     ],
-    "max_positions_per_tier": 3,
+    "max_positions_per_tier": 5,
     "daily_drawdown_gate_pct": 0.03,
-    "capital_preservation_stop_pct": 0.03
+    "capital_preservation_stop_pct": 0.03,
+    "enforce_budget_on_open_positions": false,
+    "max_hold_hours": 48,
+    "partial_tp_enabled": true,
+    "partial_tp_r_multiple": 1.0,
+    "partial_tp_fraction": 0.5
   },
   "indicators": {
     "ema_fast": 20,

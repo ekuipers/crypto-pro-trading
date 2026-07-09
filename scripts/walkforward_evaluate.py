@@ -49,9 +49,10 @@ def _load_sim_defaults() -> dict:
     cfg_path = Path(__file__).resolve().parent.parent / "config.json"
     try:
         cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
-        return {"strategy": cfg.get("strategy", {}), "risk": cfg.get("risk", {})}
+        return {"strategy": cfg.get("strategy", {}), "risk": cfg.get("risk", {}),
+                "costs": cfg.get("costs", {})}
     except Exception:
-        return {"strategy": {}, "risk": {}}
+        return {"strategy": {}, "risk": {}, "costs": {}}
 
 
 def fetch_crypto_bars(symbol: str, timeframe: str, start: str, end: str, limit: int = 10000) -> pd.DataFrame:
@@ -98,7 +99,10 @@ class SimConfig:
     # take_profit_pct: live trading uses TA exit (score <= -2), not a fixed %.
     # The backtest uses a fixed 10% as a reasonable approximation.
     take_profit_pct: float = 0.10
-    fee_bps: float = 0.0
+    # Realistic per-side taker fee (roadmap 2026-07-09 item 1d): Alpaca's
+    # crypto base tier charges ~25 bps/side. A 0-fee default overstated
+    # Sharpe on every report. Overridden by config.json > costs.
+    fee_bps: float = 25.0
     slippage_bps: float = 0.0
 
 
@@ -112,6 +116,7 @@ def default_sim_config() -> SimConfig:
         buy_score_half_size=float(s.get("buy_score_half_size_threshold",  3.0)),
         sell_score_threshold=float(s.get("sell_score_threshold",         -2.0)),
         stop_loss_pct=float(r.get("stop_loss_pct",                        0.05)),
+        fee_bps=float(d.get("costs", {}).get("taker_fee_bps_per_side",   25.0)),
     )
 
 
@@ -298,7 +303,9 @@ def main():
     p.add_argument("--train-days", type=int, default=90)
     p.add_argument("--test-days", type=int, default=30)
     p.add_argument("--initial-equity", type=float, default=10000.0)
-    p.add_argument("--fee-bps", type=float, default=0.0)
+    # Default matches config.json > costs.taker_fee_bps_per_side (~25 bps/side
+    # Alpaca base tier) so reports no longer overstate Sharpe (item 1d).
+    p.add_argument("--fee-bps", type=float, default=25.0)
     p.add_argument("--slippage-bps", type=float, default=0.0)
     p.add_argument("--out", default="reports")
     args = p.parse_args()

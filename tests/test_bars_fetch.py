@@ -47,3 +47,49 @@ class TestGetCryptoBars:
     def test_empty_response(self):
         with patch.object(re_mod, "api_get", return_value=_mock_response([])):
             assert re_mod.get_crypto_bars("BTC/USD") == []
+
+
+class TestAggregateBarsTo4h:
+    """4H data fallback (roadmap 2026-07-09 item 6): synthetic 4H from 1H bars."""
+
+    def _hour_bars(self, start_hour, n):
+        bars = []
+        for i in range(n):
+            h = start_hour + i
+            bars.append({
+                "t": "2026-07-09T%02d:00:00Z" % (h % 24),
+                "o": 100.0 + i, "h": 101.0 + i, "l": 99.0 + i,
+                "c": 100.5 + i, "v": 10.0,
+            })
+        return bars
+
+    def test_aggregates_complete_bucket(self):
+        # 04:00–07:00 = one complete 4H bucket
+        bars = self._hour_bars(4, 4)
+        out = re_mod.aggregate_bars_to_4h(bars)
+        assert len(out) == 1
+        b = out[0]
+        assert b["t"] == "2026-07-09T04:00:00Z"
+        assert b["o"] == 100.0            # first bar's open
+        assert b["c"] == 100.5 + 3        # last bar's close
+        assert b["h"] == 101.0 + 3        # max high
+        assert b["l"] == 99.0             # min low
+        assert b["v"] == 40.0             # summed volume
+
+    def test_drops_partial_bucket(self):
+        # 04:00–06:00 = only 3 of 4 hourly bars — bucket must be dropped
+        bars = self._hour_bars(4, 3)
+        assert re_mod.aggregate_bars_to_4h(bars) == []
+
+    def test_two_buckets(self):
+        bars = self._hour_bars(0, 8)      # 00–03 and 04–07
+        out = re_mod.aggregate_bars_to_4h(bars)
+        assert [b["t"] for b in out] == [
+            "2026-07-09T00:00:00Z", "2026-07-09T04:00:00Z"
+        ]
+
+    def test_skips_malformed_bars(self):
+        bars = self._hour_bars(4, 4)
+        bars.insert(0, {"t": None, "c": 1})
+        bars.insert(0, {"t": "not-a-date", "c": 1})
+        assert len(re_mod.aggregate_bars_to_4h(bars)) == 1

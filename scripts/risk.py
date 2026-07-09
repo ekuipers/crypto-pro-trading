@@ -82,6 +82,50 @@ def _load_risk_cfg() -> tuple:
 ) = _load_risk_cfg()
 
 
+def _load_risk_cfg2() -> tuple:
+    """Second-stage config loader for the 2026-07-09 roadmap keys.
+
+    Kept separate from _load_risk_cfg() so the original 17-tuple (and every
+    caller that unpacks it) stays untouched.
+    """
+    cfg_path = Path(__file__).resolve().parent.parent / "config.json"
+    try:
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        r  = cfg.get("risk", {})
+        s  = cfg.get("strategy", {})
+        c  = cfg.get("costs", {})
+        return (
+            float(c.get("taker_fee_bps_per_side",       25.0)),
+            bool( s.get("rotation_enabled",             True)),
+            float(s.get("rotation_min_score",           4.0)),
+            float(s.get("rotation_score_margin",        2.0)),
+            float(s.get("min_rr_full",                  1.5)),
+            float(s.get("min_rr_half",                  1.0)),
+            bool( r.get("enforce_budget_on_open_positions", False)),
+            float(r.get("max_hold_hours",               48.0)),
+            bool( r.get("partial_tp_enabled",           True)),
+            float(r.get("partial_tp_r_multiple",        1.0)),
+            float(r.get("partial_tp_fraction",          0.5)),
+        )
+    except Exception:
+        return (25.0, True, 4.0, 2.0, 1.5, 1.0, False, 48.0, True, 1.0, 0.5)
+
+
+(
+    TAKER_FEE_BPS_PER_SIDE,
+    ROTATION_ENABLED,
+    ROTATION_MIN_SCORE,
+    ROTATION_SCORE_MARGIN,
+    MIN_RR_FULL,
+    MIN_RR_HALF,
+    ENFORCE_BUDGET_ON_OPEN_POSITIONS,
+    MAX_HOLD_HOURS,
+    PARTIAL_TP_ENABLED,
+    PARTIAL_TP_R_MULTIPLE,
+    PARTIAL_TP_FRACTION,
+) = _load_risk_cfg2()
+
+
 # ---------------------------------------------------------------------------
 # Data types
 # ---------------------------------------------------------------------------
@@ -381,6 +425,152 @@ def cover_limit_price(
 
 
 # ---------------------------------------------------------------------------
+# Trade-economics helpers (roadmap 2026-07-09 item 1)
+# ---------------------------------------------------------------------------
+
+def spread_pct(bid: float, ask: float) -> float:
+    """Quoted bid-ask spread as a fraction of the mid price (0.001 = 0.1%)."""
+    if bid <= 0 or ask <= 0 or ask < bid:
+        return 0.0
+    mid = (ask + bid) / 2
+    return (ask - bid) / mid
+
+
+def round_trip_cost_pct(
+    bid: float,
+    ask: float,
+    fee_bps_per_side: float = TAKER_FEE_BPS_PER_SIDE,
+) -> float:
+    """
+    Estimated full round-trip cost as a fraction of notional:
+    taker fee on entry + taker fee on exit + the quoted bid-ask spread.
+    E.g. 25 bps/side + 0.1% spread -> 0.006 (0.6%).
+    """
+    return 2 * fee_bps_per_side / 10000.0 + spread_pct(bid, ask)
+
+
+def net_rr(
+    entry: float,
+    stop: float,
+    target: float,
+    cost_pct: float = 0.0,
+) -> float | None:
+    """
+    Net-of-cost reward:risk ratio for a long setup.
+
+    Reward leg = (target - entry) minus the round-trip cost (fees + spread);
+    risk leg = entry - stop. Returns None when the geometry is invalid
+    (stop not below entry, or no upside target).
+    """
+    if entry <= 0 or stop is None or stop <= 0 or stop >= entry:
+        return None
+    if target is None or target <= entry:
+        return None
+    reward = (target - entry) - entry * cost_pct
+    risk_leg = entry - stop
+    if risk_leg <= 0:
+        return None
+    return reward / risk_leg
+
+
+# ---------------------------------------------------------------------------
+# Partial take-profit ladder (roadmap 2026-07-09 item 4)
+# ---------------------------------------------------------------------------
+
+def partial_tp_trigger_price(
+    entry: float,
+    stop: float,
+    r_multiple: float = PARTIAL_TP_R_MULTIPLE,
+) -> float | None:
+    """
+    Price at which the partial take-profit fires: entry + r_multiple x R,
+    where R = entry - stop (the initial risk distance). None when the stop
+    geometry is invalid.
+    """
+    if entry <= 0 or stop is None or stop <= 0 or stop >= entry:
+        return None
+    return entry + (entry - stop) * r_multiple
+
+
+def should_partial_tp(
+    entry: float,
+    current: float,
+    stop: float,
+    already_done: bool,
+    r_multiple: float = PARTIAL_TP_R_MULTIPLE,
+) -> bool:
+    """True when an open long has reached +r_multiple R and has not yet scaled out."""
+    if already_done:
+        return False
+    trigger = partial_tp_trigger_price(entry, stop, r_multiple)
+    return trigger is not None and current >= trigger
+
+
+# ---------------------------------------------------------------------------
+# Stale-position exit (roadmap 2026-07-09 item 5)
+# ---------------------------------------------------------------------------
+
+def position_age_hours(entry_time_iso: str | None, now=None) -> float | None:
+    """Hours since the position was opened; None when the timestamp is missing/bad."""
+    if not entry_time_iso:
+        return None
+    from datetime import datetime, timezone
+    try:
+        opened = datetime.fromisoformat(str(entry_time_iso).replace("Z", "+00:00"))
+        if opened.tzinfo is None:
+            opened = opened.replace(tzinfo=timezone.utc)
+    except Exception:
+        return None
+    now = now or datetime.now(timezone.utc)
+    return (now - opened).total_seconds() / 3600.0
+
+
+def is_stale_position(
+    entry_time_iso: str | None,
+    trailing_armed: bool,
+    score: float | None,
+    score_gate: float,
+    max_hold_hours: float = MAX_HOLD_HOURS,
+    now=None,
+) -> bool:
+    """
+    True when a position should be exited for capital efficiency:
+    older than max_hold_hours, never armed its trailing stop, and its live
+    score is below the half-size entry gate. Winners (armed trail) are exempt.
+    """
+    if max_hold_hours <= 0 or trailing_armed or score is None:
+        return False
+    if score >= score_gate:
+        return False
+    age = position_age_hours(entry_time_iso, now)
+    return age is not None and age > max_hold_hours
+
+
+# ---------------------------------------------------------------------------
+# Position rotation at the correlation budget (roadmap 2026-07-09 item 2)
+# ---------------------------------------------------------------------------
+
+def rotation_allows(
+    candidate_score: float | None,
+    weakest_score: float | None,
+    min_score: float = ROTATION_MIN_SCORE,
+    margin: float = ROTATION_SCORE_MARGIN,
+) -> bool:
+    """
+    True when a budget-blocked candidate justifies rotating out the weakest
+    open holding: candidate >= min_score, weakest <= 0, and the candidate
+    leads the weakest by at least `margin` points.
+    """
+    if candidate_score is None or weakest_score is None:
+        return False
+    return (
+        candidate_score >= min_score
+        and weakest_score <= 0
+        and candidate_score - weakest_score >= margin
+    )
+
+
+# ---------------------------------------------------------------------------
 # Self-checks (run as: python scripts/risk.py)
 # ---------------------------------------------------------------------------
 
@@ -429,17 +619,20 @@ if __name__ == "__main__":
     assert not should_trail_stop_out(100, 102.5, 100)
     assert should_trail_stop_out(100, 110, 106)
     assert not should_trail_stop_out(0, 110, 106)
-    # Correlation budget: max 4 open positions, max 3 per tier.
-    ok, _ = correlation_budget_allows("SOL/USD", ["BTC/USD", "ETH/USD"])
+    # Correlation budget (explicit caps so the check is config-independent).
+    ok, _ = correlation_budget_allows("SOL/USD", ["BTC/USD", "ETH/USD"],
+                                      max_positions=4, max_per_tier=3)
     assert ok
     # 4 positions open -> total cap (4) reached, blocked.
     ok, reason = correlation_budget_allows(
-        "SOL/USD", ["BTC/USD", "ETH/USD", "ADA/USD", "DOGE/USD"])
+        "SOL/USD", ["BTC/USD", "ETH/USD", "ADA/USD", "DOGE/USD"],
+        max_positions=4, max_per_tier=3)
     assert not ok
     assert "4/4" in reason
     # 3 Tier-2 positions open -> Tier-2 cap (3) reached, blocked.
     ok, reason = correlation_budget_allows(
-        "SOL/USD", ["ADA/USD", "DOGE/USD", "LTC/USD"])
+        "SOL/USD", ["ADA/USD", "DOGE/USD", "LTC/USD"],
+        max_positions=4, max_per_tier=3)
     assert not ok
     assert "3/3" in reason
     assert not daily_drawdown_gate_triggered(100_000, 97_001)
@@ -449,6 +642,37 @@ if __name__ == "__main__":
     assert abs(lim - 99.5) < 0.001
     lim_esc = stop_loss_limit_price(100.0, cycles_open=2)
     assert lim_esc < lim
+    # Trade economics (roadmap item 1)
+    assert abs(spread_pct(99.9, 100.1) - 0.2 / 100.0) < 1e-6
+    assert spread_pct(0, 100) == 0.0
+    rt = round_trip_cost_pct(99.9, 100.1, fee_bps_per_side=25)
+    assert abs(rt - (0.005 + 0.002)) < 1e-6           # 2×25bps + 0.2% spread
+    # Net R:R: entry 100, stop 96 (risk 4), target 112 (reward 12), cost 0.6%
+    nr = net_rr(100, 96, 112, cost_pct=0.006)
+    assert nr is not None and abs(nr - (12 - 0.6) / 4) < 1e-9
+    assert net_rr(100, 104, 112) is None              # stop above entry
+    assert net_rr(100, 96, 99) is None                # target below entry
+    # Partial TP (roadmap item 4): entry 100, stop 96 -> +1R trigger at 104
+    assert abs(partial_tp_trigger_price(100, 96, 1.0) - 104) < 1e-9
+    assert should_partial_tp(100, 104.1, 96, already_done=False, r_multiple=1.0)
+    assert not should_partial_tp(100, 103.9, 96, already_done=False, r_multiple=1.0)
+    assert not should_partial_tp(100, 110, 96, already_done=True, r_multiple=1.0)
+    # Stale-position exit (roadmap item 5)
+    from datetime import datetime, timedelta, timezone
+    _now = datetime.now(timezone.utc)
+    _old = (_now - timedelta(hours=49)).isoformat()
+    _new = (_now - timedelta(hours=2)).isoformat()
+    assert is_stale_position(_old, False, 1.0, 2.5, max_hold_hours=48, now=_now)
+    assert not is_stale_position(_new, False, 1.0, 2.5, max_hold_hours=48, now=_now)
+    assert not is_stale_position(_old, True,  1.0, 2.5, max_hold_hours=48, now=_now)
+    assert not is_stale_position(_old, False, 3.0, 2.5, max_hold_hours=48, now=_now)
+    assert not is_stale_position(None, False, 1.0, 2.5, max_hold_hours=48, now=_now)
+    # Rotation gate (roadmap item 2)
+    assert rotation_allows(4.0, -1.0, min_score=4.0, margin=2.0)
+    assert not rotation_allows(3.5, -1.0, min_score=4.0, margin=2.0)   # below min
+    assert not rotation_allows(4.0,  0.5, min_score=4.0, margin=2.0)   # holding > 0
+    assert not rotation_allows(4.0,  2.5, min_score=4.0, margin=2.0)   # margin fail
+    assert not rotation_allows(None, -1.0)
     print("risk.py: all self-checks passed")
     print("  MAX_POSITION_PCT =", MAX_POSITION_PCT)
     print("  LIMIT_BAND_PCT   =", LIMIT_BAND_PCT)

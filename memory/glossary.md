@@ -4,20 +4,22 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
-## 2026-07-09 — Trader-effectiveness analysis: 8 roadmap candidates (docs-only, not yet implemented)
+## 2026-07-09 — All 8 trader-effectiveness items implemented (v2026-07-09.1)
 
 | Term | Meaning |
 |------|---------|
-| Round-trip cost | Total cost of a completed trade: taker fee both sides (~0.15–0.25%/side on Alpaca crypto base tier) + bid-ask spread. Roadmap item 1 makes R:R, expectancy, and the walk-forward net of this cost. |
-| Net-of-cost R:R | Reward:risk after subtracting round-trip cost from the reward leg — the number a scalper actually earns. Proposed for `_signalRrMap` + trade modal. |
-| Scalp viability gate | Proposed Scalping-tab check: distance to target must be ≥ 2× round-trip cost or the ticket is flagged/blocked. |
-| Position rotation | Proposed rule: when the correlation budget is full, a candidate scoring ≥ 4.0 and ≥ 2.0 pts above the weakest open holding (which must score ≤ 0) replaces it. Config keys `strategy.rotation_enabled` / `rotation_min_score` / `rotation_score_margin`. Motivated by 2026-07-08 journals: UNI +4.0 blocked while AAVE held at −1.0. |
-| Over-budget reconciliation | Proposed check for open positions exceeding `risk.max_open_positions` (seen live: 5/4). Journal warning + Command-tab chip + optional trim (`risk.enforce_budget_on_open_positions`). |
-| Break-even ladder / +1R scale-out | Proposed partial exit: at +1R (R = entry − swing-low stop distance) sell 50% and move the remaining stop to breakeven; remainder rides the trailing stop. |
-| Stale-position exit | Proposed `risk.max_hold_hours` (e.g. 48): exit positions older than the limit that never armed their trailing stop and score below the half-size gate. Frees budget slots. |
-| 4H aggregation fallback | Proposed fix for `insufficient 4H history (0 bars)`: build synthetic 4H bars from 1H (or 15-min) bars when the native 4H fetch returns < 51 bars, plus an explicit DATA-QUALITY WARNING line. Today Signal 6 silently reads 0 and the stop falls back to −5%. |
-| R:R soft gate | Proposed entry gate: net R:R < 1.0 block, 1.0–1.5 half-size, ≥ 1.5 full (`strategy.min_rr_full` / `min_rr_half`). Currently R:R is display-only. |
-| Session-edge filter | Proposed (OFF by default): half-size entries in hour-of-day / weekday buckets with materially negative realized expectancy (min 20 round trips per bucket), sourced from the Edge-tab analytics. |
+| Round-trip cost | Total cost of a completed trade: 2× `costs.taker_fee_bps_per_side` (25 bps/side, Alpaca crypto base tier) + live bid-ask spread. Python `risk.round_trip_cost_pct(bid, ask)` returns a fraction; JS `roundTripCostPct(spreadPct)` returns a percent. Feeds net R:R, the scalp viability gate, and the walk-forward fee default. |
+| Net-of-cost R:R (net R:R) | Reward:risk after subtracting the round-trip cost from the reward leg: `((target − entry) − entry×cost) ÷ (entry − stop)`. Stop = 4H swing low, target = BB upper. Python `risk.net_rr()`, JS `netRrPct()`. Shown in the Signals **Net R:R** column + trade modal (`_signalRrMap` carries `rr`/`grossRr`/`costPct`). |
+| Net R:R soft gate | Entry gate in both engines: net R:R < `strategy.min_rr_half` (1.0) → block; < `min_rr_full` (1.5) → half-size; skipped when stop/target geometry is unavailable ("soft"). |
+| Scalp viability gate (Cost Check) | Scalping-tab column: distance to the BB-upper target must be ≥ 2× round-trip cost, else the row shows red "⚠ costly" (flag, not block — Buy stays available). |
+| Position rotation | Implemented in `run_evaluation.apply_rotation()` + the Autopilot budget-full branch: a budget-blocked candidate scoring ≥ `strategy.rotation_min_score` (4.0) and ≥ `rotation_score_margin` (2.0) above the weakest open holding (which must score ≤ 0) replaces it in the same cycle. Pure gate: `risk.rotation_allows()`. One rotation per cycle; exits execute before entries; regime/tier/R:R gates still apply. |
+| Over-budget reconciliation | `BUDGET EXCEEDED n/m` warning (console + bold journal line) whenever open positions exceed `risk.max_open_positions`; red `#budgetChip` on the Command tab (`renderBudgetChip()`); optional weakest-overflow trim behind `risk.enforce_budget_on_open_positions` (default false). |
+| Partial TP / break-even ladder (+1R scale-out) | At +`partial_tp_r_multiple`R (R = entry − swing-low stop; −5% fallback) sell `partial_tp_fraction` (50%) and raise the remaining stop to breakeven. Fires once (`partial_tp_done`); afterwards the hard stop is `max(swing low, breakeven)`. Python: `risk.should_partial_tp()` + `position_state.mark_partial_tp()`; Autopilot mirror: `localStorage.autopilotPartialTp` (sym → breakeven), merged from the Python state file. |
+| Stale-position exit | `risk.max_hold_hours` (48): exit positions older than the limit that never armed their trailing stop and score below the half-size gate (2.5). Pure gate: `risk.is_stale_position()`; entry clock: `entry_time_iso` in the state file / `localStorage.autopilotEntryTime`. Winners (armed trail) exempt. |
+| 4H aggregation fallback / synthetic 4H | When the native 4H fetch returns < 51 bars, both engines aggregate 1H bars into synthetic 4H bars on 4-hour UTC boundaries, complete buckets only (`aggregate_bars_to_4h()` / `aggregate1hTo4h()` + `fill4hFallback()`). Failure → explicit `DATA-QUALITY WARNING` journal line / red ⚠ in the Signals 4H cell (yellow ⚠ = synthetic in use). |
+| Session-edge filter | OFF by default (`strategy.session_filter_enabled`): half-size entries during GMT+2 exit-hour/weekday buckets with ≥ `session_min_sample` (20) realized FIFO round trips and negative net P&L. Python `_session_penalty_active()` (run_evaluation); JS `apSessionPenaltyActive()` (6h cache over `edgeFetchAllFills`). |
+| `entry_time_iso` / `partial_tp_done` / `breakeven_stop` | New per-position fields in `data/positions_state.json` (position_state.py `_EMPTY_POSITION`): when the position opened, whether the +1R scale-out already fired, and the breakeven stop level for the remainder. |
+| `localStorage.autopilotPartialTp` / `autopilotEntryTime` | Autopilot mirrors of the above (sym → breakeven price; sym → entry epoch-ms). Pruned to held symbols each cycle; merged from the Python state file so both engines run the same ladder on a shared position. |
 
 ## 2026-07-08 — Roadmap sweep: Autopilot hardening + dashboard parity (v2026-07-08.1)
 
@@ -376,3 +378,8 @@ Critical implementation details to keep `indicators.py` and `dashboard_professio
 | 7 | Sizing | ATR: qty=(equity×1%)/(ATR×1.5), cap at 5% equity |
 | 8 | Order routing | All via `scripts/trade.py`; direct API calls forbidden |
 | 9 | Journal | Every day, even quiet ones |
+| 10 | Partial TP (2026-07-09) | +1R → sell 50%, remaining stop → breakeven (fires once per position) |
+| 11 | Stale exit (2026-07-09) | Held > 48h + trail unarmed + score < 2.5 → SELL at normal band |
+| 12 | Rotation (2026-07-09) | Budget full: candidate ≥ 4.0 scoring ≥ +2.0 above a weakest holding ≤ 0 → swap same cycle |
+| 13 | Net R:R gate (2026-07-09) | Net of 2×25 bps fee + spread: < 1.0 block, 1.0–1.5 half-size |
+| 14 | Over-budget (2026-07-09) | Positions > budget → journal warning + Command chip; optional trim (config-flagged) |

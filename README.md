@@ -139,6 +139,13 @@ All thresholds are configured in `config.json` — edit there, not in source fil
 - **Correlation budget** — max open positions total and max per tier are **user-configurable** (defaults loosened 2026-06-19 to 4 total, 3 per tier; Tier-1: BTC/USD + ETH/USD; Tier-2: all other alts). New entries are blocked when either limit is hit. Python reads the caps from `config.json › risk.max_open_positions` / `max_positions_per_tier` (enforced by `risk.correlation_budget_allows()`); the dashboard Autopilot reads them from **Settings › 🔗 Correlation Budget**.
 - **Daily drawdown gate** — if equity drops ≥ 3% vs. day-open equity, capital preservation mode activates: all new entries are blocked and existing stops tighten to 3%. State persists in `data/positions_state.json` and resets at midnight UTC.
 - **ATR-based sizing** — `qty = (equity × 1%) / (ATR × 1.5)`, hard-capped by per-symbol cap in `config.json > portfolio_caps.caps`. Applied identically for long and short entries.
+- **Partial take-profit + break-even ladder** *(2026-07-09)* — at +1R (R = entry − swing-low stop) sell `risk.partial_tp_fraction` (50%) and raise the remaining stop to breakeven; the remainder rides the trailing stop. Fires once per position (`partial_tp_done`/`breakeven_stop` in `data/positions_state.json`).
+- **Stale-position exit** *(2026-07-09)* — positions older than `risk.max_hold_hours` (48) with an unarmed trailing stop and a live score below the half-size gate are sold at the normal limit band (winners exempt). Entry time tracked as `entry_time_iso`.
+- **Position rotation** *(2026-07-09)* — at a full correlation budget, a blocked candidate scoring ≥ `strategy.rotation_min_score` (4.0) and ≥ `rotation_score_margin` (2.0) above the weakest open holding (which must score ≤ 0) replaces it in the same cycle. Config-flagged `strategy.rotation_enabled`; exits execute before entries.
+- **Over-budget reconciliation** *(2026-07-09)* — a `BUDGET EXCEEDED n/m` journal warning fires whenever open positions exceed the budget; optional trim via `risk.enforce_budget_on_open_positions` (default false) sells the weakest overflow position. The dashboard Command tab mirrors this with a red chip.
+- **Net R:R soft entry gate** *(2026-07-09)* — net R:R = (BB-upper target − entry − round-trip cost) ÷ (entry − swing-low stop), where round-trip cost = 2× `costs.taker_fee_bps_per_side` (25 bps) + live spread. Below `strategy.min_rr_half` (1.0) the entry is blocked; below `min_rr_full` (1.5) it is half-sized. Skipped when stop/target geometry is unavailable.
+- **Session-edge filter** *(2026-07-09, experimental, OFF by default)* — with `strategy.session_filter_enabled=true`, entries are half-sized during GMT+2 hour/weekday buckets whose realized FIFO expectancy is negative over ≥ `session_min_sample` (20) round trips.
+- **4H data fallback** *(2026-07-09)* — when the native 4H fetch returns < 51 bars, both engines aggregate 1H bars into synthetic 4H bars (complete 4-hour UTC buckets only); if that also fails, an explicit `DATA-QUALITY WARNING` is journaled and the dashboard Signals row shows a ⚠ marker instead of silently degrading Signal 6 and the swing-low stop.
 
 ---
 
@@ -149,10 +156,10 @@ All thresholds are configured in `config.json` — edit there, not in source fil
 | `scripts/run_evaluation.py` | Core evaluation loop — fetches bars, scores signals, decides BUY/SELL/HOLD, applies trailing stop + dedup + correlation budget + drawdown gate, places orders, writes journal. Bar fetch passes explicit `start`, `end = now − 1 period` (exclude in-progress bar) and `sort=desc` then reverses to chronological — without `sort=desc` Alpaca returns the *oldest* N bars of the window (daily bars were 54 d stale until 2026-06-11). `rebalance.py` and `research.py` reuse this fetcher. |
 | `scripts/trade.py` | Single gateway for all orders — enforces limit-only, limit-band (wider for stop-loss), position-cap, and crypto 24/7 rules. Exposes `get_open_orders()`, `cancel_order()`, `get_order()`. |
 | `scripts/indicators.py` | Pure-function TA library — EMA, SMA, RSI, MACD, Bollinger Bands, ATR, signal_score, plus informational ADX (trend strength) and OBV trend (volume flow) — journal-only, not scored |
-| `scripts/risk.py` | Pure-function risk checks — position-cap, limit-band, stop-loss, trailing stop, correlation budget, daily drawdown gate, stop-loss limit-price helpers (all loaded from `config.json`) |
-| `scripts/position_state.py` | Persistent state manager — per-symbol HWM, stop order ID + cycle count; portfolio-level day-open equity, capital preservation mode. Atomic writes to `data/positions_state.json`. |
+| `scripts/risk.py` | Pure-function risk checks — position-cap, limit-band, stop-loss, trailing stop, correlation budget, daily drawdown gate, stop-loss limit-price helpers, plus (2026-07-09) trade economics (`spread_pct`, `round_trip_cost_pct`, `net_rr`), partial-TP (`should_partial_tp`), stale exit (`is_stale_position`), and rotation (`rotation_allows`) — all loaded from `config.json` |
+| `scripts/position_state.py` | Persistent state manager — per-symbol HWM, entry time, partial-TP/breakeven state, stop order ID + cycle count; portfolio-level day-open equity, capital preservation mode. Atomic writes to `data/positions_state.json`. |
 | `scripts/_api.py` | Shared HTTP helper — exponential-backoff retry (3 attempts, 5 s → 10 s → 20 s) for all Alpaca API calls |
-| `scripts/walkforward_evaluate.py` | Walk-forward backtester — signal at bar close, fill at next open, supports 1H/4H/1D timeframes |
+| `scripts/walkforward_evaluate.py` | Walk-forward backtester — signal at bar close, fill at next open, supports 1H/4H/1D timeframes. `--fee-bps` defaults to 25/side (2026-07-09, from `config.json › costs`) so reports include realistic taker fees. |
 | `scripts/metrics.py` | Performance metrics — Sharpe, Sortino, max drawdown, profit factor |
 | `scripts/rebalance.py` | Portfolio rebalancer — trims over-cap positions and tops up under-cap ones using signal-confluence gate + ATR sizing; logs to journal |
 | `scripts/scout.py` | Universe scout — auto-promotes uptrending score-≥4 `*/USD` pairs outside the watchlist into `data/watchlist_dynamic.json`; merged by `run_evaluation` when `scout.enabled` (default 5% cap + all gates apply) |
@@ -367,7 +374,17 @@ Scripts load this at startup; no restart needed between runs.
     "short_score_half_size_threshold": -3.0,
     "cover_score_threshold": 2.0,
     "atr_multiplier": 1.5,
-    "risk_per_trade_pct": 0.01
+    "risk_per_trade_pct": 0.01,
+    "rotation_enabled": true,
+    "rotation_min_score": 4.0,
+    "rotation_score_margin": 2.0,
+    "min_rr_full": 1.5,
+    "min_rr_half": 1.0,
+    "session_filter_enabled": false,
+    "session_min_sample": 20
+  },
+  "costs": {
+    "taker_fee_bps_per_side": 25
   },
   "risk": {
     "stop_loss_pct": 0.05,
@@ -382,7 +399,12 @@ Scripts load this at startup; no restart needed between runs.
     "tier1_symbols": ["BTC/USD", "ETH/USD"],
     "max_positions_per_tier": 2,
     "daily_drawdown_gate_pct": 0.03,
-    "capital_preservation_stop_pct": 0.03
+    "capital_preservation_stop_pct": 0.03,
+    "enforce_budget_on_open_positions": false,
+    "max_hold_hours": 48,
+    "partial_tp_enabled": true,
+    "partial_tp_r_multiple": 1.0,
+    "partial_tp_fraction": 0.5
   },
   "indicators": {
     "ema_fast": 20, "ema_slow": 50,
@@ -498,7 +520,7 @@ alpaca-trading-agent/
 
 ## Roadmap
 
-Eight open improvement candidates from the **2026-07-09 trader-effectiveness analysis** live in `CLAUDE.md › Roadmap` (prioritized HIGH → LOW): fee- & spread-aware trade economics (net-of-cost R:R, scalp viability gate), position rotation at the correlation budget, over-budget reconciliation + warning, partial take-profit at +1R with a break-even ladder, time-based stale-position exit, a 4H data-fetch fallback (stop silent signal degradation), an R:R soft entry gate, and a session-edge feedback filter. Evidence and rationale are logged in `memory/memory.md` (2026-07-09 entry). Not yet implemented — a "rescan roadmap" request triggers implementation.
+Empty — all eight candidates from the **2026-07-09 trader-effectiveness analysis** were implemented on 2026-07-09 (v2026-07-09.1): fee- & spread-aware trade economics (Spread columns, net-of-cost R:R, scalp viability gate, walk-forward fee default 25 bps/side), position rotation at the correlation budget, over-budget reconciliation + Command-tab chip, partial take-profit at +1R with a break-even ladder, time-based stale-position exit, a 4H data fallback via 1H-bar aggregation, a net-R:R soft entry gate, and a session-edge feedback filter (ships OFF). Implementation notes are in `memory/memory.md` (2026-07-09 entry).
 
 ---
 

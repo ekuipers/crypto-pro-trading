@@ -42,8 +42,11 @@ _EMPTY_STATE: dict = {
 
 _EMPTY_POSITION: dict = {
     "entry_price":            None,
+    "entry_time_iso":         None,   # when the position opened (stale-exit rule)
     "high_water_mark":        None,
     "trailing_stop_active":   False,
+    "partial_tp_done":        False,  # +1R scale-out already taken (partial-TP ladder)
+    "breakeven_stop":         None,   # stop raised to entry after the partial TP
     "stop_order_id":          None,
     "stop_order_placed_iso":  None,
     "stop_order_limit_price": None,
@@ -144,12 +147,23 @@ def init_position(state: dict, symbol: str, entry_price: float) -> dict:
     """Called when a new BUY or SHORT fills. Resets all per-position tracking."""
     pos = get_position(state, symbol)
     pos["entry_price"]            = entry_price
+    pos["entry_time_iso"]         = datetime.now(timezone.utc).isoformat()
     pos["high_water_mark"]        = entry_price
     pos["trailing_stop_active"]   = False
+    pos["partial_tp_done"]        = False
+    pos["breakeven_stop"]         = None
     pos["stop_order_id"]          = None
     pos["stop_order_placed_iso"]  = None
     pos["stop_order_limit_price"] = None
     pos["stop_order_cycles"]      = 0
+    return state
+
+
+def mark_partial_tp(state: dict, symbol: str, breakeven_price: float) -> dict:
+    """Record the +1R partial take-profit: half sold, remaining stop = breakeven."""
+    pos = get_position(state, symbol)
+    pos["partial_tp_done"] = True
+    pos["breakeven_stop"]  = breakeven_price
     return state
 
 

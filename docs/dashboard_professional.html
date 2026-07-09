@@ -1237,6 +1237,7 @@
         <div id="tradingStatusLog" class="small" data-tip="Last 3 entries from the Autopilot activity log." style="text-align:center;margin:6px 0 8px;line-height:1.5;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px"></div>
         <div id="sessionBanner" style="display:none;text-align:center;font-size:12px;color:var(--muted);margin-bottom:8px"></div>
         <div id="scoutChip" style="display:none;text-align:center;font-size:12px;margin-bottom:8px"></div>
+        <div id="budgetChip" style="display:none;text-align:center;font-size:12px;margin-bottom:8px"></div>
         <div id="tickerStrip" class="ticker-strip">
           <div style="padding:10px 16px;color:var(--muted);font-size:12px;align-self:center">Connect Alpaca to see live prices</div>
         </div>
@@ -1601,6 +1602,7 @@
               <tr>
                 <th data-tip="Crypto pair.">Symbol</th>
                 <th class="right" data-tip="Current ask price.">Price</th>
+                <th class="right" data-tip="Live bid-ask spread as % of mid (from snapshot quotes). Part of the round-trip cost: 2× taker fee + spread.">Spread</th>
                 <th class="right" data-tip="6-point confluence score. ≥4 = BUY, 3 = half-size; ≤−3 shown as BEAR (shorts unsupported on Alpaca spot).">Score</th>
                 <th data-tip="Score trend vs previous scan. ↑ improving, ↓ worsening, → unchanged.">Trend</th>
                 <th data-tip="20/50 EMA cross on 15-min chart.">EMA Cross</th>
@@ -1613,11 +1615,11 @@
                 <th data-tip="4H EMA 20/50 regime. Golden = uptrend, Death = downtrend.">4H Regime</th>
                 <th data-tip="Daily regime gate. Uptrend = buys allowed.">Daily</th>
                 <th class="right" data-tip="ATR-based suggested quantity using 1% equity risk rule. Requires account data loaded first.">ATR Qty</th>
-                <th class="right" data-tip="Implied reward:risk — 4H swing-low stop vs BB-upper target. Display-only; the Decision Checklist prefers ≥ 1:2.">R:R</th>
+                <th class="right" data-tip="NET reward:risk — 4H swing-low stop vs BB-upper target, with the round-trip cost (2× taker fee + spread) subtracted from the reward leg. Entries below 1.0 are blocked, 1.0–1.5 half-sized (soft gate).">Net R:R</th>
                 <th data-tip="Recommended action. BUY button pre-fills trade modal with ATR sizing.">Action</th>
               </tr>
             </thead>
-            <tbody id="signalBody"><tr><td colspan="16" class="placeholder">Click Scan Now or Refresh to load signals.</td></tr></tbody>
+            <tbody id="signalBody"><tr><td colspan="17" class="placeholder">Click Scan Now or Refresh to load signals.</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -1918,15 +1920,19 @@
           <table>
             <thead>
               <tr>
-                <th>Symbol</th><th class="right">Price</th><th>Score</th><th>Signal</th>
+                <th>Symbol</th><th class="right">Price</th>
+                <th class="right" data-tip="Live bid-ask spread as % of mid. A scalp pays this on top of 2× the taker fee.">Spread</th>
+                <th>Score</th><th>Signal</th>
                 <th class="right">RSI</th><th class="right">ATR</th>
                 <th class="right" data-tip="ADX(14) trend strength on the exec timeframe — informational only, not scored.">ADX</th>
                 <th data-tip="OBV 20-bar volume-flow trend on the exec timeframe — informational only, not scored.">OBV</th>
-                <th>Regime</th><th>Trade</th>
+                <th>Regime</th>
+                <th data-tip="Scalp viability gate: distance to the BB-upper target must be ≥ 2× the round-trip cost (2× taker fee + spread), or the move's edge is eaten by costs.">Cost Check</th>
+                <th>Trade</th>
               </tr>
             </thead>
             <tbody id="scalpBody">
-              <tr><td colspan="10" class="placeholder">Pick a timeframe and click “▶ Scan”.</td></tr>
+              <tr><td colspan="12" class="placeholder">Pick a timeframe and click “▶ Scan”.</td></tr>
             </tbody>
           </table>
         </div>
@@ -2275,9 +2281,9 @@
     <span class="footer-sep">·</span>
     <span>Creator: <strong>Erik Kuipers</strong></span>
     <span class="footer-sep">·</span>
-    <span>Last modified: <strong>2026-07-08</strong></span>
+    <span>Last modified: <strong>2026-07-09</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-07-08.2</strong></span>
+    <span>Version: <strong>v2026-07-09.1</strong></span>
   </footer>
 
   <script>
@@ -2319,8 +2325,94 @@
       minBarsForSignal:     60,   // data.min_bars_for_signal (aligned 2026-07-08; was 55)
       dailyDrawdownGatePct: 3,    // risk.daily_drawdown_gate_pct × 100
       escalationCycles:     2,    // risk.stop_loss_escalation_cycles
-      escalationExtraPct:   0.3   // risk.stop_loss_escalation_extra_pct × 100
+      escalationExtraPct:   0.3,  // risk.stop_loss_escalation_extra_pct × 100
+      // Roadmap 2026-07-09 additions:
+      feeBpsPerSide:        25,   // costs.taker_fee_bps_per_side (Alpaca taker, per side)
+      minRrFull:            1.5,  // strategy.min_rr_full  — net R:R soft gate (full size)
+      minRrHalf:            1.0,  // strategy.min_rr_half  — below this, entry blocked
+      rotationEnabled:      true, // strategy.rotation_enabled
+      rotationMinScore:     4,    // strategy.rotation_min_score
+      rotationMargin:       2,    // strategy.rotation_score_margin
+      maxHoldHours:         48,   // risk.max_hold_hours — stale-position exit
+      partialTpEnabled:     true, // risk.partial_tp_enabled — +1R scale-out ladder
+      partialTpRMultiple:   1,    // risk.partial_tp_r_multiple
+      partialTpFraction:    0.5,  // risk.partial_tp_fraction
+      sessionFilterEnabled: false, // strategy.session_filter_enabled (experimental, OFF)
+      sessionMinSample:     20    // strategy.session_min_sample — min round-trips per bucket
     };
+
+    // Round-trip trade cost as a % of notional (roadmap 2026-07-09 item 1):
+    // taker fee on entry + exit plus the live bid-ask spread. Mirrors
+    // risk.round_trip_cost_pct (Python). spreadPct may be null (no quote).
+    function roundTripCostPct(spreadPct) {
+      return 2 * STRAT_CFG.feeBpsPerSide / 100 + (spreadPct || 0);   // bps→% per side ×2
+    }
+
+    // Net-of-cost R:R for a long setup — mirrors risk.net_rr (Python).
+    // Returns null when the stop/target geometry is invalid.
+    function netRrPct(entry, stop, target, costPct) {
+      if (!entry || !stop || stop >= entry || !target || target <= entry) return null;
+      const reward = (target - entry) - entry * (costPct || 0) / 100;
+      return reward / (entry - stop);
+    }
+
+    // Synthetic 4H bars from 1H bars (roadmap 2026-07-09 item 6 — mirrors
+    // run_evaluation.aggregate_bars_to_4h). Buckets align to 4-hour UTC
+    // boundaries; partial buckets (< 4 hourly bars) are dropped.
+    function aggregate1hTo4h(bars1h) {
+      const buckets = {}, order = [];
+      for (const b of (bars1h || [])) {
+        if (!b || !b.t || !b.c) continue;
+        const dt = new Date(b.t);
+        if (isNaN(dt)) continue;
+        const key = Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate(),
+                             Math.floor(dt.getUTCHours() / 4) * 4);
+        if (!buckets[key]) { buckets[key] = []; order.push(key); }
+        buckets[key].push(b);
+      }
+      const out = [];
+      for (const key of order) {
+        const grp = buckets[key];
+        if (grp.length < 4) continue;
+        out.push({
+          t: new Date(key).toISOString(),
+          o: grp[0].o,
+          h: Math.max.apply(null, grp.map(g => g.h)),
+          l: Math.min.apply(null, grp.map(g => g.l)),
+          c: grp[grp.length - 1].c,
+          v: grp.reduce((a, g) => a + (g.v || 0), 0)
+        });
+      }
+      return out;
+    }
+
+    // 4H data fallback (item 6): for symbols whose native 4H fetch came back
+    // short (< 51 bars — EMA50 needs 51), fetch 1H bars and substitute
+    // synthetic 4H bars in place. Returns { synthetic: [syms], degraded: [syms] }
+    // so callers can render the ⚠ marker / log the data-quality warning.
+    async function fill4hFallback(symbols, bars4h) {
+      const result = { synthetic: [], degraded: [] };
+      if (!bars4h) return result;
+      const short = symbols.filter(sym => {
+        const n = ((bars4h[sym] || bars4h[sym.replace("/", "")]) || []).length;
+        return n < 51;
+      });
+      if (!short.length) return result;
+      let bars1h = null;
+      try { bars1h = await fetchBars(short, "1Hour", 260); } catch (e) {}
+      for (const sym of short) {
+        const raw = bars1h ? (bars1h[sym] || bars1h[sym.replace("/", "")] || []) : [];
+        const synth = aggregate1hTo4h(raw);
+        if (synth.length >= 51) {
+          bars4h[sym] = synth;
+          delete bars4h[sym.replace("/", "")];   // one canonical key
+          result.synthetic.push(sym);
+        } else {
+          result.degraded.push(sym);
+        }
+      }
+      return result;
+    }
 
     // 4H range-low (swing-low) stop — mirrors risk.swing_low_stop_price (Python).
     // Stop sits just below the lowest low of the last STRAT_CFG.swingLowLookback
@@ -2561,6 +2653,20 @@
       if (num(rk.stop_loss_escalation_cycles)    !== null) STRAT_CFG.escalationCycles     = rk.stop_loss_escalation_cycles;
       if (num(rk.stop_loss_escalation_extra_pct) !== null) STRAT_CFG.escalationExtraPct   = rk.stop_loss_escalation_extra_pct * 100;
       if (cfg.scout && num(cfg.scout.ttl_hours)  !== null) _scoutTtlHours                 = cfg.scout.ttl_hours;
+      // Roadmap 2026-07-09 keys (trade economics, rotation, ladders):
+      const co = cfg.costs || {};
+      if (num(co.taker_fee_bps_per_side)         !== null) STRAT_CFG.feeBpsPerSide        = co.taker_fee_bps_per_side;
+      if (num(st.min_rr_full)                    !== null) STRAT_CFG.minRrFull            = st.min_rr_full;
+      if (num(st.min_rr_half)                    !== null) STRAT_CFG.minRrHalf            = st.min_rr_half;
+      if (typeof st.rotation_enabled === "boolean")        STRAT_CFG.rotationEnabled      = st.rotation_enabled;
+      if (num(st.rotation_min_score)             !== null) STRAT_CFG.rotationMinScore     = st.rotation_min_score;
+      if (num(st.rotation_score_margin)          !== null) STRAT_CFG.rotationMargin       = st.rotation_score_margin;
+      if (num(rk.max_hold_hours)                 !== null) STRAT_CFG.maxHoldHours         = rk.max_hold_hours;
+      if (typeof rk.partial_tp_enabled === "boolean")      STRAT_CFG.partialTpEnabled     = rk.partial_tp_enabled;
+      if (num(rk.partial_tp_r_multiple)          !== null) STRAT_CFG.partialTpRMultiple   = rk.partial_tp_r_multiple;
+      if (num(rk.partial_tp_fraction)            !== null) STRAT_CFG.partialTpFraction    = rk.partial_tp_fraction;
+      if (typeof st.session_filter_enabled === "boolean")  STRAT_CFG.sessionFilterEnabled = st.session_filter_enabled;
+      if (num(st.session_min_sample)             !== null) STRAT_CFG.sessionMinSample     = st.session_min_sample;
     }
 
     // ── Scout promotions (data/watchlist_dynamic.json) ─────────────────────
@@ -3200,10 +3306,26 @@
       } catch (e) { el.style.display = "none"; }
     }
 
+    // 🔗 Over-budget chip (Command tab, roadmap 2026-07-09 item 3): the
+    // correlation budget only gates NEW entries, so scout promotions / older
+    // entries can leave the book permanently over budget with no visibility
+    // (5/4 observed live 2026-07-08). Red chip whenever open positions exceed
+    // Settings › Correlation Budget › Max Open Positions.
+    function renderBudgetChip(c) {
+      const el = $("budgetChip");
+      if (!el) return;
+      const maxPos = apMaxPositions();
+      const openN = (c.positions || []).length;
+      if (openN <= maxPos) { el.style.display = "none"; el.innerHTML = ""; return; }
+      el.style.display = "block";
+      el.innerHTML = `<span style="border:1px solid var(--red);border-radius:12px;padding:3px 10px;color:var(--red);font-weight:700" data-tip="The correlation budget (max ${maxPos} open positions) only gates new entries — the book is over budget. Enable risk.enforce_budget_on_open_positions in config.json to auto-trim the weakest overflow position, or close one manually.">⚠ BUDGET EXCEEDED ${openN}/${maxPos} positions</span>`;
+    }
+
     function renderCommand(c) {
       const L = getSettings().limits;
       renderScoutChip();          // best-effort async — fills #scoutChip
       renderHwmSplitWarning();    // best-effort async — fills #hwmSplitWarning
+      renderBudgetChip(c);        // over-budget warning — fills #budgetChip (item 3)
       const rules = [];
 
       function add(level, title, detail) {
@@ -3887,10 +4009,10 @@
           const stopStr = "$" + fmt(rr.stop, rr.stop < 1 ? 6 : 2);
           const tgtStr  = rr.target ? "$" + fmt(rr.target, rr.target < 1 ? 6 : 2) : "–";
           const rrStr   = rr.rr != null
-            ? `<b style="color:${rr.rr >= 2 ? "var(--green)" : rr.rr >= 1 ? "var(--yellow)" : "var(--red)"}">1:${fmt(rr.rr, 1)}</b>`
+            ? `<b style="color:${rr.rr >= STRAT_CFG.minRrFull ? "var(--green)" : rr.rr >= STRAT_CFG.minRrHalf ? "var(--yellow)" : "var(--red)"}">1:${fmt(rr.rr, 1)} net</b>${rr.grossRr != null ? ` <span style="color:var(--muted)">(1:${fmt(rr.grossRr, 1)} gross)</span>` : ""}`
             : '<span style="color:var(--muted)">n/a (price at/above BB-upper target)</span>';
           rrEl.style.display = "block";
-          rrEl.innerHTML = `<b>R:R preview</b> (last Signals scan) — stop: 4H swing low ${stopStr} (−${fmt(rr.stopDistPct, 1)}%) · target: BB upper ${tgtStr} · R:R ${rrStr}. Checklist prefers ≥ 1:2.`;
+          rrEl.innerHTML = `<b>Net R:R preview</b> (last Signals scan) — stop: 4H swing low ${stopStr} (−${fmt(rr.stopDistPct, 1)}%) · target: BB upper ${tgtStr} · round-trip cost ≈ ${fmt(rr.costPct != null ? rr.costPct : roundTripCostPct(null), 2)}% (2×${STRAT_CFG.feeBpsPerSide}bps fee + spread) · R:R ${rrStr}. Soft gate: &lt;${STRAT_CFG.minRrHalf} block · &lt;${STRAT_CFG.minRrFull} half-size.`;
         } else {
           rrEl.style.display = "none";
           rrEl.innerHTML = "";
@@ -4942,10 +5064,10 @@
     async function loadSignals() {
       const s = getSettings();
       if (!s.apiKey || !s.apiSecret) {
-        $("signalBody").innerHTML = '<tr><td colspan="16" class="placeholder">Configure API credentials in Settings first.</td></tr>';
+        $("signalBody").innerHTML = '<tr><td colspan="17" class="placeholder">Configure API credentials in Settings first.</td></tr>';
         return;
       }
-      $("signalBody").innerHTML = '<tr><td colspan="16" class="placeholder">Scanning all symbols…</td></tr>';
+      $("signalBody").innerHTML = '<tr><td colspan="17" class="placeholder">Scanning all symbols…</td></tr>';
       $("signalKpis").innerHTML = kpi("Status", "Scanning…", "Fetching bars from Alpaca Data API");
 
       // Merge fresh scout promotions so the scan matches the Python bot's
@@ -4956,11 +5078,25 @@
       const SYMBOLS = baseWl.concat(scoutSyms);
 
       try {
-        const [bars15, bars4h, barsD] = await Promise.all([
+        const [bars15, bars4h, barsD, snaps] = await Promise.all([
           fetchBars(SYMBOLS, "15Min", 120),
           fetchBars(SYMBOLS, "4Hour", 60),
-          fetchBars(SYMBOLS, "1Day", 60)
+          fetchBars(SYMBOLS, "1Day", 60),
+          fetchSnapshotsInBatches(SYMBOLS).catch(() => ({}))   // live bid/ask for the Spread column (item 1)
         ]);
+
+        // 4H data fallback (item 6): rebuild short 4H series from 1H bars so
+        // Signal 6 / swing-low stops don't silently degrade; mark the rest.
+        const fb4h = await fill4hFallback(SYMBOLS, bars4h);
+
+        // Live spread % per symbol from snapshot quotes (item 1).
+        const spreadBySym = {};
+        for (const sym of SYMBOLS) {
+          const snap = snaps[sym] || snaps[sym.replace("/", "")];
+          const q = snap && snap.latestQuote;
+          if (q && q.ap > 0 && q.bp > 0 && q.ap >= q.bp)
+            spreadBySym[sym] = (q.ap - q.bp) / ((q.ap + q.bp) / 2) * 100;
+        }
 
         // Compute and cache correlation matrix from daily bars
         if (barsD) {
@@ -4969,7 +5105,7 @@
         }
 
         if (!bars15) {
-          $("signalBody").innerHTML = '<tr><td colspan="16" class="placeholder">Error fetching bars — check API credentials.</td></tr>';
+          $("signalBody").innerHTML = '<tr><td colspan="17" class="placeholder">Error fetching bars — check API credentials.</td></tr>';
           return;
         }
 
@@ -4993,7 +5129,13 @@
           const adxVal = calcADX(b15.map(b => b.h), b15.map(b => b.l), b15.map(b => b.c));
           const obvVal = calcObvTrend(b15.map(b => b.c), b15.map(b => b.v));
           const swingStop = swingLowStop4h(b4h.map(b => b.l), res.lastClose);
-          rows.push({ sym, ...res, adxVal, obvVal, swingStop, scout: scoutSyms.includes(sym) });
+          rows.push({
+            sym, ...res, adxVal, obvVal, swingStop,
+            scout: scoutSyms.includes(sym),
+            spreadPct: spreadBySym[sym] != null ? spreadBySym[sym] : null,
+            synth4h: fb4h.synthetic.includes(sym),
+            degraded4h: fb4h.degraded.includes(sym)
+          });
 
           // fire notification for strong BUY or SHORT signals
           if (Notification.permission === "granted") {
@@ -5068,7 +5210,7 @@
           ? ` <span style="font-size:9px;background:rgba(88,166,255,.15);color:var(--blue);border-radius:4px;padding:1px 5px;vertical-align:middle" data-tip="Scout promotion (data/watchlist_dynamic.json) — auto-promoted by scripts/scout.py and traded by the Python bot at the default 5% cap.">SCOUT</span>`
           : "";
         $("signalBody").innerHTML = rows.map(row => {
-          if (row.error) return `<tr><td><span class="symbol">${tvLink(row.sym)}</span>${scoutTag(row)}</td><td colspan="15" style="color:var(--muted)">${row.error}</td></tr>`;
+          if (row.error) return `<tr><td><span class="symbol">${tvLink(row.sym)}</span>${scoutTag(row)}</td><td colspan="16" style="color:var(--muted)">${row.error}</td></tr>`;
           const down = row.dailyRegime === "downtrend";
           const emaLabel = (row.ema20 > row.ema50) ? "Golden" : "Death";
           const regime4hLabel = (row.ema4h_20 > row.ema4h_50) ? "Golden" : "Death";
@@ -5108,28 +5250,42 @@
           })() : "";
           const orderSym = row.sym.replace("/","");
 
-          // R:R preview (roadmap item 8, display-only): risk = distance to the
-          // 4H swing-low stop; reward = distance to the BB-upper target.
+          // NET R:R preview (roadmap 2026-07-09 items 1+7): risk = distance to
+          // the 4H swing-low stop; reward = distance to the BB-upper target
+          // MINUS the round-trip cost (2× taker fee + live spread).
           let rrHtml = '<span style="color:var(--muted)">–</span>';
+          const costPct = roundTripCostPct(row.spreadPct);
           if (row.swingStop && row.lastClose > row.swingStop) {
             const stopDistPct = (row.lastClose - row.swingStop) / row.lastClose * 100;
             const target = row.bb && row.bb.upper > row.lastClose ? row.bb.upper : null;
             const stopStr = fmt(row.swingStop, row.swingStop < 1 ? 6 : 2);
             if (target) {
-              const rr = (target - row.lastClose) / (row.lastClose - row.swingStop);
-              const rrCol = rr >= 2 ? "var(--green)" : rr >= 1 ? "var(--yellow)" : "var(--red)";
-              rrHtml = `<span style="color:${rrCol};font-weight:700" data-tip="Stop = 4H swing low $${stopStr} (−${fmt(stopDistPct,1)}%) · target = BB upper $${fmt(target, target < 1 ? 6 : 2)} · Decision Checklist prefers ≥ 1:2">1:${fmt(rr,1)}</span>`;
-              _signalRrMap[row.sym] = { stop: row.swingStop, stopDistPct, target, rr };
+              const grossRr = (target - row.lastClose) / (row.lastClose - row.swingStop);
+              const rr = netRrPct(row.lastClose, row.swingStop, target, costPct);
+              const rrCol = rr >= STRAT_CFG.minRrFull ? "var(--green)" : rr >= STRAT_CFG.minRrHalf ? "var(--yellow)" : "var(--red)";
+              rrHtml = `<span style="color:${rrCol};font-weight:700" data-tip="NET of round-trip cost ${fmt(costPct,2)}% (2×${STRAT_CFG.feeBpsPerSide}bps fee${row.spreadPct != null ? " + " + fmt(row.spreadPct,2) + "% spread" : ""}) · gross 1:${fmt(grossRr,1)} · stop = 4H swing low $${stopStr} (−${fmt(stopDistPct,1)}%) · target = BB upper $${fmt(target, target < 1 ? 6 : 2)} · soft gate: &lt;${STRAT_CFG.minRrHalf} block, &lt;${STRAT_CFG.minRrFull} half-size">1:${fmt(rr,1)}</span>`;
+              _signalRrMap[row.sym] = { stop: row.swingStop, stopDistPct, target, rr, grossRr, costPct };
             } else {
               rrHtml = `<span style="color:var(--muted)" data-tip="Stop = 4H swing low $${stopStr} (−${fmt(stopDistPct,1)}%) · price at/above BB upper — no upside target">–</span>`;
-              _signalRrMap[row.sym] = { stop: row.swingStop, stopDistPct, target: null, rr: null };
+              _signalRrMap[row.sym] = { stop: row.swingStop, stopDistPct, target: null, rr: null, grossRr: null, costPct };
             }
           }
+
+          // Spread cell (item 1) + 4H data-quality marker (item 6)
+          const spreadHtml = row.spreadPct != null
+            ? `<span class="${row.spreadPct > 0.3 ? "neg" : ""}" data-tip="Round-trip cost ≈ ${fmt(costPct,2)}% (2×${STRAT_CFG.feeBpsPerSide}bps taker fee + spread)">${fmt(row.spreadPct, 2)}%</span>`
+            : '<span style="color:var(--muted)">–</span>';
+          const dq4h = row.degraded4h
+            ? ' <span style="color:var(--red)" data-tip="DATA-QUALITY WARNING: 4H history unavailable (1H fallback failed too) — Signal 6 contributes 0 and the swing-low stop falls back to the fixed −5%.">⚠</span>'
+            : row.synth4h
+              ? ' <span style="color:var(--yellow)" data-tip="4H bars rebuilt from 1H bars (native 4H fetch was short) — Signal 6 and the swing-low stop use synthetic 4H data.">⚠</span>'
+              : "";
 
           return `
             <tr>
               <td><span class="symbol">${tvLink(row.sym)}</span>${scoutTag(row)}</td>
               <td class="right mono">${row.lastClose ? fmtPrice(row.lastClose) : "–"}</td>
+              <td class="right mono">${spreadHtml}</td>
               <td class="right">${scoreBar(row.score)}</td>
               <td style="text-align:center">${trendHtml}</td>
               <td class="${emaCls(row)}">${emaLabel}</td>
@@ -5139,7 +5295,7 @@
               <td class="right ${row.volRatio >= 1.2 ? "pos" : row.volRatio < 0.7 ? "neg" : ""}">${row.volRatio !== null ? fmt(row.volRatio, 2) + "×" : "–"}</td>
               <td class="right mono" data-tip="ADX(14): ${adxLabel(row.adxVal)} — informational, not scored">${row.adxVal != null ? fmt(row.adxVal, 1) : "–"}</td>
               <td class="small ${row.obvVal === "rising" ? "pos" : row.obvVal === "falling" ? "neg" : ""}" data-tip="OBV 20-bar volume-flow trend — informational, not scored">${row.obvVal || "–"}</td>
-              <td class="${regime4hCls}">${regime4hLabel}</td>
+              <td class="${regime4hCls}">${regime4hLabel}${dq4h}</td>
               <td class="${regimeCls(row)}">${row.dailyRegime}</td>
               <td class="right">${qtyHtml}</td>
               <td class="right">${rrHtml}</td>
@@ -5171,7 +5327,7 @@
         _signalCache = rows;
 
       } catch(e) {
-        $("signalBody").innerHTML = `<tr><td colspan="16" class="placeholder">Error: ${e.message}</td></tr>`;
+        $("signalBody").innerHTML = `<tr><td colspan="17" class="placeholder">Error: ${e.message}</td></tr>`;
       }
     }
 
@@ -6646,23 +6802,24 @@
     async function loadScalp() {
       const s = getSettings();
       if (!s.apiKey || !s.apiSecret) {
-        $("scalpBody").innerHTML = '<tr><td colspan="10" class="placeholder">Configure API credentials in Settings first.</td></tr>';
+        $("scalpBody").innerHTML = '<tr><td colspan="12" class="placeholder">Configure API credentials in Settings first.</td></tr>';
         return;
       }
       const tf  = ($("scalpTf") || {}).value || "15Min";
       const map = SCALP_TF_MAP[tf] || SCALP_TF_MAP["15Min"];
       const SYMBOLS = getWatchlist();
-      $("scalpBody").innerHTML = '<tr><td colspan="10" class="placeholder">Scanning ' + SYMBOLS.length + ' symbols on ' + tf + '…</td></tr>';
+      $("scalpBody").innerHTML = '<tr><td colspan="12" class="placeholder">Scanning ' + SYMBOLS.length + ' symbols on ' + tf + '…</td></tr>';
       $("scalpKpis").innerHTML = kpi("Status", "Scanning…", "Fetching " + map.exec + " / " + map.trend + " / " + map.regime + " bars");
 
       try {
-        const [bExec, bTrend, bReg] = await Promise.all([
+        const [bExec, bTrend, bReg, snaps] = await Promise.all([
           fetchBars(SYMBOLS, map.exec,  120),
           fetchBars(SYMBOLS, map.trend, 60),
-          fetchBars(SYMBOLS, map.regime, 60)
+          fetchBars(SYMBOLS, map.regime, 60),
+          fetchSnapshotsInBatches(SYMBOLS).catch(() => ({}))   // live bid/ask (item 1)
         ]);
         if (!bExec) {
-          $("scalpBody").innerHTML = '<tr><td colspan="10" class="placeholder">Error fetching bars — check API credentials.</td></tr>';
+          $("scalpBody").innerHTML = '<tr><td colspan="12" class="placeholder">Error fetching bars — check API credentials.</td></tr>';
           return;
         }
 
@@ -6678,7 +6835,19 @@
           // Informational ADX/OBV on the exec timeframe (display-only — parity exemption)
           const adxVal = calcADX(e.map(b => b.h), e.map(b => b.l), e.map(b => b.c));
           const obvVal = calcObvTrend(e.map(b => b.c), e.map(b => b.v));
-          rows.push({ sym, ...res, adxVal, obvVal });
+          // Spread + scalp-viability gate (roadmap 2026-07-09 item 1c): the
+          // distance to the BB-upper target must clear 2× the round-trip cost.
+          const snap = snaps[sym] || snaps[alp];
+          const q = snap && snap.latestQuote;
+          const spreadPct = (q && q.ap > 0 && q.bp > 0 && q.ap >= q.bp)
+            ? (q.ap - q.bp) / ((q.ap + q.bp) / 2) * 100 : null;
+          const costPct = roundTripCostPct(spreadPct);
+          let viable = null, targetDistPct = null;
+          if (res.lastClose && res.bb && res.bb.upper > res.lastClose) {
+            targetDistPct = (res.bb.upper - res.lastClose) / res.lastClose * 100;
+            viable = targetDistPct >= 2 * costPct;
+          }
+          rows.push({ sym, ...res, adxVal, obvVal, spreadPct, costPct, viable, targetDistPct });
         }
 
         // KPIs
@@ -6695,7 +6864,7 @@
 
         $("scalpBody").innerHTML = rows.map(row => {
           if (row.score === null) {
-            return '<tr><td><span class="symbol">' + tvLink(row.sym) + '</span></td><td colspan="9" class="placeholder">' + (row.error || "n/a") + '</td></tr>';
+            return '<tr><td><span class="symbol">' + tvLink(row.sym) + '</span></td><td colspan="11" class="placeholder">' + (row.error || "n/a") + '</td></tr>';
           }
           const orderSym = row.sym.replace("/", "");
           const price    = row.lastClose;
@@ -6709,9 +6878,19 @@
                 '<button class="trade-close-btn" style="font-size:10px;margin-left:4px" data-tip="Open a paper SELL ticket" onclick="openTradeModal(\'' + orderSym + '\',\'' + row.sym + '\',\'sell\',\'\',' + price + ')">Sell</button>' +
               '</div>'
             : '<span class="small" style="color:var(--muted)">–</span>';
+          // Spread + scalp-viability cells (item 1c)
+          const spreadCell = row.spreadPct != null
+            ? '<span class="' + (row.spreadPct > 0.3 ? "neg" : "") + '">' + fmt(row.spreadPct, 2) + '%</span>'
+            : '<span style="color:var(--muted)">–</span>';
+          const viaCell = row.viable === null
+            ? '<span style="color:var(--muted)" data-tip="No BB-upper target above price — viability not computable.">–</span>'
+            : row.viable
+              ? '<span class="pos" data-tip="Target distance ' + fmt(row.targetDistPct, 2) + '% ≥ 2× round-trip cost ' + fmt(row.costPct, 2) + '%.">✓ viable</span>'
+              : '<span class="neg" style="font-weight:700" data-tip="Target distance ' + fmt(row.targetDistPct, 2) + '% &lt; 2× round-trip cost ' + fmt(row.costPct, 2) + '% — fees + spread eat this scalp’s edge.">⚠ costly</span>';
           return '<tr>' +
             '<td><span class="symbol">' + tvLink(row.sym) + '</span></td>' +
             '<td class="right mono">' + (price ? fmtPrice(price) : "–") + '</td>' +
+            '<td class="right mono">' + spreadCell + '</td>' +
             '<td><b style="color:' + scColor + '">' + (sc > 0 ? "+" : "") + sc + '</b></td>' +
             '<td>' + scalpActionPill(row) + '</td>' +
             '<td class="right mono">' + (row.rsi != null ? fmt(row.rsi, 1) : "–") + '</td>' +
@@ -6719,11 +6898,12 @@
             '<td class="right mono" data-tip="ADX(14): ' + adxLabel(row.adxVal) + ' — informational, not scored">' + (row.adxVal != null ? fmt(row.adxVal, 1) : "–") + '</td>' +
             '<td class="small ' + (row.obvVal === "rising" ? "pos" : row.obvVal === "falling" ? "neg" : "") + '" data-tip="OBV 20-bar volume-flow trend — informational, not scored">' + (row.obvVal || "–") + '</td>' +
             '<td class="small">' + (row.dailyRegime || "n/a") + '</td>' +
+            '<td>' + viaCell + '</td>' +
             '<td>' + tradeCell + '</td>' +
           '</tr>';
         }).join("");
       } catch (e) {
-        $("scalpBody").innerHTML = '<tr><td colspan="10" class="placeholder">Scan failed: ' + e.message + '</td></tr>';
+        $("scalpBody").innerHTML = '<tr><td colspan="12" class="placeholder">Scan failed: ' + e.message + '</td></tr>';
       }
     }
 
@@ -7489,6 +7669,11 @@
           fetchBars(_apwl, "4Hour", 60),
           fetchBars(_apwl, "1Day", 60)
         ]);
+        // 4H data fallback (roadmap 2026-07-09 item 6): rebuild short 4H series
+        // from 1H bars so Signal 6 / the swing-low stop don't silently degrade.
+        const fb4h = await fill4hFallback(_apwl, b4h).catch(() => ({ synthetic: [], degraded: [] }));
+        if (fb4h.synthetic.length) apLog("info", `4H fallback: synthetic 4H bars aggregated from 1H for ${fb4h.synthetic.join(", ")}.`);
+        if (fb4h.degraded.length)  apLog("error", `DATA-QUALITY WARNING: no usable 4H history for ${fb4h.degraded.join(", ")} — Signal 6 contributes 0 and stops fall back to the fixed %.`);
         const scores = {};
         for (const sym of _apwl) {
           const alp = sym.replace("/", "");
@@ -7502,12 +7687,16 @@
         // last COMPLETED 15-min bar — up to ~15–30 min stale by design of barsEnd().
         // Limit bands must anchor to the live market; lastClose stays scoring-only.
         const liveQuote = {};
+        const liveSpread = {};   // live bid-ask spread % — feeds the round-trip cost model (item 1)
         try {
           const snaps = await fetchSnapshotsInBatches(_apwl);
           for (const sym of _apwl) {
             const snap = snaps[sym] || snaps[sym.replace("/", "")];
             const px = snap ? (snap.latestTrade ? snap.latestTrade.p : (snap.dailyBar ? snap.dailyBar.c : null)) : null;
             if (px > 0) liveQuote[sym] = px;
+            const q = snap && snap.latestQuote;
+            if (q && q.ap > 0 && q.bp > 0 && q.ap >= q.bp)
+              liveSpread[sym] = (q.ap - q.bp) / ((q.ap + q.bp) / 2) * 100;
           }
         } catch (e) { apLog("info", "Snapshot quotes unavailable — falling back to last bar close for limit prices."); }
 
@@ -7525,6 +7714,24 @@
               hwm[psym] = fileHwm;
               apLog("info", `${psym} HWM seeded from Python state file ($${fmt(fileHwm, fileHwm < 1 ? 6 : 2)} > local).`);
             }
+          }
+        }
+        // Partial-TP + entry-time state (roadmap 2026-07-09 items 4+5) —
+        // localStorage mirrors of the Python data/positions_state.json fields
+        // (partial_tp_done / breakeven_stop / entry_time_iso). Merged from the
+        // state file so both engines apply the same ladder to a shared position.
+        let partialTp = {};   // sym → breakeven price after the +1R scale-out
+        try { partialTp = JSON.parse(localStorage.getItem("autopilotPartialTp") || "{}"); } catch (e) {}
+        let entryTime = {};   // sym → entry epoch-ms (stale-position exit)
+        try { entryTime = JSON.parse(localStorage.getItem("autopilotEntryTime") || "{}"); } catch (e) {}
+        if (pyState && pyState.positions) {
+          for (const [psym, pst] of Object.entries(pyState.positions)) {
+            if (pst && pst.entry_time_iso && !entryTime[psym]) {
+              const t0 = Date.parse(pst.entry_time_iso);
+              if (t0 > 0) entryTime[psym] = t0;
+            }
+            if (pst && pst.partial_tp_done && Number(pst.breakeven_stop) > 0 && !partialTp[psym])
+              partialTp[psym] = Number(pst.breakeven_stop);
           }
         }
         const closedSyms = [];
@@ -7548,16 +7755,54 @@
           // mirrors Python risk.should_trail_stop_out. A pullback below the
           // arm threshold must still fire the trail from the recorded HWM.
           const trailArmed = (hwm[sym] || 0) >= entry * (1 + AP_TRAIL_ARM_PCT / 100);
-          if (trailArmed) {
-            if (cur <= hwm[sym] * (1 - AP_TRAIL_PCT / 100))
-              exitReason = `trailing stop (HWM $${fmt(hwm[sym], cur < 1 ? 6 : 2)}, −${AP_TRAIL_PCT}% band)`;
-          } else if (swingStop && cur <= swingStop) {
-            exitReason = `swing-low stop (price $${fmt(cur, cur < 1 ? 6 : 2)} ≤ 4H range low $${fmt(swingStop, swingStop < 1 ? 6 : 2)})`;
-          } else if (!swingStop && plPct <= -fallbackStopPct) {
-            exitReason = `hard stop fallback (P&L ${fmt(plPct, 2)}% ≤ −${fallbackStopPct}%, no 4H data)`;
+          if (trailArmed && cur <= hwm[sym] * (1 - AP_TRAIL_PCT / 100))
+            exitReason = `trailing stop (HWM $${fmt(hwm[sym], cur < 1 ? 6 : 2)}, −${AP_TRAIL_PCT}% band)`;
+
+          // Partial take-profit ladder (roadmap 2026-07-09 item 4 — mirrors
+          // Python should_partial_tp): at +1R sell partialTpFraction and raise
+          // the remaining stop to breakeven; the remainder rides the trail.
+          if (!exitReason && STRAT_CFG.partialTpEnabled && !partialTp[sym]) {
+            const rStop = swingStop || entry * (1 - fallbackStopPct / 100);
+            if (rStop < entry && cur >= entry + (entry - rStop) * STRAT_CFG.partialTpRMultiple) {
+              const availP = Math.abs(Number(p.qty_available != null ? p.qty_available : p.qty));
+              const pQty = apRoundQty(availP * STRAT_CFG.partialTpFraction);
+              if (pQty > 0) {
+                try {
+                  await apPlaceOrder(sym, "sell", pQty, apPrice((liveQuote[sym] || cur) * 0.999),
+                    `partial TP +${STRAT_CFG.partialTpRMultiple}R (entry $${fmt(entry, entry < 1 ? 6 : 2)}, R-stop $${fmt(rStop, rStop < 1 ? 6 : 2)}) — selling ${Math.round(STRAT_CFG.partialTpFraction * 100)}%, remaining stop → breakeven`);
+                  partialTp[sym] = entry;   // breakeven stop for the remainder
+                } catch (e) { apLog("error", `Partial TP ${sym} failed: ${e.message}`); }
+                continue;   // remainder re-evaluated next cycle
+              }
+            }
+          }
+
+          // Hard stop with the breakeven ladder: after the partial TP the
+          // effective stop is max(4H swing low, breakeven) so the remainder
+          // can no longer turn into a loser. Armed trail supersedes.
+          const beStop  = partialTp[sym] || null;
+          const effStop = Math.max(swingStop || 0, beStop || 0) || null;
+          if (!exitReason && !trailArmed) {
+            if (effStop && cur <= effStop) {
+              exitReason = beStop && effStop === beStop
+                ? `breakeven stop after partial TP (price $${fmt(cur, cur < 1 ? 6 : 2)} ≤ entry $${fmt(effStop, effStop < 1 ? 6 : 2)})`
+                : `swing-low stop (price $${fmt(cur, cur < 1 ? 6 : 2)} ≤ 4H range low $${fmt(effStop, effStop < 1 ? 6 : 2)})`;
+            } else if (!effStop && plPct <= -fallbackStopPct) {
+              exitReason = `hard stop fallback (P&L ${fmt(plPct, 2)}% ≤ −${fallbackStopPct}%, no 4H data)`;
+            }
           }
           if (!exitReason && res && res.score <= AP_TA_EXIT_SCORE)
             exitReason = `TA exit (score ${res.score} ≤ ${AP_TA_EXIT_SCORE})`;
+
+          // Stale-position exit (roadmap 2026-07-09 item 5): older than
+          // maxHoldHours, trail never armed, score below the half-size gate —
+          // dead capital blocking a budget slot. Winners are exempt.
+          if (!exitReason && STRAT_CFG.maxHoldHours > 0 && !trailArmed
+              && res && res.score < AP_HALF_SCORE && entryTime[sym]) {
+            const ageH = (Date.now() - entryTime[sym]) / 3600000;
+            if (ageH > STRAT_CFG.maxHoldHours)
+              exitReason = `stale exit (held ${fmt(ageH, 0)}h > ${STRAT_CFG.maxHoldHours}h, trail never armed, score ${res.score} < ${AP_HALF_SCORE})`;
+          }
           if (!exitReason) continue;
           const freshPx = liveQuote[sym] || cur;   // live quote for the limit band (item 2)
           const avail = Math.abs(Number(p.qty_available != null ? p.qty_available : p.qty));
@@ -7580,6 +7825,8 @@
                 `${exitReason} — escalated cancel-replace (exit unfilled ${age} cycles, band −${fmt(escBand * 100, 2)}%)`);
               closedSyms.push(sym);
               delete hwm[sym];
+              delete partialTp[sym];
+              delete entryTime[sym];
             } catch (e) { apLog("error", `Cancel-replace exit ${sym} failed: ${e.message}`); }
             continue;
           }
@@ -7587,12 +7834,17 @@
             await apPlaceOrder(sym, "sell", avail, apPrice(freshPx * 0.995), exitReason);  // 0.5% band below live quote
             closedSyms.push(sym);
             delete hwm[sym];
+            delete partialTp[sym];
+            delete entryTime[sym];
           } catch (e) { apLog("error", `SELL ${sym} failed: ${e.message}`); }
         }
         const heldSyms = positions.filter(p => Number(p.qty || 0) > 0).map(p => toSlash(p.symbol));
         Object.keys(hwm).forEach(k => { if (!heldSyms.includes(k)) delete hwm[k]; });
+        Object.keys(partialTp).forEach(k => { if (!heldSyms.includes(k)) delete partialTp[k]; });
+        Object.keys(entryTime).forEach(k => { if (!heldSyms.includes(k)) delete entryTime[k]; });
         try { localStorage.setItem("autopilotHwm", JSON.stringify(hwm)); } catch (e) {}
         try { localStorage.setItem("autopilotOrderAge", JSON.stringify(orderAge)); } catch (e) {}
+        try { localStorage.setItem("autopilotPartialTp", JSON.stringify(partialTp)); } catch (e) {}
 
         // (b) ENTRIES — score ≥ 2.5 (half) / 3.5 (full), regime gate (downtrend
         //     allows half-size counter-trend at ≥4), correlation budget, caps, ATR sizing
@@ -7612,6 +7864,16 @@
 
         if (!candidates.length && !ddGateActive) apLog("info", `Cycle complete — no entry candidates (no watchlist score ≥ ${AP_HALF_SCORE}).`);
 
+        // Session-edge filter (roadmap 2026-07-09 item 8 — experimental, OFF
+        // by default): half-size entries when the current GMT+2 hour/weekday
+        // bucket has a materially negative realized expectancy.
+        let sessionHalf = false;
+        if (STRAT_CFG.sessionFilterEnabled && candidates.length) {
+          try { sessionHalf = await apSessionPenaltyActive(); }
+          catch (e) { apLog("info", "Session-edge filter unavailable: " + e.message); }
+          if (sessionHalf) apLog("info", "Session-edge filter: current GMT+2 hour/weekday bucket has negative realized expectancy — half-sizing new entries.");
+        }
+
         for (const sym of candidates) {
           const res = scores[sym];
           const ask = liveQuote[sym] || res.lastClose;   // live quote at order time (item 2)
@@ -7619,7 +7881,38 @@
           // Downtrend: only a high-confluence (≥4) half-size counter-trend long.
           if (isDown && res.score < AP_DOWNTREND_LONG) { apLog("block", `${sym} score ${res.score} — blocked: downtrend (counter-trend long needs ≥ ${AP_DOWNTREND_LONG}).`); continue; }
           if (mvBySym[sym])                    { apLog("block", `${sym} score ${res.score} — blocked: position already open.`); continue; }
-          if (total >= AP_MAX_POSITIONS)       { apLog("block", `${sym} score ${res.score} — blocked: max ${AP_MAX_POSITIONS} open positions reached.`); continue; }
+          if (total >= AP_MAX_POSITIONS) {
+            // Position rotation (roadmap 2026-07-09 item 2 — mirrors Python
+            // apply_rotation): at a full budget a ≥ rotationMinScore candidate
+            // replaces the weakest open holding when that holding scores ≤ 0
+            // and trails the candidate by ≥ rotationMargin points.
+            let rotated = false;
+            if (STRAT_CFG.rotationEnabled && res.score >= STRAT_CFG.rotationMinScore) {
+              const holdings = Object.keys(mvBySym)
+                .filter(hs => scores[hs] && scores[hs].score != null)
+                .sort((a, b) => scores[a].score - scores[b].score);
+              const weakest = holdings[0];
+              const wScore  = weakest != null ? scores[weakest].score : null;
+              if (weakest && wScore <= 0 && res.score - wScore >= STRAT_CFG.rotationMargin) {
+                const wPos = positions.find(pp => toSlash(pp.symbol) === weakest);
+                const wQty = wPos ? Math.abs(Number(wPos.qty_available != null ? wPos.qty_available : wPos.qty)) : 0;
+                const wPx  = liveQuote[weakest] || (scores[weakest] && scores[weakest].lastClose) || Number((wPos && wPos.current_price) || 0);
+                if (wQty > 0 && wPx > 0) {
+                  try {
+                    await apPlaceOrder(weakest, "sell", wQty, apPrice(wPx * 0.995),
+                      `rotation out — score ${wScore} ≤ 0 while ${sym} scores ${res.score} (≥ +${STRAT_CFG.rotationMargin} margin) at a full budget`);
+                    total--;
+                    if (AP_TIER1[weakest]) tier1--; else tier2--;
+                    delete mvBySym[weakest];
+                    delete hwm[weakest]; delete partialTp[weakest]; delete entryTime[weakest];
+                    closedSyms.push(weakest);
+                    rotated = true;
+                  } catch (e) { apLog("error", `Rotation SELL ${weakest} failed: ${e.message}`); }
+                }
+              }
+            }
+            if (!rotated) { apLog("block", `${sym} score ${res.score} — blocked: max ${AP_MAX_POSITIONS} open positions reached.`); continue; }
+          }
           const isT1 = !!AP_TIER1[sym];
           if (isT1 && tier1 >= AP_MAX_PER_TIER)  { apLog("block", `${sym} score ${res.score} — blocked: Tier-1 budget full (${AP_MAX_PER_TIER}).`); continue; }
           if (!isT1 && tier2 >= AP_MAX_PER_TIER) { apLog("block", `${sym} score ${res.score} — blocked: Tier-2 budget full (${AP_MAX_PER_TIER}).`); continue; }
@@ -7632,14 +7925,33 @@
           const corrHalf = !!(corr && corr.rho > AP_CORR_LIMIT);
           if (corrHalf) apLog("info", `${sym} score ${res.score} — high correlation with open ${corr.sym} (ρ ${fmt(corr.rho, 2)} > ${AP_CORR_LIMIT}) — half-sizing entry.`);
 
+          // Net R:R soft gate (roadmap 2026-07-09 items 1+7 — mirrors Python):
+          // reward to the BB-upper target net of round-trip cost (2× taker fee
+          // + live spread) vs the distance to the 4H swing-low stop.
+          // Soft: skipped when the stop/target geometry is unavailable.
+          const lows4hE  = ((b4h || {})[sym] || (b4h || {})[sym.replace("/", "")] || []).map(b => b.l);
+          const entryStop = swingLowStop4h(lows4hE, ask);
+          const rrTarget  = res.bb && res.bb.upper > ask ? res.bb.upper : null;
+          const rrCost    = roundTripCostPct(liveSpread[sym]);
+          const rrNet     = netRrPct(ask, entryStop, rrTarget, rrCost);
+          if (rrNet !== null && rrNet < STRAT_CFG.minRrHalf) {
+            apLog("block", `${sym} score ${res.score} — blocked: net R:R ${fmt(rrNet, 2)} < ${STRAT_CFG.minRrHalf} (round-trip cost ${fmt(rrCost, 2)}%).`);
+            continue;
+          }
+          const rrHalf = rrNet !== null && rrNet < STRAT_CFG.minRrFull;
+          if (rrHalf) apLog("info", `${sym} score ${res.score} — net R:R ${fmt(rrNet, 2)} < ${STRAT_CFG.minRrFull} — half-sizing entry.`);
+
           const capPct = (PORTFOLIO_CAPS[sym] || 5) / 100;            // per-symbol cap (5% default)
           const rawQty = (equity * 0.01) / (res.atr * 1.5);           // 1% risk / 1.5×ATR stop
           const capQty = (equity * capPct) / ask;
           // Half-size for counter-trend (downtrend), below the full-size gate,
-          // or a >0.9 correlation with an open position.
-          const halfSize = isDown || res.score < AP_ENTRY_SCORE || corrHalf;
+          // a >0.9 correlation with an open position, a thin net R:R, or a
+          // negative-expectancy session bucket.
+          const halfSize = isDown || res.score < AP_ENTRY_SCORE || corrHalf || rrHalf || sessionHalf;
           const sizeNote = isDown ? "half-size counter-trend"
             : corrHalf ? `half-size (ρ ${fmt(corr.rho, 2)} vs ${corr.sym})`
+            : rrHalf ? `half-size (net R:R ${fmt(rrNet, 2)})`
+            : sessionHalf ? "half-size (session filter)"
             : (res.score < AP_ENTRY_SCORE ? "half-size" : "full-size");
           let qty = Math.min(rawQty, capQty) * (halfSize ? 0.5 : 1);
           const limit = apPrice(ask * 1.001);                         // limit at live ask, within 0.2% band
@@ -7656,8 +7968,14 @@
             total++; if (isT1) tier1++; else tier2++;
             cash -= qty * limit;
             mvBySym[sym] = qty * limit;
+            entryTime[sym] = Date.now();   // stale-position exit clock (item 5)
           } catch (e) { apLog("error", `BUY ${sym} failed: ${e.message}`); }
         }
+        // Re-persist the position-tracking maps — entries added entry times and
+        // a rotation may have deleted the rotated-out symbol's state.
+        try { localStorage.setItem("autopilotEntryTime", JSON.stringify(entryTime)); } catch (e) {}
+        try { localStorage.setItem("autopilotHwm", JSON.stringify(hwm)); } catch (e) {}
+        try { localStorage.setItem("autopilotPartialTp", JSON.stringify(partialTp)); } catch (e) {}
       } catch (e) {
         apLog("error", "Cycle error: " + e.message);
       } finally {
@@ -7716,6 +8034,33 @@
         }
       }
       return rts;
+    }
+
+    // Session-edge feedback loop (roadmap 2026-07-09 item 8 — OFF by default,
+    // STRAT_CFG.sessionFilterEnabled). True when the current GMT+2 hour or
+    // weekday bucket has ≥ sessionMinSample realized round-trips with negative
+    // net P&L. Reuses the Edge tab's FIFO engine; cached 6h to avoid re-paging
+    // the full FILL history every Autopilot cycle.
+    let _sessionPenaltyCache = null;   // { at, hours:{}, dows:{} }
+    async function apSessionPenaltyActive() {
+      if (!_sessionPenaltyCache || Date.now() - _sessionPenaltyCache.at > 6 * 3600000) {
+        const rts = edgeFifoTrades(await edgeFetchAllFills());
+        const hourAgg = {}, dowAgg = {};
+        for (const r of rts) {
+          const h = Number(r.exitT.toLocaleString("en-GB", { timeZone: "Etc/GMT-2", hour: "2-digit", hour12: false })) % 24;
+          const d = r.exitT.toLocaleDateString("en-US", { timeZone: "Etc/GMT-2", weekday: "short" });
+          (hourAgg[h] = hourAgg[h] || { n: 0, pnl: 0 }).n++; hourAgg[h].pnl += r.pnl;
+          (dowAgg[d] = dowAgg[d] || { n: 0, pnl: 0 }).n++;  dowAgg[d].pnl  += r.pnl;
+        }
+        const hours = {}, dows = {};
+        Object.entries(hourAgg).forEach(([h, v]) => { if (v.n >= STRAT_CFG.sessionMinSample && v.pnl < 0) hours[h] = 1; });
+        Object.entries(dowAgg).forEach(([d, v])  => { if (v.n >= STRAT_CFG.sessionMinSample && v.pnl < 0) dows[d]  = 1; });
+        _sessionPenaltyCache = { at: Date.now(), hours, dows };
+      }
+      const now = new Date();
+      const h = Number(now.toLocaleString("en-GB", { timeZone: "Etc/GMT-2", hour: "2-digit", hour12: false })) % 24;
+      const d = now.toLocaleDateString("en-US", { timeZone: "Etc/GMT-2", weekday: "short" });
+      return !!(_sessionPenaltyCache.hours[h] || _sessionPenaltyCache.dows[d]);
     }
 
     function edgeFmtDur(ms) {

@@ -16,6 +16,8 @@ An autonomous paper crypto trading agent built on the Alpaca API. It evaluates 1
 
 ## Lessons
 
+- Self-checks and tests must pass explicit parameters — never assert against config-loaded defaults (the risk.py correlation-budget self-checks asserted the old 4-position cap and broke the moment the owner changed `config.json`; fixed 2026-07-09 by passing `max_positions=4, max_per_tier=3` explicitly).
+
 
 ---
 
@@ -66,6 +68,27 @@ alpaca-trading-agent/
 ---
 
 ## Session History
+
+### 2026-07-09 — Rescan roadmap: all 8 trader-effectiveness items implemented (v2026-07-09.1)
+
+"Rescan roadmap" → implemented every candidate from the same-day analysis, across the Python engine AND the dashboard Autopilot (both engines stay in parity — new consistency-checklist item 15). Roadmap cleared per workflow rule 3.
+
+**Config (`config.json`):** new `costs` section (`taker_fee_bps_per_side: 25`); `strategy` gains `rotation_enabled/rotation_min_score/rotation_score_margin`, `min_rr_full/min_rr_half`, `session_filter_enabled/session_min_sample`; `risk` gains `enforce_budget_on_open_positions`, `max_hold_hours: 48`, `partial_tp_enabled/partial_tp_r_multiple/partial_tp_fraction`. (Owner separately raised `risk.max_open_positions` 4 → 15 mid-session — all new code reads it live from config.)
+
+**Python:**
+- `risk.py` — second config loader `_load_risk_cfg2()` (keeps the original 17-tuple untouched) + pure helpers: `spread_pct`, `round_trip_cost_pct` (2×fee + spread), `net_rr` (cost subtracted from the reward leg), `partial_tp_trigger_price`/`should_partial_tp`, `position_age_hours`/`is_stale_position`, `rotation_allows`. Self-checks extended; correlation-budget self-checks now pass explicit caps (they asserted the old 4-position default and broke when the owner set 15 — config-independent now).
+- `position_state.py` — `_EMPTY_POSITION` gains `entry_time_iso`, `partial_tp_done`, `breakeven_stop`; `init_position()` stamps entry time; new `mark_partial_tp()`.
+- `run_evaluation.py` — (item 6) 4H fallback: `aggregate_bars_to_4h()` builds synthetic 4H bars from a `1Hour` fetch when the native 4H series is < 51 bars; explicit `DATA-QUALITY WARNING` journal line when even that fails, `regime_4h` notes "(synthetic 4H from 1H)". (item 4) partial TP fires between the trailing stop and the hard stop; the hard stop then uses `max(swing_stop, breakeven)`; executed-order handler calls `mark_partial_tp` (a partial SELL no longer clears position state). (item 5) stale exit after the TA-sell check. (items 1+7) net-R:R soft gate on new entries (`net_rr < 1.0` block, `< 1.5` half-size; journal line shows `net_rr=`). (item 8) session-edge filter — paginated FILL history, FIFO round trips, GMT+2 exit-hour/weekday buckets, ≥ 20 samples + negative P&L → half-size (OFF via config). (item 2) `apply_rotation()` post-evaluation pass: budget-blocked candidate ≥ 4.0 replaces the weakest HOLD holding (score ≤ 0, margin ≥ 2.0, tier budget re-checked after removal, R:R gate applied); one per cycle; SELLs sorted before BUYs in the execute loop. (item 3) `BUDGET EXCEEDED n/m` console + journal warning; optional weakest-overflow trim behind `enforce_budget_on_open_positions`. `evaluate_symbol`'s `_compute_qty` extracted to module-level `compute_entry_qty()` for reuse.
+- `walkforward_evaluate.py` — (item 1d) `fee_bps` default 0 → 25 (dataclass, `default_sim_config()` from `config.json › costs`, and the `--fee-bps` CLI default).
+
+**Dashboard (`docs/dashboard_professional.html`, v2026-07-09.1):**
+- `STRAT_CFG` gains the 11 new keys (fee bps, R:R gates, rotation, max-hold, partial-TP, session filter); `seedStrategyConfig()` seeds them from `config.json › strategy/risk/costs`. New shared helpers `roundTripCostPct()`, `netRrPct()`, `aggregate1hTo4h()`, `fill4hFallback()` (JS ports of the Python functions — verified value-for-value against risk.py with a standalone node test).
+- Signals tab: new **Spread** column (snapshot `latestQuote`, red > 0.3%), R:R column is now **net-of-cost** (tooltip shows gross + cost breakdown; thresholds from `minRrHalf/minRrFull`), ⚠ marker in the 4H Regime cell (yellow = synthetic 4H, red = degraded). Table 16 → 17 columns; all placeholder/error colspans updated. `_signalRrMap` entries carry `{rr, grossRr, costPct}`; trade modal `#tradeRrInfo` shows net + gross + cost.
+- Scalping tab: **Spread** + **Cost Check** columns (viability gate: target distance < 2× round-trip cost → red "⚠ costly", else "✓ viable"; flag not block). 10 → 12 columns.
+- Autopilot `apCycle()`: 4H fallback before scoring (log lines for synthetic/degraded); partial-TP ladder (+1R sell `partialTpFraction`, breakeven stored in `localStorage.autopilotPartialTp`, merged from the Python file's `partial_tp_done/breakeven_stop`); effective stop = max(swing low, breakeven) when not trail-armed; stale exit from `localStorage.autopilotEntryTime` (entry stamped at BUY, merged from file `entry_time_iso`); rotation at a full budget (sell weakest ≤ 0 scoring holding when candidate ≥ 4.0 leads by ≥ 2.0, budget counters updated, then entry proceeds); net-R:R soft gate + half-size note; session filter via `apSessionPenaltyActive()` (reuses `edgeFetchAllFills`/`edgeFifoTrades`, 6h cache, OFF by default). Both new maps pruned to held symbols and re-persisted after entries.
+- Command tab: red **⚠ BUDGET EXCEEDED n/m** chip (`#budgetChip`, `renderBudgetChip()`) under the scout chip when open positions exceed the Settings budget.
+
+**Verified:** pytest 95 → **120 passed** (25 new tests: trade economics, partial TP, stale exit, rotation, 1H→4H aggregation incl. partial-bucket drop); `python scripts/risk.py` self-checks pass; `vm.Script` parse of the dashboard inline script (1 block, 0 errors, `</html>` intact); node parity test of the JS helpers against the Python values. Dry-run `run_evaluation.py` starts clean (positions fetch needs live credentials not present in the sandbox shell). Docs updated: CLAUDE.md (roadmap cleared, hard-rules table +5 rows, exit strategy, dashboard rows, checklist items 14/15), README.md, glossary.md, dashboard_layout.md.
 
 ### 2026-07-09 — Trader-effectiveness analysis → 8 new roadmap candidates (docs-only, no code change)
 
