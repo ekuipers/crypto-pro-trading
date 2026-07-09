@@ -4,6 +4,12 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-09 — Execution order table Total column (v2026-07-09.4)
+
+| Term | Meaning |
+|------|---------|
+| Total column (Execution tab) | Sortable USD order-value column in the Recent Orders table (after Avg Fill), roadmap item 2026-07-09. Value = `filled_qty × filled_avg_price` for (partially) filled orders, else `qty × limit_price` for unfilled limit orders, else the order's `notional` field; "–" when none available. Rendered in `renderExecution()`; sorting comes free from the generic `sortTable()`/`parseCellValue()` (strips `$`/commas). |
+
 ## 2026-07-09 — Canonical symbol notation BASE/QUOTE (v2026-07-09.3)
 
 | Term | Meaning |

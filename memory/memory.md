@@ -69,6 +69,14 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-07-09 — Rescan roadmap: Execution order table Total column (v2026-07-09.4)
+
+**Roadmap item:** "Add total amount in currency to the order table in the Execution page."
+
+**Change (`docs/dashboard_professional.html`):** the 🎯 Execution › Recent Orders table gains a sortable **Total** column (after Avg Fill) showing each order's USD value: `filled_qty × filled_avg_price` for (partially) filled orders, else `qty × limit_price` for unfilled limit orders, else the order's `notional` field; "–" when none is available. Rendered as `$X,XXX.XX` via the existing `fmt()` helper in `renderExecution()`. The empty-state placeholder colspan went 9 → 10. Sorting needs no extra wiring — `enhanceTables()`/`sortTable()` are generic per-column and `parseCellValue()` strips the `$`/commas. Footer bumped to v2026-07-09.4.
+
+**Verified:** node parse of the dashboard inline script (1 block, syntax OK). Docs updated: CLAUDE.md (roadmap cleared per workflow rule 3), README.md (Key features bullet), glossary.md, dashboard_layout.md (Execution row + changelog).
+
 ### 2026-07-09 — Rescan roadmap: canonical symbol notation BASE/QUOTE everywhere (v2026-07-09.3)
 
 **Roadmap item (owner):** "different notations for symbols … bad design practice. Always use a consistent format throughout this project like e.g BTC/USD or BTC/USDT." Audit found (a) four duplicated local `'BTCUSD' → 'BTC/USD'` converters on the Python side and (b) dashboard surfaces still labelling symbols with the bare base (`BTC`) while tables showed the full pair.

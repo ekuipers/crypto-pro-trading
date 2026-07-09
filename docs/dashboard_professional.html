@@ -1571,6 +1571,7 @@
                   <th class="right" data-tip="Order quantity. Click to sort.">Qty <span class="sort">⇅</span></th>
                   <th class="right" data-tip="Submitted limit price. Click to sort.">Limit <span class="sort">⇅</span></th>
                   <th class="right" data-tip="Average fill price. Click to sort.">Avg Fill <span class="sort">⇅</span></th>
+                  <th class="right" data-tip="Total order value in USD — filled qty × avg fill for (partially) filled orders, otherwise qty × limit price. Click to sort.">Total <span class="sort">⇅</span></th>
                   <th class="right" data-tip="Approximate execution drag using limit price versus fill price. Click to sort.">Slippage Proxy <span class="sort">⇅</span></th>
                   <th data-tip="Order status. Click to sort.">Status <span class="sort">⇅</span></th>
                   <th data-tip="Order creation time. Click to sort.">Time <span class="sort">⇅</span></th>
@@ -2283,7 +2284,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-07-09</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-07-09.3</strong></span>
+    <span>Version: <strong>v2026-07-09.4</strong></span>
   </footer>
 
   <script>
@@ -3706,6 +3707,13 @@
             const level = slip == null ? "muted" : slip <= 0 ? "green" : slip <= 0.10 ? "yellow" : "red";
             const text = slip == null ? o.status : slip <= 0 ? "Favorable" : slip <= 0.10 ? "Slight drag" : "Execution drag";
 
+            const filledQty = Number(o.filled_qty || 0);
+            const total = filledQty > 0 && o.filled_avg_price
+              ? filledQty * Number(o.filled_avg_price)
+              : Number(o.qty || 0) && o.limit_price
+                ? Number(o.qty) * Number(o.limit_price)
+                : o.notional ? Number(o.notional) : null;
+
             return `
               <tr>
                 <td><span class="symbol">${tvLink(toSlash(o.symbol))}</span></td>
@@ -3714,13 +3722,14 @@
                 <td class="right">${fmt(Number(o.qty || 0), 6)}</td>
                 <td class="right mono">${o.limit_price ? fmtPrice(o.limit_price) : "–"}</td>
                 <td class="right mono">${o.filled_avg_price ? fmtPrice(o.filled_avg_price) : "–"}</td>
+                <td class="right mono">${total == null ? "–" : "$" + fmt(total, 2)}</td>
                 <td class="right ${slip != null ? plClass(-slip) : ""}">${slip == null ? "–" : pct(slip)}</td>
                 <td>${pill(level,text)}</td>
                 <td style="color:var(--muted);white-space:nowrap">${timeAgo(o.created_at)}</td>
               </tr>
             `;
           }).join("")
-        : '<tr><td colspan="9" class="placeholder">No recent orders</td></tr>';
+        : '<tr><td colspan="10" class="placeholder">No recent orders</td></tr>';
     }
 
     function getBacktestDefaults() {

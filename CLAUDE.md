@@ -24,7 +24,7 @@ When I correct you, or you catch yourself making a mistake: before continuing, a
 
 ## Roadmap
 
-*(empty — the symbol-notation consistency item was implemented in v2026-07-09.3: canonical notation is the slash pair `BASE/QUOTE` (e.g. `BTC/USD`) everywhere; see "Symbol notation (canonical)" below and `memory/memory.md`.)*
+*(empty — the 2026-07-09 item "Add total amount in currency to the order table in the Execution page" was implemented in v2026-07-09.4: the Execution › Recent Orders table has a sortable **Total** column (USD) = filled qty × avg fill for filled orders, else qty × limit price, else the order's notional. See `memory/memory.md`.)*
 
 ## Symbol notation (canonical)
 
