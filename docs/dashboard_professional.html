@@ -846,6 +846,48 @@
       margin-right:8px;
     }
     .gg-news-link:hover { text-decoration:underline; }
+    /* 📰 Command › News sub-tab (roadmap 2026-07-09) */
+    .news-item {
+      display:flex;
+      gap:10px;
+      padding:9px 2px;
+      border-bottom:1px solid var(--border);
+      align-items:baseline;
+      font-size:13px;
+      line-height:1.45;
+    }
+    .news-item:last-child { border-bottom:none; }
+    .news-time {
+      color:var(--muted);
+      font-size:11px;
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+      white-space:nowrap;
+      flex:0 0 88px;
+    }
+    .news-badge {
+      display:inline-block;
+      font-size:10px;
+      font-weight:700;
+      padding:1px 6px;
+      border-radius:4px;
+      margin-right:6px;
+      vertical-align:1px;
+      white-space:nowrap;
+    }
+    .news-t1 { background:rgba(239,68,68,.18); color:var(--red); }
+    .news-t2 { background:rgba(234,179,8,.18);  color:var(--yellow); }
+    .news-src {
+      color:var(--muted);
+      font-size:11px;
+      white-space:nowrap;
+    }
+    .news-item a.news-headline {
+      color:var(--text);
+      text-decoration:none;
+    }
+    .news-item a.news-headline:hover { color:var(--blue); text-decoration:underline; }
+    .news-syms { color:var(--blue); font-size:11px; white-space:nowrap; }
+    .news-filter-btn.active { color:var(--blue); border-color:rgba(88,166,255,.4); background:rgba(88,166,255,.1); }
     .gg-level-row {
       display:flex;
       justify-content:space-between;
@@ -1230,7 +1272,16 @@
     <div id="globalError" class="error"></div>
 
 
+    <!-- Command parent page — sub-tabs: 🧭 Overview (the original command center)
+         and 📰 News (aggregated crypto headlines, roadmap 2026-07-09). Deep links
+         #news / #command-overview resolve here via COMMAND_SUBS in applyTabFromUrl(). -->
     <div id="page-command" class="page active">
+      <div class="subnav">
+        <button id="subtab-command-overview" class="subtab-btn active" onclick="commandSubTab('command-overview')">🧭 Overview</button>
+        <button id="subtab-news" class="subtab-btn" onclick="commandSubTab('news')">📰 News</button>
+      </div>
+
+    <div id="subpage-command-overview" class="subpage active">
       <section>
         <div class="section-title">Professional Command Center</div>
         <div id="tradingStatus" class="status-main reduce" data-tip="Final trading permission based on risk limits, drawdown, open risk, concentration, and journal discipline.">Connect Alpaca</div>
@@ -1292,6 +1343,35 @@
           <div id="apLog" class="small" style="max-height:260px;overflow-y:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.6"><span style="color:var(--muted)">No autopilot activity yet.</span></div>
         </div>
       </section>
+    </div><!-- /subpage-command-overview -->
+
+    <!-- 📰 News sub-tab — aggregated crypto headlines (roadmap 2026-07-09).
+         Sources: Alpaca News API (Benzinga, existing keys) + CoinDesk /
+         Cointelegraph / Decrypt RSS via rss2json. Merged, deduped by
+         normalized headline, tagged with T1/T2 catalyst badges per the
+         crypto-catalysts skill. Analysis-only — never places orders. -->
+    <div id="subpage-news" class="subpage">
+      <section>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap">
+          <div class="section-title" style="margin-bottom:0">📰 Crypto News</div>
+          <span id="newsStatus" class="small" style="color:var(--muted)"></span>
+          <div style="display:flex;gap:6px;margin-left:auto">
+            <button id="newsFilterAll" class="btn news-filter-btn active" onclick="newsSetFilter('all')" data-tip="Show every deduped headline.">All</button>
+            <button id="newsFilterKey" class="btn news-filter-btn" onclick="newsSetFilter('key')" data-tip="Only T1/T2 catalyst headlines (hacks, depegs, enforcement, ETF flows, unlocks, macro).">⚡ Key only</button>
+            <button class="btn" onclick="loadNews(true)" data-tip="Re-fetch headlines from all sources now.">↻ Refresh</button>
+          </div>
+        </div>
+        <div class="small" style="color:var(--muted);margin-bottom:12px">
+          Aggregated from the <b>Alpaca News API</b> (Benzinga) plus the <b>CoinDesk</b>,
+          <b>Cointelegraph</b>, and <b>Decrypt</b> feeds, deduplicated by headline.
+          <b>T1</b> = structural (hack, depeg, enforcement, chain halt) · <b>T2</b> = flow
+          (ETF flows, unlocks, listings, macro prints) per the crypto-catalysts ladder.
+          News is a <b>defensive input only</b> — it can veto or downsize an entry or flag a
+          position for close, never justify an entry below the score gates.
+        </div>
+        <div id="newsList"><div class="small" style="color:var(--muted)">Loading news…</div></div>
+      </section>
+    </div><!-- /subpage-news -->
     </div>
 
     <!-- Analytics parent page — merges Performance + P&L + Edge (roadmap). Deep
@@ -2284,7 +2364,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-07-09</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-07-09.4</strong></span>
+    <span>Version: <strong>v2026-07-09.5</strong></span>
   </footer>
 
   <script>
@@ -2832,14 +2912,17 @@
 
     function switchTab(id, btn) {
       // Sub-tab ids (Market: #market-overview/#market-signals/#gapgo; Analytics:
-      // #performance/#pnl/#edge) are not top-level pages — redirect to the parent
-      // tab and select the sub-tab. Keeps deep links, keyboard shortcuts, and any
-      // legacy switchTab('pnl')/switchTab('gapgo') call working after the merges.
-      if (MARKET_SUBS.includes(id) || ANALYTICS_SUBS.includes(id)) {
-        const parent = MARKET_SUBS.includes(id) ? "market" : "analytics";
-        if (parent === "market") _marketSub = id; else _analyticsSub = id;
+      // #performance/#pnl/#edge; Command: #command-overview/#news) are not
+      // top-level pages — redirect to the parent tab and select the sub-tab.
+      // Keeps deep links, keyboard shortcuts, and any legacy
+      // switchTab('pnl')/switchTab('gapgo') call working after the merges.
+      if (subParentOf(id)) {
+        const parent = subParentOf(id);
+        if (parent === "market") _marketSub = id;
+        else if (parent === "analytics") _analyticsSub = id;
+        else _commandSub = id;
         if (activeTab !== parent) switchTab(parent, tabBtnFor(parent));
-        else (parent === "market" ? marketSubTab : analyticsSubTab)(id);
+        else subTabFnOf(parent)(id);
         return;
       }
 
@@ -2875,6 +2958,10 @@
         // Parent page — restore the last-used sub-tab (Performance auto-loads;
         // P&L loads on select; Edge stays manual). analyticsSubTab updates the hash.
         analyticsSubTab(_analyticsSub || "performance");
+      } else if (id === "command") {
+        // Parent page — restore the last-used sub-tab (Overview refreshes the
+        // command data; News auto-loads with a 5-min cache).
+        commandSubTab(_commandSub || "command-overview");
       } else if (id === "markov") {
         // don't auto-run — user clicks "Run Markov Analysis"
       } else if (id === "insights") {
@@ -2903,8 +2990,25 @@
     // state is preserved because the sub-pages keep their rendered DOM.
     const MARKET_SUBS    = ["market-overview", "market-signals", "gapgo"];
     const ANALYTICS_SUBS = ["performance", "pnl", "edge"];
+    const COMMAND_SUBS   = ["command-overview", "news"];
     let _marketSub    = "market-overview";
     let _analyticsSub = "performance";
+    let _commandSub   = "command-overview";
+
+    // Which parent tab owns a sub-tab id (null when `id` is not a sub-tab), and
+    // the matching <parent>SubTab function. Single source of truth for the
+    // sub-tab redirects in switchTab() and applyTabFromUrl().
+    function subParentOf(id) {
+      if (MARKET_SUBS.includes(id))    return "market";
+      if (ANALYTICS_SUBS.includes(id)) return "analytics";
+      if (COMMAND_SUBS.includes(id))   return "command";
+      return null;
+    }
+    function subTabFnOf(parent) {
+      return parent === "market" ? marketSubTab
+           : parent === "analytics" ? analyticsSubTab
+           : commandSubTab;
+    }
 
     function _activateSubTab(parentId, subId) {
       const page = document.getElementById("page-" + parentId);
@@ -2940,6 +3044,186 @@
       // edge stays manual — user clicks ▶ Analyze
     }
 
+    function commandSubTab(subId) {
+      if (!COMMAND_SUBS.includes(subId)) subId = "command-overview";
+      _commandSub = subId;
+      _activateSubTab("command", subId);
+      if (subId === "command-overview") refreshCurrent();  // reload account/positions context
+      else if (subId === "news")        loadNews();        // 5-min cache; ↻ forces
+    }
+
+    // ── 📰 Command › News (roadmap 2026-07-09) ────────────────────────────────
+    // Aggregates CORS-friendly feeds: the Alpaca News API (v1beta1/news,
+    // Benzinga-sourced, uses the stored API keys) plus the CoinDesk,
+    // Cointelegraph, and Decrypt RSS feeds via the keyless rss2json.com bridge
+    // (Access-Control-Allow-Origin: *; direct RSS fetches are CORS-blocked in
+    // the browser, and CryptoCompare/CoinGecko news now require API keys).
+    // Items are merged, deduplicated by normalized headline + URL, and tagged
+    // with a T1/T2 catalyst badge using keyword ladders aligned with
+    // skills/crypto-catalysts. Analysis-only — never places orders.
+    let _newsItems = [];
+    let _newsErrors = [];
+    let _newsFetchedAt = 0;
+    let _newsFilter = "all";               // "all" | "key" (T1/T2 only)
+    const NEWS_CACHE_MS  = 5 * 60 * 1000;  // auto-load re-uses items younger than this
+    const NEWS_MAX_ITEMS = 40;
+
+    // T1 = structural (crypto-catalysts §4): hacks/exploits, depegs, delistings,
+    // enforcement naming an asset, chain halts, insolvency.
+    const NEWS_T1_RE = /\b(hack(?:ed|ers?)?|exploit(?:ed)?|drain(?:ed)?|stolen|theft|breach|depeg(?:ged|s)?|de-peg|delist(?:ed|ing)?|halt(?:ed|s)? (?:trading|withdrawals|the chain)|chain halt|outage|insolven\w*|bankrupt\w*|liquidat(?:ed|ion) of|sec (?:charges|sues|lawsuit)|enforcement action|indicted|fraud charges|seiz(?:ed|ure)|sanction(?:ed|s)?|rug ?pull)\b/i;
+    // T2 = flow (supply/demand for days–weeks): ETF flows/approvals, unlocks,
+    // major listings, halving, treasury buys, macro prints (Fed/FOMC/CPI/rates).
+    const NEWS_T2_RE = /\b(etfs?|token unlock|unlock(?:s|ing)? \$?\d|halving|listed on|lists? [A-Z]|major listing|treasury (?:buys?|purchase|adds?|sells?)|fed(?:eral reserve)?|fomc|rate (?:cut|hike|decision)|cpi|inflation (?:data|print|report)|interest rates?|strategic reserve|liquidations? top|funding rates?)\b/i;
+
+    function newsCatalystTier(title) {
+      if (NEWS_T1_RE.test(title)) return "T1";
+      if (NEWS_T2_RE.test(title)) return "T2";
+      return null;
+    }
+
+    async function newsFetchAlpaca() {
+      const s = getSettings();
+      if (!s.apiKey || !s.apiSecret) return [];   // no keys — CryptoCompare still works
+      const syms = getWatchlist().map(x => String(x).replace("/", "")).join(",");
+      const r = await fetch(DATA_URL + "/v1beta1/news?symbols=" + encodeURIComponent(syms) + "&limit=50&sort=desc",
+                            { headers: getHeaders() });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const j = await r.json();
+      return (j.news || []).map(n => ({
+        t: new Date(n.created_at || 0).getTime(),
+        title: n.headline || "",
+        url: n.url || "",
+        source: n.source ? n.source.charAt(0).toUpperCase() + n.source.slice(1) : "Benzinga",
+        syms: (n.symbols || []).map(x => String(x).replace(/USD[TC]?$/, "")).slice(0, 4)
+      }));
+    }
+
+    const NEWS_RSS_FEEDS = [
+      { name: "CoinDesk",      url: "https://www.coindesk.com/arc/outboundfeeds/rss/" },
+      { name: "Cointelegraph", url: "https://cointelegraph.com/rss" },
+      { name: "Decrypt",       url: "https://decrypt.co/feed" }
+    ];
+
+    // Base tickers detected in a headline (watchlist majors + XRP). Used for the
+    // symbol chips on RSS items, which carry no ticker metadata of their own.
+    // Case-sensitive on the ticker form so "Sol"/"Ada" in ordinary words never
+    // match; the full coin name matches in any casing.
+    const NEWS_COIN_RES = [
+      ["BTC", /\b[Bb]itcoin\b|\bBTC\b/],     ["ETH", /\b[Ee]thereum\b|\b[Ee]ther\b|\bETH\b/],
+      ["SOL", /\b[Ss]olana\b|\bSOL\b/],      ["XRP", /\bXRP\b|\b[Rr]ipple\b/],
+      ["ADA", /\b[Cc]ardano\b|\bADA\b/],     ["DOGE", /\b[Dd]ogecoin\b|\bDOGE\b/],
+      ["AVAX", /\b[Aa]valanche\b|\bAVAX\b/], ["LINK", /\b[Cc]hainlink\b|\bLINK\b/],
+      ["DOT", /\b[Pp]olkadot\b|\bDOT\b/],    ["LTC", /\b[Ll]itecoin\b|\bLTC\b/],
+      ["AAVE", /\b[Aa]ave\b|\bAAVE\b/]
+    ];
+    function newsDetectCoins(text) {
+      return NEWS_COIN_RES.filter(([, re]) => re.test(text)).map(([sym]) => sym).slice(0, 4);
+    }
+
+    async function newsFetchRss(feed) {
+      const r = await fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(feed.url));
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const j = await r.json();
+      if (j.status !== "ok") throw new Error(j.message || "feed error");
+      return (j.items || []).map(n => ({
+        // rss2json normalizes pubDate to "YYYY-MM-DD HH:MM:SS" in UTC.
+        t: new Date(String(n.pubDate || "").replace(" ", "T") + "Z").getTime() || 0,
+        title: n.title || "",
+        url: n.link || "",
+        source: feed.name,
+        syms: newsDetectCoins((n.title || "") + " " + (n.categories || []).join(" "))
+      }));
+    }
+
+    function newsNormTitle(s) {
+      return String(s).toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+    }
+
+    // Dedupe across sources: newest first, drop items whose normalized headline
+    // (first 80 chars — catches punctuation/casing variants) or URL was seen.
+    function newsDedupe(items) {
+      const seen = new Set();
+      const out = [];
+      for (const it of items.slice().sort((a, b) => b.t - a.t)) {
+        if (!it.title) continue;
+        const key = newsNormTitle(it.title).slice(0, 80);
+        if (seen.has(key) || (it.url && seen.has(it.url))) continue;
+        seen.add(key);
+        if (it.url) seen.add(it.url);
+        out.push(it);
+      }
+      return out;
+    }
+
+    async function loadNews(force) {
+      const list = $("newsList");
+      if (!list) return;
+      if (!force && _newsItems.length && Date.now() - _newsFetchedAt < NEWS_CACHE_MS) {
+        renderNews();
+        return;
+      }
+      const st = $("newsStatus");
+      if (st) st.textContent = "fetching…";
+      const results = await Promise.allSettled(
+        [newsFetchAlpaca()].concat(NEWS_RSS_FEEDS.map(f => newsFetchRss(f))));
+      const names = ["Alpaca/Benzinga"].concat(NEWS_RSS_FEEDS.map(f => f.name));
+      const items = [];
+      _newsErrors = [];
+      results.forEach((res, i) => {
+        if (res.status === "fulfilled") items.push(...res.value);
+        else _newsErrors.push(names[i] + ": " + ((res.reason && res.reason.message) || res.reason));
+      });
+      _newsItems = newsDedupe(items).slice(0, NEWS_MAX_ITEMS)
+        .map(it => Object.assign(it, { tier: newsCatalystTier(it.title) }));
+      _newsFetchedAt = Date.now();
+      renderNews();
+    }
+
+    function newsSetFilter(f) {
+      _newsFilter = f;
+      const all = $("newsFilterAll"), key = $("newsFilterKey");
+      if (all) all.classList.toggle("active", f === "all");
+      if (key) key.classList.toggle("active", f === "key");
+      renderNews();
+    }
+
+    function renderNews() {
+      const list = $("newsList");
+      if (!list) return;
+      const items = _newsFilter === "key" ? _newsItems.filter(it => it.tier) : _newsItems;
+      const st = $("newsStatus");
+      if (st) {
+        const srcCount = new Set(_newsItems.map(it => it.source)).size;
+        const at = _newsFetchedAt
+          ? new Date(_newsFetchedAt).toLocaleTimeString("en-GB", { timeZone: "Etc/GMT-2", hour: "2-digit", minute: "2-digit" }) + " GMT+2"
+          : "–";
+        st.textContent = _newsItems.length + " headlines · " + srcCount + " sources · " +
+          _newsItems.filter(it => it.tier).length + " key · fetched " + at +
+          (_newsErrors.length ? " · ⚠ " + _newsErrors.join(" · ") : "");
+      }
+      if (!items.length) {
+        list.innerHTML = '<div class="small" style="color:var(--muted)">' +
+          (_newsItems.length ? "No T1/T2 catalyst headlines right now." : "No news loaded — check API keys or hit ↻ Refresh.") + "</div>";
+        return;
+      }
+      list.innerHTML = items.map(it => {
+        const when = new Date(it.t).toLocaleString("en-GB",
+          { timeZone: "Etc/GMT-2", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+        const badge = it.tier === "T1" ? '<span class="news-badge news-t1" data-tip="Structural catalyst — flag positions for close, block new entries in the symbol until resolved.">T1</span>'
+                    : it.tier === "T2" ? '<span class="news-badge news-t2" data-tip="Flow catalyst — downsize or skip borderline entries, tighten attention on stops.">T2</span>'
+                    : "";
+        const headline = it.url
+          ? '<a class="news-headline" href="' + escapeHtml(it.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(it.title) + "</a>"
+          : escapeHtml(it.title);
+        const syms = it.syms && it.syms.length
+          ? ' <span class="news-syms">' + it.syms.map(s => escapeHtml(s)).join(" ") + "</span>"
+          : "";
+        return '<div class="news-item"><span class="news-time">' + when + '</span>' +
+               '<div style="min-width:0">' + badge + headline +
+               ' <span class="news-src">— ' + escapeHtml(it.source) + "</span>" + syms + "</div></div>";
+      }).join("");
+    }
+
     // ── Tab deep-linking & last-tab restore ───────────────────────────────
     // Valid tab ids are derived from the nav buttons' switchTab('<id>',…) calls
     // so this never drifts when tabs are added/removed.
@@ -2958,7 +3242,7 @@
     // a refresh or a direct #tab link lands on the right tab instead of Command.
     function applyTabFromUrl() {
       const ids = validTabIds();
-      const SUBS = MARKET_SUBS.concat(ANALYTICS_SUBS);  // all parent sub-tab ids
+      const SUBS = MARKET_SUBS.concat(ANALYTICS_SUBS, COMMAND_SUBS);  // all parent sub-tab ids
       const hash = (location.hash || "").replace(/^#/, "");
       let stored = null;
       try { stored = localStorage.getItem("lastTab"); } catch (e) {}
@@ -2969,10 +3253,12 @@
       // A sub-tab deep link: open the parent tab, then select the sub-tab.
       // Backward-compatible with the old standalone #market-signals / #pnl / … hashes.
       if (SUBS.includes(target)) {
-        const parent = MARKET_SUBS.includes(target) ? "market" : "analytics";
-        if (parent === "market") _marketSub = target; else _analyticsSub = target;
+        const parent = subParentOf(target);
+        if (parent === "market") _marketSub = target;
+        else if (parent === "analytics") _analyticsSub = target;
+        else _commandSub = target;
         if (activeTab !== parent) switchTab(parent, tabBtnFor(parent));
-        else (parent === "market" ? marketSubTab : analyticsSubTab)(target);
+        else subTabFnOf(parent)(target);
         return;
       }
       if (target === activeTab) return;

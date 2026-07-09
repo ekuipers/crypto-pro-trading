@@ -4,6 +4,21 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-09 — Command › 📰 News sub-tab (v2026-07-09.5)
+
+| Term | Meaning |
+|------|---------|
+| News sub-tab (Command) | `subpage-news` under the 🧭 Command parent tab. Aggregated crypto headlines from 4 sources, deduped, T1/T2-badged, GMT+2 timestamps, 5-min cache. Analysis-only. Deep link `#news`. |
+| `COMMAND_SUBS` | `["command-overview","news"]` — Command's sub-tab ids; `commandSubTab(subId)` mirrors `marketSubTab`/`analyticsSubTab`. |
+| `subParentOf(id)` / `subTabFnOf(parent)` | Shared helpers (added v2026-07-09.5) mapping a sub-tab id to its parent tab and the parent to its `<parent>SubTab` function — single source of truth for the sub-tab redirects in `switchTab()` and `applyTabFromUrl()`. |
+| Alpaca News API | `GET https://data.alpaca.markets/v1beta1/news?symbols=BTCUSD,…&limit=50&sort=desc` with the standard `APCA-API-KEY-ID`/`SECRET` headers. Benzinga-sourced. Response: `{ news: [{ id, headline, created_at, url, source, symbols[] }] }`. Skipped when no keys are stored. |
+| rss2json bridge | `https://api.rss2json.com/v1/api.json?rss_url=<feed>` — keyless RSS→JSON proxy with `Access-Control-Allow-Origin: *`. Used because direct RSS fetches are CORS-blocked in the browser and the CryptoCompare (`min-api.cryptocompare.com`, now 401) and CoinGecko (`/api/v3/news`, now PRO-only 10005) news APIs both require keys as of 2026-07. `pubDate` comes back as `"YYYY-MM-DD HH:MM:SS"` in UTC — parse as `replace(" ","T")+"Z"`. |
+| `NEWS_RSS_FEEDS` | CoinDesk (`coindesk.com/arc/outboundfeeds/rss/`), Cointelegraph (`cointelegraph.com/rss`), Decrypt (`decrypt.co/feed`). |
+| `newsCatalystTier()` | Keyword ladder → `"T1"` (structural: hack/exploit/depeg/delist/enforcement/chain halt/insolvency), `"T2"` (flow: ETF, unlock, halving, listing, treasury buys, Fed/FOMC/CPI/rates), or `null`. Aligned with `skills/crypto-catalysts`; heuristic, not scored — news stays a defensive input. |
+| `newsDedupe()` / `newsNormTitle()` | Cross-source dedupe: newest-first, drop items whose normalized headline (lowercase, punctuation→space, first 80 chars) or URL was already seen. |
+| `newsDetectCoins()` | Base-ticker chips for RSS items: case-sensitive ticker (`\bSOL\b`) OR any-case coin name (`[Ss]olana`) so ordinary words like "Sol"/"Ada" never match. Alpaca items use their native `symbols` array instead. |
+| `NEWS_CACHE_MS` / `NEWS_MAX_ITEMS` | 5 min auto-load cache / 40 rendered headlines. |
+
 ## 2026-07-09 — Execution order table Total column (v2026-07-09.4)
 
 | Term | Meaning |

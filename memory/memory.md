@@ -69,6 +69,14 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-07-09 — Rescan roadmap: Command › 📰 News sub-tab (v2026-07-09.5)
+
+**Roadmap item:** "Add a news tab to the command center page. There you will list the latest crypto news you deem important for the trader. Use famous crypto news sources and prevent duplicate news items when using multiples sources."
+
+**Change (`docs/dashboard_professional.html`):** the 🧭 Command tab became the third parent tab with sub-tabs (`COMMAND_SUBS = ["command-overview","news"]`): the original command center is now the **Overview** sub-page (`subpage-command-overview`, unchanged content) and a new **📰 News** sub-page aggregates headlines from **4 sources** — the **Alpaca News API** (`/v1beta1/news`, Benzinga, watchlist symbols, existing keys; skipped gracefully when keys are absent) plus **CoinDesk / Cointelegraph / Decrypt RSS** through the keyless `api.rss2json.com` bridge (`Access-Control-Allow-Origin: *`). *Why rss2json:* direct RSS fetches are CORS-blocked in a browser, and both the CryptoCompare and CoinGecko news APIs now return 401/10005 "API key required" (verified via curl during implementation). `loadNews(force)` uses `Promise.allSettled` so one dead source never blanks the tab (per-source errors go to the status line), merges, **dedupes by normalized headline** (`newsNormTitle()` — lowercase, punctuation stripped, first 80 chars) **+ URL**, keeps the newest 40, caches 5 min (↻ Refresh forces). "Important for the trader" = **T1/T2 catalyst badges** (`newsCatalystTier()`, keyword ladders aligned with `skills/crypto-catalysts`: T1 structural — hack/exploit/depeg/delist/enforcement/halt/insolvency; T2 flow — ETF/unlock/halving/listing/treasury buys/Fed/FOMC/CPI/rates) plus an **⚡ Key only** filter; base-ticker chips via `newsDetectCoins()` (case-sensitive ticker + any-case coin name — bare-`Sol`-in-"GPT-5.6 Sol" false positive caught and fixed during testing). Sub-tab plumbing refactored once instead of a third copy-paste: `subParentOf(id)`/`subTabFnOf(parent)` now drive the redirects in `switchTab()` and `applyTabFromUrl()`; deep links `#news` / `#command-overview` work like the Market/Analytics ones. New CSS: `.news-item/.news-time/.news-badge/.news-t1/.news-t2/.news-src/.news-syms/.news-filter-btn`. Footer bumped to v2026-07-09.5.
+
+**Verified:** node syntax parse of the inline script (OK), div balance of the page-command region (37/37), live end-to-end run of the extracted news module against the real feeds (30 items fetched, deduped, 3 correct T1/T2 badges incl. a USDT-delisting T1 and a BTC-ETF-outflows T2), rss2json CORS header confirmed with an `Origin` GET. Docs updated: CLAUDE.md (roadmap cleared per rule 3, nav + feature-table rows), README.md, glossary.md, dashboard_layout.md.
+
 ### 2026-07-09 — Rescan roadmap: Execution order table Total column (v2026-07-09.4)
 
 **Roadmap item:** "Add total amount in currency to the order table in the Execution page."
