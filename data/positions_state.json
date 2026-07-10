@@ -39,26 +39,13 @@
       "stop_order_limit_price": null,
       "stop_order_cycles": 0
     },
-    "LINK/USD": {
-      "entry_price": 7.760714118,
-      "entry_time_iso": "2026-05-09T14:43:32.105273Z",
+    "SOL/USD": {
+      "entry_price": 77.0166276775068,
+      "entry_time_iso": "2026-05-09T14:43:15.095336Z",
       "high_water_mark": null,
       "trailing_stop_active": false,
       "partial_tp_done": true,
-      "breakeven_stop": 7.760714118,
-      "pyramid_tranches": 0,
-      "stop_order_id": null,
-      "stop_order_placed_iso": null,
-      "stop_order_limit_price": null,
-      "stop_order_cycles": 0
-    },
-    "BTC/USD": {
-      "entry_price": null,
-      "entry_time_iso": null,
-      "high_water_mark": null,
-      "trailing_stop_active": false,
-      "partial_tp_done": false,
-      "breakeven_stop": null,
+      "breakeven_stop": 77.0166276775068,
       "pyramid_tranches": 0,
       "stop_order_id": null,
       "stop_order_placed_iso": null,
@@ -66,6 +53,6 @@
       "stop_order_cycles": 0
     }
   },
-  "last_evaluation_iso": "2026-07-10T16:59:55.489152+00:00",
+  "last_evaluation_iso": "2026-07-10T18:03:08.194143+00:00",
   "streak_throttle_active": false
 }
