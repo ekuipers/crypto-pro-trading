@@ -1303,6 +1303,21 @@
     <div id="subpage-command-overview" class="subpage active">
       <section>
         <div class="section-title">Professional Command Center</div>
+        <!-- Autopilot controls live ABOVE the trading-permission indicator
+             (roadmap 2026-07-10 item 11 v2) — always in sight; the activity
+             log stays in the 🤖 Autopilot panel at the bottom of the page. -->
+        <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+          <button id="apToggleBtn" class="btn" onclick="apToggle()" data-tip="Start/stop the autopilot loop. Never auto-resumes after a reload.">▶ Autopilot OFF</button>
+          <label class="small" style="color:var(--muted)">Interval
+            <select id="apInterval" onchange="apIntervalChanged()" style="margin-left:4px">
+              <option value="15">15 min</option>
+              <option value="30">30 min</option>
+              <option value="60" selected>60 min</option>
+            </select>
+          </label>
+          <button class="btn btn-red" onclick="apKillSwitch()" data-tip="Stop the autopilot loop AND cancel all open orders.">⛔ Kill switch</button>
+        </div>
+        <div id="apStatus" class="small" style="color:var(--muted);text-align:center;margin-bottom:10px">Autopilot is OFF. Cycles run: 0 · orders placed: 0.</div>
         <div id="tradingStatus" class="status-main reduce" data-tip="Final trading permission based on risk limits, drawdown, open risk, concentration, and journal discipline.">Connect Alpaca</div>
         <div id="tradingStatusLog" class="small" data-tip="Last 3 entries from the Autopilot activity log." style="text-align:center;margin:6px 0 8px;line-height:1.5;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px"></div>
         <div id="sessionBanner" style="display:none;text-align:center;font-size:12px;color:var(--muted);margin-bottom:8px"></div>
@@ -1312,42 +1327,6 @@
           <div style="padding:10px 16px;color:var(--muted);font-size:12px;align-self:center">Connect Alpaca to see live prices</div>
         </div>
         <div id="commandKpis" class="grid-3"></div>
-      </section>
-
-      <!-- Autopilot sits ABOVE the permission-rules grid (roadmap 2026-07-10
-           item 11) so the toggle + kill switch are always in sight. -->
-      <section>
-        <div class="panel">
-          <div class="panel-title">🤖 Autopilot</div>
-          <div class="small" style="color:var(--muted);margin-bottom:10px">
-            Automated <b>long-only</b> execution of the 6-point confluence strategy on the watchlist
-            + fresh scout promotions (entry score ≥ 3.5 full / ≥ 2.5 half, half-size counter-trend long
-            in a downtrend at ≥ 4, correlation budget + live-ρ half-sizing above 0.9, per-symbol caps,
-            ATR sizing, 4H swing-low stop, trailing stop, TA exit — thresholds seeded from
-            <code>config.json</code>). Daily-drawdown gate blocks new entries once equity falls 3% below
-            day open; limit prices anchor to a live snapshot quote; stale orders are
-            cancelled (entries) or cancel-replaced with a wider band (exits). Paper mode only.
-            <b>Always OFF on page load.</b>
-          </div>
-          <div id="hwmSplitWarning" class="small" style="display:none;color:var(--yellow);margin-bottom:8px"></div>
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-            <button id="apToggleBtn" class="btn" onclick="apToggle()" data-tip="Start/stop the autopilot loop. Never auto-resumes after a reload.">▶ Autopilot OFF</button>
-            <label class="small" style="color:var(--muted)">Interval
-              <select id="apInterval" onchange="apIntervalChanged()" style="margin-left:4px">
-                <option value="15">15 min</option>
-                <option value="30">30 min</option>
-                <option value="60" selected>60 min</option>
-              </select>
-            </label>
-            <button class="btn btn-red" style="margin-left:auto" onclick="apKillSwitch()" data-tip="Stop the autopilot loop AND cancel all open orders.">⛔ Kill switch</button>
-          </div>
-          <div id="apStatus" class="small" style="color:var(--muted);margin-bottom:12px">Autopilot is OFF. Cycles run: 0 · orders placed: 0.</div>
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">Activity Log</div>
-            <button class="btn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="apClearLog()">Clear</button>
-          </div>
-          <div id="apLog" class="small" style="max-height:260px;overflow-y:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.6"><span style="color:var(--muted)">No autopilot activity yet.</span></div>
-        </div>
       </section>
 
       <section>
@@ -1362,6 +1341,33 @@
             <div class="panel-title">📌 Hard Rules — Live Status</div>
             <div id="hardRulesLive"><div class="small" style="color:var(--muted)">Load data to check live rule status.</div></div>
           </div>
+        </div>
+      </section>
+
+      <!-- Autopilot controls sit at the top of the page (item 11 v2); this
+           panel keeps the description + activity log at the bottom. -->
+      <section>
+        <div class="panel">
+          <div class="panel-title">🤖 Autopilot</div>
+          <div class="small" style="color:var(--muted);margin-bottom:10px">
+            Automated <b>long-only</b> execution of the 6-point confluence strategy on the watchlist
+            + fresh scout promotions (entry score ≥ 3.5 full / ≥ 2.5 half, half-size counter-trend long
+            in a downtrend at ≥ 4, correlation budget + live-ρ half-sizing above 0.9, per-symbol caps,
+            ATR sizing, 4H swing-low stop, trailing stop, TA exit — thresholds seeded from
+            <code>config.json</code>). Daily-drawdown gate blocks new entries once equity falls 3% below
+            day open; limit prices anchor to a live snapshot quote; stale orders are
+            cancelled (entries) or cancel-replaced with a wider band (exits). Paper mode only.
+            <b>Always OFF on page load.</b>
+          </div>
+          <div id="hwmSplitWarning" class="small" style="display:none;color:var(--yellow);margin-bottom:8px"></div>
+          <!-- Controls (toggle / interval / kill switch) moved above the
+               trading-permission indicator — roadmap 2026-07-10 item 11 v2.
+               Only the activity log remains here. -->
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">Activity Log</div>
+            <button class="btn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="apClearLog()">Clear</button>
+          </div>
+          <div id="apLog" class="small" style="max-height:260px;overflow-y:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.6"><span style="color:var(--muted)">No autopilot activity yet.</span></div>
         </div>
       </section>
     </div><!-- /subpage-command-overview -->
@@ -1783,6 +1789,11 @@
     <div id="page-backtest" class="page">
       <section>
         <div class="section-title">Backtest vs Live</div>
+
+        <!-- Walk-forward baseline banner (roadmap 2026-07-10 item 8): reads
+             reports/walkforward_latest.json; red when the baseline is older
+             than walkforward.max_baseline_age_days (45). -->
+        <div id="wfBaseline" class="small" style="display:none;margin-bottom:12px;padding:8px 12px;border:1px solid var(--border);border-radius:8px"></div>
 
         <div class="panel">
           <div class="panel-title">🧪 Expected Strategy Metrics</div>
@@ -2423,7 +2434,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-07-10</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-07-10.2</strong></span>
+    <span>Version: <strong>v2026-07-10.3</strong></span>
   </footer>
 
   <script>
@@ -2477,8 +2488,10 @@
       partialTpEnabled:     true, // risk.partial_tp_enabled — +1R scale-out ladder
       partialTpRMultiple:   1,    // risk.partial_tp_r_multiple
       partialTpFraction:    0.5,  // risk.partial_tp_fraction
-      sessionFilterEnabled: false, // strategy.session_filter_enabled (experimental, OFF)
-      sessionMinSample:     20    // strategy.session_min_sample — min round-trips per bucket
+      sessionFilterEnabled: true, // strategy.session_filter_enabled (ON since 2026-07-10 item 9 — self-guards on sessionMinSample per bucket)
+      sessionMinSample:     20,   // strategy.session_min_sample — min round-trips per bucket
+      // Roadmap 2026-07-10 addition:
+      wfMaxAgeDays:         45    // walkforward.max_baseline_age_days — Backtest-tab staleness warning
     };
 
     // Round-trip trade cost as a % of notional (roadmap 2026-07-09 item 1):
@@ -2809,6 +2822,47 @@
       if (num(rk.partial_tp_fraction)            !== null) STRAT_CFG.partialTpFraction    = rk.partial_tp_fraction;
       if (typeof st.session_filter_enabled === "boolean")  STRAT_CFG.sessionFilterEnabled = st.session_filter_enabled;
       if (num(st.session_min_sample)             !== null) STRAT_CFG.sessionMinSample     = st.session_min_sample;
+      const wf = cfg.walkforward || {};
+      if (num(wf.max_baseline_age_days)          !== null) STRAT_CFG.wfMaxAgeDays         = wf.max_baseline_age_days;
+    }
+
+    // ── Walk-forward baseline banner (roadmap 2026-07-10 item 8) ───────────
+    // scripts/walkforward_evaluate.py writes reports/walkforward_latest.json
+    // (stable name — a file:// page cannot list the reports directory).
+    // Shows the baseline date + headline avg Sharpe per timeframe, red when
+    // older than STRAT_CFG.wfMaxAgeDays (config walkforward.max_baseline_age_days).
+    async function loadWalkforwardBaseline() {
+      const el = $("wfBaseline");
+      if (!el) return;
+      let latest = null;
+      for (const path of ["../reports/walkforward_latest.json", "./reports/walkforward_latest.json"]) {
+        try { const r = await fetch(path, {cache: "no-store"}); if (r.ok) { latest = await r.json(); break; } }
+        catch (_) { /* try next path */ }
+      }
+      if (!latest || !latest.generated_utc) {
+        el.style.display = "block";
+        el.style.color = "var(--muted)";
+        el.textContent = "Walk-forward baseline: reports/walkforward_latest.json not found yet — it is written by the next Forward Analysis run.";
+        return;
+      }
+      const m = String(latest.generated_utc).match(/^(\d{4})(\d{2})(\d{2})T/);
+      const genDate = m ? new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00Z`) : null;
+      const ageDays = genDate ? Math.floor((Date.now() - genDate.getTime()) / 86400000) : null;
+      const maxAge  = STRAT_CFG.wfMaxAgeDays || 45;
+      const stale   = ageDays !== null && ageDays > maxAge;
+      const fee     = latest.params && latest.params.fee_bps;
+      const tfBits  = [];
+      for (const [tf, syms] of Object.entries(latest.summary || {})) {
+        const sharpes = Object.values(syms || {}).map(s => s && s.avg_sharpe).filter(v => typeof v === "number");
+        if (sharpes.length) tfBits.push(`${tf} avg Sharpe ${(sharpes.reduce((a,b)=>a+b,0)/sharpes.length).toFixed(2)}`);
+      }
+      el.style.display = "block";
+      el.style.color = stale ? "var(--red)" : "var(--muted)";
+      el.innerHTML = (stale ? "⚠ <b>Walk-forward baseline is stale</b> — " : "🧪 Walk-forward baseline: ")
+        + `${m ? `${m[1]}-${m[2]}-${m[3]}` : latest.generated_utc}`
+        + (ageDays !== null ? ` (${ageDays}d old${stale ? `, max ${maxAge}d — re-run scripts/walkforward_evaluate.py` : ""})` : "")
+        + (fee != null ? ` · fees ${fee} bps/side` : "")
+        + (tfBits.length ? " · " + tfBits.join(" · ") : "");
     }
 
     // ── Scout promotions (data/watchlist_dynamic.json) ─────────────────────
@@ -4367,6 +4421,7 @@
 
     function renderBacktest(c) {
       if (!$("backtestKpis")) return;
+      loadWalkforwardBaseline();   // fire-and-forget baseline banner (item 8)
 
       const L = getSettings().limits;
       const b = getBacktestDefaults();

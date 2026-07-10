@@ -439,17 +439,20 @@ Critical implementation details to keep `indicators.py` and `dashboard_professio
 | 13 | Net R:R gate (2026-07-09) | Net of 2×25 bps fee + spread: < 1.0 block, 1.0–1.5 half-size |
 | 14 | Over-budget (2026-07-09) | Positions > budget → journal warning + Command chip; optional trim (config-flagged) |
 
-## Roadmap Terms (filed 2026-07-10, not yet implemented)
+## Roadmap Terms (filed 2026-07-10 — ALL IMPLEMENTED same day, v2026-07-10.3)
 
 | Term | Meaning |
 |------|---------|
-| Pyramiding | Adding tranches to a *winning* position as it proves itself (+1R/+2R adds at ½ initial risk) — Livermore / Turtle "2N adds"; opposite of averaging down. Planned as trend-mode alternative to the partial-TP ladder (selected by ADX ≥ 25). |
-| Chandelier stop | Trailing stop hung k×ATR below the high-water mark (k≈2.5) instead of a fixed % — adapts trail width to each coin's volatility (Turtles' 2N exit). |
-| Conviction-scaled sizing | Risk-per-trade varies with signal quality (0.75% / 1.0% / 1.5% by score band) instead of a flat 1% — Druckenmiller "when you have conviction, bet big". |
-| Streak throttle | Anti-martingale: halve risk after 3 consecutive losing round-trips or a 7-day drawdown ≥ 5% — Paul Tudor Jones "trade smallest when trading worst". |
-| Maker-first pricing | Resting entry limits at/inside the bid to earn maker fees instead of paying taker at the ask band; exits/stops stay taker (urgency ladder). |
-| Stop watchdog | Planned 5-min scheduled script checking only open-position stops, decoupling loss-cutting from the hourly evaluation cadence. |
-| Breadth gate | Portfolio-level regime filter: % of watchlist in daily uptrend gates total budget deployment (≥60% full, ≤30% majors-only) — Weinstein stage analysis at book level. |
+| Pyramiding | **Implemented, ships OFF** (`strategy.pyramid_enabled`). +1R/+2R adds at ½ initial risk to a *winning* position (`risk.should_pyramid()`) — Livermore / Turtle "2N adds". Trend-mode alternative to the partial-TP ladder (ADX ≥ `pyramid_adx_min` 25); stop to breakeven after each add (`mark_pyramid_add`), capped by remaining symbol-cap headroom. |
+| Chandelier stop | **Implemented, ships OFF** (`risk.trail_mode="chandelier"`). Trail width = max(fixed 3%, `chandelier_atr_mult` 2.5 × ATR(4H) / price) via `risk.chandelier_trail_pct()` (Turtles' 2N exit). Watchdog-aware. |
+| Conviction-scaled sizing | **Implemented, ships OFF** (`strategy.conviction_sizing_enabled`). `risk.conviction_risk_multiplier()`: 0.75× half band / 1.0× full band / 1.5× at score ≥ `conviction_high_score` (5.0) with daily+4H aligned — Druckenmiller. Replaces the legacy ×0.5 half-band halving when on. |
+| Streak throttle | **Implemented, ACTIVE** (`risk.streak_throttle_enabled=true`). `risk.update_streak_throttle()`: 3 consecutive losing round-trips OR 7-day drawdown ≥ 5% → risk ×`streak_throttle_risk_factor` (0.5); releases after 2 straight winners AND drawdown < 2.5% (hysteresis; state = `streak_throttle_active` in positions_state.json) — PTJ. 7-day DD from `/v2/account/portfolio/history`. |
+| Maker-first pricing | **Implemented, ships OFF** (`costs.maker_first_entries`). Entry limits rest at the bid; a 1-cycle repricing timeout cancels unfilled entry BUYs; exits/stops stay taker. `check_limit_band(limit, ask, bid=…)` accepts any limit inside the live spread (maker-safe). |
+| Stop watchdog | **Implemented, ACTIVE.** `scripts/stop_watchdog.py` + `.github/workflows/watchdog.yml` (cron `*/5`): open-long exit levels only (trail from state HWM, max(swing-low, breakeven), −5% fallback), dedup against pending SELLs, orders via trade.py, journals/commits only when a stop fires. |
+| Breadth gate | **Implemented, ships OFF** (`strategy.breadth_gate_enabled`). `risk.breadth_pct()`/`breadth_policy()`: ≤ `breadth_low_pct` (30%) of watchlist in daily uptrend → new entries Tier-1 only + max-positions budget halved — Weinstein at book level. |
+| Measured-move target | **Implemented, ships OFF** (`strategy.measured_move_enabled`). `risk.measured_move_target()`: prior 4H swing high, or entry + 2× the 4H range height after a breakout; feeds the net-R:R reward leg when ADX ≥ `measured_move_adx_min` (25) — PTJ asymmetry. |
+| `walkforward_latest.json` | Stable-named compact summary written by every `walkforward_evaluate.py` run (forward.yml fees corrected 5→25 bps 2026-07-10); the dashboard Backtest tab's `#wfBaseline` banner reads it and turns red past `walkforward.max_baseline_age_days` (45, seeded to `STRAT_CFG.wfMaxAgeDays`). |
+| Session-edge filter (ON) | `strategy.session_filter_enabled=true` since 2026-07-10 (item 9) — self-guarding: penalizes only GMT+2 hour/weekday buckets with ≥ `session_min_sample` (20) round trips and negative net P&L. |
 | State-persistence bug (P0) | **FIXED 2026-07-10 (v2026-07-10.2).** `data/positions_state.json` reset between runs because the workflow only committed `journal/` — every fresh Actions checkout restored the 2026-06-18 copy. Now committed every run + fill-history reconciliation (below). |
 
 ## Bug-Sweep Terms (fixed 2026-07-10, v2026-07-10.2)

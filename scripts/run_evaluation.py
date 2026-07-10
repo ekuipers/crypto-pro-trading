@@ -102,6 +102,21 @@ from risk import (
     PARTIAL_TP_ENABLED,
     PARTIAL_TP_R_MULTIPLE,
     PARTIAL_TP_FRACTION,
+    TRAIL_MODE,
+    TRAILING_STOP_TRAIL_PCT,
+    STREAK_THROTTLE_ENABLED,
+    STREAK_THROTTLE_RISK_FACTOR,
+    PYRAMID_ENABLED,
+    PYRAMID_MAX_TRANCHES,
+    PYRAMID_ADX_MIN,
+    CONVICTION_SIZING_ENABLED,
+    CONVICTION_HIGH_SCORE,
+    MEASURED_MOVE_ENABLED,
+    MEASURED_MOVE_ADX_MIN,
+    BREADTH_GATE_ENABLED,
+    BREADTH_LOW_PCT,
+    MAKER_FIRST_ENTRIES,
+    TIER1_SYMBOLS,
     should_stop_out,
     should_cover_short,
     should_trail_stop_out,
@@ -115,6 +130,14 @@ from risk import (
     should_partial_tp,
     is_stale_position,
     rotation_allows,
+    chandelier_trail_pct,
+    conviction_risk_multiplier,
+    update_streak_throttle,
+    rolling_drawdown_pct,
+    measured_move_target,
+    should_pyramid,
+    breadth_pct,
+    breadth_policy,
 )
 from trade import (
     DATA_URL,
@@ -203,17 +226,22 @@ def symbol_cap(symbol: str) -> float:
     return _CAPS_DATA["caps"].get(symbol, _CAPS_DATA.get("default_cap", 0.05))
 
 
-def compute_entry_qty(equity: float, symbol: str, price: float, atr_val) -> float:
+def compute_entry_qty(
+    equity: float, symbol: str, price: float, atr_val, risk_mult: float = 1.0
+) -> float:
     """ATR-based 1%-risk sizing capped at the per-symbol cap (shared by the
-    normal entry path and the rotation pass)."""
+    normal entry path and the rotation pass). *risk_mult* scales the risk
+    budget for conviction sizing (item 3) and the streak throttle (item 4);
+    the per-symbol hard cap is never scaled."""
     sym_cap_pct = symbol_cap(symbol)
     hard_cap = round((equity * sym_cap_pct / price) * 0.99, 4)
     if atr_val and atr_val > 0:
-        max_risk  = equity * RISK_PER_TRADE_PCT
+        max_risk  = equity * RISK_PER_TRADE_PCT * risk_mult
         stop_dist = atr_val * ATR_MULTIPLIER
         raw_qty   = round((max_risk / stop_dist) * 0.99, 4)
         return min(raw_qty, hard_cap)
-    return min(round((equity * FALLBACK_SIZE_PCT / price) * 0.99, 4), hard_cap)
+    return min(round((equity * FALLBACK_SIZE_PCT * risk_mult / price) * 0.99, 4),
+               hard_cap)
 
 
 # ---------------------------------------------------------------------------
@@ -249,63 +277,74 @@ def _fetch_all_fills() -> list:
     return fills
 
 
-def _compute_session_penalty() -> dict:
-    """Return the negative-expectancy hour/weekday buckets from fill history."""
+def _fifo_round_trips(fills: list) -> list:
+    """Chronological FIFO round-trips from FILL history: one dict per matched
+    SELL fill ({"pnl", "exit_iso"}). SELLs with no prior BUY are excluded —
+    same matching rule as the dashboard Edge/P&L tabs. Shared by the
+    session-edge filter (item 8, 2026-07-09) and the streak throttle
+    (item 4, 2026-07-10)."""
+    queues: dict = {}
+    trips: list = []
+    for act in reversed(fills or []):   # newest-first feed -> chronological
+        sym   = act.get("symbol")
+        side  = act.get("side")
+        qty   = abs(float(act.get("qty") or 0))
+        price = float(act.get("price") or 0)
+        when  = act.get("transaction_time") or act.get("date")
+        if not sym or not when or qty <= 0 or price <= 0:
+            continue
+        queues.setdefault(sym, [])
+        if side == "buy":
+            queues[sym].append([qty, price])
+        elif side == "sell":
+            remaining, pnl, matched = qty, 0.0, False
+            while remaining > 1e-9 and queues[sym]:
+                lot = queues[sym][0]
+                m = min(remaining, lot[0])
+                pnl += m * (price - lot[1])
+                lot[0] -= m
+                remaining -= m
+                matched = True
+                if lot[0] < 1e-6:
+                    queues[sym].pop(0)
+            if matched:
+                trips.append({"pnl": pnl, "exit_iso": str(when)})
+    return trips
+
+
+def _compute_session_penalty(round_trips: list) -> dict:
+    """Return the negative-expectancy hour/weekday buckets from round trips."""
     penalty = {"hours": set(), "dows": set()}
-    try:
-        fills = _fetch_all_fills()
-        # FIFO round-trip matching, chronological (same as the Edge tab).
-        queues: dict = {}
-        hour_pnl: dict = {}
-        dow_pnl: dict = {}
-        for act in reversed(fills):
-            sym   = act.get("symbol")
-            side  = act.get("side")
-            qty   = abs(float(act.get("qty") or 0))
-            price = float(act.get("price") or 0)
-            when  = act.get("transaction_time") or act.get("date")
-            if not sym or not when or qty <= 0 or price <= 0:
-                continue
-            queues.setdefault(sym, [])
-            if side == "buy":
-                queues[sym].append([qty, price])
-            elif side == "sell":
-                remaining, pnl, matched = qty, 0.0, False
-                while remaining > 1e-9 and queues[sym]:
-                    lot = queues[sym][0]
-                    m = min(remaining, lot[0])
-                    pnl += m * (price - lot[1])
-                    lot[0] -= m
-                    remaining -= m
-                    matched = True
-                    if lot[0] < 1e-6:
-                        queues[sym].pop(0)
-                if not matched:
-                    continue  # SELL with no prior BUY — excluded (FIFO rule)
-                try:
-                    exit_dt = datetime.fromisoformat(
-                        str(when).replace("Z", "+00:00")
-                    ).astimezone(ZoneInfo("Etc/GMT-2"))
-                except Exception:
-                    continue
-                hour_pnl.setdefault(exit_dt.hour, []).append(pnl)
-                dow_pnl.setdefault(exit_dt.strftime("%a"), []).append(pnl)
-        for hour, pnls in hour_pnl.items():
-            if len(pnls) >= SESSION_MIN_SAMPLE and sum(pnls) < 0:
-                penalty["hours"].add(hour)
-        for dow, pnls in dow_pnl.items():
-            if len(pnls) >= SESSION_MIN_SAMPLE and sum(pnls) < 0:
-                penalty["dows"].add(dow)
-    except Exception as e:
-        print("session-edge filter skipped: %r" % e)
+    hour_pnl: dict = {}
+    dow_pnl: dict = {}
+    for rt in round_trips:
+        try:
+            exit_dt = datetime.fromisoformat(
+                rt["exit_iso"].replace("Z", "+00:00")
+            ).astimezone(ZoneInfo("Etc/GMT-2"))
+        except Exception:
+            continue
+        hour_pnl.setdefault(exit_dt.hour, []).append(rt["pnl"])
+        dow_pnl.setdefault(exit_dt.strftime("%a"), []).append(rt["pnl"])
+    for hour, pnls in hour_pnl.items():
+        if len(pnls) >= SESSION_MIN_SAMPLE and sum(pnls) < 0:
+            penalty["hours"].add(hour)
+    for dow, pnls in dow_pnl.items():
+        if len(pnls) >= SESSION_MIN_SAMPLE and sum(pnls) < 0:
+            penalty["dows"].add(dow)
     return penalty
 
 
-def _session_penalty_active(now=None) -> bool:
+def _session_penalty_active(now=None, round_trips: list | None = None) -> bool:
     """True when the current GMT+2 hour or weekday is a penalized bucket."""
     global _SESSION_PENALTY
     if _SESSION_PENALTY is None:
-        _SESSION_PENALTY = _compute_session_penalty()
+        try:
+            trips = round_trips if round_trips is not None else _fifo_round_trips(_fetch_all_fills())
+            _SESSION_PENALTY = _compute_session_penalty(trips)
+        except Exception as e:
+            print("session-edge filter skipped: %r" % e)
+            _SESSION_PENALTY = {"hours": set(), "dows": set()}
         if _SESSION_PENALTY["hours"] or _SESSION_PENALTY["dows"]:
             print("session-edge filter: half-size hours=%s dows=%s"
                   % (sorted(_SESSION_PENALTY["hours"]),
@@ -313,6 +352,27 @@ def _session_penalty_active(now=None) -> bool:
     now = now or datetime.now(ZoneInfo("Etc/GMT-2"))
     return (now.hour in _SESSION_PENALTY["hours"]
             or now.strftime("%a") in _SESSION_PENALTY["dows"])
+
+
+# ---------------------------------------------------------------------------
+# Losing-streak / drawdown throttle (roadmap 2026-07-10 item 4)
+# ---------------------------------------------------------------------------
+
+_THROTTLE_ACTIVE = False   # set in main(); read by the entry-sizing path
+
+
+def _seven_day_drawdown() -> float:
+    """Rolling 7-day equity drawdown from /v2/account/portfolio/history."""
+    from trade import BASE_URL
+    try:
+        r = api_get(BASE_URL + "/v2/account/portfolio/history",
+                    headers=_headers(),
+                    params={"period": "1M", "timeframe": "1D"}, timeout=20)
+        equities = [e for e in (r.json().get("equity") or []) if e]
+        return rolling_drawdown_pct(equities[-8:])
+    except Exception as e:
+        print("7-day drawdown check skipped: %r" % e)
+        return 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -328,7 +388,9 @@ def _session_penalty_active(now=None) -> bool:
 # ("SOL/USD HOLD @ $-4.4931 (-1842.96%)"); the FIFO open lots give the true
 # cost basis.
 
-def reconcile_positions_from_fills(state: dict, positions: list) -> list:
+def reconcile_positions_from_fills(
+    state: dict, positions: list, fills: list | None = None
+) -> list:
     """Rebuild per-position facts from FILL history for open long positions.
 
     - partial_tp_done: any SELL since the position last went flat->long means
@@ -354,11 +416,12 @@ def reconcile_positions_from_fills(state: dict, positions: list) -> list:
     if not needs:
         return warnings
 
-    try:
-        fills = _fetch_all_fills()
-    except Exception as e:
-        print("position reconciliation skipped (fills fetch failed): %r" % e)
-        return warnings
+    if fills is None:
+        try:
+            fills = _fetch_all_fills()
+        except Exception as e:
+            print("position reconciliation skipped (fills fetch failed): %r" % e)
+            return warnings
 
     # FIFO walk, chronological, per symbol.
     hist: dict = {}
@@ -607,6 +670,7 @@ def evaluate_symbol(
         "current_price":       None,
         "is_stop_loss":        False,   # True when place_order needs wider limit band
         "is_partial_tp":       False,   # True for the +1R half scale-out SELL
+        "is_pyramid":          False,   # True for a +1R/+2R add to a winner (item 1)
         "synthetic_4h":        False,   # 4H bars rebuilt from 1H (data fallback)
         "data_quality_warning": None,   # explicit journal warning when 4H degraded
         "net_rr":              None,    # net-of-cost R:R for new entries (item 7)
@@ -663,8 +727,15 @@ def evaluate_symbol(
             except Exception:
                 pass
         closes_4h = [float(b.get("c") or 0) for b in bars_4h if b.get("c")]
-        # Capture 4H lows for the swing-low (previous range low) stop.
-        decision["lows_4h"] = [float(b.get("l") or 0) for b in bars_4h if b.get("c")]
+        # Capture 4H lows for the swing-low (previous range low) stop, highs
+        # for the measured-move target (item 5), and ATR(4H) for the
+        # Chandelier trail (item 2).
+        decision["lows_4h"]  = [float(b.get("l") or 0) for b in bars_4h if b.get("c")]
+        decision["highs_4h"] = [float(b.get("h") or 0) for b in bars_4h if b.get("c")]
+        if len(closes_4h) >= 15:
+            decision["atr_4h"] = ind.atr(
+                decision["highs_4h"], decision["lows_4h"], closes_4h
+            )
         if len(closes_4h) < 51:
             n_bars = len(closes_4h)
             closes_4h = None
@@ -848,8 +919,14 @@ def evaluate_symbol(
                     )
                     return decision
 
-            # Trailing stop (supersedes hard stop once activated).
-            if should_trail_stop_out(entry, hwm, cur):
+            # Trailing stop (supersedes hard stop once activated). Trail width
+            # is the fixed % or, in chandelier mode (item 2, ships "fixed"),
+            # max(fixed, k x ATR(4H) / price) so the trail adapts to each
+            # coin's volatility.
+            trail_pct = TRAILING_STOP_TRAIL_PCT
+            if TRAIL_MODE == "chandelier":
+                trail_pct = chandelier_trail_pct(cur, decision.get("atr_4h"))
+            if should_trail_stop_out(entry, hwm, cur, trail_pct=trail_pct):
                 cycles_open = ps_pos.get("stop_order_cycles", 0)
                 lim = stop_loss_limit_price(ask, cycles_open)
                 decision["action"]       = "SELL"
@@ -857,8 +934,10 @@ def evaluate_symbol(
                 decision["limit_price"]  = lim
                 decision["is_stop_loss"] = True
                 decision["reason"] = (
-                    "TRAILING STOP: entry $%.4f HWM $%.4f current $%.4f trail_lim $%.4f"
-                    % (entry, hwm, cur, lim)
+                    "TRAILING STOP%s: entry $%.4f HWM $%.4f current $%.4f trail_lim $%.4f"
+                    % (" (chandelier %.1f%%)" % (trail_pct * 100)
+                       if TRAIL_MODE == "chandelier" else "",
+                       entry, hwm, cur, lim)
                 )
                 return decision
 
@@ -868,11 +947,19 @@ def evaluate_symbol(
             if STOP_LOSS_MODE == "swing_low_4h":
                 swing_stop = swing_low_stop_price(entry, decision.get("lows_4h"))
 
+            # Trend/chop mode split (roadmap 2026-07-10 item 1): in a strong
+            # 4H trend (ADX >= pyramid_adx_min) pyramiding replaces the
+            # scale-out ladder — the two are mutually exclusive per position.
+            # In chop (ADX below), today's +1R partial-TP ladder applies.
+            adx_val    = decision.get("adx")
+            trend_mode = (PYRAMID_ENABLED and adx_val is not None
+                          and adx_val >= PYRAMID_ADX_MIN)
+
             # Partial take-profit ladder (roadmap 2026-07-09 item 4): at +1R
             # (R = entry − stop distance) sell PARTIAL_TP_FRACTION and raise
             # the remaining stop to breakeven; the remainder rides the
             # existing trailing stop.
-            if PARTIAL_TP_ENABLED and not ps_pos.get("partial_tp_done"):
+            if PARTIAL_TP_ENABLED and not trend_mode and not ps_pos.get("partial_tp_done"):
                 r_stop = swing_stop if swing_stop else entry * (1 - STOP_LOSS_PCT)
                 if should_partial_tp(entry, cur, r_stop, already_done=False,
                                      r_multiple=PARTIAL_TP_R_MULTIPLE):
@@ -892,9 +979,10 @@ def evaluate_symbol(
                         return decision
 
             # Hard stop — checked before TA, cannot be overridden. After the
-            # partial TP, the breakeven stop (entry) supersedes a lower swing
-            # low so the remainder can no longer turn into a loser.
-            breakeven = ps_pos.get("breakeven_stop") if ps_pos.get("partial_tp_done") else None
+            # partial TP or a pyramid add, the breakeven stop (entry)
+            # supersedes a lower swing low so the position can no longer turn
+            # into a loser. (breakeven_stop is only ever set by those flows.)
+            breakeven = ps_pos.get("breakeven_stop")
             eff_stop = max([s for s in (swing_stop, breakeven) if s], default=None)
             if should_stop_out(entry, cur, stop_price=eff_stop):
                 cycles_open = ps_pos.get("stop_order_cycles", 0)
@@ -954,6 +1042,46 @@ def evaluate_symbol(
                 )
                 return decision
 
+            # Pyramid into the winner (roadmap 2026-07-10 item 1, ships OFF):
+            # in trend mode, add up to PYRAMID_MAX_TRANCHES tranches at +1R /
+            # +2R, each at half the initial risk, capped to the symbol's
+            # remaining cap headroom. The stop rises to breakeven after each
+            # add (mark_pyramid_add) so an add can never create a net loser.
+            if trend_mode and not ps_pos.get("partial_tp_done"):
+                r_stop   = swing_stop if swing_stop else entry * (1 - STOP_LOSS_PCT)
+                tranches = int(ps_pos.get("pyramid_tranches") or 0)
+                if should_pyramid(entry, cur, r_stop, tranches,
+                                  max_tranches=PYRAMID_MAX_TRANCHES,
+                                  adx=adx_val, adx_min=PYRAMID_ADX_MIN,
+                                  score=score, full_gate=BUY_SCORE_THRESHOLD):
+                    try:
+                        equity = float(get_account().get("equity") or 0)
+                    except Exception:
+                        equity = 0.0
+                    if equity > 0 and ask > 0:
+                        mult = 0.5 * (STREAK_THROTTLE_RISK_FACTOR
+                                      if _THROTTLE_ACTIVE else 1.0)
+                        add_qty = compute_entry_qty(equity, symbol, ask,
+                                                    decision.get("atr"),
+                                                    risk_mult=mult)
+                        # Respect the per-symbol cap on the TOTAL position.
+                        cap_pct  = symbol_cap(symbol)
+                        headroom = (equity * cap_pct - qty_held * cur) / ask
+                        add_qty  = round(min(add_qty, max(headroom, 0) * 0.99), 4)
+                        if add_qty > 0:
+                            decision["action"]      = "BUY"
+                            decision["qty"]         = add_qty
+                            decision["limit_price"] = round(ask, 4)
+                            decision["is_pyramid"]  = True
+                            decision["reason"] = (
+                                "PYRAMID ADD %d/%d: +%dR reached (ADX %.1f, "
+                                "score %.1f) — adding at half risk, stop to "
+                                "breakeven"
+                                % (tranches + 1, PYRAMID_MAX_TRANCHES,
+                                   tranches + 1, adx_val, score)
+                            )
+                            return decision
+
             pct_from_entry = (cur - entry) / entry * 100 if entry else 0
             decision["reason"] = (
                 "HOLD %.4f @ $%.4f (%.2f%%), score=%.1f"
@@ -1010,14 +1138,26 @@ def evaluate_symbol(
         entry_stop = swing_low_stop_price(ask, decision.get("lows_4h"))
         bb = decision.get("bb")
         bb_target = bb[2] if bb and bb[2] and bb[2] > ask else None
-        rr = net_rr(ask, entry_stop, bb_target, cost_pct=cost_pct)
+        # Measured-move target (roadmap 2026-07-10 item 5, ships OFF): in a
+        # confirmed trend (ADX >= measured_move_adx_min) the BB-upper chop
+        # target understates the run — use the larger of BB-upper and the
+        # 4H measured move (prior swing high / entry + 2x range height).
+        target = bb_target
+        adx_entry = decision.get("adx")
+        if (MEASURED_MOVE_ENABLED and adx_entry is not None
+                and adx_entry >= MEASURED_MOVE_ADX_MIN):
+            mm = measured_move_target(ask, decision.get("highs_4h"),
+                                      decision.get("lows_4h"))
+            if mm and mm > ask:
+                target = max(bb_target or 0, mm) or None
+        rr = net_rr(ask, entry_stop, target, cost_pct=cost_pct)
         decision["net_rr"] = rr
         if rr is not None:
             if rr < MIN_RR_HALF:
                 decision["reason"] = (
                     "BLOCKED: net R:R %.2f < %.1f (stop $%.4f, target $%.4f, "
                     "round-trip cost %.2f%%)"
-                    % (rr, MIN_RR_HALF, entry_stop, bb_target, cost_pct * 100)
+                    % (rr, MIN_RR_HALF, entry_stop, target, cost_pct * 100)
                 )
                 return decision
             if rr < MIN_RR_FULL:
@@ -1030,13 +1170,35 @@ def evaluate_symbol(
         if SESSION_FILTER_ENABLED and _session_penalty_active():
             session_note = ", half-size on negative session expectancy"
 
-        base_qty = _compute_qty(ask)
+        # Risk multiplier: conviction sizing (item 3, ships OFF) scales the
+        # risk budget by signal quality (0.75x half band / 1.0x full band /
+        # 1.5x at score >= conviction_high_score with daily+4H aligned); the
+        # streak throttle (item 4) halves whatever the base is.
+        risk_mult = 1.0
+        conviction_note = ""
+        if CONVICTION_SIZING_ENABLED and not in_downtrend:
+            htf_aligned = (
+                decision.get("daily_regime") == "uptrend"
+                and str(decision.get("regime_4h") or "").startswith("golden")
+            )
+            risk_mult = conviction_risk_multiplier(
+                score, BUY_SCORE_HALF_SIZE, BUY_SCORE_THRESHOLD,
+                CONVICTION_HIGH_SCORE, htf_aligned)
+            conviction_note = ", conviction %.2fx" % risk_mult
+        if _THROTTLE_ACTIVE:
+            risk_mult *= STREAK_THROTTLE_RISK_FACTOR
+            conviction_note += ", streak-throttle %.1fx" % STREAK_THROTTLE_RISK_FACTOR
+
+        base_qty = compute_entry_qty(equity, symbol, ask, atr_val,
+                                     risk_mult=risk_mult)
         # Counter-trend (downtrend) longs are half-size only; otherwise the
         # usual full-size at/above BUY_SCORE_THRESHOLD, half-size below it.
+        # With conviction sizing ON the score-band scaling lives in risk_mult
+        # (0.75x, not 0.5x, in the half band) so the extra halving is skipped.
         if in_downtrend:
             qty       = round(base_qty * 0.5, 4)
             size_note = "half-size counter-trend (downtrend, score=%.1f)" % score
-        elif score < BUY_SCORE_THRESHOLD:
+        elif score < BUY_SCORE_THRESHOLD and not CONVICTION_SIZING_ENABLED:
             qty       = round(base_qty * 0.5, 4)
             size_note = "half-size (score=%.1f)" % score
         elif rr_half_note or session_note:
@@ -1045,12 +1207,21 @@ def evaluate_symbol(
         else:
             qty       = base_qty
             size_note = "full-size (score=%.1f)" % score
+        size_note += conviction_note
 
         if qty > 0:
-            decision["action"]      = "BUY"
-            decision["qty"]         = qty
-            decision["limit_price"] = round(ask, 4)
-            decision["reason"]      = "TA BUY %s, atr=%.4f" % (size_note, atr_val or 0)
+            # Maker-first entry pricing (item 6, ships OFF): rest the limit at
+            # the bid (earn maker fees) instead of paying taker at the ask.
+            # Entries only — exits and stops keep taker urgency. Unfilled
+            # maker entries are cancelled after 1 cycle (see main()).
+            if MAKER_FIRST_ENTRIES and bid > 0:
+                decision["limit_price"] = round(bid, 4)
+                size_note += ", maker@bid"
+            else:
+                decision["limit_price"] = round(ask, 4)
+            decision["action"] = "BUY"
+            decision["qty"]    = qty
+            decision["reason"] = "TA BUY %s, atr=%.4f" % (size_note, atr_val or 0)
             return decision
 
     # ── Short entry ──────────────────────────────────────────────────────────
@@ -1424,10 +1595,57 @@ def main() -> int:
             pass
     state["last_evaluation_iso"] = now_utc.isoformat()
 
+    # One shared fills fetch for the reconciliation (Bugs #1+#3), the
+    # session-edge filter (item 8/9) and the streak throttle (item 4).
+    fills: list | None = None
+    if STREAK_THROTTLE_ENABLED or SESSION_FILTER_ENABLED:
+        try:
+            fills = _fetch_all_fills()
+        except Exception as e:
+            print("fills fetch failed (throttle/session filter skipped): %r" % e)
+
     # Rebuild lost/corrupt per-position facts from fill history (Bugs #1+#3).
-    for w in reconcile_positions_from_fills(state, positions):
+    for w in reconcile_positions_from_fills(state, positions, fills):
         print("WARNING: " + w)
         journal_warnings.append(w)
+
+    # Losing-streak / drawdown throttle (roadmap 2026-07-10 item 4, PTJ):
+    # 3 consecutive losing round-trips OR a 7-day drawdown >= 5% halve
+    # risk-per-trade until 2 consecutive winners AND drawdown < 2.5%.
+    # State persists in positions_state.json (hysteresis across runs).
+    global _THROTTLE_ACTIVE
+    round_trips: list = _fifo_round_trips(fills) if fills else []
+    if STREAK_THROTTLE_ENABLED:
+        was_active = bool(state.get("streak_throttle_active"))
+        dd_7d = _seven_day_drawdown()
+        _THROTTLE_ACTIVE = update_streak_throttle(
+            was_active, [rt["pnl"] for rt in round_trips], dd_7d)
+        state["streak_throttle_active"] = _THROTTLE_ACTIVE
+        if _THROTTLE_ACTIVE:
+            msg = ("STREAK THROTTLE ACTIVE: risk-per-trade x%.1f "
+                   "(7-day drawdown %.1f%%) — releases after 2 consecutive "
+                   "winners with drawdown < 2.5%%"
+                   % (STREAK_THROTTLE_RISK_FACTOR, dd_7d * 100))
+            print("WARNING: " + msg)
+            journal_warnings.append(msg)
+    # Pre-compute the session penalty from the shared round trips (item 9:
+    # the filter is ON by default now — it self-guards on min sample).
+    if SESSION_FILTER_ENABLED and fills is not None:
+        _session_penalty_active(round_trips=round_trips)
+
+    # Maker-first repricing timeout (item 6, ships OFF): a maker entry rests
+    # at the bid and may not fill — cancel last cycle's unfilled entry BUY
+    # limits so this cycle reprices them fresh (1-cycle timeout).
+    if MAKER_FIRST_ENTRIES:
+        try:
+            for o in get_open_orders():
+                if (o.get("side") == "buy" and o.get("type") == "limit"
+                        and to_slash(o.get("symbol", "")) not in pos_by_symbol):
+                    cancel_order(o.get("id", ""))
+                    print("maker-first: cancelled stale entry %s %s"
+                          % (o.get("symbol"), str(o.get("id"))[:8]))
+        except Exception as e:
+            print("maker-first stale-entry sweep skipped: %r" % e)
 
     # Over-budget reconciliation (roadmap 2026-07-09 item 3): the budget only
     # gates NEW entries, so scout promotions / older entries can leave the book
@@ -1451,6 +1669,41 @@ def main() -> int:
     if rotation_note:
         print("INFO: " + rotation_note)
         journal_warnings.append(rotation_note)
+
+    # Portfolio-level breadth/regime gate (roadmap 2026-07-10 item 10, ships
+    # OFF): when <= breadth_low_pct of the watchlist is in a confirmed daily
+    # uptrend, restrict NEW entries to Tier-1 majors and halve the
+    # max-positions budget — per-symbol regime alone deploys into a
+    # market-wide markdown one coin at a time.
+    if BREADTH_GATE_ENABLED:
+        breadth = breadth_pct([d.get("daily_regime") for d in decisions])
+        majors_only, budget_factor = breadth_policy(breadth,
+                                                    low_pct=BREADTH_LOW_PCT)
+        if majors_only:
+            eff_budget = max(1, int(MAX_OPEN_POSITIONS * budget_factor))
+            demoted = []
+            for d in decisions:
+                is_new_entry = (d["action"] == "BUY"
+                                and not d.get("is_pyramid")
+                                and d["symbol"] not in pos_by_symbol)
+                if not is_new_entry:
+                    continue
+                if (d["symbol"] not in TIER1_SYMBOLS
+                        or len(open_symbols) >= eff_budget):
+                    d["action"], d["qty"], d["limit_price"] = "HOLD", None, None
+                    d["reason"] = (
+                        "BREADTH GATE: only %.0f%% of watchlist in uptrend "
+                        "(<= %.0f%%) — majors-only, budget halved to %d"
+                        % ((breadth or 0) * 100, BREADTH_LOW_PCT * 100,
+                           eff_budget)
+                    )
+                    demoted.append(d["symbol"])
+            if demoted:
+                msg = ("BREADTH GATE: %.0f%% uptrend breadth — blocked new "
+                       "entries: %s" % ((breadth or 0) * 100,
+                                        ", ".join(demoted)))
+                print("WARNING: " + msg)
+                journal_warnings.append(msg)
 
     # Optional over-budget trim (item 3, config-flagged): sell the weakest-
     # scoring overflow position so the book converges back to the budget.
@@ -1515,7 +1768,13 @@ def main() -> int:
                       % (d["symbol"], side, str(d["qty"]), d["limit_price"], order_id[:8]))
 
                 # Update position state based on what we just submitted.
-                if d["action"] == "BUY":
+                if d["action"] == "BUY" and d.get("is_pyramid"):
+                    # Pyramid add (item 1): count the tranche and raise the
+                    # whole position's stop to breakeven — never re-init
+                    # tracking (that would reset the HWM and entry clock).
+                    ps.mark_pyramid_add(state, d["symbol"],
+                                        d.get("entry_price") or d["limit_price"])
+                elif d["action"] == "BUY":
                     # New long opened: initialise tracking.
                     ps.init_position(state, d["symbol"], d["limit_price"])
                 elif d["action"] == "SHORT":

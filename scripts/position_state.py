@@ -38,6 +38,7 @@ _EMPTY_STATE: dict = {
     "capital_preservation_mode": False,
     "capital_preservation_since": None,
     "last_evaluation_iso":       None,   # cadence self-monitoring (Bug #4)
+    "streak_throttle_active":    False,  # losing-streak/DD throttle (roadmap item 4)
     "positions": {},
 }
 
@@ -47,7 +48,8 @@ _EMPTY_POSITION: dict = {
     "high_water_mark":        None,
     "trailing_stop_active":   False,
     "partial_tp_done":        False,  # +1R scale-out already taken (partial-TP ladder)
-    "breakeven_stop":         None,   # stop raised to entry after the partial TP
+    "breakeven_stop":         None,   # stop raised to entry after the partial TP / pyramid add
+    "pyramid_tranches":       0,      # +1R/+2R adds taken (pyramiding, roadmap item 1)
     "stop_order_id":          None,
     "stop_order_placed_iso":  None,
     "stop_order_limit_price": None,
@@ -165,6 +167,16 @@ def mark_partial_tp(state: dict, symbol: str, breakeven_price: float) -> dict:
     pos = get_position(state, symbol)
     pos["partial_tp_done"] = True
     pos["breakeven_stop"]  = breakeven_price
+    return state
+
+
+def mark_pyramid_add(state: dict, symbol: str, breakeven_price: float) -> dict:
+    """Record a pyramid tranche (roadmap 2026-07-10 item 1): count the add and
+    raise the whole position's stop to breakeven so an add can never turn the
+    trade into a net loser."""
+    pos = get_position(state, symbol)
+    pos["pyramid_tranches"] = int(pos.get("pyramid_tranches") or 0) + 1
+    pos["breakeven_stop"]   = breakeven_price
     return state
 
 

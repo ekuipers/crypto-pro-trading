@@ -1,0 +1,74 @@
+name: Stop Watchdog
+
+# 5-minute stop-loss watchdog (roadmap 2026-07-10 item 7): checks ONLY the
+# exit levels of open long positions and fires the trade.py stop path.
+# Decouples loss-cutting from the hourly evaluation. NOTE: GitHub schedules
+# are best-effort — */5 typically lands every 5-15 minutes, which still beats
+# the hourly gap by an order of magnitude. Commits happen only when a stop
+# actually fires, so quiet runs create no repo churn.
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+# Same group as the trading bot so pushes never race each other.
+concurrency:
+  group: trading-bot-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  watchdog:
+    name: Stop Watchdog
+    runs-on: ubuntu-latest
+    environment: paper
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      # The watchdog needs only `requests` (risk/indicators/trade are pure
+      # Python) — keeps each 5-minute run fast and cheap.
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Configure paper env vars
+        run: |
+          echo "TRADING_ENV=paper" >> "$GITHUB_ENV"
+          echo "APCA_BASE_URL=https://paper-api.alpaca.markets" >> "$GITHUB_ENV"
+          echo "APCA_API_KEY_ID=${{ secrets.APCA_PAPER_KEY_ID }}" >> "$GITHUB_ENV"
+          echo "APCA_API_SECRET_KEY=${{ secrets.APCA_PAPER_SECRET_KEY }}" >> "$GITHUB_ENV"
+
+      - name: Run stop watchdog
+        run: python scripts/stop_watchdog.py --execute
+
+      - name: Commit & push journal + state (only when a stop fired)
+        run: |
+          git config user.name  "Trading Bot"
+          git config user.email "bot@alpaca-trading"
+
+          git add journal/ data/positions_state.json
+          git diff --cached --quiet && { echo "No watchdog changes"; exit 0; }
+
+          git commit -m "journal: [paper] stop watchdog $(date -u '+%Y-%m-%d %H:%M UTC')"
+
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && \
+            git push origin HEAD:main && break
+            echo "Push failed, retrying ($i/3)..."
+            sleep 2
+          done

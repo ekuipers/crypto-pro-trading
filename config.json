@@ -17,12 +17,25 @@
     "rotation_score_margin": 2.0,
     "min_rr_full": 1.5,
     "min_rr_half": 1.0,
-    "session_filter_enabled": false,
-    "session_min_sample": 20
+    "session_filter_enabled": true,
+    "session_min_sample": 20,
+    "_comment_roadmap_2026_07_10": "Famous-trader package (roadmap items 1/3/5/10). Entry-affecting features ship OFF until walk-forward validated; the session filter (item 9) is ON because it self-guards on session_min_sample per bucket.",
+    "pyramid_enabled": false,
+    "pyramid_max_tranches": 2,
+    "pyramid_adx_min": 25.0,
+    "conviction_sizing_enabled": false,
+    "conviction_high_score": 5.0,
+    "measured_move_enabled": false,
+    "measured_move_adx_min": 25.0,
+    "breadth_gate_enabled": false,
+    "breadth_full_pct": 0.6,
+    "breadth_low_pct": 0.3
   },
   "costs": {
-    "_comment": "Trade-economics model (roadmap 2026-07-09 item 1). taker_fee_bps_per_side: Alpaca crypto taker fee per side in basis points (base tier ~25 bps = 0.25%). Round-trip cost = 2 x fee + live bid-ask spread.",
-    "taker_fee_bps_per_side": 25
+    "_comment": "Trade-economics model (roadmap 2026-07-09 item 1). taker_fee_bps_per_side: Alpaca crypto taker fee per side in basis points (base tier ~25 bps = 0.25%). Round-trip cost = 2 x fee + live bid-ask spread. maker_first_entries (roadmap 2026-07-10 item 6, OFF until validated): rest non-urgent entry limits at the bid (maker) instead of the ask.",
+    "taker_fee_bps_per_side": 25,
+    "maker_first_entries": false,
+    "maker_fee_bps_per_side": 15
   },
   "risk": {
     "stop_loss_mode": "swing_low_4h",
@@ -50,7 +63,19 @@
     "max_hold_hours": 48,
     "partial_tp_enabled": true,
     "partial_tp_r_multiple": 1.0,
-    "partial_tp_fraction": 0.5
+    "partial_tp_fraction": 0.5,
+    "trail_mode": "fixed",
+    "chandelier_atr_mult": 2.5,
+    "streak_throttle_enabled": true,
+    "streak_throttle_losses": 3,
+    "streak_throttle_dd_pct": 0.05,
+    "streak_throttle_recover_dd_pct": 0.025,
+    "streak_throttle_winners": 2,
+    "streak_throttle_risk_factor": 0.5
+  },
+  "walkforward": {
+    "_comment": "Roadmap 2026-07-10 item 8: the dashboard Backtest tab warns when reports/walkforward_latest.json is older than this.",
+    "max_baseline_age_days": 45
   },
   "indicators": {
     "ema_fast": 20,

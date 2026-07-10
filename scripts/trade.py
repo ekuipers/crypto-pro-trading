@@ -175,6 +175,7 @@ def place_order(
     # Stop-loss orders use a wider band to ensure they fill in volatile markets.
     quote = get_latest_quote(symbol)
     ask = float(quote.get("ap") or 0)
+    bid = float(quote.get("bp") or 0)
     if ask <= 0:
         raise TradeRejected(
             symbol + ": no live ask available, cannot validate limit band"
@@ -202,7 +203,8 @@ def place_order(
             limit_price = round(clamped, 6)
         band_check = RiskCheck(True, "ok")
     else:
-        band_check = check_limit_band(limit_price, ask)
+        # bid enables the maker-safe inside-the-spread acceptance (item 6).
+        band_check = check_limit_band(limit_price, ask, bid=bid)
     if not band_check.ok:
         raise TradeRejected(symbol + ": " + band_check.reason)
 

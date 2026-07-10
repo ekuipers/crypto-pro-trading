@@ -126,6 +126,68 @@ def _load_risk_cfg2() -> tuple:
 ) = _load_risk_cfg2()
 
 
+def _load_risk_cfg3() -> tuple:
+    """Third-stage config loader for the 2026-07-10 roadmap keys
+    (famous-trader package). Kept separate so the earlier tuples and their
+    callers stay untouched."""
+    cfg_path = Path(__file__).resolve().parent.parent / "config.json"
+    try:
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        r = cfg.get("risk", {})
+        s = cfg.get("strategy", {})
+        c = cfg.get("costs", {})
+        return (
+            str(  r.get("trail_mode",                    "fixed")).lower(),
+            float(r.get("chandelier_atr_mult",           2.5)),
+            bool( r.get("streak_throttle_enabled",       True)),
+            int(  r.get("streak_throttle_losses",        3)),
+            float(r.get("streak_throttle_dd_pct",        0.05)),
+            float(r.get("streak_throttle_recover_dd_pct", 0.025)),
+            int(  r.get("streak_throttle_winners",       2)),
+            float(r.get("streak_throttle_risk_factor",   0.5)),
+            bool( s.get("pyramid_enabled",               False)),
+            int(  s.get("pyramid_max_tranches",          2)),
+            float(s.get("pyramid_adx_min",               25.0)),
+            bool( s.get("conviction_sizing_enabled",     False)),
+            float(s.get("conviction_high_score",         5.0)),
+            bool( s.get("measured_move_enabled",         False)),
+            float(s.get("measured_move_adx_min",         25.0)),
+            bool( s.get("breadth_gate_enabled",          False)),
+            float(s.get("breadth_full_pct",              0.6)),
+            float(s.get("breadth_low_pct",               0.3)),
+            bool( c.get("maker_first_entries",           False)),
+            float(c.get("maker_fee_bps_per_side",        15.0)),
+        )
+    except Exception:
+        return ("fixed", 2.5, True, 3, 0.05, 0.025, 2, 0.5,
+                False, 2, 25.0, False, 5.0, False, 25.0,
+                False, 0.6, 0.3, False, 15.0)
+
+
+(
+    TRAIL_MODE,
+    CHANDELIER_ATR_MULT,
+    STREAK_THROTTLE_ENABLED,
+    STREAK_THROTTLE_LOSSES,
+    STREAK_THROTTLE_DD_PCT,
+    STREAK_THROTTLE_RECOVER_DD_PCT,
+    STREAK_THROTTLE_WINNERS,
+    STREAK_THROTTLE_RISK_FACTOR,
+    PYRAMID_ENABLED,
+    PYRAMID_MAX_TRANCHES,
+    PYRAMID_ADX_MIN,
+    CONVICTION_SIZING_ENABLED,
+    CONVICTION_HIGH_SCORE,
+    MEASURED_MOVE_ENABLED,
+    MEASURED_MOVE_ADX_MIN,
+    BREADTH_GATE_ENABLED,
+    BREADTH_FULL_PCT,
+    BREADTH_LOW_PCT,
+    MAKER_FIRST_ENTRIES,
+    MAKER_FEE_BPS_PER_SIDE,
+) = _load_risk_cfg3()
+
+
 # ---------------------------------------------------------------------------
 # Data types
 # ---------------------------------------------------------------------------
@@ -174,12 +236,18 @@ def check_position_size(
     return RiskCheck(True, "size ok")
 
 
-def check_limit_band(limit_price: float, ask: float) -> RiskCheck:
-    """Limit price must be within LIMIT_BAND_PCT of the current ask (above OR below)."""
+def check_limit_band(limit_price: float, ask: float, bid: float | None = None) -> RiskCheck:
+    """Limit price must be within LIMIT_BAND_PCT of the current ask (above OR
+    below). Maker-first extension (roadmap 2026-07-10 item 6): when a live bid
+    is supplied, any limit sitting inside the spread (bid <= limit <= ask) is
+    also accepted — resting an entry at the bid is strictly conservative even
+    when a wide spread puts the bid outside the 0.2% ask band."""
     if ask <= 0:
         return RiskCheck(False, "ask must be positive")
     if limit_price <= 0:
         return RiskCheck(False, "limit_price must be positive")
+    if bid and 0 < bid <= limit_price <= ask:
+        return RiskCheck(True, "limit inside the bid-ask spread (maker-safe)")
     band = ask * LIMIT_BAND_PCT
     diff = abs(limit_price - ask)
     if diff > band:
@@ -568,6 +636,189 @@ def rotation_allows(
         and weakest_score <= 0
         and candidate_score - weakest_score >= margin
     )
+
+
+# ---------------------------------------------------------------------------
+# Famous-trader package (roadmap 2026-07-10 items 1-5, 10)
+# ---------------------------------------------------------------------------
+
+def chandelier_trail_pct(
+    price: float,
+    atr_4h: float | None,
+    k: float = CHANDELIER_ATR_MULT,
+    fixed_pct: float = TRAILING_STOP_TRAIL_PCT,
+) -> float:
+    """ATR-adaptive (Chandelier) trail width as a fraction of price (item 2,
+    Turtles' 2N exit): max(fixed trail, k x ATR(4H) / price). High-vol alts get
+    a wider trail so noise doesn't shake them out; low-vol majors keep the
+    fixed floor. Falls back to the fixed trail when ATR/price are unusable."""
+    if not price or price <= 0 or not atr_4h or atr_4h <= 0:
+        return fixed_pct
+    return max(fixed_pct, k * atr_4h / price)
+
+
+def conviction_risk_multiplier(
+    score: float | None,
+    half_gate: float,
+    full_gate: float,
+    high_score: float = CONVICTION_HIGH_SCORE,
+    htf_aligned: bool = False,
+) -> float:
+    """Risk-per-trade multiplier scaled by signal quality (item 3,
+    Druckenmiller/PTJ): 0.75x in the half band [half_gate, full_gate),
+    1.0x in the full band, 1.5x at score >= high_score with the daily AND 4H
+    trends aligned. Encodes CLAUDE.md's "save full size for >= 5/6 setups"."""
+    if score is None:
+        return 1.0
+    if score >= high_score and htf_aligned:
+        return 1.5
+    if score >= full_gate:
+        return 1.0
+    if score >= half_gate:
+        return 0.75
+    return 1.0
+
+
+def consecutive_losses_tail(pnls: list) -> int:
+    """Length of the losing streak at the end of a chronological P&L list."""
+    n = 0
+    for p in reversed(pnls or []):
+        if p < 0:
+            n += 1
+        else:
+            break
+    return n
+
+
+def consecutive_wins_tail(pnls: list) -> int:
+    """Length of the winning streak at the end of a chronological P&L list."""
+    n = 0
+    for p in reversed(pnls or []):
+        if p > 0:
+            n += 1
+        else:
+            break
+    return n
+
+
+def update_streak_throttle(
+    was_active: bool,
+    round_trip_pnls: list,
+    dd_7d: float,
+    losses: int = STREAK_THROTTLE_LOSSES,
+    dd_on: float = STREAK_THROTTLE_DD_PCT,
+    dd_off: float = STREAK_THROTTLE_RECOVER_DD_PCT,
+    winners: int = STREAK_THROTTLE_WINNERS,
+) -> bool:
+    """Losing-streak / drawdown throttle state machine (item 4, PTJ "trade
+    smallest when trading worst"). Activates after `losses` consecutive losing
+    round-trips OR a rolling 7-day drawdown >= dd_on. Releases only once
+    `winners` consecutive winners have printed AND the drawdown has recovered
+    below dd_off (slightly stricter than either alone — conservative
+    hysteresis). Anti-martingale: while active the caller halves risk."""
+    wins_tail = consecutive_wins_tail(round_trip_pnls)
+    if was_active:
+        return not (wins_tail >= winners and dd_7d < dd_off)
+    return consecutive_losses_tail(round_trip_pnls) >= losses or dd_7d >= dd_on
+
+
+def rolling_drawdown_pct(equities: list) -> float:
+    """Drawdown of the last value from the peak of the series (0.05 = 5%)."""
+    vals = [e for e in (equities or []) if e and e > 0]
+    if len(vals) < 2:
+        return 0.0
+    peak = max(vals)
+    return max((peak - vals[-1]) / peak, 0.0)
+
+
+def measured_move_target(
+    entry: float,
+    highs_4h: list | None,
+    lows_4h: list | None,
+    lookback: int = SWING_LOW_LOOKBACK_BARS,
+) -> float | None:
+    """Trend-phase profit target (item 5, PTJ asymmetry): the prior 4H swing
+    high when it still sits above entry; once price has broken above it, the
+    measured move entry + 2 x (4H range height). The BB-upper target is a
+    chop-range target and systematically understates trend runs — callers use
+    this only when ADX confirms a trend (>= measured_move_adx_min)."""
+    if entry <= 0 or not highs_4h:
+        return None
+    hs = [h for h in highs_4h[-lookback:] if h and h > 0]
+    if len(hs) < min(lookback, 5):
+        return None
+    swing_high = max(hs)
+    if swing_high > entry:
+        return round(swing_high, 6)
+    ls = [lw for lw in (lows_4h or [])[-lookback:] if lw and lw > 0]
+    if not ls:
+        return None
+    height = swing_high - min(ls)
+    if height <= 0:
+        return None
+    return round(entry + 2 * height, 6)
+
+
+def pyramid_trigger_price(
+    entry: float,
+    stop: float,
+    tranche_n: int,
+) -> float | None:
+    """Price at which pyramid tranche N fires: entry + N x R (item 1)."""
+    return partial_tp_trigger_price(entry, stop, r_multiple=float(tranche_n))
+
+
+def should_pyramid(
+    entry: float,
+    current: float,
+    stop: float,
+    tranches_done: int,
+    max_tranches: int = PYRAMID_MAX_TRANCHES,
+    adx: float | None = None,
+    adx_min: float = PYRAMID_ADX_MIN,
+    score: float | None = None,
+    full_gate: float = 3.5,
+) -> bool:
+    """Add to a WINNING long (item 1, Livermore/Turtle 2N adds): only in a
+    strong 4H trend (ADX >= adx_min), only while the score still clears the
+    full-size gate, and only at the +1R/+2R tranche levels, up to
+    max_tranches adds. The caller sizes each add at half the initial risk and
+    raises the stop to breakeven afterwards."""
+    if tranches_done >= max_tranches:
+        return False
+    if adx is None or adx < adx_min:
+        return False
+    if score is None or score < full_gate:
+        return False
+    trigger = pyramid_trigger_price(entry, stop, tranches_done + 1)
+    return trigger is not None and current >= trigger
+
+
+def breadth_pct(regimes: list) -> float | None:
+    """Fraction of watchlist symbols in a confirmed daily uptrend (item 10).
+    Ignores symbols whose regime could not be computed; None when nothing
+    usable remains."""
+    vals = [r for r in (regimes or []) if r in ("uptrend", "downtrend", "mixed")]
+    if not vals:
+        return None
+    return sum(1 for r in vals if r == "uptrend") / len(vals)
+
+
+def breadth_policy(
+    breadth: float | None,
+    full_pct: float = BREADTH_FULL_PCT,
+    low_pct: float = BREADTH_LOW_PCT,
+) -> tuple:
+    """Book-level deployment policy from breadth (item 10, Weinstein stage
+    analysis): returns (majors_only, budget_factor). Breadth <= low_pct ->
+    Tier-1 only with the max-positions budget halved; otherwise normal
+    per-symbol gating (full_pct is informational — deployment above it is
+    already unrestricted)."""
+    if breadth is None:
+        return False, 1.0
+    if breadth <= low_pct:
+        return True, 0.5
+    return False, 1.0
 
 
 # ---------------------------------------------------------------------------

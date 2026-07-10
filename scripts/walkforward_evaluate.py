@@ -289,6 +289,26 @@ def write_reports(out_dir: Path, payload: Dict) -> Tuple[Path, Path]:
         lines.append("")
 
     md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    # Stable-named compact pointer (roadmap 2026-07-10 item 8): the dashboard
+    # Backtest tab fetches reports/walkforward_latest.json to show the current
+    # baseline and warn when it is older than walkforward.max_baseline_age_days.
+    # Compact (summaries only) so the fetch stays light.
+    latest = {
+        "generated_utc": ts,
+        "params": {
+            k: payload.get("params", {}).get(k)
+            for k in ("symbols", "timeframes", "fee_bps", "slippage_bps",
+                      "train_days", "test_days")
+        },
+        "summary": {
+            tf: {sym: res.get("summary") for sym, res in by_sym.items()}
+            for tf, by_sym in payload.get("timeframes", {}).items()
+        },
+    }
+    (out_dir / "walkforward_latest.json").write_text(
+        json.dumps(latest, indent=2), encoding="utf-8"
+    )
     return json_path, md_path
 
 
