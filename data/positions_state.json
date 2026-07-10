@@ -64,8 +64,21 @@
       "stop_order_placed_iso": "2026-07-10T23:13:42.736366+00:00",
       "stop_order_limit_price": 95.2884,
       "stop_order_cycles": 1
+    },
+    "LTC/USD": {
+      "entry_price": 44.8851,
+      "entry_time_iso": "2026-07-10T23:16:03.990171+00:00",
+      "high_water_mark": 44.8851,
+      "trailing_stop_active": false,
+      "partial_tp_done": false,
+      "breakeven_stop": null,
+      "pyramid_tranches": 0,
+      "stop_order_id": null,
+      "stop_order_placed_iso": null,
+      "stop_order_limit_price": null,
+      "stop_order_cycles": 0
     }
   },
-  "last_evaluation_iso": "2026-07-10T21:29:59.828388+00:00",
+  "last_evaluation_iso": "2026-07-10T23:15:44.292511+00:00",
   "streak_throttle_active": false
 }
