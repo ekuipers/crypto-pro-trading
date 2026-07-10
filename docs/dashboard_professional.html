@@ -1392,14 +1392,16 @@
       </section>
     </div><!-- /subpage-news -->
 
-    <!-- 🐦 Socials sub-tab — crypto tweets + stats from >0.5M-follower accounts
-         (roadmap 2026-07-09). X/Twitter has no keyless API and blocks CORS.
-         Stats: live follower/tweet counts via the keyless fxtwitter API
-         (api.fxtwitter.com, ACAO:* — verified working). Tweets: Nitter-mirror
-         RSS through the keyless rss2json bridge the News tab uses, per-account
-         mirror fallback — best-effort, mirrors come and go. The >0.5M gate is
-         enforced by the curated SOC_ACCOUNTS list; static followersM snapshots
-         are the render fallback. Analysis-only — never places orders. -->
+    <!-- 🐦 Socials sub-tab — crypto posts + stats from >0.5M-follower accounts
+         (roadmap 2026-07-09; sources fixed 2026-07-10). X/Twitter has no
+         keyless API and blocks CORS. Stats: live follower/tweet counts via the
+         keyless fxtwitter API (api.fxtwitter.com, ACAO:* — verified working).
+         Posts: official Telegram mirror first (RSS-Bridge TelegramBridge →
+         rss2json, verified 2026-07-10), then Nitter-mirror RSS as best-effort
+         (all public mirrors now bot-wall or UA-whitelist /rss; error feeds are
+         rejected by feed-title validation). The >0.5M gate is enforced by the
+         curated SOC_ACCOUNTS list; static followersM snapshots are the render
+         fallback. Analysis-only — never places orders. -->
     <div id="subpage-socials" class="subpage">
       <section>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap">
@@ -1412,12 +1414,14 @@
           </div>
         </div>
         <div class="small" style="color:var(--muted);margin-bottom:12px">
-          Latest original tweets (retweets skipped) from curated crypto accounts with
+          Latest original posts (retweets skipped) from curated crypto accounts with
           <b>&gt; 0.5M followers</b>. Account stats (follower counts) refresh <b>live via the
           keyless fxtwitter API</b>; a <b>*</b> marks a static snapshot when that call fails.
-          Tweet text is read via public Nitter-mirror RSS, which is flaky — accounts whose
-          mirrors are all down show a red ✕ chip (stats still live); hit ↻ Refresh to retry.
-          Generalist accounts are filtered to crypto-keyword tweets only, and tweets get the
+          Post text comes from each account's <b>official Telegram mirror</b> where one exists
+          (marked <b>TG</b> — Binance, Watcher.Guru, Whale Alert, Cointelegraph), falling back
+          to public Nitter-mirror RSS, which X now blocks for keyless readers — accounts with
+          no reachable source show a red ✕ chip (stats still live); hit ↻ Refresh to retry.
+          Generalist accounts are filtered to crypto-keyword posts only, and posts get the
           same <b>T1/T2</b> catalyst badges as the News tab. Social flow is a
           <b>defensive input only</b> — it never justifies an entry below the score gates.
         </div>
@@ -2415,9 +2419,9 @@
     <span class="footer-sep">·</span>
     <span>Creator: <strong>Erik Kuipers</strong></span>
     <span class="footer-sep">·</span>
-    <span>Last modified: <strong>2026-07-09</strong></span>
+    <span>Last modified: <strong>2026-07-10</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-07-09.6</strong></span>
+    <span>Version: <strong>v2026-07-10.1</strong></span>
   </footer>
 
   <script>
@@ -3278,25 +3282,34 @@
       }).join("");
     }
 
-    // ── 🐦 Command › Socials (roadmap 2026-07-09) ─────────────────────────────
-    // Crypto tweets + stats from accounts with > 0.5M followers. X/Twitter has
+    // ── 🐦 Command › Socials (roadmap 2026-07-09; sources fixed 2026-07-10) ───
+    // Crypto posts + stats from accounts with > 0.5M followers. X/Twitter has
     // no keyless API and blocks CORS, so the tab splits the job:
-    //   Stats  — live follower/tweet counts via the keyless fxtwitter API
-    //            (api.fxtwitter.com/<handle>, ACAO:* — verified 2026-07-09).
-    //   Tweets — Nitter-mirror RSS through the same keyless rss2json bridge the
-    //            News tab uses; each account tries the mirrors in order and
-    //            Promise.allSettled keeps dead accounts from blanking the tab.
-    //            Best-effort: public mirrors come and go.
+    //   Stats — live follower/tweet counts via the keyless fxtwitter API
+    //           (api.fxtwitter.com/<handle>, ACAO:* — verified 2026-07-09).
+    //   Posts — per account, in order (all through the keyless rss2json bridge
+    //           the News tab uses):
+    //             1. official Telegram mirror (acct.tg) via the public
+    //                RSS-Bridge TelegramBridge — verified working 2026-07-10;
+    //             2. Nitter-mirror RSS — best-effort only: every public mirror
+    //                now bot-walls or UA-whitelists /rss (xcancel answers
+    //                HTTP 200 with a fake "RSS reader not yet whitelisted!"
+    //                feed — the 2026-07-10 bug rendered that as tweets, so
+    //                socFetchAccount() now requires the account handle in the
+    //                feed title before accepting any feed).
+    //           Promise.allSettled keeps dead accounts from blanking the tab.
     // The >0.5M-follower gate is enforced by curation (SOC_ACCOUNTS); static
     // followersM snapshots are only the render fallback when fxtwitter fails.
-    // Retweets are skipped; generalist accounts (general:true) keep only
-    // crypto-keyword tweets. Tier badges reuse newsCatalystTier(); coin chips
-    // reuse newsDetectCoins(). Analysis-only — never places orders.
+    // Retweets and media-only Telegram posts are skipped; generalist accounts
+    // (general:true) keep only crypto-keyword posts. Tier badges reuse
+    // newsCatalystTier(); coin chips reuse newsDetectCoins(). Analysis-only —
+    // never places orders.
     let _socItems = [];
     let _socErrors = [];
     let _socFetchedAt = 0;
     let _socFilter = "all";                    // "all" | "key" (T1/T2 only)
-    let _socAcctStats = {};                    // handle → tweet count in feed (timeline reachable)
+    let _socAcctStats = {};                    // handle → post count in feed (timeline reachable)
+    let _socAcctVia = {};                      // handle → "tg" | "x" (source that served the posts)
     let _socLiveStats = {};                    // handle → { followers, tweets } from fxtwitter
     const SOC_CACHE_MS     = 10 * 60 * 1000;   // auto-load re-uses items younger than this
     const SOC_MAX_ITEMS    = 60;
@@ -3304,25 +3317,39 @@
 
     // Curated accounts, every one > 0.5M followers (the roadmap gate).
     // followersM = follower count in millions, static snapshot (2026-07).
+    // tg = official Telegram channel (t.me/s/<tg>) — the primary post source
+    // since 2026-07-10 (X mirrors are blocked; personalities without an
+    // official channel stay Nitter-best-effort with live stats via fxtwitter).
     const SOC_ACCOUNTS = [
       { h: "elonmusk",        name: "Elon Musk",         followersM: 220, general: true },
-      { h: "binance",         name: "Binance",           followersM: 14 },
+      { h: "binance",         name: "Binance",           followersM: 14, tg: "binance_announcements" },
       { h: "cz_binance",      name: "CZ",                followersM: 10 },
       { h: "coinbase",        name: "Coinbase",          followersM: 5.9 },
       { h: "VitalikButerin",  name: "Vitalik Buterin",   followersM: 5.8 },
       { h: "saylor",          name: "Michael Saylor",    followersM: 4.4 },
       { h: "justinsuntron",   name: "Justin Sun",        followersM: 3.9 },
-      { h: "WatcherGuru",     name: "Watcher.Guru",      followersM: 3.4 },
-      { h: "whale_alert",     name: "Whale Alert",       followersM: 2.9 },
+      { h: "WatcherGuru",     name: "Watcher.Guru",      followersM: 3.4, tg: "WatcherGuru" },
+      { h: "whale_alert",     name: "Whale Alert",       followersM: 2.9, tg: "whale_alert_io" },
       { h: "BitcoinMagazine", name: "Bitcoin Magazine",  followersM: 2.7 },
-      { h: "Cointelegraph",   name: "Cointelegraph",     followersM: 2.3 },
+      { h: "Cointelegraph",   name: "Cointelegraph",     followersM: 2.3, tg: "cointelegraph" },
       { h: "APompliano",      name: "Anthony Pompliano", followersM: 1.7 },
       { h: "ErikVoorhees",    name: "Erik Voorhees",     followersM: 0.7 },
       { h: "novogratz",       name: "Mike Novogratz",    followersM: 0.6 }
     ];
 
-    // Public Nitter mirrors, tried in order per account.
-    const SOC_NITTER_HOSTS = ["xcancel.com", "nitter.poast.org", "nitter.privacyredirect.com", "lightbrd.com"];
+    // Public Nitter mirrors, tried in order per account. Best-effort only:
+    // every RSS-enabled public instance (status.d420.de tracker, checked
+    // 2026-07-10) either bot-walls /rss or UA-whitelists it, so this path
+    // rarely yields posts. Trimmed to the two highest-uptime hosts to keep
+    // failed rss2json calls (≤ 2 per account per refresh) off the rate limit.
+    const SOC_NITTER_HOSTS = ["xcancel.com", "nitter.poast.org"];
+
+    // Public RSS-Bridge instance turning t.me/s/<channel> into Atom that
+    // rss2json can read (Telegram previews are HTML and CORS-blocked directly).
+    function socTgFeedUrl(ch) {
+      return "https://rss-bridge.org/bridge01/?action=display&bridge=TelegramBridge&username=" +
+        encodeURIComponent(ch) + "&format=Atom";
+    }
 
     // Crypto-keyword gate for generalist (non-crypto-native) accounts.
     const SOC_CRYPTO_RE = /\b(bitcoin|btc|ethereum|eth|crypto(?:currenc\w*)?|blockchain|doge(?:coin)?|solana|xrp|stablecoin|defi|nft|web3|altcoin|halving|satoshi|hodl|token|binance|coinbase|mining rig|memecoin)\b/i;
@@ -3353,27 +3380,43 @@
 
     async function socFetchAccount(acct) {
       let lastErr = null;
-      for (const host of SOC_NITTER_HOSTS) {
+      // Sources in reliability order: the official Telegram mirror (when the
+      // account has one) is tried before the Nitter mirrors — every public
+      // Nitter instance now blocks keyless /rss readers (checked 2026-07-10).
+      const sources = [];
+      if (acct.tg) sources.push({ via: "tg", url: socTgFeedUrl(acct.tg), mark: "@" + acct.tg });
+      for (const host of SOC_NITTER_HOSTS)
+        sources.push({ via: "x", host, url: "https://" + host + "/" + acct.h + "/rss", mark: "@" + acct.h });
+      for (const src of sources) {
         try {
-          const r = await fetch("https://api.rss2json.com/v1/api.json?rss_url=" +
-            encodeURIComponent("https://" + host + "/" + acct.h + "/rss"));
+          const r = await fetch("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(src.url));
           if (!r.ok) throw new Error("HTTP " + r.status);
           const j = await r.json();
           if (j.status !== "ok" || !(j.items || []).length) throw new Error(j.message || "empty feed");
+          // Blocked mirrors answer HTTP 200 with an error feed instead of the
+          // timeline (xcancel: "RSS reader not yet whitelisted!") — rendering
+          // that as tweets was the 2026-07-10 bug. Both Nitter ("Name / @h")
+          // and TelegramBridge ("Name (@ch) - Telegram") feed titles carry the
+          // handle, so require it before accepting the feed.
+          const ft = (j.feed && j.feed.title) || "";
+          if (!ft.toLowerCase().includes(src.mark.toLowerCase()))
+            throw new Error(/whitelist/i.test(ft) ? "mirror blocks RSS readers" : "unexpected feed: " + ft.slice(0, 60));
           return (j.items || [])
-            .filter(n => !/^RT by /.test(n.title || ""))     // original tweets only
+            .filter(n => !/^RT by /.test(n.title || ""))              // original tweets only
+            .filter(n => !/^Please open Telegram/i.test(n.title || "")) // media-only TG posts
             .slice(0, SOC_MAX_PER_ACCT)
             .map(n => ({
               // rss2json normalizes pubDate to "YYYY-MM-DD HH:MM:SS" in UTC.
               t: new Date(String(n.pubDate || "").replace(" ", "T") + "Z").getTime() || 0,
               text: socCleanText(n.title || ""),
-              url: socToXUrl(n.link || "", host),
+              url: src.via === "tg" ? String(n.link || "") : socToXUrl(n.link || "", src.host),
+              via: src.via,
               acct
             }))
             .filter(it => it.text && (!acct.general || SOC_CRYPTO_RE.test(it.text)));
         } catch (e) { lastErr = e; }
       }
-      throw new Error("@" + acct.h + ": " + ((lastErr && lastErr.message) || "all mirrors failed"));
+      throw new Error("@" + acct.h + ": " + ((lastErr && lastErr.message) || "all sources failed"));
     }
 
     async function loadSocials(force) {
@@ -3394,11 +3437,13 @@
       const items = [];
       _socErrors = [];
       _socAcctStats = {};
+      _socAcctVia = {};
       _socLiveStats = {};
       results.forEach((res, i) => {
         if (res.status === "fulfilled") {
           items.push(...res.value);
           _socAcctStats[SOC_ACCOUNTS[i].h] = res.value.length;
+          _socAcctVia[SOC_ACCOUNTS[i].h] = (res.value[0] && res.value[0].via) || "x";
         } else {
           _socErrors.push((res.reason && res.reason.message) || String(res.reason));
         }
@@ -3440,12 +3485,14 @@
           const n = _socAcctStats[a.h];
           const dead = !(a.h in _socAcctStats);
           const live = _socLiveStats[a.h];
+          const via = _socAcctVia[a.h];
           const tip = escapeHtml(a.name) + " — " + socFollowersLabel(socFollowersM(a)) +
             " followers (" + (live ? "live via fxtwitter" + (live.tweets ? ", " + Math.round(live.tweets / 1000) + "k tweets total" : "") : "static snapshot") +
-            "; curated >0.5M list)" + (dead ? " — tweet mirrors unreachable" : "");
+            "; curated >0.5M list)" +
+            (dead ? " — X mirrors blocked, no Telegram mirror" : via === "tg" ? " — posts via official Telegram mirror" : "");
           return '<span class="soc-acct' + (dead ? " soc-dead" : "") + '" data-tip="' + tip + '"><b>@' +
             escapeHtml(a.h) + '</b><span class="soc-followers">' + socFollowersLabel(socFollowersM(a)) +
-            (live ? "" : "*") + "</span>" + (dead ? "✕" : (n || 0) + " tw") + "</span>";
+            (live ? "" : "*") + "</span>" + (dead ? "✕" : (n || 0) + (via === "tg" ? " tg" : " tw")) + "</span>";
         }).join("");
       }
       const items = _socFilter === "key" ? _socItems.filter(it => it.tier) : _socItems;
@@ -3457,17 +3504,18 @@
         const at = _socFetchedAt
           ? new Date(_socFetchedAt).toLocaleTimeString("en-GB", { timeZone: "Etc/GMT-2", hour: "2-digit", minute: "2-digit" }) + " GMT+2"
           : "–";
-        st.textContent = _socItems.length + " tweets · " + reachable + "/" + SOC_ACCOUNTS.length +
+        st.textContent = _socItems.length + " posts · " + reachable + "/" + SOC_ACCOUNTS.length +
           " timelines · stats live for " + liveCount + "/" + SOC_ACCOUNTS.length +
           " · reach ≈ " + Math.round(reachM) + "M followers · " +
           _socItems.filter(it => it.tier).length + " key · fetched " + at;
       }
       if (!items.length) {
         list.innerHTML = '<div class="small" style="color:var(--muted)">' +
-          (_socItems.length ? "No T1/T2 catalyst tweets right now."
-            : "No tweets loaded — the public Nitter mirrors are all unreachable right now " +
-              "(they come and go). Live account stats above still refresh via fxtwitter; " +
-              "hit ↻ Refresh to retry the mirrors.") + "</div>";
+          (_socItems.length ? "No T1/T2 catalyst posts right now."
+            : "No posts loaded — X blocks keyless RSS readers, so only accounts with an " +
+              "official Telegram mirror (Binance, Watcher.Guru, Whale Alert, Cointelegraph) " +
+              "normally deliver posts. Live account stats above still refresh via fxtwitter; " +
+              "hit ↻ Refresh to retry all sources.") + "</div>";
         return;
       }
       list.innerHTML = items.map(it => {
@@ -3485,7 +3533,8 @@
         return '<div class="news-item"><span class="news-time">' + when + '</span>' +
                '<div style="min-width:0">' + badge + text +
                ' <span class="news-src">— @' + escapeHtml(it.acct.h) + " · " +
-               socFollowersLabel(socFollowersM(it.acct)) + "</span>" + syms + "</div></div>";
+               socFollowersLabel(socFollowersM(it.acct)) +
+               (it.via === "tg" ? " · TG" : "") + "</span>" + syms + "</div></div>";
       }).join("");
     }
 

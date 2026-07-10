@@ -4,6 +4,18 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-10 — Socials RSS bugfix: Telegram-mirror-first sourcing (v2026-07-10.1)
+
+| Term | Meaning |
+|------|---------|
+| "RSS reader not yet whitelisted!" | xcancel.com's UA-whitelist error for `/rss`: served as a **fake HTTP-200 RSS feed** (title + single item = the error text), so it passed the old `status==="ok" && items.length` check and rendered as tweets — the 2026-07-10 bug. Now rejected by feed-title validation. |
+| Feed-title validation | `socFetchAccount()` accepts a feed only if its title contains the expected handle — Nitter titles are `Name / @handle`, TelegramBridge titles are `Name (@channel) - Telegram`. Anything else throws ("mirror blocks RSS readers" when the title matches /whitelist/i). |
+| `SOC_ACCOUNTS[].tg` | Optional official Telegram channel per account: binance→`binance_announcements`, WatcherGuru→`WatcherGuru`, whale_alert→`whale_alert_io`, Cointelegraph→`cointelegraph`. When present it is the **first** post source; personalities without one stay Nitter-best-effort (stats still live via fxtwitter). |
+| `socTgFeedUrl(ch)` | Builds `https://rss-bridge.org/bridge01/?action=display&bridge=TelegramBridge&username=<ch>&format=Atom` — the public RSS-Bridge instance turning `t.me/s/<channel>` into Atom that rss2json can read (verified working 2026-07-10). |
+| RSS-Bridge TelegramBridge | Public keyless bridge (rss-bridge.org) scraping Telegram's public channel preview into a feed. Item title = message text, link = `t.me/<channel>/<id>`, pubDate = same `YYYY-MM-DD HH:MM:SS` UTC shape rss2json gives Nitter feeds. Media-only posts titled `Please open Telegram…` are skipped. |
+| `_socAcctVia` | handle → `"tg"` \| `"x"`: which source served the account's posts this fetch. Drives the chip suffix (`8 tg` vs `3 tw`) and the per-post `· TG` source tag. |
+| `SOC_NITTER_HOSTS` (trimmed) | Now only xcancel.com + nitter.poast.org. All 5 RSS-enabled public instances on the status.d420.de tracker bot-wall or UA-whitelist `/rss` (checked 2026-07-10), so the Nitter path rarely yields posts; the trim caps failed rss2json calls at ≤2 per account per refresh. |
+
 ## 2026-07-09 — Command › 🐦 Socials sub-tab (v2026-07-09.6)
 
 | Term | Meaning |
