@@ -16,6 +16,8 @@ An autonomous paper crypto trading agent built on the Alpaca API. It evaluates 1
 
 ## Lessons
 
+- Never edit large project files (CLAUDE.md, README.md, dashboard HTML) with the Cowork file Edit/Write tools — they can silently truncate the file; splice via python in bash from git HEAD and verify byte count + intact tail afterwards (hit again 2026-07-10 on CLAUDE.md).
+
 - Self-checks and tests must pass explicit parameters — never assert against config-loaded defaults (the risk.py correlation-budget self-checks asserted the old 4-position cap and broke the moment the owner changed `config.json`; fixed 2026-07-09 by passing `max_positions=4, max_per_tier=3` explicitly).
 
 
@@ -68,6 +70,22 @@ alpaca-trading-agent/
 ---
 
 ## Session History
+
+### 2026-07-10 — Profit-maximization audit: 10 roadmap items + 5 bugs filed (no code changes)
+
+**Task (owner):** analyse structure, strategies and profits; mimic famous traders' behaviours; file improvements to the Roadmap and faulty parts to Bugs *before* implementing.
+
+**Audit findings (evidence in journals/git):**
+- **P0 bug — position state never persists between runs.** `data/positions_state.json` frozen at `day_open_date=2026-06-11` (last committed 2026-06-18) while journals commit every evaluation. Behavioral proof: AAVE/USD's +1R partial TP re-fired on 6 consecutive evaluations (2026-07-09 15:29 → 2026-07-10 07:46), each selling "50%" of the remainder (6.54 → 0.05 AAVE) — the flag `partial_tp_done` is read from a state file that resets every run. Also silently broken: trailing-stop HWM persistence, breakeven stops, stale-exit entry clocks, daily-drawdown gate (compares to 2026-06-11's $95,428). Code itself is correct (`run_evaluation.py` calls `ps.mark_partial_tp`/`ps.save_state`); the runner's git sync likely discards/never commits the file.
+- **P1 — 4H bars chronically short** (43–50 < 51 required) for BTC/ADA/AAVE with the 1H fallback also failing → Signal 6 = 0 and stops degraded to fixed −5% on the highest-cap symbols.
+- **P1 — corrupt cost basis** in journal output: `SOL/USD HOLD 29.5132 @ $-4.4931 (-1842.96%)`.
+- **P1 — cadence gap:** no hourly `Research` blocks since 2026-05-21; only 5–7 evaluations/day instead of 24; the 23:21 closing journal writes no P&L summary.
+- **P2 — config inconsistency:** `risk.max_open_positions=15` unreachable with `max_positions_per_tier=5` (2 Tier-1 symbols → ceiling 7); CLAUDE.md hard-rules table still says 4/3.
+- Walk-forward baseline stale (2026-05-14, pre-dates the 2026-06-19 loosening and the 2026-07-09 economics package).
+
+**Roadmap filed (CLAUDE.md › Roadmap, 10 items):** (1) pyramid into winners in strong 4H trends (Livermore/Turtle 2N adds/Druckenmiller; mutually exclusive with the partial-TP ladder per position, trend vs chop by ADX 25); (2) Chandelier ATR-adaptive trail (Turtles); (3) conviction-scaled sizing 0.75/1.0/1.5% by score (Druckenmiller/PTJ); (4) losing-streak + 7-day-drawdown throttle (PTJ); (5) trend-based measured-move targets + walk-forward test `min_rr_full` 1.5→2.0 (PTJ asymmetry); (6) maker-first entry pricing (cut ~50 bps round trip); (7) 5-min stop-loss watchdog script; (8) monthly walk-forward re-baseline + dashboard staleness warning; (9) enable session-edge filter once sampled; (10) portfolio breadth/regime gate (Weinstein). Items 1–5 depend on Bugs #1/#4 being fixed first — noted in the roadmap preamble.
+
+**Docs updated:** CLAUDE.md (Roadmap + Bugs), README.md (Roadmap section), this file, glossary.md (new terms). No code changed; no dashboard change (dashboard_layout.md untouched per its rule). **Process note:** the file-tool truncation bug hit CLAUDE.md during the edit (70,870 → truncated mid-file at identical byte count); recovered by splicing HEAD + new sections via python in bash — lesson added above.
 
 ### 2026-07-10 — Bugfix: Socials sub-tab "RSS reader not yet whitelisted!" (v2026-07-10.1)
 

@@ -438,3 +438,16 @@ Critical implementation details to keep `indicators.py` and `dashboard_professio
 | 12 | Rotation (2026-07-09) | Budget full: candidate ≥ 4.0 scoring ≥ +2.0 above a weakest holding ≤ 0 → swap same cycle |
 | 13 | Net R:R gate (2026-07-09) | Net of 2×25 bps fee + spread: < 1.0 block, 1.0–1.5 half-size |
 | 14 | Over-budget (2026-07-09) | Positions > budget → journal warning + Command chip; optional trim (config-flagged) |
+
+## Roadmap Terms (filed 2026-07-10, not yet implemented)
+
+| Term | Meaning |
+|------|---------|
+| Pyramiding | Adding tranches to a *winning* position as it proves itself (+1R/+2R adds at ½ initial risk) — Livermore / Turtle "2N adds"; opposite of averaging down. Planned as trend-mode alternative to the partial-TP ladder (selected by ADX ≥ 25). |
+| Chandelier stop | Trailing stop hung k×ATR below the high-water mark (k≈2.5) instead of a fixed % — adapts trail width to each coin's volatility (Turtles' 2N exit). |
+| Conviction-scaled sizing | Risk-per-trade varies with signal quality (0.75% / 1.0% / 1.5% by score band) instead of a flat 1% — Druckenmiller "when you have conviction, bet big". |
+| Streak throttle | Anti-martingale: halve risk after 3 consecutive losing round-trips or a 7-day drawdown ≥ 5% — Paul Tudor Jones "trade smallest when trading worst". |
+| Maker-first pricing | Resting entry limits at/inside the bid to earn maker fees instead of paying taker at the ask band; exits/stops stay taker (urgency ladder). |
+| Stop watchdog | Planned 5-min scheduled script checking only open-position stops, decoupling loss-cutting from the hourly evaluation cadence. |
+| Breadth gate | Portfolio-level regime filter: % of watchlist in daily uptrend gates total budget deployment (≥60% full, ≤30% majors-only) — Weinstein stage analysis at book level. |
+| State-persistence bug (P0) | `data/positions_state.json` resets between runs (frozen 2026-06-11) → partial-TP re-fires every cycle, HWM/entry clocks/day-open lost. See CLAUDE.md › Bugs #1. |
