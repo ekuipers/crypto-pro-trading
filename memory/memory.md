@@ -34,6 +34,7 @@ alpaca-trading-agent/
 ├── config.json                  ← Central config: strategy, risk, indicators, portfolio caps, watchlist
 ├── scripts/
 │   ├── run_evaluation.py        ← Main eval loop; run with --execute to trade
+│   ├── daily_summary.py         ← 23:21 closing journal P&L summary (Bug #4 fix 2026-07-10)
 │   ├── indicators.py            ← TA library: RSI, MACD, BB, ATR, EMA cross, vol ratio
 │   ├── trade.py                 ← Order placement (enforces all hard rules)
 │   └── verify.py                ← API smoke test
@@ -70,6 +71,24 @@ alpaca-trading-agent/
 ---
 
 ## Session History
+
+### 2026-07-10 — Rescan roadmap: all 5 audit bugs fixed + roadmap item 11 (v2026-07-10.2)
+
+**Task:** rescan roadmap. Per workflow rule 0 the 5 bugs from the same-day profit-maximization audit took preference; roadmap item 11 (the only item with no dependencies) shipped alongside. Roadmap items 1–10 remain open — now unblocked, but each needs walk-forward validation before enabling.
+
+**Bug #1 (P0 — state never persisted).** Root cause confirmed in `.github/workflows/trade.yml`: the commit step ran `git add journal/` only, so `data/positions_state.json` was never committed and every fresh Actions checkout reset it to the 2026-06-18 copy (frozen `day_open_date=2026-06-11`). Two-part fix: (a) both workflow jobs now `git add journal/ data/positions_state.json`; (b) defense in depth — new `reconcile_positions_from_fills()` in `run_evaluation.py` rebuilds lost per-position facts from Alpaca's own FILL history (FIFO walk per symbol): any SELL since the position's last flat→long transition restores `partial_tp_done` + breakeven stop (idempotency — the AAVE 6×-re-fire can never happen again even if the file is lost), `entry_time_iso` is backfilled from the transition (stale-exit clock), and `entry_price` is seeded. Runs only when something is missing/corrupt; one paginated fills fetch.
+
+**Bug #2 (P1 — 4H bars short).** Root-caused live: Alpaca now caps a single bars response at ~7 days regardless of `limit` and returns `next_page_token` (probe: 4Hour limit=120 → 43 bars; 1Hour limit=480 → 169 — exactly the journal symptoms, and why the 1H fallback also failed). `get_crypto_bars` now follows `next_page_token` (≤10 pages) until `limit` bars are collected, then slices newest-`limit` and reverses to chronological. Verified live post-fix: 4Hour → 120 bars, 1Hour → 480, 1Day → 90, chronological order intact.
+
+**Bug #3 (P1 — corrupt cost basis).** Guarded in the same reconciliation: when the API `avg_entry_price` ≤ 0 (SOL `$-4.4931` case — Alpaca after repeated partial sells), it is replaced with the FIFO-derived weighted average of the still-open lots and a `DATA GUARD` warning is journaled. All downstream logic (stops, partial TP, stale exit, P&L%) inherits the corrected basis.
+
+**Bug #4 (P1 — cadence).** The cron was `7 */4 * * *` (every 4 hours — matches the observed 5–7 evals/day), not hourly. Fixed to `23 * * * *` (+ the schedule-match `if` condition). Cadence self-monitoring: `run_evaluation` stores `last_evaluation_iso` in the state file (new key, also in `_EMPTY_STATE`) and journals a `CADENCE WARNING` when the gap exceeds 90 minutes. The 23:21 job previously ran a second evaluation (why "daily summary" commits had no P&L); it now runs the new `scripts/daily_summary.py`, which appends a `## Daily Summary HH:MM GMT+2` block: equity + day change vs `last_equity`, cash %, open positions with unrealized P&L, today's fills (GMT+2), and FIFO realized P&L for round trips closed today (same matching rule as the dashboard Edge/P&L tabs — unmatched SELLs excluded).
+
+**Bug #5 (P2 — budget config).** `risk.max_open_positions` 15 → **7** (the reachable ceiling: Tier-1 holds only BTC+ETH, so 2 + 5-per-tier caps the book at 7); `max_positions_per_tier` stays 5. Dashboard `DEFAULT_LIMITS` fallback aligned 4/3 → 7/5. CLAUDE.md hard-rules row updated (saved Settings in `localStorage` still win over defaults, unchanged).
+
+**Roadmap item 11 (dashboard, v2026-07-10.2):** the 🤖 Autopilot panel `<section>` (toggle, interval, ⛔ kill switch, activity log) moved above the 🚦 Trading Permission Rules / 📌 Hard Rules `grid-2` section in the Command › Overview sub-tab — controls always in sight, log at the bottom of the panel as before. Pure block move; div balance verified identical to git HEAD (27/28 with the same slice bounds), JS parses (node `new Function`), footer bumped to v2026-07-10.2.
+
+**Verified:** 141 pytest tests pass (11 new: `tests/test_reconcile.py` — partial-TP idempotency incl. no-refetch when state is intact, entry-price guard, entry-clock backfill, shorts ignored, daily-summary FIFO; `tests/test_bars_fetch.py` — pagination follows the token, stops at `limit`); `py_compile` clean; live probes of the paginated fetch (above). Local `.env` has no Alpaca keys (they exist only as GitHub secrets), so trading-API paths were verified via the mocked tests; the market-data path was verified live keyless. Docs updated: CLAUDE.md (Bugs cleared per rule 3, roadmap preamble + item 11 removed, correlation-budget row, responsibilities/cadence, Command row), README.md (Roadmap + key features), glossary.md, dashboard_layout.md.
 
 ### 2026-07-10 — Profit-maximization audit: 10 roadmap items + 5 bugs filed (no code changes)
 

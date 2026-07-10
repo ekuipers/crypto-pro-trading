@@ -1314,21 +1314,8 @@
         <div id="commandKpis" class="grid-3"></div>
       </section>
 
-      <section>
-        <div class="grid-2">
-          <div class="panel">
-            <div class="panel-title">🚦 Trading Permission Rules</div>
-            <div id="recentActivities" class="small" style="margin-bottom:10px;text-align:left"></div>
-            <div id="permissionRules" class="small">Load data to calculate trading permission.</div>
-          </div>
-
-          <div class="panel">
-            <div class="panel-title">📌 Hard Rules — Live Status</div>
-            <div id="hardRulesLive"><div class="small" style="color:var(--muted)">Load data to check live rule status.</div></div>
-          </div>
-        </div>
-      </section>
-
+      <!-- Autopilot sits ABOVE the permission-rules grid (roadmap 2026-07-10
+           item 11) so the toggle + kill switch are always in sight. -->
       <section>
         <div class="panel">
           <div class="panel-title">🤖 Autopilot</div>
@@ -1360,6 +1347,21 @@
             <button class="btn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="apClearLog()">Clear</button>
           </div>
           <div id="apLog" class="small" style="max-height:260px;overflow-y:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.6"><span style="color:var(--muted)">No autopilot activity yet.</span></div>
+        </div>
+      </section>
+
+      <section>
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-title">🚦 Trading Permission Rules</div>
+            <div id="recentActivities" class="small" style="margin-bottom:10px;text-align:left"></div>
+            <div id="permissionRules" class="small">Load data to calculate trading permission.</div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">📌 Hard Rules — Live Status</div>
+            <div id="hardRulesLive"><div class="small" style="color:var(--muted)">Load data to check live rule status.</div></div>
+          </div>
         </div>
       </section>
     </div><!-- /subpage-command-overview -->
@@ -2421,7 +2423,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-07-10</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-07-10.1</strong></span>
+    <span>Version: <strong>v2026-07-10.2</strong></span>
   </footer>
 
   <script>
@@ -2437,8 +2439,8 @@
       assumedStopLossPct: 5.0,
       tradingDaysPerYear: 365,   // crypto trades 24/7 — annualize on calendar days, matches scripts/metrics.py (365)
       maxSignalSymbols: 30,
-      maxOpenPositions: 4,
-      maxPositionsPerTier: 3
+      maxOpenPositions: 7,   // aligned with config.json › risk (Bug #5 2026-07-10:
+      maxPositionsPerTier: 5 // 15 was unreachable — 2 Tier-1 symbols + 5/tier caps the book at 7)
     };
 
     // 6-point signal-score gates — kept in sync with config.json > strategy

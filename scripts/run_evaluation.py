@@ -31,7 +31,8 @@ For each symbol:
 
   No position:
   8.  Capital preservation mode (daily drawdown gate fired)            -> BLOCK new entries
-  9.  Correlation budget: max 4 positions, max 3 per tier (BTC/ETH vs alts) -> BLOCK if exceeded
+  9.  Correlation budget: config-driven totals (risk.max_open_positions /
+      max_positions_per_tier; BTC/ETH = Tier-1, alts = Tier-2)      -> BLOCK if exceeded
   10. Daily regime != downtrend AND score >= buy_score_threshold       -> BUY  (full size)
   11. Daily regime != downtrend AND score >= buy_score_half_size       -> BUY  (half size)
   12. Daily regime == downtrend AND score >= downtrend_long_score      -> BUY  (half size, counter-trend)
@@ -315,6 +316,114 @@ def _session_penalty_active(now=None) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Position reconciliation from fill history (Bugs #1 + #3, 2026-07-10)
+# ---------------------------------------------------------------------------
+# The state file (data/positions_state.json) was not committed by the runner
+# for weeks, so per-position flags reset every run: the +1R partial TP
+# re-fired on 6 consecutive evaluations (AAVE 6.54 -> 0.05), entry clocks and
+# breakeven stops were lost. Even with persistence fixed in the workflow, the
+# flags must be reconstructable from Alpaca's own fill history so a lost
+# state file can never re-fire a partial TP again. Alpaca also returns a
+# corrupt (negative) avg_entry_price after repeated partial sells
+# ("SOL/USD HOLD @ $-4.4931 (-1842.96%)"); the FIFO open lots give the true
+# cost basis.
+
+def reconcile_positions_from_fills(state: dict, positions: list) -> list:
+    """Rebuild per-position facts from FILL history for open long positions.
+
+    - partial_tp_done: any SELL since the position last went flat->long means
+      a scale-out already happened — restore the flag and the breakeven stop
+      (idempotency: a lost state flag can never re-fire the partial TP).
+    - entry_time_iso: backfilled from the flat->long transition (stale-exit clock).
+    - avg_entry_price: when the API value is <= 0, replace it with the
+      FIFO-derived weighted average of the still-open lots.
+
+    Mutates *state* and the position dicts in place; returns journal warnings.
+    """
+    warnings: list = []
+    needs = []
+    for p in positions:
+        if float(p.get("qty") or 0) <= 0:
+            continue  # long-only reconciliation
+        sym    = to_slash(p.get("symbol", ""))
+        ps_pos = ps.get_position(state, sym)
+        if (float(p.get("avg_entry_price") or 0) <= 0
+                or not ps_pos.get("entry_time_iso")
+                or (PARTIAL_TP_ENABLED and not ps_pos.get("partial_tp_done"))):
+            needs.append(p)
+    if not needs:
+        return warnings
+
+    try:
+        fills = _fetch_all_fills()
+    except Exception as e:
+        print("position reconciliation skipped (fills fetch failed): %r" % e)
+        return warnings
+
+    # FIFO walk, chronological, per symbol.
+    hist: dict = {}
+    for act in reversed(fills):
+        sym   = to_slash(act.get("symbol") or "")
+        side  = act.get("side")
+        qty   = abs(float(act.get("qty") or 0))
+        price = float(act.get("price") or 0)
+        when  = act.get("transaction_time") or act.get("date")
+        if not sym or qty <= 0 or price <= 0:
+            continue
+        h = hist.setdefault(sym, {"lots": [], "start_iso": None, "sells_since_start": 0})
+        if side == "buy":
+            if not h["lots"]:          # flat -> long transition
+                h["start_iso"]         = when
+                h["sells_since_start"] = 0
+            h["lots"].append([qty, price])
+        elif side == "sell":
+            remaining = qty
+            while remaining > 1e-9 and h["lots"]:
+                lot = h["lots"][0]
+                m = min(remaining, lot[0])
+                lot[0]    -= m
+                remaining -= m
+                if lot[0] < 1e-6:
+                    h["lots"].pop(0)
+            if h["lots"]:
+                h["sells_since_start"] += 1   # partial sell — position survives
+            else:
+                h["start_iso"]         = None  # fully closed
+                h["sells_since_start"] = 0
+
+    for p in needs:
+        sym = to_slash(p.get("symbol", ""))
+        h   = hist.get(sym)
+        if not h or not h["lots"]:
+            continue
+        open_qty = sum(lot[0] for lot in h["lots"])
+        fifo_avg = sum(lot[0] * lot[1] for lot in h["lots"]) / open_qty
+        ps_pos   = ps.get_position(state, sym)
+
+        api_entry = float(p.get("avg_entry_price") or 0)
+        if api_entry <= 0:
+            p["avg_entry_price"] = fifo_avg
+            warnings.append(
+                "DATA GUARD: %s avg_entry_price from API was $%.4f — "
+                "using FIFO-derived $%.4f" % (sym, api_entry, fifo_avg)
+            )
+        entry = float(p.get("avg_entry_price") or fifo_avg)
+        if not ps_pos.get("entry_price"):
+            ps_pos["entry_price"] = entry
+        if not ps_pos.get("entry_time_iso") and h["start_iso"]:
+            ps_pos["entry_time_iso"] = h["start_iso"]
+        if (PARTIAL_TP_ENABLED and not ps_pos.get("partial_tp_done")
+                and h["sells_since_start"] > 0):
+            ps.mark_partial_tp(state, sym, entry)
+            warnings.append(
+                "PARTIAL-TP RECONCILED: %s has %d partial SELL(s) since entry "
+                "in fill history — flag restored, stop at breakeven $%.4f"
+                % (sym, h["sells_since_start"], entry)
+            )
+    return warnings
+
+
+# ---------------------------------------------------------------------------
 # Data fetch
 # ---------------------------------------------------------------------------
 
@@ -371,6 +480,14 @@ def get_crypto_bars(
     in the past (daily bars were 54 days stale). `sort=desc` makes Alpaca
     return the *most recent* N bars before `end`; we then reverse back to
     chronological (oldest->newest) order, which all indicator code expects.
+
+    SHORT-PAGE FIX (Bug #2, 2026-07-10): Alpaca caps a single response at
+    roughly 7 days of bars regardless of `limit` (verified live: 4Hour
+    limit=120 returned 43 bars + next_page_token; 1Hour limit=480 returned
+    169). The 4H trend filter needs 51+ bars (~8.5 days), so a single page
+    left Signal 6 at 0 and degraded swing-low stops to the fixed -5% on the
+    highest-cap symbols. Follow `next_page_token` (like the dashboard does)
+    until `limit` bars are collected or pages run out.
     """
     params = {
         "symbols":   symbol,
@@ -381,9 +498,16 @@ def get_crypto_bars(
         "sort":      "desc",                 # newest N bars, not oldest N
     }
     url = DATA_URL + "/v1beta3/crypto/us/bars"
-    r = api_get(url, headers=_headers(), params=params, timeout=20)
-    bars = r.json().get("bars", {}).get(symbol, [])
-    return bars[::-1]  # back to chronological order for indicators
+    bars: list = []
+    for _ in range(10):  # hard page cap — one page covers ~7 days
+        r = api_get(url, headers=_headers(), params=params, timeout=20)
+        payload = r.json()
+        bars += payload.get("bars", {}).get(symbol, [])
+        page_token = payload.get("next_page_token")
+        if len(bars) >= limit or not page_token:
+            break
+        params["page_token"] = page_token
+    return bars[:limit][::-1]  # back to chronological order for indicators
 
 
 def get_crypto_bars_4h(symbol: str, limit: int = BARS_4H_LOOKBACK) -> list:
@@ -1278,10 +1402,36 @@ def main() -> int:
     # Build the list of open symbols (slash form) for the correlation budget.
     open_symbols = [to_slash(p.get("symbol", "")) for p in positions]
 
+    journal_warnings: list = []
+
+    # Cadence self-monitoring (Bug #4, 2026-07-10): the spec is one evaluation
+    # per hour at :23, but the real cadence degraded to 5-7 runs/day, leaving
+    # stops unchecked for multi-hour gaps. Journal a CADENCE WARNING whenever
+    # the previous evaluation is > 90 minutes old.
+    now_utc = datetime.now(timezone.utc)
+    last_eval_iso = state.get("last_evaluation_iso")
+    if last_eval_iso:
+        try:
+            last_eval = datetime.fromisoformat(str(last_eval_iso))
+            gap_min = (now_utc - last_eval).total_seconds() / 60
+            if gap_min > 90:
+                msg = ("CADENCE WARNING: previous evaluation was %.0f minutes "
+                       "ago (expected hourly) — stops were unchecked in the gap"
+                       % gap_min)
+                print("WARNING: " + msg)
+                journal_warnings.append(msg)
+        except Exception:
+            pass
+    state["last_evaluation_iso"] = now_utc.isoformat()
+
+    # Rebuild lost/corrupt per-position facts from fill history (Bugs #1+#3).
+    for w in reconcile_positions_from_fills(state, positions):
+        print("WARNING: " + w)
+        journal_warnings.append(w)
+
     # Over-budget reconciliation (roadmap 2026-07-09 item 3): the budget only
     # gates NEW entries, so scout promotions / older entries can leave the book
     # permanently over budget with no visibility (5/4 seen live 2026-07-08).
-    journal_warnings: list = []
     if len(open_symbols) > MAX_OPEN_POSITIONS:
         msg = ("BUDGET EXCEEDED %d/%d positions open — the correlation budget "
                "only gates new entries%s"

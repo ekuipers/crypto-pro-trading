@@ -1,0 +1,133 @@
+# tests/test_reconcile.py
+"""
+Regression tests for the 2026-07-10 bug-sweep fixes in run_evaluation:
+
+Bug #1 (P0): a lost state file re-fired the +1R partial TP every run
+(AAVE 6.54 -> 0.05 over 6 evaluations). reconcile_positions_from_fills()
+must rebuild partial_tp_done / entry_time_iso / breakeven stop from
+Alpaca's own fill history so the flag can never be lost again.
+
+Bug #3 (P1): Alpaca returned a negative avg_entry_price after repeated
+partial sells ("SOL/USD HOLD @ $-4.4931"). The FIFO open lots give the
+true cost basis.
+
+Bug #4 (P1): cadence self-monitoring — daily_summary FIFO helper.
+
+No network calls — _fetch_all_fills is mocked.
+"""
+from unittest.mock import patch
+
+import position_state as ps
+import run_evaluation as re_mod
+
+
+def _fill(side, sym, qty, price, when):
+    return {"side": side, "symbol": sym, "qty": str(qty),
+            "price": str(price), "transaction_time": when}
+
+
+def _pos(sym, qty, entry):
+    return {"symbol": sym, "qty": str(qty), "avg_entry_price": str(entry)}
+
+
+def _run(fills, positions, state=None):
+    state = state if state is not None else dict(ps._EMPTY_STATE, positions={})
+    with patch.object(re_mod, "_fetch_all_fills", return_value=fills):
+        warnings = re_mod.reconcile_positions_from_fills(state, positions)
+    return state, warnings
+
+
+class TestPartialTpIdempotency:
+    def test_partial_sell_since_entry_restores_flag(self):
+        # Buy 6.54, then one partial sell of 3.27 — position still open.
+        fills = [  # newest first, as the activities API returns them
+            _fill("sell", "AAVEUSD", 3.27, 320.0, "2026-07-09T15:29:00Z"),
+            _fill("buy",  "AAVEUSD", 6.54, 300.0, "2026-07-08T10:23:00Z"),
+        ]
+        positions = [_pos("AAVEUSD", 3.27, 300.0)]
+        state, warnings = _run(fills, positions)
+        pos = ps.get_position(state, "AAVE/USD")
+        assert pos["partial_tp_done"] is True
+        assert pos["breakeven_stop"] == 300.0
+        assert any("PARTIAL-TP RECONCILED" in w for w in warnings)
+
+    def test_no_sell_since_entry_leaves_flag_clear(self):
+        # Previous round trip fully closed, then a fresh buy — no partial yet.
+        fills = [
+            _fill("buy",  "BTCUSD", 0.5, 80000.0, "2026-07-10T08:23:00Z"),
+            _fill("sell", "BTCUSD", 1.0, 79000.0, "2026-07-05T12:23:00Z"),
+            _fill("buy",  "BTCUSD", 1.0, 78000.0, "2026-07-01T09:23:00Z"),
+        ]
+        positions = [_pos("BTCUSD", 0.5, 80000.0)]
+        state, _ = _run(fills, positions)
+        pos = ps.get_position(state, "BTC/USD")
+        assert pos["partial_tp_done"] is False
+
+    def test_already_done_flag_untouched(self):
+        state = dict(ps._EMPTY_STATE, positions={})
+        ps.get_position(state, "AAVE/USD")["partial_tp_done"] = True
+        ps.get_position(state, "AAVE/USD")["entry_time_iso"] = "2026-07-08T10:23:00Z"
+        ps.get_position(state, "AAVE/USD")["entry_price"] = 300.0
+        positions = [_pos("AAVEUSD", 3.27, 300.0)]
+        with patch.object(re_mod, "_fetch_all_fills") as m:
+            re_mod.reconcile_positions_from_fills(state, positions)
+        m.assert_not_called()  # nothing to rebuild — no fills fetch at all
+
+
+class TestEntryPriceGuard:
+    def test_negative_avg_entry_replaced_with_fifo(self):
+        fills = [
+            _fill("sell", "SOLUSD", 10.0, 160.0, "2026-07-09T15:29:00Z"),
+            _fill("buy",  "SOLUSD", 39.5, 150.0, "2026-07-08T10:23:00Z"),
+        ]
+        positions = [_pos("SOLUSD", 29.5, -4.4931)]
+        state, warnings = _run(fills, positions)
+        assert float(positions[0]["avg_entry_price"]) == 150.0
+        assert any("DATA GUARD" in w for w in warnings)
+
+    def test_positive_avg_entry_untouched(self):
+        fills = [_fill("buy", "BTCUSD", 1.0, 78000.0, "2026-07-01T09:23:00Z")]
+        positions = [_pos("BTCUSD", 1.0, 78123.45)]
+        _run(fills, positions)
+        assert float(positions[0]["avg_entry_price"]) == 78123.45
+
+
+class TestEntryClockBackfill:
+    def test_entry_time_from_flat_to_long_transition(self):
+        fills = [
+            _fill("buy",  "BTCUSD", 0.5, 80000.0, "2026-07-10T08:23:00Z"),
+            _fill("sell", "BTCUSD", 1.0, 79000.0, "2026-07-05T12:23:00Z"),
+            _fill("buy",  "BTCUSD", 1.0, 78000.0, "2026-07-01T09:23:00Z"),
+        ]
+        positions = [_pos("BTCUSD", 0.5, 80000.0)]
+        state, _ = _run(fills, positions)
+        pos = ps.get_position(state, "BTC/USD")
+        # The clock starts at the CURRENT position's entry, not the old round trip.
+        assert pos["entry_time_iso"] == "2026-07-10T08:23:00Z"
+
+    def test_shorts_ignored(self):
+        positions = [_pos("BTCUSD", -1.0, 80000.0)]
+        with patch.object(re_mod, "_fetch_all_fills") as m:
+            re_mod.reconcile_positions_from_fills(
+                dict(ps._EMPTY_STATE, positions={}), positions)
+        m.assert_not_called()
+
+
+class TestDailySummaryFifo:
+    def test_realized_pnl_counts_only_todays_exits(self):
+        import daily_summary as ds
+        fills = [  # newest first
+            _fill("sell", "BTCUSD", 1.0, 81000.0, "2026-07-10T09:00:00Z"),
+            _fill("sell", "ETHUSD", 1.0, 3100.0,  "2026-07-09T09:00:00Z"),
+            _fill("buy",  "ETHUSD", 1.0, 3000.0,  "2026-07-08T09:00:00Z"),
+            _fill("buy",  "BTCUSD", 1.0, 80000.0, "2026-07-08T08:00:00Z"),
+        ]
+        pnl, exits = ds.realized_pnl_today(fills, "2026-07-10")
+        assert exits == 1
+        assert pnl == 1000.0  # only the BTC exit lands today
+
+    def test_unmatched_sell_excluded(self):
+        import daily_summary as ds
+        fills = [_fill("sell", "BTCUSD", 1.0, 81000.0, "2026-07-10T09:00:00Z")]
+        pnl, exits = ds.realized_pnl_today(fills, "2026-07-10")
+        assert (pnl, exits) == (0.0, 0)

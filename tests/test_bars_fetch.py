@@ -48,6 +48,38 @@ class TestGetCryptoBars:
         with patch.object(re_mod, "api_get", return_value=_mock_response([])):
             assert re_mod.get_crypto_bars("BTC/USD") == []
 
+    def test_follows_next_page_token(self):
+        """Bug #2 (2026-07-10): Alpaca caps one response at ~7 days of bars
+        (4Hour limit=120 returned only 43). The fetch must follow
+        next_page_token until `limit` bars are collected."""
+        page1 = MagicMock()
+        page1.json.return_value = {
+            "bars": {"BTC/USD": [{"t": "2026-07-10T08:00:00Z", "c": 2}]},
+            "next_page_token": "tok123",
+        }
+        page2 = MagicMock()
+        page2.json.return_value = {
+            "bars": {"BTC/USD": [{"t": "2026-07-03T08:00:00Z", "c": 1}]},
+            "next_page_token": None,
+        }
+        with patch.object(re_mod, "api_get", side_effect=[page1, page2]) as m:
+            bars = re_mod.get_crypto_bars("BTC/USD", limit=2, timeframe="4Hour")
+        assert [b["c"] for b in bars] == [1, 2]  # chronological across pages
+        assert m.call_count == 2
+        assert m.call_args_list[1].kwargs["params"]["page_token"] == "tok123"
+
+    def test_stops_at_limit_without_extra_page(self):
+        page1 = MagicMock()
+        page1.json.return_value = {
+            "bars": {"BTC/USD": [{"t": "2026-07-10T08:00:00Z", "c": 2},
+                                 {"t": "2026-07-10T04:00:00Z", "c": 1}]},
+            "next_page_token": "tok123",
+        }
+        with patch.object(re_mod, "api_get", side_effect=[page1]) as m:
+            bars = re_mod.get_crypto_bars("BTC/USD", limit=2, timeframe="4Hour")
+        assert len(bars) == 2
+        assert m.call_count == 1  # limit satisfied — no second request
+
 
 class TestAggregateBarsTo4h:
     """4H data fallback (roadmap 2026-07-09 item 6): synthetic 4H from 1H bars."""

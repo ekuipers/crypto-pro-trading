@@ -450,4 +450,16 @@ Critical implementation details to keep `indicators.py` and `dashboard_professio
 | Maker-first pricing | Resting entry limits at/inside the bid to earn maker fees instead of paying taker at the ask band; exits/stops stay taker (urgency ladder). |
 | Stop watchdog | Planned 5-min scheduled script checking only open-position stops, decoupling loss-cutting from the hourly evaluation cadence. |
 | Breadth gate | Portfolio-level regime filter: % of watchlist in daily uptrend gates total budget deployment (≥60% full, ≤30% majors-only) — Weinstein stage analysis at book level. |
-| State-persistence bug (P0) | `data/positions_state.json` resets between runs (frozen 2026-06-11) → partial-TP re-fires every cycle, HWM/entry clocks/day-open lost. See CLAUDE.md › Bugs #1. |
+| State-persistence bug (P0) | **FIXED 2026-07-10 (v2026-07-10.2).** `data/positions_state.json` reset between runs because the workflow only committed `journal/` — every fresh Actions checkout restored the 2026-06-18 copy. Now committed every run + fill-history reconciliation (below). |
+
+## Bug-Sweep Terms (fixed 2026-07-10, v2026-07-10.2)
+
+| Term | Meaning |
+|------|---------|
+| Fill-history reconciliation | `reconcile_positions_from_fills()` (`run_evaluation.py`): FIFO walk over the full FILL activity history that rebuilds `partial_tp_done` + breakeven stop (any SELL since the last flat→long transition), backfills `entry_time_iso`, and replaces a non-positive API `avg_entry_price` with the open lots' weighted average. Makes the partial TP idempotent — a lost state file can never re-fire it. |
+| Bars page cap (~7 days) | Alpaca caps one `/v1beta3/crypto/us/bars` response at roughly 7 days of bars regardless of `limit`, returning `next_page_token` (4Hour limit=120 → 43 bars, verified live 2026-07-10). `get_crypto_bars` now follows the token (≤10 pages) — the root cause of the "4H bars chronically short / 1H fallback failed" bug. |
+| CADENCE WARNING | Journal warning emitted when `now − state.last_evaluation_iso` > 90 min — self-monitoring for scheduler gaps (the cron was silently every-4-hours instead of hourly). |
+| `last_evaluation_iso` | New top-level key in `data/positions_state.json` — UTC timestamp of the previous evaluation, drives the CADENCE WARNING. |
+| `scripts/daily_summary.py` | Closing-journal generator run by the 23:21 workflow job: `## Daily Summary` block with equity + day change vs `last_equity`, cash %, open positions, today's fills, FIFO realized P&L for round trips closed today. Replaced the second evaluation the job used to run. |
+| DATA GUARD | Journal warning emitted when Alpaca's `avg_entry_price` ≤ 0 is replaced with the FIFO-derived cost basis (the SOL `$-4.4931` corruption). |
+| Budget ceiling 7 | With Tier-1 = {BTC, ETH} and 5 per tier, the reachable book maximum is 2 + 5 = 7 — `risk.max_open_positions` set to 7 (was an unreachable 15); dashboard `DEFAULT_LIMITS` fallback aligned to 7/5. |

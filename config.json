@@ -38,7 +38,7 @@
     "trailing_stop_trail_pct": 0.03,
     "stop_loss_escalation_cycles": 2,
     "stop_loss_escalation_extra_pct": 0.003,
-    "max_open_positions": 15,
+    "max_open_positions": 7,
     "tier1_symbols": [
       "BTC/USD",
       "ETH/USD"

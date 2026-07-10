@@ -37,6 +37,7 @@ _EMPTY_STATE: dict = {
     "day_open_date":             None,
     "capital_preservation_mode": False,
     "capital_preservation_since": None,
+    "last_evaluation_iso":       None,   # cadence self-monitoring (Bug #4)
     "positions": {},
 }
 

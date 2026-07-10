@@ -2,7 +2,9 @@ name: Trading Bot
 
 on:
   schedule:
-     - cron: '7 */4 * * *'
+     # Hourly at :23 per CLAUDE.md (Bug #4 2026-07-10: was '7 */4 * * *' —
+     # every 4 hours — which left stops unchecked for multi-hour gaps).
+     - cron: '23 * * * *'
      - cron: '23 21 * * *'
   workflow_dispatch:
     inputs:
@@ -41,7 +43,7 @@ jobs:
     # Run voor manual dispatch, als event is schedule dan voer schedule uit) 
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'schedule' && github.event.schedule == '7 */4 * * *')
+      (github.event_name == 'schedule' && github.event.schedule == '23 * * * *')
 
     # Inputs bestaan alleen bij workflow_dispatch; bij schedule zijn ze null. 
     # Daarom kiezen we veilig een default:
@@ -101,13 +103,18 @@ jobs:
             python scripts/run_evaluation.py --execute
           fi
 
-      - name: Commit & push journal (safe)
+      - name: Commit & push journal + position state (safe)
         run: |
           git config user.name  "Trading Bot"
           git config user.email "bot@alpaca-trading"
 
-          # Only commit when there are changes
-          git add journal/
+          # Only commit when there are changes.
+          # Bug #1 (P0, 2026-07-10): data/positions_state.json was never
+          # committed, so every fresh checkout reset trailing-stop HWMs,
+          # partial-TP flags, and entry clocks — the AAVE partial TP re-fired
+          # on 6 consecutive evaluations. The state file must persist with
+          # the journal.
+          git add journal/ data/positions_state.json
           git diff --cached --quiet && { echo "No journal changes"; exit 0; }
 
           git commit -m "journal: [$TRADING_ENV] evaluation $(date -u '+%Y-%m-%d %H:%M UTC')"
@@ -160,8 +167,11 @@ jobs:
           [ $missing -eq 1 ] && exit 1
           echo "Credentials present. ENV=$TRADING_ENV BASE_URL=$APCA_BASE_URL"
           
+      # Bug #4 (2026-07-10): this job used to run a second evaluation, so the
+      # "daily summary" commits contained no P&L at all. The hourly evaluate
+      # job (23:23 UTC) covers trading; this job writes the closing summary.
       - name: Run daily summary
-        run: python scripts/run_evaluation.py --execute
+        run: python scripts/daily_summary.py
 
       - name: Commit & push journal (safe)
         run: |
