@@ -103,21 +103,8 @@
       "stop_order_placed_iso": "2026-07-11T12:38:44.198885+00:00",
       "stop_order_limit_price": 0.8736,
       "stop_order_cycles": 1
-    },
-    "LINK/USD": {
-      "entry_price": 8.02,
-      "entry_time_iso": "2026-05-09T14:43:32.105273Z",
-      "high_water_mark": null,
-      "trailing_stop_active": false,
-      "partial_tp_done": true,
-      "breakeven_stop": 8.02,
-      "pyramid_tranches": 0,
-      "stop_order_id": null,
-      "stop_order_placed_iso": null,
-      "stop_order_limit_price": null,
-      "stop_order_cycles": 0
     }
   },
-  "last_evaluation_iso": "2026-07-11T13:57:40.450631+00:00",
+  "last_evaluation_iso": "2026-07-11T15:18:37.750116+00:00",
   "streak_throttle_active": true
 }
