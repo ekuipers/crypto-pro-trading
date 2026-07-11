@@ -17,6 +17,7 @@ Creator: Erik Kuipers
 7. Before analyzing any code change, read the memory for earlier changes.
 8. a "rescan roadmap" request triggers implementation, not just a status report.
 9. Self-learning: When I correct you, or you catch yourself making a mistake: before continuing, add the lesson as a one line rule under ## lessons in the memory.md file, so it never happens again.
+10. do not remove the .env file as it is used for local runs.
 
 ---
 
