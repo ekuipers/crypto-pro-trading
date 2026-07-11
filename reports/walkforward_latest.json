@@ -1,0 +1,56 @@
+{
+  "generated_utc": "20260711T062446Z",
+  "params": {
+    "symbols": [
+      "BTC/USDC",
+      "ETH/USDC"
+    ],
+    "timeframes": [
+      "1H",
+      "4H",
+      "1D"
+    ],
+    "fee_bps": 25.0,
+    "slippage_bps": 5.0,
+    "train_days": 90,
+    "test_days": 30
+  },
+  "summary": {
+    "1H": {
+      "BTC/USDC": {
+        "windows": 23,
+        "avg_sharpe": -0.247147562781133,
+        "median_max_drawdown": -0.0022654222105155746
+      },
+      "ETH/USDC": {
+        "windows": 23,
+        "avg_sharpe": -0.7605836152703229,
+        "median_max_drawdown": -0.0026905227866366784
+      }
+    },
+    "4H": {
+      "BTC/USDC": {
+        "windows": 23,
+        "avg_sharpe": -1.3478126682940592,
+        "median_max_drawdown": -0.0017148187096592538
+      },
+      "ETH/USDC": {
+        "windows": 23,
+        "avg_sharpe": -2.0408092310335,
+        "median_max_drawdown": -0.0017789469285902637
+      }
+    },
+    "1D": {
+      "BTC/USDC": {
+        "windows": 23,
+        "avg_sharpe": -0.36526597384760473,
+        "median_max_drawdown": 0.0
+      },
+      "ETH/USDC": {
+        "windows": 23,
+        "avg_sharpe": -0.8969207977546382,
+        "median_max_drawdown": 0.0
+      }
+    }
+  }
+}
