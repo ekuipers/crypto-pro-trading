@@ -2432,9 +2432,9 @@
     <span class="footer-sep">·</span>
     <span>Creator: <strong>Erik Kuipers</strong></span>
     <span class="footer-sep">·</span>
-    <span>Last modified: <strong>2026-07-10</strong></span>
+    <span>Last modified: <strong>2026-07-11</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-07-10.3</strong></span>
+    <span>Version: <strong>v2026-07-11.1</strong></span>
   </footer>
 
   <script>
@@ -6816,6 +6816,13 @@
       return { macd: last, signal: lastSig, hist: last - lastSig, prevHist };
     }
 
+    function ggLevelDate(t) {
+      if (!t) return "";
+      const d = new Date(t);
+      if (isNaN(d)) return "";
+      return " · " + d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Etc/GMT-2" });
+    }
+
     function ggKeyLevels(bars) {
       const highs = bars.map(b => b.h);
       const lows  = bars.map(b => b.l);
@@ -6827,14 +6834,16 @@
         { price: min6M, label: "6M Low",    type: "support" }
       ];
 
-      // Swing highs/lows (5-bar lookback)
+      // Swing highs/lows (5-bar lookback), date-stamped so multiple swings are
+      // distinguishable in the Key Levels panel (Bug fix 2026-07-11)
       for (let i = 5; i < bars.length - 5; i++) {
+        const when = ggLevelDate(bars[i].t);
         const h = highs[i];
         if (highs.slice(i-5,i).every(v=>v<h) && highs.slice(i+1,i+6).every(v=>v<h))
-          levels.push({ price: h, label: "Swing High", type: "resistance" });
+          levels.push({ price: h, label: "Swing High" + when, type: "resistance" });
         const l = lows[i];
         if (lows.slice(i-5,i).every(v=>v>l) && lows.slice(i+1,i+6).every(v=>v>l))
-          levels.push({ price: l, label: "Swing Low", type: "support" });
+          levels.push({ price: l, label: "Swing Low" + when, type: "support" });
       }
 
       // Round-number psychological levels near current price

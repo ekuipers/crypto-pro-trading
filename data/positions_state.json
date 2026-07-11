@@ -77,8 +77,21 @@
       "stop_order_placed_iso": "2026-07-11T00:12:45.628042+00:00",
       "stop_order_limit_price": 44.585,
       "stop_order_cycles": 1
+    },
+    "ETH/USD": {
+      "entry_price": 1800.6,
+      "entry_time_iso": "2026-07-11T07:40:51.897396+00:00",
+      "high_water_mark": 1800.6,
+      "trailing_stop_active": false,
+      "partial_tp_done": false,
+      "breakeven_stop": null,
+      "pyramid_tranches": 0,
+      "stop_order_id": null,
+      "stop_order_placed_iso": null,
+      "stop_order_limit_price": null,
+      "stop_order_cycles": 0
     }
   },
-  "last_evaluation_iso": "2026-07-11T06:28:54.567641+00:00",
+  "last_evaluation_iso": "2026-07-11T07:40:19.972245+00:00",
   "streak_throttle_active": true
 }

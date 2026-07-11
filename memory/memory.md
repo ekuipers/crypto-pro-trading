@@ -15,6 +15,7 @@ An autonomous paper crypto trading agent built on the Alpaca API. It evaluates 1
 ---
 
 ## Lessons
+- Never run a local `run_evaluation.py --execute` within ~25 min after the top of the hour: the GitHub cron (`23 * * * *`) often fires late (seen 17 min late 2026-07-11) and the two engines race — both entered ETH half-size 22 s apart; positions fetched at run start go stale the moment the other engine fills.
 
 - Never edit large project files (CLAUDE.md, README.md, dashboard HTML) with the Cowork file Edit/Write tools — they can silently truncate the file; splice via python in bash from git HEAD and verify byte count + intact tail afterwards (hit again 2026-07-10 on CLAUDE.md).
 - Before any evaluation/script run, sanity-check the tree: `python -m py_compile scripts/*.py` and `json.load(config.json)` — truncation hit scripts/*.py + config.json on 2026-07-10 evening and a corrupted config silently reverts gates to 4.0/3.0 with an empty watchlist.
@@ -993,3 +994,12 @@ python scripts/rebalance.py --execute # place orders
 - **Fix:** Verified each damaged file was a clean prefix of HEAD (cd7f225, v2026-07-10.3) via `diff <(git show HEAD:f | head -n) f`, then restored all 7 from HEAD. All scripts/tests compile; config.json parses (10 symbols, gates 3.5/2.5). No work lost — HEAD already contained all of today's famous-trader changes.
 - **Evaluation:** No local `.env` (Alpaca keys unavailable in sandbox), so the 19:00 GMT+2 evaluation ran via GitHub Actions workflow_dispatch (Trading Bot #346, paper, dry_run=false, Success 58s). Orders: SOL/USD SELL 29.5132 @ $78.1396 and AAVE/USD SELL 0.0127 @ $94.9679 — both STALE EXIT (held >48h, trail never armed, score < 2.5). BTC stop order had filled — position cleared. LINK holds at score 5.0 (+2.38%). Tier-2 budget 5/5 blocked new alt entries. Warnings: PARTIAL-TP RECONCILED (AAVE/BTC/CRV/LINK/SOL flags restored, stops at breakeven) and a DATA GUARD on SOL avg_entry_price (API returned −87.26, FIFO-derived $77.0166 used).
 - **Note:** The workflow committed journal + positions state to remote; this local clone is now behind origin/main and should be pulled before the next local edit.
+
+---
+
+## 2026-07-11 — Session: bug fix — Breakout scanner Key Levels duplicate labels (v2026-07-11.1)
+
+- **Problem (Bug #1):** The Breakout sub-tab's 🎯 Daily Chart Key Levels panel showed several rows with the identical label (e.g. "Swing Low" ×3) at different prices with no date/timeframe context — indistinguishable, reading as duplicate entries. Root cause: `ggKeyLevels()` pushed every 5-bar swing point in the 6-month daily window with the bare label "Swing High"/"Swing Low"; the 0.5% dedup only collapses near-identical *prices*, not same-label rows.
+- **Fix:** New `ggLevelDate(t)` helper (GMT+2 `Etc/GMT-2`, `en-GB` day+month) date-stamps each swing level with the daily bar it formed on — labels now render as e.g. "Swing Low · 21 Jun". The price-dedup and 5-level cap are unchanged. Footer bumped to v2026-07-11.1.
+- **Verified:** Node test harness with the extracted `ggKeyLevels`/`ggLevelDate` over a synthetic 60-day series — all swing levels carry a date, no duplicate label+price rows (PASS).
+- **Workspace repair (same session):** the working copies of `journal/2026-07-11.md` and `memory/memory.md` were silently truncated again (journal lost HEAD lines 189–393 — the tail of the 01:16 evaluation incl. the LTC BUY order record and the whole 02:12 evaluation — with the local 09:40 evaluation appended onto the damaged file; memory.md lost the last 3 lines of the 2026-07-10 entry). Both rebuilt from git HEAD + the legitimate new local content (09:40 eval + 09:42 manual note re-appended in chronological order; the new engine-race lesson kept). `data/*.json` validated (`json.load` OK), all `scripts/*.py` compile.

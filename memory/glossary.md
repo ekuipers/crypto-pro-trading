@@ -466,3 +466,9 @@ Critical implementation details to keep `indicators.py` and `dashboard_professio
 | `scripts/daily_summary.py` | Closing-journal generator run by the 23:21 workflow job: `## Daily Summary` block with equity + day change vs `last_equity`, cash %, open positions, today's fills, FIFO realized P&L for round trips closed today. Replaced the second evaluation the job used to run. |
 | DATA GUARD | Journal warning emitted when Alpaca's `avg_entry_price` ≤ 0 is replaced with the FIFO-derived cost basis (the SOL `$-4.4931` corruption). |
 | Budget ceiling 7 | With Tier-1 = {BTC, ETH} and 5 per tier, the reachable book maximum is 2 + 5 = 7 — `risk.max_open_positions` set to 7 (was an unreachable 15); dashboard `DEFAULT_LIMITS` fallback aligned to 7/5. |
+
+## Bug-Fix Terms (2026-07-11, v2026-07-11.1)
+
+| Term | Meaning |
+|------|---------|
+| `ggLevelDate(t)` | Breakout-scanner helper (dashboard): formats a daily bar's timestamp as ` · d MMM` (GMT+2, en-GB). Used by `ggKeyLevels()` to date-stamp every 5-bar swing high/low so the 🎯 Daily Chart Key Levels panel never shows indistinguishable same-label rows ("Swing Low" ×3 — Bug #1 fixed 2026-07-11). Price-dedup (0.5%) and the 5-level cap are unchanged. |
