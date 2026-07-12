@@ -1,6 +1,6 @@
 {
-  "day_open_equity": 92467.71,
-  "day_open_date": "2026-07-11",
+  "day_open_equity": 92304.93,
+  "day_open_date": "2026-07-12",
   "capital_preservation_mode": false,
   "capital_preservation_since": null,
   "positions": {
@@ -105,6 +105,6 @@
       "stop_order_cycles": 1
     }
   },
-  "last_evaluation_iso": "2026-07-11T23:13:16.821767+00:00",
+  "last_evaluation_iso": "2026-07-12T00:13:27.830271+00:00",
   "streak_throttle_active": true
 }
