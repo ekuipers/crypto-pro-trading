@@ -18,8 +18,8 @@
       "entry_time_iso": "2026-07-10T16:12:25.209249Z",
       "high_water_mark": null,
       "trailing_stop_active": false,
-      "partial_tp_done": false,
-      "breakeven_stop": null,
+      "partial_tp_done": true,
+      "breakeven_stop": 0.086752999,
       "pyramid_tranches": 0,
       "stop_order_id": null,
       "stop_order_placed_iso": null,
@@ -105,6 +105,6 @@
       "stop_order_cycles": 1
     }
   },
-  "last_evaluation_iso": "2026-07-12T06:48:20.979806+00:00",
+  "last_evaluation_iso": "2026-07-12T09:19:30.796801+00:00",
   "streak_throttle_active": true
 }
