@@ -21,6 +21,7 @@ An autonomous paper crypto trading agent built on the Alpaca API. It evaluates 1
 - Before any evaluation/script run, sanity-check the tree: `python -m py_compile scripts/*.py` and `json.load(config.json)` — truncation hit scripts/*.py + config.json on 2026-07-10 evening and a corrupted config silently reverts gates to 4.0/3.0 with an empty watchlist.
 - Self-checks and tests must pass explicit parameters — never assert against config-loaded defaults (the risk.py correlation-budget self-checks asserted the old 4-position cap and broke the moment the owner changed `config.json`; fixed 2026-07-09 by passing `max_positions=4, max_per_tier=3` explicitly).
 - Before implementing anything from a "rescan roadmap"/bug request, run `git fetch origin main` and diff against `origin/main` — the automated/scheduled runs push directly to origin far more often than this local checkout gets pulled, so `git log -3` on a stale local HEAD can look current while actually being ~200 commits behind (hit 2026-07-13: a bug describing an "existing" stale-order sweep looked unimplemented locally only because the local file predated the 2026-07-08 commit that added it — the bug was real, but the fix had to be re-targeted at the real current code after `git reset --hard origin/main`, preserving the stale attempt on a backup branch first).
+- Never guess a third party's official Telegram/social channel username and wire it in as a trusted source — verify it against the organization's own site or another authoritative reference first. Guessing is also low-yield: 11/11 guessed handles 500'd against the RSS-Bridge on 2026-07-13 when trying to expand Socials-tab Telegram-mirror coverage.
 
 
 ---
@@ -73,6 +74,29 @@ alpaca-trading-agent/
 ---
 
 ## Session History
+
+### 2026-07-13 — Bug: Socials tab Twitter/X feeds still not fetched — investigated, confirmed platform limitation, added unit tests (v2026-07-13.2)
+
+**Task:** "rescan roadmap." Per Workflow rule 0 the bugs list took precedence. `git fetch origin main` confirmed the local checkout was already current (no divergence this time — see the `[[Lessons]]` entry below about always checking first).
+
+**Bug as filed:** "In the news section under command center, Twitter aka X feeds are still not fetched. Find a way to get the relevant twitter feeds. Unit test fetching data from twitter." The actual Twitter/X sourcing lives in the **🐦 Socials sub-tab** (not News — News is headlines/RSS only), built 2026-07-09 and last touched 2026-07-10 (v2026-07-10.1: Telegram-mirror-first sourcing + feed-title validation guard).
+
+**Investigation (live, this session):**
+- X's own syndication CDN (`cdn.syndication.twimg.com/timeline/profile`) answers with `Access-Control-Allow-Origin: https://platform.twitter.com` — locked to Twitter's own embed widget origin, unusable from any other site regardless of request headers. No keyless direct-X path exists.
+- Re-tested **8 public Nitter mirrors** (the full RSS-enabled list from the status.d420.de tracker: xcancel.com, nitter.poast.org, nitter.net, nitter.privacyredirect.com, nitter.tiekoetter.com, lightbrd.com, nuku.trabun.org, nitter.space) through the same `rss2json.com` bridge the dashboard uses — **all 8 are dead**: connection failures, HTTP errors, or (xcancel only) the fake "RSS reader not yet whitelisted!" 200-OK feed that the 2026-07-10 title-verification guard already correctly rejects. This is a **regression from "best-effort, sometimes works"** (2026-07-10 assessment) to **fully non-functional** as of today.
+- Re-verified the 4 existing Telegram-mirror accounts (`binance_announcements`, `WatcherGuru`, `whale_alert_io`, `cointelegraph`) via the RSS-Bridge — all 4 still return HTTP 200 with correctly-titled feeds. These remain the only real working source.
+- Attempted to expand Telegram-mirror coverage to the other 10 curated accounts by guessing likely official channel usernames (`cz_binance`, `coinbase`, `VitalikButerin`, `saylor`, `justinsuntron`, `BitcoinMagazine`, `APompliano`, `ErikVoorhees`, `novogratz`, `MicroStrategy`, `tron_foundation`) — **every guess 500'd** on the RSS-Bridge (channel doesn't exist under that name). A `WebSearch` for Bitcoin Magazine's Telegram turned up two plausible handles (`Bitcoin_Magazine`, `bitcoinmagazinetelegram`) that both resolve, but neither could be confirmed as *official* against bitcoinmagazine.com's own social links — **not added**, since surfacing an unverified channel as an "official" source on a defensive-input feature is a worse outcome than leaving it out. Individual crypto figures (Elon, Vitalik, CZ, Saylor, Voorhees, Novogratz, Pompliano) do not appear to run official Telegram channels at all — Telegram announcement channels are mostly an org pattern (exchanges, media, projects), not a personal-account pattern.
+
+**Conclusion: this is a confirmed external platform limitation, not a code defect.** There is no keyless, client-side way to fetch X/Twitter content today beyond what's already implemented. No further "fix" is coded — implementing a workaround would mean adding a paid API (X API, or a paid RSS/proxy service), which is a cost/architecture decision for the owner, not something to add silently.
+
+**What was actually delivered this session:**
+1. `docs/dashboard_professional.html`: `SOC_NITTER_HOSTS` comment rewritten from "best-effort... rarely yields posts" to state the confirmed-dead status and today's date plainly (so a future session doesn't have to re-derive this from scratch). Socials empty-state copy updated to say the Nitter ecosystem is confirmed dead rather than implying occasional success.
+2. **`tests/test_socials_fetch.js`** (new) — a standalone Node test harness (`node:test` + `node:assert` + `node:vm`, no npm dependency, no network) satisfying the "unit test fetching data from twitter" part of the bug. It extracts `socFetchAccount()`, `socCleanText()`, `socToXUrl()`, `socTgFeedUrl()`, and their consts **directly from the live HTML file's source text** (bracket-matching extraction, not a reimplementation) so the test can never silently drift from production behaviour, then runs them against mocked `fetch` responses covering: a successful Telegram-mirror fetch with retweet + media-only-post filtering, the fake-"whitelisted"-feed rejection (regression test for the 2026-07-10 bug — this is the scenario that previously rendered garbage as real tweets), a genuinely-working Nitter mirror (URL rewritten to x.com, `#m` stripped), the crypto-keyword filter for generalist accounts, and total-source-failure error messaging. Run with `node tests/test_socials_fetch.js` — 7/7 pass.
+3. Footer bumped to `v2026-07-13.2`.
+
+**Verified:** `node tests/test_socials_fetch.js` (7/7 pass), `node --check` on the extracted inline `<script>` (0 errors), `<div>`/`</div>` balance 535/535 unchanged. Did not start the local dashboard/node server per Workflow rule 2.
+
+---
 
 ### 2026-07-13 — Bug: Autopilot stale-entry sweep needed a real 4h floor + Roadmap: Execution tab order filters (v2026-07-13.1)
 

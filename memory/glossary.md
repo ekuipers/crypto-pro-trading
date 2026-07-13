@@ -4,6 +4,16 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-13 — Socials Twitter/X fetch investigation + unit tests (v2026-07-13.2)
+
+| Term | Meaning |
+|------|---------|
+| `cdn.syndication.twimg.com` | X's official embed-widget CDN. Returns tweet timelines keylessly but `Access-Control-Allow-Origin` is hardcoded to `https://platform.twitter.com` — unusable as a CORS-fetch source from any other site. Ruled out 2026-07-13. |
+| Nitter mirror status (2026-07-13) | All 8 RSS-enabled public instances tracked by status.d420.de tested dead (connection failure, HTTP error, or the fake "not yet whitelisted" 200-OK feed). Confirmed regression from "some occasionally work" (2026-07-10) to fully non-functional. `SOC_NITTER_HOSTS` kept as a harmless fallback in case a mirror recovers. |
+| `tests/test_socials_fetch.js` | New Node test harness (`node:test`/`node:assert`/`node:vm`, no npm deps, no network). Extracts `socFetchAccount()` and helpers straight from `docs/dashboard_professional.html`'s source text (bracket-matching, not a reimplementation) and runs them against mocked `fetch` responses. Run: `node tests/test_socials_fetch.js`. |
+
+---
+
 ## 2026-07-13 — Autopilot stale-entry sweep 4h floor, Execution tab filters (v2026-07-13.1)
 
 | Term | Meaning |

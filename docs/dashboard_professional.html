@@ -2460,7 +2460,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-07-13</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-07-13.1</strong></span>
+    <span>Version: <strong>v2026-07-13.2</strong></span>
   </footer>
 
   <script>
@@ -3421,11 +3421,17 @@
       { h: "novogratz",       name: "Mike Novogratz",    followersM: 0.6 }
     ];
 
-    // Public Nitter mirrors, tried in order per account. Best-effort only:
-    // every RSS-enabled public instance (status.d420.de tracker, checked
-    // 2026-07-10) either bot-walls /rss or UA-whitelists it, so this path
-    // rarely yields posts. Trimmed to the two highest-uptime hosts to keep
-    // failed rss2json calls (≤ 2 per account per refresh) off the rate limit.
+    // Public Nitter mirrors, tried in order per account. Confirmed dead
+    // 2026-07-13 (re-checked Bug #1): tested 8 public RSS-enabled hosts from
+    // the status.d420.de tracker (xcancel.com, nitter.poast.org, nitter.net,
+    // nitter.privacyredirect.com, nitter.tiekoetter.com, lightbrd.com,
+    // nuku.trabun.org, nitter.space) — every one either fails to resolve/
+    // connect or answers the rss2json bridge with an error / the fake
+    // "RSS reader not yet whitelisted!" feed. Kept as a harmless best-effort
+    // fallback (the title-verification guard below rejects the fake feed
+    // instead of rendering it as tweets — see tests/test_socials_fetch.js)
+    // in case a mirror recovers; the official-Telegram-mirror path above is
+    // the only source that currently yields real posts.
     const SOC_NITTER_HOSTS = ["xcancel.com", "nitter.poast.org"];
 
     // Public RSS-Bridge instance turning t.me/s/<channel> into Atom that
@@ -3596,9 +3602,10 @@
       if (!items.length) {
         list.innerHTML = '<div class="small" style="color:var(--muted)">' +
           (_socItems.length ? "No T1/T2 catalyst posts right now."
-            : "No posts loaded — X blocks keyless RSS readers, so only accounts with an " +
-              "official Telegram mirror (Binance, Watcher.Guru, Whale Alert, Cointelegraph) " +
-              "normally deliver posts. Live account stats above still refresh via fxtwitter; " +
+            : "No posts loaded — X has no keyless API and every public Nitter mirror is " +
+              "confirmed dead (checked 2026-07-13), so only accounts with an official " +
+              "Telegram mirror (Binance, Watcher.Guru, Whale Alert, Cointelegraph) " +
+              "currently deliver posts. Live account stats above still refresh via fxtwitter; " +
               "hit ↻ Refresh to retry all sources.") + "</div>";
         return;
       }

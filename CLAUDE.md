@@ -25,7 +25,7 @@ Creator: Erik Kuipers
 
 
 ## Bugs
-*(none open — Breakout Key Levels duplicate-label bug fixed 2026-07-11, see `memory/memory.md`)*
+*(none open — Twitter/X feed fetching investigated 2026-07-13: confirmed a hard platform limitation, not a code bug; Telegram-mirror sources kept + unit tested, see `memory/memory.md`)*
 
 ---
 
