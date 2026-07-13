@@ -4,6 +4,18 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-13 — Autopilot stale-entry sweep 4h floor, Execution tab filters (v2026-07-13.1)
+
+| Term | Meaning |
+|------|---------|
+| `STRAT_CFG.minStaleEntryAgeHours` | New `STRAT_CFG` field (= 4), seeded from `config.json › risk.min_stale_entry_age_hours`. Minimum real wall-clock time an Autopilot-tagged (`ap-` prefix) entry limit order must stay open before the stale-entry sweep is allowed to cancel it. |
+| Stale-entry sweep age check (fixed) | The 2026-07-08 sweep gated cancellation on the `orderAge` cycle counter (`orderAge[o.id] <= 1`), so a fast Autopilot interval (15 min) could cancel an entry after just ~15 min. Bug fix 2026-07-13: the check now computes `Date.now() - new Date(o.created_at).getTime()` and only cancels once that real elapsed time is ≥ `STRAT_CFG.minStaleEntryAgeHours`. The `orderAge` counter itself is unchanged and still drives the separate exit-order cancel-replace escalation (2 cycles). |
+| `populateExecutionFilters(orders)` | Dashboard function (Execution tab). Populates the Symbol/Type/Status `<select>` filters from the distinct values in the loaded order set, preserving the user's current selection across refreshes. |
+| `applyExecutionFilters()` | Dashboard function. Re-renders `executionOrdersBody` from the cached `_lastExecutionCtx` filtered by the current Symbol/Type/Side/Status selections — client-side, no refetch. Updates the `#execFilterCount` "Showing X of Y orders" label. |
+| `resetExecutionFilters()` | Dashboard function. Clears all four Execution tab filters back to "All" and re-renders. |
+
+---
+
 ## 2026-07-10 — Socials RSS bugfix: Telegram-mirror-first sourcing (v2026-07-10.1)
 
 | Term | Meaning |

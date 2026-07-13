@@ -1706,6 +1706,32 @@
       <section>
         <div class="panel">
           <div class="panel-title">🎯 Recent Orders</div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+            <label class="small" style="color:var(--muted)">Symbol
+              <select id="execFilterSymbol" onchange="applyExecutionFilters()" style="margin-left:4px">
+                <option value="">All</option>
+              </select>
+            </label>
+            <label class="small" style="color:var(--muted)">Type
+              <select id="execFilterType" onchange="applyExecutionFilters()" style="margin-left:4px">
+                <option value="">All</option>
+              </select>
+            </label>
+            <label class="small" style="color:var(--muted)">Side
+              <select id="execFilterSide" onchange="applyExecutionFilters()" style="margin-left:4px">
+                <option value="">All</option>
+                <option value="buy">Buy</option>
+                <option value="sell">Sell</option>
+              </select>
+            </label>
+            <label class="small" style="color:var(--muted)">Status
+              <select id="execFilterStatus" onchange="applyExecutionFilters()" style="margin-left:4px">
+                <option value="">All</option>
+              </select>
+            </label>
+            <button class="btn" onclick="resetExecutionFilters()">Reset</button>
+            <span id="execFilterCount" class="small" style="color:var(--muted);margin-left:auto"></span>
+          </div>
           <div class="table-wrap">
             <table>
               <thead>
@@ -2432,9 +2458,9 @@
     <span class="footer-sep">·</span>
     <span>Creator: <strong>Erik Kuipers</strong></span>
     <span class="footer-sep">·</span>
-    <span>Last modified: <strong>2026-07-11</strong></span>
+    <span>Last modified: <strong>2026-07-13</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-07-11.1</strong></span>
+    <span>Version: <strong>v2026-07-13.1</strong></span>
   </footer>
 
   <script>
@@ -2477,6 +2503,7 @@
       dailyDrawdownGatePct: 3,    // risk.daily_drawdown_gate_pct × 100
       escalationCycles:     2,    // risk.stop_loss_escalation_cycles
       escalationExtraPct:   0.3,  // risk.stop_loss_escalation_extra_pct × 100
+      minStaleEntryAgeHours: 4,   // risk.min_stale_entry_age_hours — bug fix 2026-07-13
       // Roadmap 2026-07-09 additions:
       feeBpsPerSide:        25,   // costs.taker_fee_bps_per_side (Alpaca taker, per side)
       minRrFull:            1.5,  // strategy.min_rr_full  — net R:R soft gate (full size)
@@ -2807,6 +2834,7 @@
       if (num(rk.daily_drawdown_gate_pct)        !== null) STRAT_CFG.dailyDrawdownGatePct = rk.daily_drawdown_gate_pct * 100;
       if (num(rk.stop_loss_escalation_cycles)    !== null) STRAT_CFG.escalationCycles     = rk.stop_loss_escalation_cycles;
       if (num(rk.stop_loss_escalation_extra_pct) !== null) STRAT_CFG.escalationExtraPct   = rk.stop_loss_escalation_extra_pct * 100;
+      if (num(rk.min_stale_entry_age_hours)      !== null) STRAT_CFG.minStaleEntryAgeHours = rk.min_stale_entry_age_hours;
       if (cfg.scout && num(cfg.scout.ttl_hours)  !== null) _scoutTtlHours                 = cfg.scout.ttl_hours;
       // Roadmap 2026-07-09 keys (trade economics, rotation, ladders):
       const co = cfg.costs || {};
@@ -4338,7 +4366,10 @@
         : '<tr><td colspan="13" class="placeholder">No open positions</td></tr>';
     }
 
+    let _lastExecutionCtx = null;
+
     function renderExecution(c) {
+      _lastExecutionCtx = c;
       const rejected = c.allOrders.filter(o => o.status === "rejected").length;
       const canceled = c.allOrders.filter(o => ["canceled","expired"].includes(o.status)).length;
 
@@ -4355,8 +4386,62 @@
         kpi("Favorable Fill Rate", favorableRate == null ? "n/a" : fmt(favorableRate,1) + "%", "Slippage proxy ≤ 0")
       ].join("");
 
-      $("executionOrdersBody").innerHTML = c.allOrders.length
-        ? c.allOrders.map(o => {
+      populateExecutionFilters(c.allOrders);
+      applyExecutionFilters();
+    }
+
+    // Populate the Symbol/Type/Status filter dropdowns from the live order set,
+    // preserving whatever the user already had selected across refreshes.
+    function populateExecutionFilters(orders) {
+      const symSel = $("execFilterSymbol"), typeSel = $("execFilterType"), statusSel = $("execFilterStatus");
+      if (!symSel || !typeSel || !statusSel) return;
+      const prevSym = symSel.value, prevType = typeSel.value, prevStatus = statusSel.value;
+
+      const symbols = [...new Set(orders.map(o => o.symbol))].sort();
+      symSel.innerHTML = '<option value="">All</option>' +
+        symbols.map(s => `<option value="${s}">${toSlash(s)}</option>`).join("");
+      if (symbols.includes(prevSym)) symSel.value = prevSym;
+
+      const types = [...new Set(orders.map(o => o.type).filter(Boolean))].sort();
+      typeSel.innerHTML = '<option value="">All</option>' +
+        types.map(t => `<option value="${t}">${t}</option>`).join("");
+      if (types.includes(prevType)) typeSel.value = prevType;
+
+      const statuses = [...new Set(orders.map(o => o.status).filter(Boolean))].sort();
+      statusSel.innerHTML = '<option value="">All</option>' +
+        statuses.map(s => `<option value="${s}">${s}</option>`).join("");
+      if (statuses.includes(prevStatus)) statusSel.value = prevStatus;
+    }
+
+    function resetExecutionFilters() {
+      ["execFilterSymbol", "execFilterType", "execFilterSide", "execFilterStatus"].forEach(id => {
+        const el = $(id); if (el) el.value = "";
+      });
+      applyExecutionFilters();
+    }
+
+    // Re-renders the Recent Orders table from the last-loaded order set using the
+    // current Symbol/Type/Side/Status filter selections. No refetch — filtering is client-side.
+    function applyExecutionFilters() {
+      if (!_lastExecutionCtx) return;
+      const c = _lastExecutionCtx;
+      const sym    = ($("execFilterSymbol") || {}).value || "";
+      const type   = ($("execFilterType")   || {}).value || "";
+      const side   = ($("execFilterSide")   || {}).value || "";
+      const status = ($("execFilterStatus") || {}).value || "";
+
+      const filtered = c.allOrders.filter(o =>
+        (!sym    || o.symbol === sym) &&
+        (!type   || o.type === type) &&
+        (!side   || o.side === side) &&
+        (!status || o.status === status)
+      );
+
+      const countEl = $("execFilterCount");
+      if (countEl) countEl.textContent = `Showing ${filtered.length} of ${c.allOrders.length} orders`;
+
+      $("executionOrdersBody").innerHTML = filtered.length
+        ? filtered.map(o => {
             const slipRow = c.slippageRows.find(x => x.id === o.id);
             const slip = slipRow ? slipRow.slipPct : null;
 
@@ -4385,7 +4470,7 @@
               </tr>
             `;
           }).join("")
-        : '<tr><td colspan="10" class="placeholder">No recent orders</td></tr>';
+        : `<tr><td colspan="10" class="placeholder">${c.allOrders.length ? "No orders match the selected filters" : "No recent orders"}</td></tr>`;
     }
 
     function getBacktestDefaults() {
@@ -8340,12 +8425,18 @@
           // Only sweep the Autopilot's OWN stale entries ("ap-" client_order_id
           // tag) — Python-engine entries and manual resting buy limits must
           // never be cancelled by this loop (bugfix 2026-07-08).
-          if (o.side !== "buy" || o.type !== "limit" || orderAge[o.id] <= 1) continue;
+          if (o.side !== "buy" || o.type !== "limit") continue;
           if (!String(o.client_order_id || "").startsWith("ap-")) continue;
+          // Bug fix 2026-07-13: cycle-count aging (orderAge[o.id] <= 1) cancelled
+          // an entry after just 1 cycle — ~15-30 min at the fastest interval,
+          // too short for a limit order to get a fair chance to fill. Gate on
+          // real elapsed time instead so every entry gets minStaleEntryAgeHours.
+          const ageMs = Date.now() - new Date(o.created_at).getTime();
+          if (ageMs < STRAT_CFG.minStaleEntryAgeHours * 3600000) continue;
           try {
             await apCancelOrder(o.id);
             delete orderAge[o.id];
-            apLog("info", `Cancelled stale entry limit ${toSlash(o.symbol)} @ $${o.limit_price} — unfilled ≥ 1 cycle, signal stale.`);
+            apLog("info", `Cancelled stale entry limit ${toSlash(o.symbol)} @ $${o.limit_price} — unfilled ≥ ${STRAT_CFG.minStaleEntryAgeHours}h, signal stale.`);
           } catch (e) { apLog("error", `Cancel stale entry ${toSlash(o.symbol)} failed: ${e.message}`); }
         }
 
