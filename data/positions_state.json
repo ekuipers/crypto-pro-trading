@@ -1,6 +1,6 @@
 {
-  "day_open_equity": 92252.76,
-  "day_open_date": "2026-07-14",
+  "day_open_equity": 92469.99,
+  "day_open_date": "2026-07-15",
   "capital_preservation_mode": false,
   "capital_preservation_since": null,
   "positions": {
@@ -81,7 +81,7 @@
     "ETH/USD": {
       "entry_price": 1802.4,
       "entry_time_iso": "2026-07-14T10:58:20.803803+00:00",
-      "high_water_mark": 1885.0,
+      "high_water_mark": 1887.849,
       "trailing_stop_active": true,
       "partial_tp_done": true,
       "breakeven_stop": 1799.68,
@@ -118,6 +118,6 @@
       "stop_order_cycles": 1
     }
   },
-  "last_evaluation_iso": "2026-07-14T23:13:19.827554+00:00",
+  "last_evaluation_iso": "2026-07-15T00:07:47.656986+00:00",
   "streak_throttle_active": false
 }
