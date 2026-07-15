@@ -81,7 +81,7 @@
     "ETH/USD": {
       "entry_price": 1802.4,
       "entry_time_iso": "2026-07-14T10:58:20.803803+00:00",
-      "high_water_mark": 1887.849,
+      "high_water_mark": 1927.181,
       "trailing_stop_active": true,
       "partial_tp_done": true,
       "breakeven_stop": 1799.68,
@@ -131,6 +131,6 @@
       "stop_order_cycles": 1
     }
   },
-  "last_evaluation_iso": "2026-07-15T11:52:05.578454+00:00",
+  "last_evaluation_iso": "2026-07-15T14:14:12.266583+00:00",
   "streak_throttle_active": false
 }
