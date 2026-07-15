@@ -66,17 +66,17 @@
       "stop_order_cycles": 0
     },
     "LTC/USD": {
-      "entry_price": 44.8851,
-      "entry_time_iso": "2026-07-10T23:16:03.990171+00:00",
-      "high_water_mark": 44.8851,
+      "entry_price": 45.18,
+      "entry_time_iso": "2026-07-15T06:31:01.565206+00:00",
+      "high_water_mark": 45.18,
       "trailing_stop_active": false,
-      "partial_tp_done": true,
-      "breakeven_stop": 44.81,
+      "partial_tp_done": false,
+      "breakeven_stop": null,
       "pyramid_tranches": 0,
-      "stop_order_id": "ba85e93b-07c5-4fe5-9cf5-d2d2cb4592eb",
-      "stop_order_placed_iso": "2026-07-11T00:12:45.628042+00:00",
-      "stop_order_limit_price": 44.585,
-      "stop_order_cycles": 1
+      "stop_order_id": null,
+      "stop_order_placed_iso": null,
+      "stop_order_limit_price": null,
+      "stop_order_cycles": 0
     },
     "ETH/USD": {
       "entry_price": 1802.4,
@@ -116,8 +116,21 @@
       "stop_order_placed_iso": "2026-07-12T22:10:58.343830+00:00",
       "stop_order_limit_price": 7.953,
       "stop_order_cycles": 1
+    },
+    "BTC/USD": {
+      "entry_price": 64970.41,
+      "entry_time_iso": "2026-07-15T06:31:00.985255+00:00",
+      "high_water_mark": 64970.41,
+      "trailing_stop_active": false,
+      "partial_tp_done": false,
+      "breakeven_stop": null,
+      "pyramid_tranches": 0,
+      "stop_order_id": null,
+      "stop_order_placed_iso": null,
+      "stop_order_limit_price": null,
+      "stop_order_cycles": 0
     }
   },
-  "last_evaluation_iso": "2026-07-15T03:39:51.329618+00:00",
+  "last_evaluation_iso": "2026-07-15T06:30:44.295717+00:00",
   "streak_throttle_active": false
 }
