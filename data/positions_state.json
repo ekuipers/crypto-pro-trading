@@ -86,10 +86,10 @@
       "partial_tp_done": true,
       "breakeven_stop": 1799.68,
       "pyramid_tranches": 0,
-      "stop_order_id": null,
-      "stop_order_placed_iso": null,
-      "stop_order_limit_price": null,
-      "stop_order_cycles": 0
+      "stop_order_id": "e7ccf3a5-3ea6-4d13-bee1-9c4db88d8304",
+      "stop_order_placed_iso": "2026-07-16T12:47:24.870136+00:00",
+      "stop_order_limit_price": 1862.7196,
+      "stop_order_cycles": 1
     },
     "DOT/USD": {
       "entry_price": 0.8822,
