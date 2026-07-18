@@ -46,7 +46,7 @@
     header {
       background:var(--surface);
       border-bottom:1px solid var(--border);
-      padding:14px 22px;
+      padding:16px 24px;
       display:flex;
       justify-content:space-between;
       align-items:center;
@@ -739,19 +739,23 @@
     footer {
       color:var(--muted);
       font-size:12px;
-      padding:20px 28px;
+      padding:16px 24px;
       border-top:1px solid var(--border);
       margin-top:20px;
       display:flex;
       flex-wrap:wrap;
-      align-items:baseline;
+      align-items:center;
       gap:4px 14px;
     }
     .footer-name {
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
       font-weight:700;
       color:var(--text);
       font-size:13px;
     }
+    .footer-logo-icon { width:18px; height:18px; border-radius:4px; vertical-align:middle; }
     .footer-sep { color:var(--border); }
     @media(max-width:700px) {
       footer { padding:16px; }
@@ -1252,7 +1256,7 @@
 
 <body>
   <header>
-    <div class="logo"><img src="favicon.svg" alt="CryptoPro Trader logo" style="width:20px;height:20px;vertical-align:-4px"> CryptoPro Trader</div>
+    <div class="logo"><img src="favicon.svg" alt="CryptoPro Trader logo" style="width:22px;height:22px;border-radius:6px;vertical-align:-5px"> CryptoPro Trader</div>
 
     <div class="header-right">
       <span id="modeBadge" class="badge paper" data-tip="Active trading mode — switch between paper and live. Paper is safe for testing.">
@@ -2497,7 +2501,7 @@
   <div id="tooltip"></div>
 
   <footer>
-    <span class="footer-name">CryptoPro Trader</span>
+    <span class="footer-name"><img src="favicon.svg" alt="" class="footer-logo-icon">CryptoPro Trader</span>
     <span class="footer-sep">·</span>
     <span>Autonomous crypto paper-trading cockpit — signal confluence, ATR sizing, limit orders only, Alpaca API</span>
     <span class="footer-sep">·</span>
@@ -2505,7 +2509,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-07-18</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-07-18.6</strong></span>
+    <span>Version: <strong>v2026-07-18.7</strong></span>
   </footer>
 
   <script>

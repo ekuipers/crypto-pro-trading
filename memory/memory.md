@@ -8,6 +8,22 @@
 
 ---
 
+## v2026-07-18.6 — 2026-07-18 — Cross-suite title-bar/footer branding consistency
+
+**Change (driven by a CryptoPro Suite workflow-rules audit, rules 7 + 17):** aligned the dashboard's
+header/footer chrome with CryptoPro Suite and CryptoPro Training (the two other sub-projects close
+enough in page genre — a spacious dashboard/content page, not Charts' dense charting terminal) to a
+shared standard: header padding `14px 22px` → `16px 24px`; footer padding `20px 28px` → `16px 24px`;
+header logo icon `20px` → `22px` with `border-radius:6px` added; footer gained a matching `18px`
+favicon icon before "CryptoPro Trader" (previously text-only, so rule 10 "favicon as logo everywhere"
+didn't reach the footer). Footer `align-items` switched from `baseline` to `center` so the new icon
+sits level with the text. Font-family was already the canonical stack shared across the suite
+(`-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif`) — left unchanged. Footer
+version bumped v2026-07-18.6 → v2026-07-18.7. **Verified:** `git diff --stat` shows exactly the 4
+targeted edits (16 lines changed across 2 CSS blocks + 2 markup lines); `wc -l` + tail confirmed the
+file's line count (10,088) and closing `</html>` are intact — no truncation (see the Cowork-edit-tool
+truncation lesson below).
+
 ## v2026-07-18.5 — 2026-07-18 — CryptoPro suite favicon & logo
 
 **Change (branding, requested by Erik):** Added the shared CryptoPro suite favicon to the dashboard:
