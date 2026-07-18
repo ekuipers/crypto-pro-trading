@@ -2502,7 +2502,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-07-18</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-07-18.3</strong></span>
+    <span>Version: <strong>v2026-07-18.4</strong></span>
   </footer>
 
   <script>
@@ -8771,6 +8771,17 @@
         } catch (e) { apLog("info", "Snapshot quotes unavailable — falling back to last bar close for limit prices."); }
 
         // (c) EXITS first — long positions only; shorts are never auto-managed
+
+        // Fill-ledger reconciliation (bugfix 2026-07-18): authoritative,
+        // file://-safe cross-check for partial_tp_done/entry_time — see
+        // apReconcileFromFills for why this can't rely on positions_state.json.
+        let fillRecon = { partialTpSyms: new Set(), entryTime: {} };
+        try {
+          const heldSymsNow = positions.filter(p => Number(p.qty || 0) > 0).map(p => toSlash(p.symbol));
+          const allFills = await edgeFetchAllFills();
+          fillRecon = apReconcileFromFills(allFills, heldSymsNow);
+        } catch (e) { apLog("info", `Fill-history reconciliation skipped: ${e.message}`); }
+
         let hwm = {};
         try { hwm = JSON.parse(localStorage.getItem("autopilotHwm") || "{}"); } catch (e) {}
         // Merge the Python engine's persisted HWMs (data/positions_state.json,
@@ -8814,6 +8825,11 @@
           const res   = scores[sym];
           const cur   = (res && res.lastClose) || Number(p.current_price || 0);
           if (!entry || !cur) continue;
+          if (!partialTp[sym] && fillRecon.partialTpSyms.has(sym) && entry > 0) {
+            partialTp[sym] = entry;
+            apLog("info", `${sym} partial-TP flag restored from fill history (breakeven $${fmt(entry, entry < 1 ? 6 : 2)}) — preventing a repeat scale-out.`);
+          }
+          if (!entryTime[sym] && fillRecon.entryTime[sym]) entryTime[sym] = fillRecon.entryTime[sym];
           const plPct = (cur - entry) / entry * 100;
           // 4H swing-low stop (TA-driven); fixed % only when 4H data missing.
           const lows4h    = ((b4h || {})[sym] || (b4h || {})[alp] || []).map(b => b.l);
@@ -9073,6 +9089,64 @@
         pageToken = batch[batch.length - 1].id;
       }
       return all;
+    }
+
+    // Reconcile partial-TP state + entry time directly from Alpaca's own FILL
+    // ledger — the same FIFO walk as Python's reconcile_positions_from_fills()
+    // (scripts/run_evaluation.py). The Autopilot previously learned the OTHER
+    // engine's partial_tp_done/entry_time_iso only via a positions_state.json
+    // fetch() (see the pyState merge in apCycle), a same-origin relative file
+    // read that browsers block when this dashboard is opened via file:// —
+    // same root cause as the Glossary tab fix (2026-07-18). When that merge
+    // silently no-ops, neither engine's own local flag is set, so the +1R
+    // partial-TP check re-fires on the already-reduced remainder every cycle
+    // (50% of 50% of 50%...), pinning the stop to breakeven on a sliver of
+    // the original position long before a real trailing stop can arm — the
+    // fast, no-profit exits reported 2026-07-18. Alpaca's FILL activity feed
+    // is a normal cross-origin HTTPS call via apiFetch (unaffected by
+    // file://) and is the same source Python already trusts, so it is
+    // authoritative regardless of whether the state-file merge works.
+    const _AP_RECONCILE_DUST_REL_TOL = 0.005;   // mirrors Python's _RECONCILE_DUST_REL_TOL
+    function apReconcileFromFills(fills, heldSymbols) {
+      const held = new Set(heldSymbols);
+      const hist = {};   // sym -> { lots:[[remaining, price, original]], startIso, sellsSinceStart }
+      const chron = [...(fills || [])].reverse();   // fills arrive newest-first
+      for (const act of chron) {
+        const sym   = toSlash(act.symbol || "");
+        const side  = act.side;
+        const qty   = Math.abs(Number(act.qty || 0));
+        const price = Number(act.price || 0);
+        const when  = act.transaction_time || act.date;
+        if (!sym || qty <= 0 || price <= 0) continue;
+        if (!hist[sym]) hist[sym] = { lots: [], startIso: null, sellsSinceStart: 0 };
+        const h = hist[sym];
+        if (side === "buy") {
+          if (h.lots.length === 0) { h.startIso = when; h.sellsSinceStart = 0; }   // flat -> long
+          h.lots.push([qty, price, qty]);   // [remaining, price, original]
+        } else if (side === "sell") {
+          let remaining = qty;
+          while (remaining > 1e-9 && h.lots.length) {
+            const lot = h.lots[0];
+            const m = Math.min(remaining, lot[0]);
+            lot[0] -= m; remaining -= m;
+            const dust = Math.max(1e-9, lot[2] * _AP_RECONCILE_DUST_REL_TOL);
+            if (lot[0] < dust) h.lots.shift();
+          }
+          if (h.lots.length) h.sellsSinceStart += 1;          // partial — position survives
+          else { h.startIso = null; h.sellsSinceStart = 0; }  // fully closed
+        }
+      }
+      const partialTpSyms = new Set(), entryTime = {};
+      for (const sym of held) {
+        const h = hist[sym];
+        if (!h || !h.lots.length) continue;
+        if (h.sellsSinceStart > 0) partialTpSyms.add(sym);
+        if (h.startIso) {
+          const t0 = Date.parse(h.startIso);
+          if (t0 > 0) entryTime[sym] = t0;
+        }
+      }
+      return { partialTpSyms, entryTime };
     }
 
     // FIFO round-trip matcher WITH timestamps. Standalone from computeFifoStats

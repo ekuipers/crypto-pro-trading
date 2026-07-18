@@ -4,6 +4,15 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-18 — Bug fix: Autopilot re-firing its own partial-TP (breakeven-pin cascade)
+
+| Term | Meaning |
+|------|---------|
+| `apReconcileFromFills(fills, heldSymbols)` | Function in `docs/dashboard_professional.html`, added 2026-07-18. Dashboard-side twin of Python's `reconcile_positions_from_fills()`: walks Alpaca's own FILL activity ledger (newest-first, as the API returns it) per symbol, tracking flat→long transitions and dust-tolerant lot consumption (`_AP_RECONCILE_DUST_REL_TOL = 0.005`, same value as Python's `_RECONCILE_DUST_REL_TOL`), to determine whether a non-closing SELL already happened on the currently-open lot. Returns `{ partialTpSyms: Set, entryTime: {sym: epochMs} }`. |
+| Cross-engine partial-TP re-fire (Bug #1, user-reported) | The Autopilot's `partialTp[sym]` flag previously only came from `localStorage.autopilotPartialTp` merged with `data/positions_state.json` via a same-origin `fetch()` — blocked under `file://` (same restriction as the Glossary tab's own bug, see below). When that merge silently failed, the Autopilot didn't know a +1R scale-out already fired (by itself last session, or by the Python cron) and re-sold 50% of the already-reduced remainder every cycle — a halving cascade in fill history (AAVE: 6.5413 → 0.8177 → 0.4088 → 0.2044 → 0.1022 → 0.0511 → 0.0128; LINK 24+ partial sells on one lot) that ended in a no-profit "breakeven after partial TP" exit long before the trailing stop could arm. Fixed by calling `apReconcileFromFills()` (via the already-`file://`-safe `edgeFetchAllFills()`/`apiFetch()`, a real HTTPS call to Alpaca) once per Autopilot cycle and merging its result into `partialTp`/`entryTime` before the exit-management loop. |
+
+---
+
 ## 2026-07-18 — Dashboard 📖 Glossary sub-tab (renders this file)
 
 | Term | Meaning |

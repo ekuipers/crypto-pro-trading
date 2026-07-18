@@ -22,11 +22,11 @@ Creator: Erik Kuipers
 ---
 
 ## Roadmap
-*(none open — "Add the glossary to the dashboard by adding a pane under command center called Glossary" shipped 2026-07-18, see `memory/memory.md`)*
+
 
 
 ## Bugs
-*(none open — "Could not load memory/glossary.md" fixed 2026-07-18 (built-in offline fallback), see `memory/memory.md`)*
+*(none open — "run_evaluation.py on GitHub Actions selling dashboard-opened positions without profit or a trailing stop" fixed 2026-07-18 (root cause: `file://`-blocked cross-engine partial-TP merge caused a repeat scale-out/breakeven-pin cascade), see `memory/memory.md`)*
 
 ---
 
