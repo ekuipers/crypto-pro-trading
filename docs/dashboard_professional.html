@@ -888,6 +888,15 @@
     .news-item a.news-headline:hover { color:var(--blue); text-decoration:underline; }
     .news-syms { color:var(--blue); font-size:11px; white-space:nowrap; }
     .news-filter-btn.active { color:var(--blue); border-color:rgba(88,166,255,.4); background:rgba(88,166,255,.1); }
+
+    /* 📖 Glossary sub-tab (roadmap 2026-07-18) */
+    .glossary-h { margin:18px 0 8px; color:var(--text); }
+    .glossary-h:first-child { margin-top:0; }
+    .glossary-p { margin:4px 0; font-size:13px; color:var(--text); line-height:1.5; }
+    .glossary-table { min-width:0; table-layout:auto; }
+    .glossary-table td, .glossary-table th { vertical-align:top; }
+    .glossary-table td:first-child { white-space:nowrap; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; }
+    #glossaryList hr { border:none; border-top:1px solid var(--border); margin:18px 0; }
     /* 🐦 Command › Socials sub-tab (roadmap 2026-07-09) — tweet items reuse the
        .news-item family; only the per-account stat chips are new. */
     .soc-acct {
@@ -1298,6 +1307,7 @@
         <button id="subtab-command-overview" class="subtab-btn active" onclick="commandSubTab('command-overview')">🧭 Overview</button>
         <button id="subtab-news" class="subtab-btn" onclick="commandSubTab('news')">📰 News</button>
         <button id="subtab-socials" class="subtab-btn" onclick="commandSubTab('socials')">🐦 Socials</button>
+        <button id="subtab-glossary" class="subtab-btn" onclick="commandSubTab('glossary')">📖 Glossary</button>
       </div>
 
     <div id="subpage-command-overview" class="subpage active">
@@ -1437,6 +1447,34 @@
         <div id="socList"><div class="small" style="color:var(--muted)">Loading tweets…</div></div>
       </section>
     </div><!-- /subpage-socials -->
+
+    <!-- 📖 Glossary sub-tab — renders memory/glossary.md (the project's full
+         decoder ring: trading terms, acronyms, and dated notes on every
+         indicator, gate, or dashboard feature added) directly in the
+         dashboard, so definitions are one click away instead of living only
+         in the repo (roadmap 2026-07-18). Fetched relative to this file
+         (../memory/glossary.md primary; a couple of same-directory fallbacks
+         in case the HTML is copied elsewhere). Read-only reference —
+         never places orders. -->
+    <div id="subpage-glossary" class="subpage">
+      <section>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap">
+          <div class="section-title" style="margin-bottom:0">📖 Glossary</div>
+          <span id="glossaryStatus" class="small" style="color:var(--muted)"></span>
+          <div style="display:flex;gap:6px;margin-left:auto;align-items:center">
+            <input id="glossarySearch" type="text" placeholder="Search terms…" oninput="filterGlossary()" style="width:220px" />
+            <button class="btn" onclick="loadGlossary(true)" data-tip="Re-read memory/glossary.md from disk.">↻ Refresh</button>
+          </div>
+        </div>
+        <div class="small" style="color:var(--muted);margin-bottom:12px">
+          The project's full decoder ring — trading terms, acronyms, and dated notes on every
+          indicator, gate, or dashboard feature added. Rendered live from
+          <code>memory/glossary.md</code> so it never drifts from the repo. Read-only reference —
+          never places orders.
+        </div>
+        <div id="glossaryList"><div class="small" style="color:var(--muted)">Loading glossary…</div></div>
+      </section>
+    </div><!-- /subpage-glossary -->
     </div>
 
     <!-- Analytics parent page — merges Performance + P&L + Edge (roadmap). Deep
@@ -2462,7 +2500,7 @@
     <span class="footer-sep">·</span>
     <span>Last modified: <strong>2026-07-18</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-07-18.1</strong></span>
+    <span>Version: <strong>v2026-07-18.2</strong></span>
   </footer>
 
   <script>
@@ -2792,6 +2830,20 @@
           if (!r.ok) continue;
           const j = await r.json();
           if (j && typeof j === "object") return j;
+        } catch (e) { /* try next path */ }
+      }
+      return null;
+    }
+
+    // Same fallback-path fetch as fetchLocalJson, but for plain text files
+    // (used to load memory/glossary.md into the Glossary sub-tab).
+    async function fetchLocalText(paths) {
+      for (const p of paths) {
+        try {
+          const r = await fetch(p, { cache: "no-store" });
+          if (!r.ok) continue;
+          const t = await r.text();
+          if (t && t.trim()) return t;
         } catch (e) { /* try next path */ }
       }
       return null;
@@ -3133,7 +3185,7 @@
     // state is preserved because the sub-pages keep their rendered DOM.
     const MARKET_SUBS    = ["market-overview", "market-signals", "gapgo"];
     const ANALYTICS_SUBS = ["performance", "pnl", "edge"];
-    const COMMAND_SUBS   = ["command-overview", "news", "socials"];
+    const COMMAND_SUBS   = ["command-overview", "news", "socials", "glossary"];
     let _marketSub    = "market-overview";
     let _analyticsSub = "performance";
     let _commandSub   = "command-overview";
@@ -3194,6 +3246,7 @@
       if (subId === "command-overview") refreshCurrent();  // reload account/positions context
       else if (subId === "news")        loadNews();        // 5-min cache; ↻ forces
       else if (subId === "socials")     loadSocials();     // 10-min cache; ↻ forces
+      else if (subId === "glossary")    loadGlossary();    // 5-min cache; ↻ forces
     }
 
     // ── 📰 Command › News (roadmap 2026-07-09) ────────────────────────────────
@@ -3629,6 +3682,107 @@
                socFollowersLabel(socFollowersM(it.acct)) +
                (it.via === "tg" ? " · TG" : "") + "</span>" + syms + "</div></div>";
       }).join("");
+    }
+
+    // ── 📖 Command › Glossary (roadmap 2026-07-18) ────────────────────────────
+    // Renders memory/glossary.md straight into the dashboard so trading terms,
+    // acronyms, and dated feature notes are one click away from the tabs that
+    // use them, instead of living only in the repo. A tiny markdown subset is
+    // supported (headers, tables, `**bold**`, `` `code` ``, `---` rules) since
+    // that's all glossary.md uses. Read-only reference — never places orders.
+    let _glossaryMd = "";
+    let _glossaryFetchedAt = 0;
+    const GLOSSARY_CACHE_MS = 5 * 60 * 1000;
+
+    function mdInline(escaped) {
+      return escaped
+        .replace(/`([^`]+)`/g, "<code>$1</code>")
+        .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+    }
+
+    // Parses a run of consecutive `| … |` lines into an HTML table, dropping
+    // the markdown separator row (`|---|---|`). Returns "" if nothing usable.
+    function mdTable(rows) {
+      const parsed = rows
+        .map(r => r.trim().replace(/^\||\|$/g, "").split("|").map(c => c.trim()))
+        .filter(cells => cells.some(c => c.length));
+      const dataRows = parsed.filter(cells => !cells.every(c => /^:?-{2,}:?$/.test(c)));
+      if (dataRows.length < 2) return "";
+      const [head, ...body] = dataRows;
+      let html = '<div class="table-wrap"><table class="glossary-table"><thead><tr>' +
+        head.map(h => "<th>" + mdInline(escapeHtml(h)) + "</th>").join("") + "</tr></thead><tbody>";
+      body.forEach(cells => {
+        const search = escapeHtml(cells.join(" ").toLowerCase());
+        html += '<tr data-search="' + search + '">' +
+          cells.map(c => "<td>" + mdInline(escapeHtml(c)) + "</td>").join("") + "</tr>";
+      });
+      return html + "</tbody></table></div>";
+    }
+
+    function renderGlossaryMarkdown(md) {
+      const lines = md.split(/\r?\n/);
+      let html = "";
+      let tableBuf = [];
+      const flushTable = () => { if (tableBuf.length) html += mdTable(tableBuf); tableBuf = []; };
+      for (const line of lines) {
+        if (/^\s*\|.*\|\s*$/.test(line)) { tableBuf.push(line); continue; }
+        flushTable();
+        if (!line.trim()) continue;
+        if (/^-{3,}$/.test(line.trim())) { html += "<hr>"; continue; }
+        const h3 = line.match(/^###\s+(.*)/);
+        const h2 = line.match(/^##\s+(.*)/);
+        const h1 = line.match(/^#\s+(.*)/);
+        if (h3) { html += "<h4 class=\"glossary-h\">" + mdInline(escapeHtml(h3[1])) + "</h4>"; continue; }
+        if (h2) { html += "<h3 class=\"glossary-h\">" + mdInline(escapeHtml(h2[1])) + "</h3>"; continue; }
+        if (h1) { html += "<h2 class=\"glossary-h\">" + mdInline(escapeHtml(h1[1])) + "</h2>"; continue; }
+        html += '<p class="glossary-p" data-search="' + escapeHtml(line.toLowerCase()) + '">' +
+          mdInline(escapeHtml(line)) + "</p>";
+      }
+      flushTable();
+      return html;
+    }
+
+    async function loadGlossary(force) {
+      const list = $("glossaryList");
+      if (!list) return;
+      if (!force && _glossaryMd && Date.now() - _glossaryFetchedAt < GLOSSARY_CACHE_MS) {
+        renderGlossary();
+        return;
+      }
+      const st = $("glossaryStatus");
+      if (st) st.textContent = "Loading…";
+      const md = await fetchLocalText(["../memory/glossary.md", "./memory/glossary.md", "memory/glossary.md"]);
+      if (!md) {
+        list.innerHTML = '<div class="small" style="color:var(--red)">Could not load ' +
+          '<code>memory/glossary.md</code> — the dashboard needs to be served (or the file ' +
+          'must sit two directories as expected, <code>../memory/glossary.md</code> from ' +
+          "<code>docs/</code>); some browsers block file:// fetches of sibling files.</div>";
+        if (st) st.textContent = "";
+        return;
+      }
+      _glossaryMd = md;
+      _glossaryFetchedAt = Date.now();
+      if (st) st.textContent = "";
+      renderGlossary();
+    }
+
+    function renderGlossary() {
+      const list = $("glossaryList");
+      if (!list || !_glossaryMd) return;
+      list.innerHTML = renderGlossaryMarkdown(_glossaryMd);
+      filterGlossary();
+    }
+
+    // Filters table rows and paragraphs by a case-insensitive substring match;
+    // section headers always stay visible so the structure remains readable.
+    function filterGlossary() {
+      const list = $("glossaryList");
+      if (!list) return;
+      const q = (($("glossarySearch") || {}).value || "").trim().toLowerCase();
+      list.querySelectorAll("[data-search]").forEach(el => {
+        const match = !q || el.getAttribute("data-search").includes(q);
+        el.style.display = match ? "" : "none";
+      });
     }
 
     // ── Tab deep-linking & last-tab restore ───────────────────────────────

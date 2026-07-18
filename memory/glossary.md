@@ -4,6 +4,18 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-18 — Dashboard 📖 Glossary sub-tab (renders this file)
+
+| Term | Meaning |
+|------|---------|
+| Glossary sub-tab (Command) | `subpage-glossary` under the 🧭 Command parent tab (deep link `#glossary`), added per roadmap item "Add the glossary to the dashboard by adding a pane under command center called Glossary." Renders `memory/glossary.md` (this file) live in the dashboard instead of duplicating its content, so the two can never drift. |
+| `fetchLocalText(paths)` | Text-fetching sibling of `fetchLocalJson(paths)` in `docs/dashboard_professional.html` — same fallback-path-list pattern, returns the first path's raw text instead of parsed JSON. Used to load this file. |
+| `loadGlossary(force)` | Fetches `["../memory/glossary.md","./memory/glossary.md","memory/glossary.md"]` (first hit wins), 5-min cache (`GLOSSARY_CACHE_MS`), ↻ Refresh forces a re-read. Shows an explicit error (not a blank tab) if every path fails. |
+| `renderGlossaryMarkdown(md)` / `mdTable(rows)` / `mdInline(escaped)` | Tiny markdown-subset renderer covering only what this file uses: `#`/`##`/`###` headers, `\| … \|` tables (drops the `---\|---` separator row), `**bold**`, `` `code` ``, `---` rules. Input is HTML-escaped (`escapeHtml`) before any markdown pattern is applied, so the renderer can't be turned into an HTML-injection vector. |
+| `filterGlossary()` | Search box (`#glossarySearch`) that hides table rows/paragraphs whose lowercased text doesn't contain the query; section headers always stay visible so the document structure stays legible mid-search. |
+
+---
+
 ## 2026-07-18 — Trade-ticket portfolio-cap check
 
 | Term | Meaning |

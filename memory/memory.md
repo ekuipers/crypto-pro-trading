@@ -75,6 +75,31 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-07-18 — Roadmap: added the 📖 Glossary pane to the dashboard Command tab ("rescan roadmap" trigger)
+
+**Task:** `CLAUDE.md › Roadmap` item 1: "Add the glossary to the dashboard by adding a pane under command center called Glossary." Bugs list was empty (rule 0 gives bugs precedence over the roadmap, but there were none open), so "rescan roadmap" (rule 8) triggered implementation of this item directly.
+
+**Design decision:** Rather than hand-copying glossary content into the dashboard (which would drift from `memory/glossary.md` the moment either file was edited), the new sub-tab **renders the actual `memory/glossary.md` file live** — same principle as `config.json` already being fetched into the dashboard via `fetchLocalJson()`. This keeps `memory/glossary.md` as the single source of truth per the project's existing documentation-update rule.
+
+**Implementation (`docs/dashboard_professional.html`):**
+- Added a 4th sub-tab to the 🧭 Command parent tab: **📖 Glossary** (`subtab-glossary` / `subpage-glossary`), alongside Overview/News/Socials. `COMMAND_SUBS` extended to `["command-overview","news","socials","glossary"]`; `commandSubTab()` routes `"glossary"` to a new `loadGlossary()`. Deep link `#glossary` resolves via the existing `applyTabFromUrl()`/`SUBS` machinery — no changes needed there since it already concatenates `COMMAND_SUBS`.
+- `fetchLocalText(paths)`: text-fetching sibling of the existing `fetchLocalJson(paths)` helper (same fallback-path-list pattern), used to read the raw markdown file.
+- `loadGlossary(force)`: fetches `["../memory/glossary.md", "./memory/glossary.md", "memory/glossary.md"]` (first hit wins — `docs/` → `../memory/glossary.md` is the real path), 5-min cache (`GLOSSARY_CACHE_MS`), ↻ Refresh button forces a re-read. Shows a clear error message (not a silent blank tab) if every path 404s or the browser blocks the `file://` fetch.
+- `renderGlossaryMarkdown(md)` / `mdTable(rows)` / `mdInline(escaped)`: a deliberately tiny markdown-subset renderer covering exactly what `glossary.md` uses — `#`/`##`/`###` headers, `| … |` tables (drops the `---|---` separator row), `**bold**`, `` `code` ``, and `---` horizontal rules. Everything is HTML-escaped first (`escapeHtml`) then the inline markdown patterns are applied on the escaped text, so the renderer can't be used to inject arbitrary HTML even if the file content changes unexpectedly.
+- `filterGlossary()`: a search box (`#glossarySearch`) hides table rows and paragraphs whose lowercased text doesn't contain the query; section headers are never hidden so the document structure stays legible even mid-search.
+- Added `.glossary-h` / `.glossary-p` / `.glossary-table` CSS (reusing the existing `.table-wrap` scroll wrapper and `--text`/`--muted`/`--border` theme tokens — no new colors introduced).
+- Bumped the footer version to `v2026-07-18.2`.
+
+**Verified:**
+1. `node -e "new Function(...)"` on the extracted `<script>` block — 0 parse errors (388,899 chars, unchanged approach from prior sessions' truncation-safety check).
+2. Extracted just `escapeHtml`/`mdInline`/`mdTable`/`renderGlossaryMarkdown` via brace-matching (same technique as `tests/test_socials_fetch.js`) and ran `renderGlossaryMarkdown()` against the **real** `memory/glossary.md` (525 lines) in a Node sandbox: 169,811 chars of output, all 29 markdown tables parsed into `<table class="glossary-table">`, headers and `---` rules present, no exceptions.
+3. `wc -l` before/after (9797 → 9951 lines) and `tail -5` confirmed the file's closing `</body></html>` is intact — no truncation (the exact failure mode flagged in the Lessons section below).
+4. Did not start the local dashboard/node server per Workflow rule 2.
+
+**Docs:** `CLAUDE.md` (roadmap item moved to "none open", Command tab row + new Glossary row added to the feature table), `README.md` (Dashboard section: sub-tab list, hash-routing sentence, new bullet), `docs/dashboard_layout.md` (tab count line, `COMMAND_SUBS` mention, Command tab row), `memory/glossary.md` (new term entries below).
+
+---
+
 ### 2026-07-18 — Bug fix: manual trade-ticket dialog didn't honor the max portfolio cap ("rescan roadmap" trigger)
 
 **Task:** Owner filed directly in `CLAUDE.md › Bugs`: "When scanning the markets and the user executes an order, a dialog is shown to enter the order. However, the dialog isn't honoring the max. portfolio cap so the user can enter values over the cap resulting in a STOP trading permission block." Then sent "rescan roadmap" — per Workflow rule 8 this triggers implementation, and rule 0 gives the bugs list precedence over the (empty) roadmap.
