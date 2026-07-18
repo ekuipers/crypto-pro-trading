@@ -400,6 +400,34 @@ def _seven_day_drawdown() -> float:
 # of an absolute constant.
 _RECONCILE_DUST_REL_TOL = 0.005  # 5x the largest observed fee residual (~0.25%)
 
+def prune_stale_position_state(state: dict, open_symbols: list) -> list:
+    """Clear per-symbol state for any symbol no longer actually held.
+
+    ps.clear_position() was only ever called reactively from inside the
+    "position still held" branch of the main loop, or immediately after a
+    non-stop-loss TA exit — a full close via any stop-loss-type exit
+    (swing-low stop, trailing stop, breakeven-after-partial-TP) drops the
+    symbol out of open_symbols on the very next cycle, so its stale
+    partial_tp_done / breakeven_stop / stop_order_id never got cleared and
+    were misapplied to the next, unrelated position opened for that symbol
+    (Bug #7, 2026-07-18). Mirrors the dashboard Autopilot's existing
+    heldSyms prune (docs/dashboard_professional.html: `if
+    (!heldSyms.includes(k)) delete hwm[k]/partialTp[k]/entryTime[k]`),
+    which already does this correctly.
+    """
+    warnings: list = []
+    held = set(open_symbols)
+    for sym in list(state.get("positions", {}).keys()):
+        if sym not in held:
+            ps.clear_position(state, sym)
+            warnings.append(
+                "STALE STATE PRUNED: %s no longer held — cleared stale "
+                "position tracking (partial-TP/breakeven/stop-order state)"
+                % sym
+            )
+    return warnings
+
+
 def reconcile_positions_from_fills(
     state: dict, positions: list, fills: list | None = None
 ) -> list:
@@ -1587,6 +1615,10 @@ def main() -> int:
     open_symbols = [to_slash(p.get("symbol", "")) for p in positions]
 
     journal_warnings: list = []
+
+    for w in prune_stale_position_state(state, open_symbols):
+        print("INFO: " + w)
+        journal_warnings.append(w)
 
     # Cadence self-monitoring (Bug #4, 2026-07-10): the spec is one evaluation
     # per hour at :23, but the real cadence degraded to 5-7 runs/day, leaving

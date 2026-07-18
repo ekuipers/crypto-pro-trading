@@ -25,7 +25,7 @@ Creator: Erik Kuipers
 
 
 ## Bugs
-*(none open — Bug #6 "fee-residue false partial-TP reconciliation" fixed 2026-07-18, see `memory/memory.md`; Twitter/X feed fetching investigated 2026-07-13: confirmed a hard platform limitation, not a code bug; Telegram-mirror sources kept + unit tested)*
+*(none open — Bug #7 "stale per-symbol state never cleared on stop-loss exit" + Bug #6 "fee-residue false partial-TP reconciliation" fixed 2026-07-18, see `memory/memory.md`; Twitter/X feed fetching investigated 2026-07-13: confirmed a hard platform limitation, not a code bug; Telegram-mirror sources kept + unit tested)*
 
 ---
 
@@ -302,7 +302,19 @@ Example: $100,000 equity, LINK ask $15, ATR $0.30, LINK cap = 5%
    −5% stop), SELL `partial_tp_fraction` (50%) at the normal limit band and
    raise the remaining stop to breakeven. Fires once per position
    (`partial_tp_done` in the state file); the remainder rides the trail.
-   **Bug #6 fix (2026-07-18):** `reconcile_positions_from_fills()`
+   **Bug #7 fix (2026-07-18):** `data/positions_state.json` only ever
+   cleared a symbol's `partial_tp_done`/`breakeven_stop`/`stop_order_id`
+   reactively — from inside the "position still held" branch, or right
+   after a non-stop-loss TA exit. A full close via any **stop-loss-type**
+   exit (swing-low stop, trailing stop, breakeven-after-partial-TP) drops
+   the symbol out of the held-positions list on the very next cycle, so
+   that cleanup code path is never reached again — the stale flags survive
+   indefinitely and get misapplied to the *next*, unrelated position opened
+   for that symbol. The dashboard Autopilot already did this correctly
+   (`if (!heldSyms.includes(k)) delete hwm[k]/partialTp[k]/entryTime[k]`
+   every cycle); Python gained the equivalent
+   `prune_stale_position_state()` pass, run once per evaluation right after
+   the live positions fetch. **Bug #6 fix (2026-07-18):** `reconcile_positions_from_fills()`
    (`scripts/run_evaluation.py`) rebuilds this flag from Alpaca fill history
    when state is lost — but Alpaca paper SELL fills land ~0.1–0.25% short of
    the matching BUY qty (fee/precision rounding), so the old absolute

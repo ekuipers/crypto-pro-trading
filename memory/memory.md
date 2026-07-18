@@ -75,6 +75,23 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-07-18 — Bug #7: Python never cleared stale per-symbol state on a stop-loss-type full close (dashboard Autopilot already did this correctly)
+
+**Task:** Follow-up to the Bug #6 fix (below): owner asked to check consistency between `scripts/*.py` and the dashboard Autopilot's buy/sell order logic. Direct code comparison surfaced a second, independent defect in the same failure family.
+
+**Investigation:**
+- Live-queried `/v2/positions` — the account currently holds **only BTC/USD**. Yet `data/positions_state.json` still carried `partial_tp_done: true` (with a stale `breakeven_stop` at or near the old entry price) for **8 fully-closed symbols**: BAT, CRV, SOL, AAVE, LTC, ETH, DOT, LINK.
+- Root cause, found by direct code reading (`scripts/run_evaluation.py`): `ps.clear_position()` — which resets `partial_tp_done`/`breakeven_stop`/`stop_order_id`/etc. — is only called from two places: (1) inside the "position still held" branch, when a tracked `stop_order_id` is found to be filled/gone (requires the symbol to *still* appear in `position_by_symbol` that same cycle — i.e., a partial fill scenario, not a full close); (2) immediately after submitting a **non-stop-loss TA exit** (`elif d["action"] in ("SELL","COVER") and not is_stop_loss: ps.clear_position(...)`). Every **stop-loss-type** full exit (swing-low stop, trailing stop, breakeven-after-partial-TP — anything with `is_stop_loss=True`) only calls `ps.set_stop_order()`, never `clear_position()`. Once that exit fully closes the position, the symbol drops out of `position_by_symbol` on the *next* cycle, so the branch that would eventually clear it is never reached again — the stale flags persist forever, waiting to be misapplied to the next unrelated position opened for that symbol (this is what made the LTC/USD 2026-07-17 incident's "breakeven $45.8120" not even match that trade's real entry of $45.9060 — it was carried over from an earlier, unrelated LTC round trip).
+- Compared against the dashboard: `docs/dashboard_professional.html`'s Autopilot **already implements the correct behavior** — every cycle it prunes `hwm`/`partialTp`/`entryTime` for any symbol not in `heldSyms` (`Object.keys(hwm).forEach(k => { if (!heldSyms.includes(k)) delete hwm[k]; })`, mirrored for the other two maps). Python had no equivalent pass.
+
+**Fix (`scripts/run_evaluation.py`):** added `prune_stale_position_state(state, open_symbols)` — clears `ps.clear_position()` for every symbol in `state["positions"]` not present in the current cycle's live `open_symbols`. Called once in `main()`, right after the live positions fetch and `open_symbols` list are built (before reconciliation and per-symbol decisions run). Mirrors the dashboard's `heldSyms` prune exactly.
+
+**Verified:** `tests/test_reconcile.py::TestPruneStaleState` (2 new tests: a closed symbol's state is cleared, a still-held symbol's state is untouched). Full suite: 171/171 pass. Also **applied the fix to the live `data/positions_state.json`** directly (ran `prune_stale_position_state` against the real file with the real live position list `["BTC/USD"]`) rather than waiting for the next scheduled run — removed the 8 stale entries (113 lines), leaving only `BTC/USD`.
+
+**Not changed:** did not touch the dashboard — its behavior was already correct and was the reference implementation for this fix.
+
+---
+
 ### 2026-07-18 — Bug #6: fee-residue false partial-TP reconciliation caused fast, mostly-losing buy→sell round trips
 
 **Task:** Owner reported "buy orders are followed up with sell orders way too fast, resulting in negative profit most of the trades" and asked for an analysis using the journal + execution history. Per Workflow rule 0 the finding became a bugs-list item and was fixed immediately.

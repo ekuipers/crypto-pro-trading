@@ -4,6 +4,15 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-18 — Bug #7: stale per-symbol state prune (Python/dashboard consistency)
+
+| Term | Meaning |
+|------|---------|
+| `prune_stale_position_state(state, open_symbols)` | Function in `scripts/run_evaluation.py`. Calls `ps.clear_position()` for every symbol in `state["positions"]` not present in the current cycle's live `open_symbols`. Called once in `main()` right after the positions fetch. Added 2026-07-18 to mirror the dashboard Autopilot's existing `heldSyms` prune — Python previously only cleared per-symbol state reactively (inside the "still held" branch, or after a non-stop-loss TA exit), so a full close via any stop-loss-type exit left `partial_tp_done`/`breakeven_stop`/`stop_order_id` stale forever (Bug #7). |
+| `heldSyms` prune (dashboard) | `docs/dashboard_professional.html`'s Autopilot: every cycle, `Object.keys(hwm).forEach(k => { if (!heldSyms.includes(k)) delete hwm[k]; })` (mirrored for `partialTp` and `entryTime`). This was already correct before the Python-side fix — it was the reference implementation `prune_stale_position_state()` was modeled on. |
+
+---
+
 ## 2026-07-18 — Bug #6: reconciliation dust-tolerance fix
 
 | Term | Meaning |

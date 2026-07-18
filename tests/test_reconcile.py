@@ -99,6 +99,29 @@ class TestPartialTpIdempotency:
         m.assert_not_called()  # nothing to rebuild — no fills fetch at all
 
 
+class TestPruneStaleState:
+    def test_closed_symbol_state_is_cleared(self):
+        # Real 2026-07-18 finding: LTC/USD fully closed via a stop-loss exit,
+        # but nothing ever called clear_position() for it (that only fires
+        # from the "still held" branch or a non-stop-loss TA exit), so its
+        # stale partial_tp_done/breakeven_stop survived indefinitely.
+        state = dict(ps._EMPTY_STATE, positions={})
+        ps.mark_partial_tp(state, "LTC/USD", 45.812)
+        assert ps.get_position(state, "LTC/USD")["partial_tp_done"] is True
+
+        warnings = re_mod.prune_stale_position_state(state, open_symbols=["BTC/USD"])
+
+        assert "LTC/USD" not in state["positions"]
+        assert any("LTC/USD" in w for w in warnings)
+
+    def test_held_symbol_state_is_untouched(self):
+        state = dict(ps._EMPTY_STATE, positions={})
+        ps.mark_partial_tp(state, "BTC/USD", 80000.0)
+        warnings = re_mod.prune_stale_position_state(state, open_symbols=["BTC/USD"])
+        assert state["positions"]["BTC/USD"]["partial_tp_done"] is True
+        assert warnings == []
+
+
 class TestEntryPriceGuard:
     def test_negative_avg_entry_replaced_with_fifo(self):
         fills = [
