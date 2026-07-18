@@ -10,9 +10,20 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 |------|---------|
 | Glossary sub-tab (Command) | `subpage-glossary` under the 🧭 Command parent tab (deep link `#glossary`), added per roadmap item "Add the glossary to the dashboard by adding a pane under command center called Glossary." Renders `memory/glossary.md` (this file) live in the dashboard instead of duplicating its content, so the two can never drift. |
 | `fetchLocalText(paths)` | Text-fetching sibling of `fetchLocalJson(paths)` in `docs/dashboard_professional.html` — same fallback-path-list pattern, returns the first path's raw text instead of parsed JSON. Used to load this file. |
-| `loadGlossary(force)` | Fetches `["../memory/glossary.md","./memory/glossary.md","memory/glossary.md"]` (first hit wins), 5-min cache (`GLOSSARY_CACHE_MS`), ↻ Refresh forces a re-read. Shows an explicit error (not a blank tab) if every path fails. |
+| `loadGlossary(force)` | Fetches `["../memory/glossary.md","./memory/glossary.md","memory/glossary.md"]` (first hit wins), 5-min cache (`GLOSSARY_CACHE_MS`), ↻ Refresh forces a re-read. Falls back to `GLOSSARY_FALLBACK_MD` when every path fails (bugfix below) instead of showing a dead-end error. |
 | `renderGlossaryMarkdown(md)` / `mdTable(rows)` / `mdInline(escaped)` | Tiny markdown-subset renderer covering only what this file uses: `#`/`##`/`###` headers, `\| … \|` tables (drops the `---\|---` separator row), `**bold**`, `` `code` ``, `---` rules. Input is HTML-escaped (`escapeHtml`) before any markdown pattern is applied, so the renderer can't be turned into an HTML-injection vector. |
 | `filterGlossary()` | Search box (`#glossarySearch`) that hides table rows/paragraphs whose lowercased text doesn't contain the query; section headers always stay visible so the document structure stays legible mid-search. |
+
+---
+
+## 2026-07-18 — Bug fix: Glossary tab dead-ended when the live fetch was blocked
+
+| Term | Meaning |
+|------|---------|
+| `file://` local-fetch restriction | Browser security policy (Chrome in particular) blocking `fetch()`/`XMLHttpRequest()` reads of a *different* local file from a page loaded via `file://`, with no page-script workaround. Root cause of the "Could not load memory/glossary.md" bug — not a wrong relative path; the same restriction already silently affects `loadConfigFromFile()`'s `config.json` fetch, which degrades gracefully (console-only) because it has a harmless fallback (browser-stored settings). Glossary had none, so it was the first tab where this general limitation became user-visible. |
+| `GLOSSARY_FALLBACK_MD` | Small built-in markdown constant in `docs/dashboard_professional.html` — a curated, deliberately low-churn subset of this file (Acronyms & Abbreviations table + ~14 core conceptual Trading Terms). Excludes the fast-changing dated/implementation-detail sections so it won't need touching on every glossary.md edit. Used by `loadGlossary()` whenever the live fetch of `memory/glossary.md` fails. |
+| `_glossaryLive` | Boolean set by `loadGlossary()` — `true` when the live file fetch succeeded, `false` when showing `GLOSSARY_FALLBACK_MD`. Drives the `#glossaryStatus` line's text/color (muted "Live from memory/glossary.md" vs yellow fallback explanation + ↻ Refresh prompt). |
+| Raw-GitHub fallback (ruled out) | Considered fetching `raw.githubusercontent.com/.../memory/glossary.md` as a network fallback (works cross-origin from `file://` unlike local-file fetch, since Alpaca API calls already do this). Ruled out: `curl` confirmed the repo 404s unauthenticated (private repo), and embedding a GitHub token client-side to work around that would violate the project's own secret-handling rule. |
 
 ---
 

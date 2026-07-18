@@ -75,6 +75,28 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-07-18 — Bug fix: Glossary sub-tab dead-ended on "Could not load memory/glossary.md" ("rescan roadmap" trigger)
+
+**Task:** Owner opened the newly-shipped 📖 Glossary sub-tab (previous session) and filed directly in `CLAUDE.md › Bugs`: "Could not load memory/glossary.md — the dashboard needs to be served (or the file must sit two directories as expected, ../memory/glossary.md from docs/); some browsers block file:// fetches of sibling files." — that text is literally the error message the tab itself showed. Then sent "rescan roadmap"; per rule 8 that triggers implementation, and rule 0 gives the (now-filed) bug precedence over the roadmap (which was already empty).
+
+**Investigation:** Confirmed this is a genuine, structural limitation, not a wrong relative path: `docs/dashboard_professional.html` is designed to be opened directly via `file://` (`CLAUDE.md` workflow rule 2 explicitly forbids starting a local server), and most browsers — Chrome in particular — block `fetch()`/`XMLHttpRequest()` reads of a *different* local file from a page loaded via `file://`, with no workaround available from page script (this is a browser security policy, not a bug in the fetch call itself). The dashboard's existing `loadConfigFromFile()` already hits this same wall for `config.json`, but degrades silently (`console.info`, not a UI error) because it has a harmless fallback — browser-stored settings. The new Glossary tab had no equivalent fallback, so the *first* time this general limitation became user-visible was the tab that had no graceful degradation path. Verified the private repo can't be used as a network fallback either: `curl` confirmed general internet connectivity works from this environment (`api.github.com` → 200) but `raw.githubusercontent.com/ekuipers/alpaca-trading-agent/main/...` 404s for both `README.md` and `glossary.md` — consistent with the repo being private, so an unauthenticated raw-GitHub fetch is a dead end, and embedding a GitHub token client-side to work around it would violate the project's own secret-handling rule.
+
+**Fix (`docs/dashboard_professional.html`):**
+- Added a small built-in `GLOSSARY_FALLBACK_MD` constant: a deliberately low-churn curated subset of the real glossary — the Acronyms & Abbreviations table plus ~14 core conceptual Trading Terms (Confluence score, Wyckoff phases, Golden/Death cross, BB squeeze, Regime, Hard cap, ATR sizing, Trailing stop, HWM, Correlation budget, Tier-1 symbols, Daily drawdown gate, Short stop-loss/regime gate, Live R:R). Deliberately excludes the fast-changing dated/implementation-detail sections (function names, dashboard internals) so it won't need updating on every code change the way `memory/glossary.md` itself does.
+- `loadGlossary(force)` now sets `_glossaryLive = !!md` and falls back to `GLOSSARY_FALLBACK_MD` when the live fetch returns nothing, instead of blanking the list with a red dead-end error. The status line (`#glossaryStatus`) shows "Live from memory/glossary.md" (muted) when the fetch succeeded, or a yellow explanation + ↻ Refresh prompt when showing the fallback.
+- Updated the sub-tab's intro text to mention the fallback behavior.
+- Bumped the footer version to `v2026-07-18.3`.
+
+**Verified:**
+1. `node -e "new Function(...)"` on the extracted `<script>` block — 0 parse errors (392,770 chars after the addition).
+2. Extracted `GLOSSARY_FALLBACK_MD` + `escapeHtml`/`mdInline`/`mdTable`/`renderGlossaryMarkdown` via marker/brace-matching into a Node sandbox (script saved to the session scratchpad, not the repo) and ran the renderer against the fallback string directly: 2,586 chars of markdown → 6,090 chars of HTML, both tables (`.glossary-table`) parsed correctly, no exceptions.
+3. `wc -l` (9951 → 10007) and `tail -3` confirmed the file's closing `</body></html>` is intact — no truncation.
+4. Did not start the local dashboard/node server per Workflow rule 2.
+
+**Docs:** `CLAUDE.md` (bug cleared, Glossary feature-table row updated), `README.md`, `docs/dashboard_layout.md`, `memory/glossary.md` (new terms below).
+
+---
+
 ### 2026-07-18 — Roadmap: added the 📖 Glossary pane to the dashboard Command tab ("rescan roadmap" trigger)
 
 **Task:** `CLAUDE.md › Roadmap` item 1: "Add the glossary to the dashboard by adding a pane under command center called Glossary." Bugs list was empty (rule 0 gives bugs precedence over the roadmap, but there were none open), so "rescan roadmap" (rule 8) triggered implementation of this item directly.
