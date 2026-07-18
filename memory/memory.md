@@ -8,6 +8,16 @@
 
 ---
 
+## v2026-07-18.5 — 2026-07-18 — CryptoPro suite favicon & logo
+
+**Change (branding, requested by Erik):** Added the shared CryptoPro suite favicon to the dashboard:
+`docs/favicon.svg` (dark navy rounded square, green/red rising candlesticks, green trend line,
+orange badge — this app's badge is opposing buy/sell arrows; Charts uses a line-chart badge,
+Training a graduation cap) plus raster fallbacks `favicon.ico`, `favicon-32.png`,
+`apple-touch-icon.png` (cairosvg). `dashboard_professional.html`: favicon `<link>` tags added to
+`<head>`, header logo 📊 emoji replaced with the icon image, footer version bumped to
+v2026-07-18.5. **Verified:** icon rendered at 180px and inspected visually; grepped head for links.
+
 ## What It Is
 
 An autonomous paper crypto trading agent built on the Alpaca API. It evaluates 10 crypto symbols on a 24/7 schedule using a 6-point signal confluence system, multi-timeframe analysis (daily / 4H / 15-min), and ATR-based position sizing. All orders flow through `scripts/trade.py` which enforces hard risk rules in code.
