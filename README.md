@@ -1,4 +1,4 @@
-# Alpaca Crypto Trading Agent
+# CryptoPro Trader
 
 ## Description: 
 A fully automated crypto trading agent running on Alpaca. The agent evaluates
