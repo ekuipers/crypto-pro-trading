@@ -1,6 +1,7 @@
 # Alpaca Crypto Trading Agent
 
-A fully automated crypto trading agent running on Alpaca paper trading. The agent evaluates
+## Description: 
+A fully automated crypto trading agent running on Alpaca. The agent evaluates
 10 crypto symbols every hour using a 6-point Signal Confluence strategy, places limit orders
 when a score threshold is met, and journals every decision. A walk-forward backtester runs
 daily to validate strategy robustness.

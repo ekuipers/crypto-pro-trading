@@ -1,7 +1,6 @@
 # Introduction
-Description: Professional multi-chart cryptocurrency trading & analytics platform.
-
-Project name: CryptoPro Dashboard
+Description: Professional cryptocurrency trading & analytics platform.
+Project name: CryptoPro Trader
 Creator: Erik Kuipers
 
 ---
@@ -13,11 +12,12 @@ Creator: Erik Kuipers
 3. Move completed roadmap items and bug fixes to the memory file for reference and change log purpose.
 4. Automatically commit changes to git and sync with remote repo.
 5. Update readme.md to reflect changes.
-6. Add a footer to the webpage. Add Project description, creator, last modified date and version number to the Footer
+6. Add a footer to the webpage. Add Project description, creator, last modified date and version number.
 7. Before analyzing any code change, read the memory for earlier changes.
 8. a "rescan roadmap" request triggers implementation, not just a status report.
 9. Self-learning: When I correct you, or you catch yourself making a mistake: before continuing, add the lesson as a one line rule under ## lessons in the memory.md file, so it never happens again.
 10. do not remove the .env file as it is used for local runs.
+11. Keep a maximum of 2 months of journals and reports.
 
 ---
 
