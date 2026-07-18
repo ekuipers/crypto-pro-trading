@@ -25,7 +25,7 @@ Creator: Erik Kuipers
 
 
 ## Bugs
-*(none open — Twitter/X feed fetching investigated 2026-07-13: confirmed a hard platform limitation, not a code bug; Telegram-mirror sources kept + unit tested, see `memory/memory.md`)*
+*(none open — Bug #6 "fee-residue false partial-TP reconciliation" fixed 2026-07-18, see `memory/memory.md`; Twitter/X feed fetching investigated 2026-07-13: confirmed a hard platform limitation, not a code bug; Telegram-mirror sources kept + unit tested)*
 
 ---
 
@@ -302,6 +302,17 @@ Example: $100,000 equity, LINK ask $15, ATR $0.30, LINK cap = 5%
    −5% stop), SELL `partial_tp_fraction` (50%) at the normal limit band and
    raise the remaining stop to breakeven. Fires once per position
    (`partial_tp_done` in the state file); the remainder rides the trail.
+   **Bug #6 fix (2026-07-18):** `reconcile_positions_from_fills()`
+   (`scripts/run_evaluation.py`) rebuilds this flag from Alpaca fill history
+   when state is lost — but Alpaca paper SELL fills land ~0.1–0.25% short of
+   the matching BUY qty (fee/precision rounding), so the old absolute
+   `1e-6` "flat" epsilon never caught a full close, misreading it as a
+   partial sell forever after. Every new position then reconciled as
+   "partial TP already done" on its very first evaluation, pinning the stop
+   to breakeven before any real profit — the cause of fast, mostly-losing
+   buy→sell round trips. Fixed by comparing the leftover lot qty against a
+   tolerance relative to the lot's original size (`_RECONCILE_DUST_REL_TOL`
+   = 0.5%) instead of an absolute constant.
 3. **Swing-low stop** (TA-driven, replaced the fixed −5% on 2026-06-19): SELL
    immediately if price falls to/through the previous 4H range low — the lowest
    low of the last `swing_low_lookback_bars` (20) completed 4H bars, less a small

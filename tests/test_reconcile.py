@@ -13,6 +13,15 @@ true cost basis.
 
 Bug #4 (P1): cadence self-monitoring — daily_summary FIFO helper.
 
+Bug #6 (P0, 2026-07-18): Alpaca paper-fill SELL quantities land ~0.1-0.25%
+below the matching BUY (fee/precision rounding). The old absolute 1e-6
+"flat" epsilon never caught this, so every full-position close was
+misread as a partial sell, permanently inflating sells_since_start for
+that symbol. Every new position then reconciled as "partial TP already
+done" on its first evaluation, pinning the stop to breakeven before any
+real profit — the root cause of fast, mostly-losing buy->sell round
+trips. Fixed by using a tolerance relative to the lot's original size.
+
 No network calls — _fetch_all_fills is mocked.
 """
 from unittest.mock import patch
@@ -62,6 +71,22 @@ class TestPartialTpIdempotency:
         state, _ = _run(fills, positions)
         pos = ps.get_position(state, "BTC/USD")
         assert pos["partial_tp_done"] is False
+
+    def test_fee_mismatched_full_close_not_counted_as_partial(self):
+        # Real 2026-07-17 LTC/USD incident: buy 59.693, then a "full" close
+        # sell of only 59.5616754 (0.22% short — Alpaca fee/precision
+        # rounding). That round trip fully closed the position; it must
+        # NOT be read as a partial TP against the fresh buy that follows.
+        fills = [
+            _fill("buy",  "LTCUSD", 59.693,      45.9060, "2026-07-18T08:00:00Z"),
+            _fill("sell", "LTCUSD", 59.5616754,  44.9684, "2026-07-17T06:30:00Z"),
+            _fill("buy",  "LTCUSD", 59.693,      45.9060, "2026-07-17T03:41:00Z"),
+        ]
+        positions = [_pos("LTCUSD", 59.693, 45.9060)]
+        state, warnings = _run(fills, positions)
+        pos = ps.get_position(state, "LTC/USD")
+        assert pos["partial_tp_done"] is False
+        assert not any("PARTIAL-TP RECONCILED" in w for w in warnings)
 
     def test_already_done_flag_untouched(self):
         state = dict(ps._EMPTY_STATE, positions={})

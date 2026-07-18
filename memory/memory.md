@@ -75,6 +75,25 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-07-18 — Bug #6: fee-residue false partial-TP reconciliation caused fast, mostly-losing buy→sell round trips
+
+**Task:** Owner reported "buy orders are followed up with sell orders way too fast, resulting in negative profit most of the trades" and asked for an analysis using the journal + execution history. Per Workflow rule 0 the finding became a bugs-list item and was fixed immediately.
+
+**Investigation:** Spawned the `market-researcher` agent to pull the full live paper-account FIFO fill history (`edgeFetchAllFills()`-style pagination, not a single 100-fill page) and cross-reference every SELL against its stated journal exit reason. Findings, verified directly against the code afterward:
+
+- Of the last 9 SELL decisions logged since 2026-07-11, 8 (89%) were labeled `STOP-LOSS (breakeven after partial TP)` — and every one closed ~99.8–100% of the position, not the 50% scale-out the label implies. The real `should_partial_tp()` path hasn't legitimately fired since 2026-07-10.
+- Aggregate live paper P&L: 276 FIFO round trips, 47.8% win rate, profit factor 0.29, **-$6,614.67 realized**.
+- Root cause: `reconcile_positions_from_fills()` (`scripts/run_evaluation.py`) rebuilds `partial_tp_done` from Alpaca's own fill history when state is lost, by FIFO-walking BUY/SELL fills and checking `if lot[0] < 1e-6` to decide a lot fully closed. Alpaca paper SELL fills consistently return qty ~0.1–0.25% *smaller* than the matching BUY (fee/precision rounding — confirmed across 15 symbols, e.g. the 2026-07-17 LTC/USD round trip: buy 59.693 @ $45.9060, sell 59.5616754 @ $44.9684, a 0.22% short-fill). That residual is far above the old absolute epsilon, so a fully-closed lot never popped to empty, and the per-symbol `sells_since_start` counter (meant to detect a genuine scale-out) kept incrementing forever across every historical round trip instead of resetting on a real full close.
+- Consequence: every brand-new position for a previously-traded symbol saw a stale non-zero `sells_since_start` on its very first post-entry evaluation, triggered `mark_partial_tp()`, and pinned `breakeven_stop = entry` immediately — before any real profit. `eff_stop = max(swing_stop, breakeven)` then picked the tight breakeven price over the intended TA swing-low stop (up to 8% of room), so ordinary volatility took the position out within hours of entry, mislabeled as a "breakeven" exit even when the fill landed materially below entry (spread/band + price drift during the exit's own cycle).
+
+**Fix (`scripts/run_evaluation.py`, `reconcile_positions_from_fills`):** lots now carry their original quantity (`[remaining, price, original_qty]`); the "fully closed" check compares the leftover against `max(1e-9, original_qty * _RECONCILE_DUST_REL_TOL)` (0.5% relative tolerance — 2x the largest observed ~0.25% fee residual) instead of an absolute `1e-6`. A full close now correctly zeroes the lot queue and resets `sells_since_start`/`start_iso`; a genuine ~50% partial sell still leaves well above the dust threshold and is still correctly detected.
+
+**Verified:** Added `tests/test_reconcile.py::TestPartialTpIdempotency::test_fee_mismatched_full_close_not_counted_as_partial`, replaying the exact real LTC/USD figures above — asserts a fresh position after that fee-mismatched full close does NOT reconcile as partial-TP-done. Full suite: `python -m pytest tests/` → 169/169 pass (10/10 in `test_reconcile.py`).
+
+**Not changed (scoped out):** did not add a stricter "sell must be ~`partial_tp_fraction` of position" check on top of the dust fix — the dust fix alone removes the false accumulation that was the confirmed cause; adding fraction-matching now would be speculative hardening without an observed failure mode to justify it.
+
+---
+
 ### 2026-07-13 — Bug: Socials tab Twitter/X feeds still not fetched — investigated, confirmed platform limitation, added unit tests (v2026-07-13.2)
 
 **Task:** "rescan roadmap." Per Workflow rule 0 the bugs list took precedence. `git fetch origin main` confirmed the local checkout was already current (no divergence this time — see the `[[Lessons]]` entry below about always checking first).

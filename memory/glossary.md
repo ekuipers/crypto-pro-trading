@@ -4,6 +4,16 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-18 — Bug #6: reconciliation dust-tolerance fix
+
+| Term | Meaning |
+|------|---------|
+| `_RECONCILE_DUST_REL_TOL` | Constant in `scripts/run_evaluation.py` (0.005 = 0.5%). Used by `reconcile_positions_from_fills()`'s FIFO walk to decide a lot has fully closed: leftover qty must be below `original_qty * _RECONCILE_DUST_REL_TOL`, not a fixed `1e-6`. Replaces the old absolute epsilon, which was smaller than Alpaca's typical ~0.1–0.25% fee/precision short-fill on SELLs and so never fired — every full close was misread as a partial sell, permanently inflating `sells_since_start` and fabricating "breakeven after partial TP" stops on brand-new positions (Bug #6). |
+| `sells_since_start` | Per-symbol counter inside `reconcile_positions_from_fills()`'s FIFO walk — counts SELL fills that left the lot queue non-empty (i.e. a genuine scale-out) since the last flat→long transition. Must reset to 0 when a lot queue truly empties; the dust-tolerance bug (fixed 2026-07-18) meant it never reset for symbols whose SELL fills always left fee-residue dust behind. |
+| fee-residue short-fill | Alpaca paper-account SELL fills return a quantity ~0.1–0.25% smaller than the matching BUY quantity for the same qty ordered — a fee/precision rounding artifact, confirmed across 15 traded symbols (e.g. LTC 0.99791, AAVE 0.99856, LINK 0.99858 of the original qty). Any FIFO reconciliation logic comparing "remaining lot qty" to an absolute near-zero epsilon must account for this. |
+
+---
+
 ## 2026-07-13 — Socials Twitter/X fetch investigation + unit tests (v2026-07-13.2)
 
 | Term | Meaning |

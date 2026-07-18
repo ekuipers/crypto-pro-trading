@@ -376,7 +376,7 @@ def _seven_day_drawdown() -> float:
 
 
 # ---------------------------------------------------------------------------
-# Position reconciliation from fill history (Bugs #1 + #3, 2026-07-10)
+# Position reconciliation from fill history (Bugs #1 + #3, 2026-07-10; #6, 2026-07-18)
 # ---------------------------------------------------------------------------
 # The state file (data/positions_state.json) was not committed by the runner
 # for weeks, so per-position flags reset every run: the +1R partial TP
@@ -387,6 +387,18 @@ def _seven_day_drawdown() -> float:
 # corrupt (negative) avg_entry_price after repeated partial sells
 # ("SOL/USD HOLD @ $-4.4931 (-1842.96%)"); the FIFO open lots give the true
 # cost basis.
+#
+# Bug #6 (2026-07-18): Alpaca paper-fill SELL quantities come back ~0.1-0.25%
+# smaller than the matching BUY (fee/precision rounding), so a lot's leftover
+# qty after a full-position close never dropped below the old 1e-6 absolute
+# epsilon. Every full close was misread as "partial sell — position
+# survives," permanently inflating sells_since_start for that symbol. Every
+# brand-new position then reconciled as "partial TP already done" on its
+# first evaluation, pinning the stop to breakeven before any real profit —
+# causing fast, mostly-losing buy->sell round trips. Fixed by comparing the
+# leftover against a tolerance relative to the lot's original size instead
+# of an absolute constant.
+_RECONCILE_DUST_REL_TOL = 0.005  # 5x the largest observed fee residual (~0.25%)
 
 def reconcile_positions_from_fills(
     state: dict, positions: list, fills: list | None = None
@@ -438,7 +450,7 @@ def reconcile_positions_from_fills(
             if not h["lots"]:          # flat -> long transition
                 h["start_iso"]         = when
                 h["sells_since_start"] = 0
-            h["lots"].append([qty, price])
+            h["lots"].append([qty, price, qty])  # [remaining, price, original_qty]
         elif side == "sell":
             remaining = qty
             while remaining > 1e-9 and h["lots"]:
@@ -446,7 +458,8 @@ def reconcile_positions_from_fills(
                 m = min(remaining, lot[0])
                 lot[0]    -= m
                 remaining -= m
-                if lot[0] < 1e-6:
+                dust = max(1e-9, lot[2] * _RECONCILE_DUST_REL_TOL)
+                if lot[0] < dust:
                     h["lots"].pop(0)
             if h["lots"]:
                 h["sells_since_start"] += 1   # partial sell — position survives
