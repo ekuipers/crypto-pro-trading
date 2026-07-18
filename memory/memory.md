@@ -1174,8 +1174,17 @@ python scripts/rebalance.py --execute # place orders
 
 - **Change:** `CLAUDE.md` header updated from "CryptoPro Dashboard" / "Professional multi-chart cryptocurrency trading & analytics platform" to **"CryptoPro Trader" / "Professional cryptocurrency trading & analytics platform"**; footer-instruction wording trimmed (rule 6); new **rule 11** added: "Keep a maximum of 2 months of journals and reports." `README.md` gained a `## Description:` heading and dropped "paper trading" from the one-line description (agent now also supports live routing, not paper-only).
 - **Why logged now:** these edits already existed as uncommitted working-tree changes when this session started (carried over from an earlier session) but were never appended to `memory.md`, tripping the project's own documentation-update rule via the session Stop hook. No further code/behavior change was made — this entry only closes the documentation gap for edits already present in `CLAUDE.md`/`README.md`.
-- **Outstanding:** rule 11 (2-month journal/report retention) is a stated policy only — no automated pruning script exists yet for `journal/` or `reports/`/`data/market_research/`. Flag for a future roadmap item if enforcement should be automated.
+- **Outstanding (resolved same day, see below):** rule 11 (2-month journal/report retention) is a stated policy only — no automated pruning script exists yet for `journal/` or `reports/`/`data/market_research/`. Flag for a future roadmap item if enforcement should be automated.
 - **Verified:** `git diff CLAUDE.md README.md` reviewed line-by-line; no unrelated content touched.
+
+---
+
+## 2026-07-18 — Retention rule 11 first manual enforcement pass
+
+- **Problem:** Rule 11 ("Keep a maximum of 2 months of journals and reports.") had only ever been stated as policy, never executed. Ran it manually against a 2026-05-18 cutoff (2 months back from today, 2026-07-18).
+- **Fix:** Removed 9 stale journal entries (`journal/2026-05-09.md` … `journal/2026-05-17.md`) and 16 stale walkforward report files from `reports/` (`walkforward_20260513T154036Z.*` … `walkforward_20260517T095943Z.*`, 8 timestamped runs × json+md, one run missing its `.json`). `data/market_research/` had nothing older than the cutoff (oldest file is 2026-06-11), so it was left untouched. `reports/walkforward_latest.json` and `reports/trading-analysis-2026-05-27.md` are within the window and were kept.
+- **Verified:** Directory listing after deletion confirms the oldest remaining journal entry is `2026-05-18.md` and the oldest remaining walkforward report is `walkforward_20260518T115504Z.*` — both exactly at the 2-month boundary, consistent with an inclusive cutoff.
+- **Note:** Still no scheduled/automated job — this was a manual pass triggered by an explicit user request ("execute workflow rule 17", referring to this retention rule). Future sessions should re-run this check periodically since nothing currently fires it on its own.
 
 ## lessons
 - Any `fetch()`/XHR of a same-origin relative local file (config.json, positions_state.json, glossary.md, etc.) in `docs/dashboard_professional.html` can be silently blocked when the dashboard is opened via `file://` — never rely on it as the *only* source for cross-engine state; prefer deriving the same fact from an HTTPS call (e.g. Alpaca's own API via `apiFetch`) when one is available, and treat the local-file fetch as a best-effort enhancement only.
