@@ -4,6 +4,15 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-18 — Trade-ticket portfolio-cap check
+
+| Term | Meaning |
+|------|---------|
+| `tradeCapProjection(symbol, side, qty, price)` | Function in `docs/dashboard_professional.html`. Projects the manual trade ticket's post-order notional for a symbol (existing position from `window._lastPositions`/`window._lastEquity`, ± this order depending on buy/sell) against `portCapFor(symbol) × equity`. Returns `overCap` plus the max additional notional/qty still allowed. Used by `updateTradeSummary()` (live warning as you type) and `submitPaperTrade()` (hard-blocks a BUY that would breach the cap). Added 2026-07-18 — the ticket previously had no cap check at all, only `qty > 0` / `price > 0`. |
+| `#tradeCapWarning` | The trade modal's live cap-check line (green/neutral when OK, red with the breach detail when a BUY would exceed the symbol's cap). Populated by `updateTradeSummary()`. |
+
+---
+
 ## 2026-07-18 — Bug #7: stale per-symbol state prune (Python/dashboard consistency)
 
 | Term | Meaning |

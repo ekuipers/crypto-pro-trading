@@ -75,6 +75,23 @@ alpaca-trading-agent/
 
 ## Session History
 
+### 2026-07-18 — Bug fix: manual trade-ticket dialog didn't honor the max portfolio cap ("rescan roadmap" trigger)
+
+**Task:** Owner filed directly in `CLAUDE.md › Bugs`: "When scanning the markets and the user executes an order, a dialog is shown to enter the order. However, the dialog isn't honoring the max. portfolio cap so the user can enter values over the cap resulting in a STOP trading permission block." Then sent "rescan roadmap" — per Workflow rule 8 this triggers implementation, and rule 0 gives the bugs list precedence over the (empty) roadmap.
+
+**Investigation:** `docs/dashboard_professional.html`'s manual Execute Paper Trade dialog (`openTradeModal()` → `submitPaperTrade()`) is the shared trade ticket used from the Signals tab, Market Overview, Scanner, and Scalping tab. `submitPaperTrade()` only validated `symbol` present, `qty > 0`, and `limitPrice > 0` before posting straight to `/v2/orders` — no check against `PORTFOLIO_CAPS`/`portCapFor()` at all, unlike `scripts/trade.py`, which enforces the per-symbol cap in code for every automated order. A user could enter a BUY qty that pushed a position well past its cap (e.g. LINK/USD's 5%), submit it, and only discover the problem when the Command tab's live hard-rules panel flipped to a red **STOP** trading-permission status afterward — by which point the over-cap order had already filled.
+
+**Fix (`docs/dashboard_professional.html`):**
+- Added `tradeCapProjection(symbol, side, qty, price)`: reads the symbol's existing position from `window._lastPositions`/equity from `window._lastEquity` (already cached by `loadDashboard()`), projects the post-order notional (existing ± this order, direction-aware for buy vs. sell/reduce), and compares it to `portCapFor(symbol) × equity`.
+- `updateTradeSummary()` (fires on every keystroke in the ticket) now renders a live cap-check line in a new `#tradeCapWarning` div — green/neutral when within cap, red with the exact max-additional-qty allowed when it would breach the cap.
+- `submitPaperTrade()` now calls the same projection for BUY orders and **blocks submission outright** with a detailed alert (cap %, existing notional, projected notional, max additional qty at that price) if it would breach the cap — mirroring `trade.py`'s hard enforcement, but client-side and pre-submission instead of discovered after the fact. SELL/COVER orders (which reduce exposure) are never blocked by this check.
+
+**Verified:** `node -e "..."` extracted and ran every inline `<script>` block through `new Function()` — 1 block, parses with 0 errors. No Python changes, so the existing 171/171 pytest suite is unaffected. Did not start the local dashboard/node server per Workflow rule 2.
+
+**Docs:** `CLAUDE.md` bugs list cleared, `README.md` (Risk Rules bullet — note: `README.md` was independently reset to an older revision by the user's IDE mid-session; per instruction this was left as-is and the new bullet was appended to the current, simpler file rather than restoring the pre-reset version), `docs/dashboard_layout.md` changelog.
+
+---
+
 ### 2026-07-18 — Bug #7: Python never cleared stale per-symbol state on a stop-loss-type full close (dashboard Autopilot already did this correctly)
 
 **Task:** Follow-up to the Bug #6 fix (below): owner asked to check consistency between `scripts/*.py` and the dashboard Autopilot's buy/sell order logic. Direct code comparison surfaced a second, independent defect in the same failure family.

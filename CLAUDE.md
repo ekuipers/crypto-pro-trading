@@ -25,7 +25,7 @@ Creator: Erik Kuipers
 
 
 ## Bugs
-*(none open — Bug #7 "stale per-symbol state never cleared on stop-loss exit" + Bug #6 "fee-residue false partial-TP reconciliation" fixed 2026-07-18, see `memory/memory.md`; Twitter/X feed fetching investigated 2026-07-13: confirmed a hard platform limitation, not a code bug; Telegram-mirror sources kept + unit tested)*
+*(none open — "trade ticket doesn't honor the max portfolio cap" fixed 2026-07-18, see `memory/memory.md`)*
 
 ---
 

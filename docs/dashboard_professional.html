@@ -2406,6 +2406,8 @@
           Fill in quantity and limit price to see estimated notional value.
         </div>
 
+        <div class="small" id="tradeCapWarning" style="display:none;margin-top:8px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;line-height:1.6"></div>
+
         <div class="small" id="tradeRrInfo" style="display:none;margin-top:8px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;line-height:1.6"></div>
 
         <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
@@ -2458,9 +2460,9 @@
     <span class="footer-sep">·</span>
     <span>Creator: <strong>Erik Kuipers</strong></span>
     <span class="footer-sep">·</span>
-    <span>Last modified: <strong>2026-07-13</strong></span>
+    <span>Last modified: <strong>2026-07-18</strong></span>
     <span class="footer-sep">·</span>
-    <span>Version: <strong>v2026-07-13.2</strong></span>
+    <span>Version: <strong>v2026-07-18.1</strong></span>
   </footer>
 
   <script>
@@ -4814,6 +4816,35 @@
       $("tradeModalBackdrop").style.display = "none";
     }
 
+    // Portfolio-cap projection for the manual trade ticket (Bug filed
+    // 2026-07-18: the dialog let a user enter a qty that pushed a position
+    // over its config.json/PORTFOLIO_CAPS limit, which then tripped the
+    // Command tab's "STOP" trading-permission indicator after the fact.
+    // scripts/trade.py enforces this hard rule in code for automated
+    // orders — this mirrors that check client-side, before submission,
+    // using the same PORTFOLIO_CAPS table and portCapFor().
+    function tradeCapProjection(symbol, side, qty, price) {
+      const equity = Number(window._lastEquity || 0);
+      if (!equity || !qty || !price) return null;
+      const slashSym = toSlash(symbol);
+      const positions = window._lastPositions || [];
+      const existing = positions.find(p => toSlash(p.symbol) === slashSym);
+      const existingQty = existing ? Math.abs(Number(existing.qty || 0)) : 0;
+      const existingPx  = existing ? Number(existing.current_price || existing.avg_entry_price || price) : price;
+      const existingNotional = existingQty * existingPx;
+      const orderNotional = qty * price;
+      const projectedNotional = side === "buy"
+        ? existingNotional + orderNotional
+        : Math.max(0, existingNotional - orderNotional);
+      const capPct = portCapFor(slashSym);
+      const capNotional = equity * capPct / 100;
+      return {
+        equity, capPct, capNotional, existingNotional, orderNotional, projectedNotional,
+        overCap: projectedNotional > capNotional * 1.0001,
+        maxAdditionalNotional: Math.max(0, capNotional - existingNotional)
+      };
+    }
+
     function updateTradeSummary() {
       const qty = Number($("tradeQty").value || 0);
       const price = Number($("tradeLimitPrice").value || 0);
@@ -4827,6 +4858,30 @@
         <br>
         <b>Estimated notional:</b> ${notional ? "$" + fmt(notional, 2) : "—"}.
       `;
+
+      const capEl = $("tradeCapWarning");
+      if (capEl) {
+        const proj = side === "buy" ? tradeCapProjection(symbol, side, qty, price) : null;
+        if (proj) {
+          const projPct = proj.equity ? proj.projectedNotional / proj.equity * 100 : 0;
+          if (proj.overCap) {
+            capEl.style.display = "block";
+            capEl.style.borderColor = "var(--red)";
+            capEl.style.color = "var(--red)";
+            capEl.innerHTML = `⚠ <b>Over portfolio cap:</b> ${toSlash(symbol)}'s cap is ${fmt(proj.capPct,1)}% of equity ($${fmt(proj.capNotional)}). ` +
+              `This order would bring the position to $${fmt(proj.projectedNotional)} (${fmt(projPct,1)}% of equity). ` +
+              `Max additional notional at this price: $${fmt(proj.maxAdditionalNotional)} (≈ ${fmt(proj.maxAdditionalNotional / price, 6)} qty).`;
+          } else {
+            capEl.style.display = "block";
+            capEl.style.borderColor = "var(--border)";
+            capEl.style.color = "";
+            capEl.innerHTML = `Cap check: ${toSlash(symbol)} would be $${fmt(proj.projectedNotional)} (${fmt(projPct,1)}% of equity) vs. a ${fmt(proj.capPct,1)}% cap ($${fmt(proj.capNotional)}). OK.`;
+          }
+        } else {
+          capEl.style.display = "none";
+          capEl.innerHTML = "";
+        }
+      }
     }
 
 
@@ -4896,6 +4951,21 @@
       if (!limitPrice || limitPrice <= 0) {
         alert("Enter a valid limit price.");
         return;
+      }
+
+      if (side === "buy") {
+        const proj = tradeCapProjection(symbol, side, qty, limitPrice);
+        if (proj && proj.overCap) {
+          alert(
+            "Blocked: this order exceeds " + toSlash(symbol) + "'s portfolio cap.\n\n" +
+            "Cap: " + fmt(proj.capPct, 1) + "% of equity ($" + fmt(proj.capNotional) + ")\n" +
+            "Existing position: $" + fmt(proj.existingNotional) + "\n" +
+            "This order would bring it to: $" + fmt(proj.projectedNotional) + "\n\n" +
+            "Max additional notional at this price: $" + fmt(proj.maxAdditionalNotional) +
+            " (≈ " + fmt(proj.maxAdditionalNotional / limitPrice, 6) + " qty)."
+          );
+          return;
+        }
       }
 
       const estimatedNotional = qty * limitPrice;
