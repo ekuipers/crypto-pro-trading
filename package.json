@@ -11,7 +11,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "concurrently \"node --watch server.js\" \"npm --prefix client run dev\"",
-    "build": "npm --prefix client run build",
+    "build": "npm --prefix client install && npm --prefix client run build",
     "test": "node --test src/*.test.js",
     "evaluate": "node src/runEvaluation.js"
   },

@@ -4,6 +4,14 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-19 — Vercel build fix: "vite: command not found"
+
+| Term | Meaning |
+|------|---------|
+| npm workspace (and why `client/` isn't one) | An npm feature where a root `package.json` lists sub-directories (`"workspaces": [...]`) so one `npm install` at the root installs every sub-project's dependencies together (usually hoisted into one shared `node_modules`). This repo does **not** use it — `client/` is a fully separate npm project with its own `package.json`/`package-lock.json`/`node_modules`. That means a plain `npm install` at the repo root (what Vercel's default install step runs) never touches `client/`, so `client/`'s deps (`vite`, `react`, …) must be installed explicitly — root `npm run build` now does this itself (`npm --prefix client install && npm --prefix client run build`) rather than assuming they're already there. |
+
+---
+
 ## 2026-07-19 — EJS shell replaced with a React (Vite) shell
 
 | Term | Meaning |

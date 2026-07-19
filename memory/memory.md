@@ -8,6 +8,33 @@
 
 ---
 
+## v2026-07-19.5 — 2026-07-19 — Bug fix: Vercel deploy failed with "vite: command not found"
+
+**Task:** "scan roadmap." Suite-level `CLAUDE.md` roadmap had no open items, but its Bugs list had one
+open item filed after the 2026-07-19 React/Vite conversion (v2026-07-19.2): Vercel's build step exited
+127 with `sh: line 1: vite: command not found`. Per Suite workflow rule 22, the bug took precedence over
+(the empty) roadmap.
+
+**Root cause:** `client/` is its own npm project (own `package.json` + `package-lock.json`, holding
+`vite`/`@vitejs/plugin-react`/`react`/`react-dom`) — not an npm workspace of the root project. Root
+`package.json`'s `build` script was `npm --prefix client run build`, which assumes `client/node_modules`
+already exists. A hosting platform's default install step (`npm install`, root only) never touches
+`client/`, so `vite` was never installed before the build script tried to invoke it.
+
+**Reproduced locally:** moved `client/node_modules` aside and ran `npm run build` from root — failed the
+same way (`'vite' is not recognized...` on Windows; Vercel's Linux shell reports it as `vite: command not
+found`, same missing-binary cause).
+
+**Fix:** `package.json` → `"build": "npm --prefix client install && npm --prefix client run build"`
+(one-line change; installs `client/`'s own deps before building it, no workspace restructuring, no
+lockfile changes needed).
+
+**Verified:** re-ran `npm run build` from root with `client/node_modules` still absent — install +
+build both succeeded, `client/dist/index.html` + hashed JS bundle produced (2.36s). `npm test` — full
+280/280 Node suite still green (unrelated to this change, confirms nothing else broke). Docs updated:
+`README.md` › Hosting (explains the workspace-vs-not gap), this file. Suite-level bug marked fixed —
+remove it from `CryptoPro Suite/CLAUDE.md` › Bugs (moved here per Suite workflow rule 15).
+
 ## v2026-07-19.4 — 2026-07-19 — Skills audit: programmatic opportunities identified
 
 **Analysis completed:** Reviewed all 5 existing skills (hourly-research, morning-brief, daily-journal, 

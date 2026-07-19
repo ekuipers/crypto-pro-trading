@@ -287,6 +287,13 @@ listens locally on `PORT` (default 3000); the Vercel deployment is the live URL 
 its build step needs to run `npm run build` too. Still not part of the
 production trading path (that's the GitHub Actions cron).
 
+`client/` is its own npm project with its own `package.json`/`package-lock.json` (holds `vite`,
+`@vitejs/plugin-react`, `react`, `react-dom`) — it is **not** an npm workspace of the root project, so a
+hosting platform's default `npm install` (root only) never installs `client/node_modules`. Root
+`npm run build` therefore runs `npm --prefix client install && npm --prefix client run build`, not just
+`npm --prefix client run build`, so `vite` is guaranteed to be present before it's invoked (fixed
+2026-07-19 — see `memory/memory.md` for the "vite: command not found" Vercel failure this caused).
+
 ---
 
 ## Journal

@@ -21,6 +21,7 @@ Year: 2026
 ## Hosting & frontend
 - Live trading engine = Python via GitHub Actions cron (`.github/workflows/*.yml`); hosting concerns the dashboard only.
 - Dashboard = React/Vite shell (`client/`) + 30 unchanged classic-global `src/js/*.js` files + 10 `src/css/*.css`. `server.js` serves `client/dist` (`npm run build` first, then `npm start`/`npm run dev`). No `file://` or GitHub Pages; Vercel works.
+- `client/` is its own npm project, not an npm workspace — root `npm run build` runs `npm --prefix client install && npm --prefix client run build` (not just `... run build`) so a fresh clone (Vercel) installs `client/`'s own `vite`/`react` deps before building. Fixed 2026-07-19 after Vercel failed with "vite: command not found"; details `memory/memory.md`.
 - React owns only the shell chrome; vanilla `switchTab()` owns all tab switching/loaders. Browser click-through **not yet verified** — exercise Autopilot toggle, Settings save, and every tab before relying on it. Details: archive › Dashboard.
 
 ## Node.js port (Phase 2 complete — NOT wired to production)
