@@ -21,7 +21,26 @@ Creator: Erik Kuipers
 
 
 ## Bugs
-*(none open — "run_evaluation.py on GitHub Actions selling dashboard-opened positions without profit or a trailing stop" fixed 2026-07-18 (root cause: `file://`-blocked cross-engine partial-TP merge caused a repeat scale-out/breakeven-pin cascade), see `memory/memory.md`)*
+*(none open — "Deployment CryptoPro Trader failed on Vercel: No entrypoint found" fixed 2026-07-19 (added `server.js` + `package.json > main`, see `## Hosting` below); "run_evaluation.py on GitHub Actions selling dashboard-opened positions without profit or a trailing stop" fixed 2026-07-18 (root cause: `file://`-blocked cross-engine partial-TP merge caused a repeat scale-out/breakeven-pin cascade), see `memory/memory.md`)*
+
+---
+
+## Hosting
+
+The dashboard (`docs/dashboard_professional.html`) is a static file, and the live trading engine is
+Python run via GitHub Actions cron (`.github/workflows/*.yml`) — this project never needed a server to
+function. A Vercel deployment attempt against this repo failed with "No entrypoint found" because
+`package.json` had no `main`/server file. Fixed 2026-07-19 with a minimal Express entrypoint mirroring
+CryptoPro Suite's/Charts' `server.js` pattern:
+
+- `server.js` — serves `docs/` as static files (`GET /` → `dashboard_professional.html`), plus
+  `GET /api/health`. No trading logic, no auth, no database — purely so a Vercel deploy of this repo has
+  something valid to run. Skips `app.listen()` under `VERCEL`/`NODE_ENV=test` (serverless/test contexts).
+- `package.json` — added `main: server.js`, `start`/`dev` scripts, and the `express` dependency (this
+  project's first npm dependency besides the zero-dependency Node port under `src/`).
+- This does **not** change how the dashboard is actually served today (GitHub Pages,
+  `ekuipers.github.io/crypto-pro-trading/...`) or how the trading engine runs (GitHub Actions cron). It
+  only makes a Vercel deploy of this repo not hard-fail, in case one is ever pointed at it again.
 
 ---
 

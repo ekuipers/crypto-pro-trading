@@ -272,6 +272,17 @@ Configure under **Settings → Environments** in the GitHub repo. The `environme
 
 ---
 
+## Hosting
+
+The dashboard is a static file served via GitHub Pages
+(`ekuipers.github.io/crypto-pro-trading/dashboard_professional.html`); the trading engine runs on the
+GitHub Actions cron above. Neither needs a server. A minimal `server.js` (Express, serves `docs/` +
+`GET /api/health`) exists only so a Vercel deployment of this repo has a valid entrypoint instead of
+failing with "No entrypoint found" — added 2026-07-19 after exactly that error. `npm start` runs it
+locally on `PORT` (default 3000); it is not part of the production trading path.
+
+---
+
 ## Journal
 
 One Markdown file per calendar day in `journal/YYYY-MM-DD.md`, following `journal/_template.md`.

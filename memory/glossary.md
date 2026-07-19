@@ -568,3 +568,9 @@ Critical implementation details to keep `indicators.py` and `dashboard_professio
 | Term | Meaning |
 |------|---------|
 | `ggLevelDate(t)` | Breakout-scanner helper (dashboard): formats a daily bar's timestamp as ` · d MMM` (GMT+2, en-GB). Used by `ggKeyLevels()` to date-stamp every 5-bar swing high/low so the 🎯 Daily Chart Key Levels panel never shows indistinguishable same-label rows ("Swing Low" ×3 — Bug #1 fixed 2026-07-11). Price-dedup (0.5%) and the 5-level cap are unchanged. |
+
+## Hosting Fix (2026-07-19)
+
+| Term | Meaning |
+|------|---------|
+| `server.js` (Trader) | Minimal Express entrypoint added 2026-07-19 — serves `docs/` statically (`GET /` → `dashboard_professional.html`) + `GET /api/health`, skips `app.listen()` under `VERCEL`/`NODE_ENV=test`. Exists only so a Vercel deployment of this repo has a valid entrypoint; does not carry any trading logic and does not change how the dashboard/engine actually run in production (GitHub Pages + GitHub Actions cron). Mirrors CryptoPro Suite's/Charts' `server.js` layout for consistency across the suite. |

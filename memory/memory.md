@@ -1263,6 +1263,16 @@ python scripts/rebalance.py --execute # place orders
 
 ---
 
+## 2026-07-19 — Fixed: "Deployment CryptoPro Trader failed on Vercel: No entrypoint found"
+
+**Problem:** CryptoPro Suite's bug list (its `CLAUDE.md`, rescanned via `/rescan roadmap` with the Suite as the active project) reported a Vercel deployment of this repo failing with "No entrypoint found in /vercel/path0" — `package.json` had no `main`/server file, since this project has always been a static dashboard (GitHub Pages) plus a Python engine (GitHub Actions cron), never a Vercel app. Asked the user how to resolve it (disconnect Vercel vs. add a real entrypoint vs. investigate first) since the two options lead to very different fixes and the repo gave no signal either way; user chose to add a minimal entrypoint.
+
+**Fix:** added `server.js` (Express, mirrors CryptoPro Suite's/Charts' `server.js` pattern) — serves `docs/` as static files, `GET /` → `dashboard_professional.html`, `GET /api/health`, skips `app.listen()` under `VERCEL`/`NODE_ENV=test`. `package.json` gained `main: server.js`, `start`/`dev` scripts, and its first real dependency (`express`) alongside the existing zero-dependency Node port under `src/`. No trading logic, no auth, no database — purely so a Vercel deploy of this repo doesn't hard-fail. Does not change how the dashboard is actually served today (GitHub Pages) or how the engine runs (GitHub Actions cron); see the new `## Hosting` section in `CLAUDE.md`.
+
+**Verified:** `node --check server.js`; started locally on a scratch port (`PORT=3911`) — `GET /api/health` → `200 {"status":"ok",...}`, `GET /` → `200`, `GET /favicon.svg` → `200` (dashboard's relative asset paths resolve correctly under static serving); process killed immediately after (rule 2 — local server for testing only). `npm test` re-run after the `package.json` change: still 280/280 passing, no regression from adding the `express` dependency.
+
+---
+
 ## lessons
 - Any `fetch()`/XHR of a same-origin relative local file (config.json, positions_state.json, glossary.md, etc.) in `docs/dashboard_professional.html` can be silently blocked when the dashboard is opened via `file://` — never rely on it as the *only* source for cross-engine state; prefer deriving the same fact from an HTTPS call (e.g. Alpaca's own API via `apiFetch`) when one is available, and treat the local-file fetch as a best-effort enhancement only.
 - When renaming the project, `grep -ri` the whole repo (not just `CLAUDE.md`) for every prior name variant (e.g. "CryptoPro Dashboard", "Alpaca Crypto Trading Agent") before considering the rename done — `<title>` tags, in-page header labels, footer names, and README H1s are easy to miss and only surface later during an unrelated rules audit.
