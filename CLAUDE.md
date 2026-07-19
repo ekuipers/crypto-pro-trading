@@ -25,6 +25,30 @@ Creator: Erik Kuipers
 
 ---
 
+## Node.js port (scaffolding, in progress)
+
+CryptoPro Suite's roadmap includes converting this project to Node.js. Per the
+user's explicit scope choice (2026-07-19): **scaffolding only for now** — set
+up the Node.js project structure/tooling and port the pure-logic modules with
+tests, leaving trade execution and the GitHub Actions cutover as a separate
+future decision. **The live trading engine is still 100% Python** (`scripts/*.py`,
+run hourly via `.github/workflows/trade.yml` and every 5 min via
+`watchdog.yml`) — nothing under `src/` is wired into any live/paper order flow
+yet.
+
+| File | Ports | Status |
+|------|-------|--------|
+| `package.json` | — | Node project manifest (`type: module`, `npm test` runs the suite below) |
+| `src/indicators.js` | `scripts/indicators.py` | Full port — all technical indicators + the 6-point `signalScore()` confluence table, numeric parity verified against the same synthetic-data assertions as `tests/test_indicators.py` |
+| `src/risk.js` | `scripts/risk.py` | Port of every function exercised by the *default* config (sizing, limit band, swing-low/trailing stops, correlation budget, daily-drawdown gate, trade economics, partial-TP, stale-position exit, rotation). The ships-OFF "famous-trader package" extras (chandelier trail, conviction sizing, streak throttle, measured-move target, pyramid adds, breadth gate) are **not yet ported** |
+| `src/indicators.test.js`, `src/risk.test.js` | `tests/test_indicators.py`, `tests/test_risk.py` | Node's built-in test runner (`node --test`), zero extra dependencies — 92 tests, all passing |
+
+Not yet started: `trade.py` (order execution), `run_evaluation.py` (the
+hourly evaluation loop), `rebalance.py`, `scout.py`, `position_state.py`,
+`metrics.py`, `stop_watchdog.py`, or any GitHub Actions workflow change.
+
+---
+
 # Coding instructions
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 

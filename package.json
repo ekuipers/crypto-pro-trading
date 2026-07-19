@@ -1,0 +1,15 @@
+{
+  "name": "cryptopro-trader",
+  "version": "0.1.0",
+  "description": "Professional cryptocurrency trading & analytics platform (Node.js port, in progress — see CLAUDE.md).",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test src/*.test.js"
+  },
+  "author": "Erik Kuipers",
+  "license": "UNLICENSED"
+}

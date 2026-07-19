@@ -6,6 +6,13 @@ A fully automated crypto trading agent running on Alpaca. The agent evaluates
 when a score threshold is met, and journals every decision. A walk-forward backtester runs
 daily to validate strategy robustness.
 
+**Node.js port (scaffolding, in progress):** the live engine below is still
+100% Python. A `src/` directory holds an in-progress Node.js port —
+currently just `indicators.js` and `risk.js`, faithful ports of the
+pure-logic modules with a 92-test `node --test` suite (`npm test`). Trade
+execution, the evaluation loop, and the GitHub Actions cutover are not
+ported yet — see `CLAUDE.md`'s "Node.js port" section for scope and status.
+
 ---
 
 ## Architecture

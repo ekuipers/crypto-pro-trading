@@ -1222,6 +1222,25 @@ python scripts/rebalance.py --execute # place orders
 
 ---
 
+## 2026-07-19 — Node.js scaffolding: `src/indicators.js` + `src/risk.js` ported from Python (roadmap, CryptoPro Suite)
+
+**Problem:** CryptoPro Suite's roadmap item 2, "Convert project CryptoPro Trader to Node.js" — a port of the entire live paper-trading engine to a different language. Given the financial-risk blast radius of a full rewrite on a system that places real hourly orders, asked the user how to scope it rather than auto-implementing a big-bang rewrite. User chose **"Scaffolding only for now"**: set up the Node.js project structure/tooling and port just the pure-logic modules (indicators/risk math) with tests, leaving trade execution and the GitHub Actions cutover as a separate future decision.
+
+**Change:**
+- Added `package.json` (`type: module`, `npm test` → `node --test src/*.test.js`, zero runtime dependencies — Node's built-in test runner was chosen specifically to avoid adding a test-framework dependency for a scaffolding pass).
+- Added `node_modules/` to `.gitignore`.
+- `src/indicators.js` — full port of `scripts/indicators.py`: `sma`, `emaSeries`/`ema`, `emaCrossState` (±0.05% dead zone), `atr`, `adx`/`adxLabel`, `obvSeries`/`obvTrend`, `rsi`/`rsiRising`, `macd`/`macdFlip`/`macdHistRising`, `bollinger`/`bollingerTrend`/`bollingerSqueeze`, `volumeRatio`, and `signalScore()` (the 6-point confluence table). Same seeding/smoothing/dead-zone conventions as the Python version (EMA seeded with SMA of the first `period` values, Wilder smoothing for ATR/ADX/RSI, population std-dev for Bollinger). Breakdown dict keys camelCased (`emaCross`, `regime4h`, etc.) instead of Python's snake_case.
+- `src/risk.js` — port of every `scripts/risk.py` function exercised by the **default** config: position sizing/cap checks, limit-band check (incl. the maker-first bid-ask-spread exception), swing-low + fixed-% stop-loss, short cover, trailing stop, correlation budget (tier counting), daily-drawdown gate, stop-loss/cover limit-price escalation, trade-economics helpers (spread/round-trip-cost/net R:R), partial take-profit ladder, stale-position exit, and rotation gate. Reads `config.json` from the repo root the same way the Python module does (`risk`/`strategy`/`costs` blocks), with the same fallback defaults if the file is missing. **Deliberately not ported:** the ships-OFF "famous-trader package" extras (chandelier trail, conviction sizing, streak throttle, measured-move target, pyramid adds, breadth gate) — noted as a scope gap in a header comment and in `CLAUDE.md`, since none of them are active in the live default config.
+- `src/indicators.test.js` / `src/risk.test.js` — ported the assertions from `tests/test_indicators.py`, `tests/test_risk.py`, and `scripts/risk.py`'s own `if __name__ == "__main__"` self-test block onto `node:test`/`node:assert/strict`. 92 tests total, all passing.
+- `CLAUDE.md` — new "Node.js port (scaffolding, in progress)" section: explicitly states the live engine is still 100% Python (nothing under `src/` is wired into any order flow), a file-by-file port-status table, and what's not started yet (`trade.py`, `run_evaluation.py`, `rebalance.py`, `scout.py`, `position_state.py`, `metrics.py`, `stop_watchdog.py`, GitHub Actions).
+- `README.md` — short pointer under the Description noting the scaffolding exists and where to look.
+
+**Verified:** `npm test` (`node --test src/*.test.js`) — 92/92 passing, 0 failures. Confirmed `node --test src` (bare directory arg) does NOT work on this Node version (v24.15.0) — it gets treated as a literal module path and throws `MODULE_NOT_FOUND`; the working invocation needs an explicit glob (`src/*.test.js`), which is what `package.json`'s `test` script now uses. No Python file touched; `git status` showed only the new/changed files listed above.
+
+**Not done (deliberately, per the user's scope choice):** any port of `trade.py`, `run_evaluation.py`, `rebalance.py`, `scout.py`, `position_state.py`, `metrics.py`, or `stop_watchdog.py`; no change to any `.github/workflows/*.yml`. The live trading engine is unaffected by this session — it is still 100% Python, still cron-triggered by the existing GitHub Actions workflows.
+
+---
+
 ## lessons
 - Any `fetch()`/XHR of a same-origin relative local file (config.json, positions_state.json, glossary.md, etc.) in `docs/dashboard_professional.html` can be silently blocked when the dashboard is opened via `file://` — never rely on it as the *only* source for cross-engine state; prefer deriving the same fact from an HTTPS call (e.g. Alpaca's own API via `apiFetch`) when one is available, and treat the local-file fetch as a best-effort enhancement only.
 - When renaming the project, `grep -ri` the whole repo (not just `CLAUDE.md`) for every prior name variant (e.g. "CryptoPro Dashboard", "Alpaca Crypto Trading Agent") before considering the rename done — `<title>` tags, in-page header labels, footer names, and README H1s are easy to miss and only surface later during an unrelated rules audit.
