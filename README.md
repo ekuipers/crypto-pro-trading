@@ -85,6 +85,14 @@ data from the dashboard UI itself.
 > pointing `APCA_BASE_URL`, a GitHub `live` environment secret, or the dashboard's Live Trading fields at
 > `https://api.alpaca.markets`.
 
+### 5. Account sign-in (Suite SSO, optional)
+
+The dashboard header has a **👤 Sign in** button (username/password, with optional TOTP 2FA) backed
+by `src/auth.js` + `src/db.js` + `src/totp.js` — the same accounts/sessions pattern already running in
+CryptoPro Charts and CryptoPro Suite. Point `DBCRYPTOCHARTS_POSTGRES_URL[_NON_POOLING]` at the same
+Supabase Postgres project Charts uses (see `.env.example`) to share one login across the whole suite.
+Without a connection string, sign-in/register return 503 and the rest of the dashboard works unaffected.
+
 ---
 
 ## Architecture

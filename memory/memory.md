@@ -8,6 +8,56 @@
 
 ---
 
+## v2026-07-19.8 — 2026-07-19 — Suite TO DO item 1: SSO with CryptoPro Charts/Suite
+
+**Task:** explicit user request ("implement one roadmap item from the Suite project" → chose "SSO across
+all projects" from Suite `CLAUDE.md › TO DO`, over the smaller alternatives — email-in-profile, test 2FA,
+social login). Neither this project nor CryptoPro Training had any auth code at all; CryptoPro Charts and
+CryptoPro Suite already share one Postgres accounts/sessions database with username/password login +
+optional TOTP 2FA. Ported that exact pattern into both.
+
+**Change:** added `src/auth.js` (routes: `GET /api/me`, `POST /api/auth/{register,login,logout,
+change-password}`, `POST /api/auth/2fa/{setup,enable,disable}`), `src/db.js` (trimmed to just the
+`accounts`/`sessions` tables — Charts' other tables are its own feature data, not part of the SSO pattern),
+and `src/totp.js` (RFC 6238, zero deps) — all near-verbatim ports from CryptoPro Charts. `server.js` gained
+`app.set('trust proxy', 1)`, a CSRF Origin/Referer host-check middleware scoped to mutating `/api/*`
+requests, `express.json()`, `installAuthRoutes(app)`, and a `db.init()` call. Added `pg` to `package.json`
+and a new `.env.example` documenting the shared-DB env var convention. Client: a `👤 Sign in` button in
+`Header.jsx`, a generic `#authModalBackdrop`/`#authModalBody` shell added to `client/src/fragments/
+modals.html` (reusing the existing `.modal-backdrop`/`.modal-header`/`.modal-body`/`.modal-footer` CSS),
+a new `src/js/auth.js` classic script (ported from Charts' client auth.js, adapted from Charts'
+`showModal()/closeModal()` helpers — which don't exist here — to this dashboard's own `style.display`
+modal-toggle convention) added to `scriptLoader.js`'s `SCRIPT_ORDER`, and a small `.acct-*` CSS block in
+`forms-modals-footer.css`.
+
+**`db.js`'s `CONN_VARS` priority:** `DBCRYPTOCHARTS_POSTGRES_URL[_NON_POOLING]` (the suite's existing
+shared-DB identifier) first, then this project's own pre-existing `trading_POSTGRES_URL*` vars (a
+*different* Supabase project, going by the distinct naming prefix) as fallback, then generic
+`POSTGRES_URL`/`DATABASE_URL`. **Not done yet — a manual, outside-of-code step:** the deployed (Vercel)
+environment still needs `DBCRYPTOCHARTS_POSTGRES_URL[_NON_POOLING]` added, pointed at the exact same
+Supabase project Charts uses, or accounts here won't actually be shared with the rest of the suite — the
+code is ready, the environment isn't wired yet.
+
+**Security review:** ran the security-reviewer agent over all 5 new/changed files (both this project and
+CryptoPro Training, ported identically). Found and fixed: (1) **CRITICAL** — `GET /api/me` had no
+try/catch around `parseCookies()`'s `decodeURIComponent()`, so one malformed cookie (`Cookie:
+cpc_session=%zz`) crashed the entire Node process via an unhandled promise rejection; reproduced live
+against a running server, confirmed fixed (process stays alive, cookie is just skipped) after wrapping the
+per-cookie decode in its own try/catch. (2) Login leaked a timing side-channel for username enumeration
+(scrypt only ran when the account existed) — fixed by always paying the same scrypt cost against a fixed
+dummy salt/hash when the account doesn't exist. (3) TOTP code comparison used `===` instead of
+`crypto.timingSafeEqual` — fixed. Flagged but **not** fixed (inherited from the already-deployed Charts/
+Suite pattern, out of scope for a straight port): the in-memory per-IP rate limiter won't survive across
+separate Vercel serverless instances/cold starts, and the CSRF Origin/Referer check fails open when a
+request supplies neither header (only reachable on `/api/auth/login|register`, which don't require an
+existing session cookie the way every other mutating route does).
+
+**Verified:** `node --check` on every new/changed `.js` file; `node -e "import('./server.js')"` boots
+clean with the DB gracefully disabled (no live credentials touched); `npm --prefix client run build`
+succeeds; `npm test` — 280/280 still green (no Python/Node-port files touched); manually confirmed the
+critical-fix regression with `curl --cookie "cpc_session=%zz" .../api/me` against a locally running server
+— 200, process stays alive.
+
 ## v2026-07-19.7 — 2026-07-19 — Roadmap: suite-wide workflow-rules verification pass
 
 **Task:** "rescan roadmap." Own Roadmap/Bugs were empty; Charts/Training Roadmap/Bugs were also empty. The

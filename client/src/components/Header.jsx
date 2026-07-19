@@ -43,6 +43,7 @@ export default function Header() {
           ⟳ Auto OFF
         </button>
         <button className="theme-btn" id="themeBtn" onClick={() => window.toggleTheme()} title="Toggle light / dark theme">🌙</button>
+        <button id="accountBtn" className="btn acct-btn" title="Sign in">👤 Sign in</button>
         <button className="btn btn-green" onClick={() => window.openSettings()}>⚙ Settings</button>
       </div>
     </header>

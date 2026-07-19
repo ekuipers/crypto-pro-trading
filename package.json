@@ -16,7 +16,8 @@
     "evaluate": "node src/runEvaluation.js"
   },
   "dependencies": {
-    "express": "^4.22.2"
+    "express": "^4.22.2",
+    "pg": "^8.22.0"
   },
   "author": "Erik Kuipers",
   "license": "UNLICENSED",

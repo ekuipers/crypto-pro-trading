@@ -35,6 +35,7 @@ export const SCRIPT_ORDER = [
   'autopilot.js',
   'edge-insights.js',
   'tabs-portfolio.js',
+  'auth.js',
   'main.js',
 ];
 
