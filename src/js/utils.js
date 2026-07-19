@@ -44,13 +44,14 @@
     }
 
 
-    // tvLink: wraps a symbol in a TradingView chart anchor (opens new tab).
+    // tvLink: wraps a symbol in a CryptoPro Charts chart anchor (opens new tab).
     // Accepts BTC/USD, BTCUSD, BTC/USDT, or bare BTC. Strips the slash to the
-    // TradingView ticker form (BTCUSD, BTCUSDT, …); a bare base defaults to USD.
+    // exchange ticker form (BTCUSD, BTCUSDT, …) Charts' router expects in
+    // ?symbol=; a bare base defaults to USD.
     function tvLink(sym, label) {
       var tv = String(sym).toUpperCase().replace('/', '');
       if (!/USD[TC]?$/.test(tv)) tv += 'USD';   // bare base like "BTC" -> BTCUSD
-      var url  = 'https://www.tradingview.com/chart/?symbol=CRYPTO:' + tv;
+      var url  = 'https://crypto-pro-charts.vercel.app/?symbol=' + tv;
       var txt  = (label !== undefined) ? label : sym;
       return '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="tv-link">' + txt + '</a>';
     }

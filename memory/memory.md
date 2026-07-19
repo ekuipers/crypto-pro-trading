@@ -1440,6 +1440,26 @@ python scripts/rebalance.py --execute # place orders
 
 ---
 
+## 2026-07-19 — Added: README "Setup: Connecting to Alpaca" section
+
+**Problem:** Alpaca connection setup was scattered across the README (a bare `.env` snippet under Configuration, GitHub Environments secrets under GitHub Actions Automation, a one-line Paper vs Live note near the bottom) with no single walkthrough for a new clone — no account-creation step, no way to verify keys actually work, and no mention of the dashboard's independent Settings-tab key fields.
+
+**Fix:** documentation-only — added a `## Setup: Connecting to Alpaca (Paper & Live)` section to `README.md` right after the description, covering: (1) creating an Alpaca account and generating paper (then later live) API key pairs, (2) local `.env` setup with `python scripts/trade.py status`/`quote` as the connection-verification step (a 401/403 means the key pair doesn't match `APCA_BASE_URL`), (3) GitHub Environments secret setup for the scheduled workflows (`APCA_API_KEY_ID`/`APCA_SECRET_KEY` per `paper`/`live` environment — restates what already existed under GitHub Actions Automation, now as the primary walkthrough), (4) the dashboard's separate Settings-tab key fields (`localStorage`-only, independent of `.env`/GitHub secrets). No code, config, or workflow changes.
+
+**Verified:** re-read the finished section for consistency with the existing `.env` block, `scripts/_env.py`'s actual load behavior, and `scripts/trade.py`'s real CLI (`status`/`quote`/`order` subcommands) — no invented commands or env vars.
+
+---
+
+## 2026-07-19 — Roadmap: symbol links now point to CryptoPro Charts instead of TradingView
+
+**Roadmap item (CryptoPro Suite CLAUDE.md item 2):** "the Trader project's symbols are currently linked to TradingView; link to symbol URLs as provided by the Charts project."
+
+**Fix:** `tvLink()` in `src/js/utils.js` now builds `https://crypto-pro-charts.vercel.app/?symbol=<TICKER>` instead of a `tradingview.com/chart/?symbol=CRYPTO:<TICKER>` URL. Kept the existing ticker-normalization logic (strip the `/`, bare base defaults to `USD`) — it already produced exactly the ticker form Charts' own `router.js` expects (`SYMBOL_RE = /^[A-Z0-9]{2,20}$/`, `?symbol=&exchange=` deep-link scheme read by `applyUrlOnLoad()`); `exchange` is omitted so Charts' `defaultExchange()` picks one. All 20 call sites (`analytics-watchlist.js`, `edge-insights.js`, `tabs-{gapgo,pnl,command,market,performance-risk-execution,signals,scalping,portfolio,markov}.js`) are unaffected — only `utils.js`'s function body and its doc comment changed. Deliberately did **not** rename `tvLink`/`.tv-link` (function name, CSS class) — the name is now slightly imprecise but renaming would touch all 20 call sites purely cosmetically, which the roadmap item didn't ask for.
+
+**Verified:** confirmed Charts' `src/js/router.js` symbol regex and query-param names by reading it directly; grepped the whole repo for `tradingview` — none remain; grepped for any test asserting the old URL — none exist. Footer → v2026-07-19.3 (`docs/dashboard_layout.md` changelog entry added).
+
+---
+
 ## lessons
 - Any `fetch()`/XHR of a same-origin relative local file (config.json, positions_state.json, glossary.md, etc.) in `docs/dashboard_professional.html` can be silently blocked when the dashboard is opened via `file://` — never rely on it as the *only* source for cross-engine state; prefer deriving the same fact from an HTTPS call (e.g. Alpaca's own API via `apiFetch`) when one is available, and treat the local-file fetch as a best-effort enhancement only.
 - When renaming the project, `grep -ri` the whole repo (not just `CLAUDE.md`) for every prior name variant (e.g. "CryptoPro Dashboard", "Alpaca Crypto Trading Agent") before considering the rename done — `<title>` tags, in-page header labels, footer names, and README H1s are easy to miss and only surface later during an unrelated rules audit.

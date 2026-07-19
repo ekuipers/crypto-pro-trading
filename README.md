@@ -18,6 +18,75 @@ before any GitHub Actions cutover.
 
 ---
 
+## Setup: Connecting to Alpaca (Paper & Live)
+
+CryptoPro Trader trades through the [Alpaca Trading API](https://docs.alpaca.markets/). One Alpaca
+account gives you two independent environments — **paper** (simulated money, unlimited) and **live**
+(real money) — each with its own API key pair and base URL. Get paper trading working end-to-end first;
+only wire up live keys once you trust the strategy.
+
+### 1. Create an Alpaca account and API keys
+
+1. Sign up at [alpaca.markets](https://alpaca.markets) and verify your account.
+2. In the Alpaca dashboard, use the account switcher to select **Paper Trading**.
+3. Go to **API Keys** and generate a paper key pair — copy the **Key ID** and **Secret Key** immediately
+   (the secret is shown once and can't be retrieved again, only regenerated).
+4. Repeat later for **Live Trading** when you're ready to go live — live keys require identity
+   verification and a funded account.
+
+### 2. Local development (`.env`)
+
+Create a `.env` file at the project root (already covered by `.gitignore` — never commit it).
+`scripts/_env.py` loads it into `os.environ` automatically at the top of every script:
+
+```env
+APCA_API_KEY_ID=<your paper key id>
+APCA_API_SECRET_KEY=<your paper secret key>
+APCA_BASE_URL=https://paper-api.alpaca.markets   # https://api.alpaca.markets for live
+```
+
+Install dependencies and verify the connection:
+
+```bash
+pip install -r requirements.txt
+
+python scripts/trade.py status        # prints Alpaca market status JSON — confirms keys + base URL work
+python scripts/trade.py quote BTC/USD # confirms market-data access
+```
+
+A `401`/`403` response means the key pair doesn't match `APCA_BASE_URL` (e.g. paper keys against the
+live URL, or vice versa) — regenerate or fix the pairing rather than guessing.
+
+### 3. Automated trading (GitHub Actions)
+
+The scheduled workflows (`trade.yml`, `watchdog.yml`, `forward.yml`) run headless in GitHub Actions and
+read credentials from **GitHub Environments**, not `.env`:
+
+1. In the repo, go to **Settings → Environments** and create two environments named `paper` and `live`.
+2. Add the same two secret names to each environment, with that environment's own key pair:
+   - `APCA_API_KEY_ID`
+   - `APCA_SECRET_KEY`
+3. Every scheduled run targets the `paper` environment by default. Live trading only runs from an
+   explicit manual `workflow_dispatch` with `environment: live` selected — see
+   [Paper vs Live Trading](#paper-vs-live-trading).
+
+The `environment:` field on a workflow job is what actually exposes that environment's secrets — a job
+without it never sees `paper` or `live` secrets at all.
+
+### 4. Dashboard (optional)
+
+The dashboard's **⚙ Settings** tab has its own **Paper Trading** and **Live Trading** API Key/Secret
+fields, persisted to browser `localStorage` and sent only to Alpaca directly from the browser. These are
+independent of `.env`/GitHub secrets — set them only if you want to place trades or pull live account
+data from the dashboard UI itself.
+
+> **Safety:** confirm `python scripts/trade.py status` and a paper order round-trip
+> (`python scripts/trade.py order BTC/USD 0.001 buy 95000.00`) work end-to-end on paper before ever
+> pointing `APCA_BASE_URL`, a GitHub `live` environment secret, or the dashboard's Live Trading fields at
+> `https://api.alpaca.markets`.
+
+---
+
 ## Architecture
 
 ```mermaid

@@ -12,7 +12,7 @@ export default function Footer() {
       <span className="footer-sep">·</span>
       <span>Last modified: <strong>2026-07-19</strong></span>
       <span className="footer-sep">·</span>
-      <span>Version: <strong>v2026-07-19.2</strong></span>
+      <span>Version: <strong>v2026-07-19.3</strong></span>
     </footer>
   );
 }

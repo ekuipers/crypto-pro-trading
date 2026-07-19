@@ -2,7 +2,7 @@
       color:var(--blue);
       font-weight:900;
     }
-    /* TradingView symbol links */
+    /* CryptoPro Charts symbol links */
     .tv-link { color:inherit; text-decoration:none; }
     .tv-link:hover { text-decoration:underline; opacity:.8; }
 
