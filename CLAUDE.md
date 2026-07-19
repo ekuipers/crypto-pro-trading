@@ -6,18 +6,18 @@ Creator: Erik Kuipers
 ---
 
 # Workflow rules
+
+> Master workflow rules shared across all CryptoPro sub-projects live in
+> [CryptoPro Suite's CLAUDE.md](https://github.com/ekuipers/crypto-pro-suite/blob/main/CLAUDE.md)
+> (memory.md changelog discipline, auto-commit/sync, never delete `.env`, roadmap-scan-triggers-implementation,
+> completed-roadmap-items-to-memory, etc.). Only rules specific to this project are listed below.
+
 0. The bugs list needs to take preference for changes and the roadmap determines which features need to be added.
-1. After every change to a code file, append a dated entry to `memory.md` in the memeory folder, describing what changed and why (problem, fix, and how it was verified). Treat `memory.md` as the running changelog — no code edit is complete until `memory.md` is updated. 
-2. Do not start the local node server.
-3. Move completed roadmap items and bug fixes to the memory file for reference and change log purpose.
-4. Automatically commit changes to git and sync with remote repo.
-5. Update readme.md to reflect changes.
-6. Add a footer to the webpage. Add Project description, creator, last modified date and version number.
-7. Before analyzing any code change, read the memory for earlier changes.
-8. a "rescan roadmap" request triggers implementation, not just a status report.
-9. Self-learning: When I correct you, or you catch yourself making a mistake: before continuing, add the lesson as a one line rule under ## lessons in the memory.md file, so it never happens again.
-10. do not remove the .env file as it is used for local runs.
-11. Keep a maximum of 2 months of journals and reports.
+1. Do not start the local node server.
+2. Add a footer to the webpage. Add Project description, creator, last modified date and version number.
+3. Before analyzing any code change, read the memory for earlier changes.
+4. Self-learning: When I correct you, or you catch yourself making a mistake: before continuing, add the lesson as a one line rule under ## lessons in the memory.md file, so it never happens again.
+5. Keep a maximum of 2 months of journals and reports.
 
 ---
 
