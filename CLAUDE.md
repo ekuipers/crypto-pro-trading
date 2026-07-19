@@ -12,12 +12,7 @@ Creator: Erik Kuipers
 > (memory.md changelog discipline, auto-commit/sync, never delete `.env`, roadmap-scan-triggers-implementation,
 > completed-roadmap-items-to-memory, etc.). Only rules specific to this project are listed below.
 
-0. The bugs list needs to take preference for changes and the roadmap determines which features need to be added.
-1. Do not start the local node server.
-2. Add a footer to the webpage. Add Project description, creator, last modified date and version number.
-3. Before analyzing any code change, read the memory for earlier changes.
-4. Self-learning: When I correct you, or you catch yourself making a mistake: before continuing, add the lesson as a one line rule under ## lessons in the memory.md file, so it never happens again.
-5. Keep a maximum of 2 months of journals and reports.
+1. Keep a maximum of 2 months of journals and reports.
 
 ---
 
