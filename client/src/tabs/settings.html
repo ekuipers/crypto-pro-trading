@@ -1,0 +1,95 @@
+    <div id="page-settings" class="page">
+      <section>
+        <div class="section-title">Settings</div>
+
+        <div class="panel">
+          <div class="panel-title">⚙ Alpaca Connection</div>
+
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">📄 Paper Trading</div>
+          <div class="form-grid" style="margin-bottom:20px">
+            <div>
+              <label>Paper API Key</label>
+              <input id="setPaperApiKey" placeholder="PK...">
+            </div>
+            <div>
+              <label>Paper API Secret</label>
+              <input id="setPaperApiSecret" type="password" placeholder="Secret">
+            </div>
+          </div>
+
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">🔴 Live Trading</div>
+          <div class="form-grid" style="margin-bottom:20px">
+            <div>
+              <label>Live API Key</label>
+              <input id="setLiveApiKey" placeholder="PK...">
+            </div>
+            <div>
+              <label>Live API Secret</label>
+              <input id="setLiveApiSecret" type="password" placeholder="Secret">
+            </div>
+          </div>
+
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">🛡 Risk Limits</div>
+          <div class="form-grid" style="margin-bottom:20px">
+            <div>
+              <label>Assumed Stop Loss %</label>
+              <input id="setStopLoss" type="number" step="0.1">
+            </div>
+
+            <div>
+              <label>Max Daily Loss %</label>
+              <input id="setMaxDailyLoss" type="number" step="0.1">
+            </div>
+
+            <div>
+              <label>Max Open Risk %</label>
+              <input id="setMaxOpenRisk" type="number" step="0.1">
+            </div>
+          </div>
+
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">🔭 Signals Analysis</div>
+          <div class="form-grid" style="margin-bottom:20px">
+            <div>
+              <label>Max Symbols in Market Signals scan</label>
+              <input id="setMaxSignalSymbols" type="number" step="1">
+            </div>
+          </div>
+
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">🔗 Correlation Budget (Autopilot)</div>
+          <div class="form-grid" style="margin-bottom:20px">
+            <div>
+              <label>Max Open Positions (total)</label>
+              <input id="setMaxOpenPositions" type="number" step="1" min="1">
+            </div>
+            <div>
+              <label>Max Positions Per Tier (BTC/ETH vs alts)</label>
+              <input id="setMaxPositionsPerTier" type="number" step="1" min="1">
+            </div>
+          </div>
+
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">📋 Active Watchlist (up to 20 symbols)</div>
+          <div class="wl-tag-editor" id="watchlistTagsEl"></div>
+          <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+            <input id="watchlistAddInput" list="watchlistSymbolOptions" placeholder="Select or type a symbol — e.g. BTC/USD" style="flex:1;max-width:260px" onkeydown="if(event.key==='Enter')addWatchlistSymbol()">
+            <datalist id="watchlistSymbolOptions"></datalist>
+            <button class="btn btn-green" onclick="addWatchlistSymbol()">+ Add</button>
+            <button class="btn" onclick="resetWatchlist()">↩ Reset defaults</button>
+            <label class="small" style="display:flex;align-items:center;gap:4px;color:var(--muted);white-space:nowrap;cursor:pointer" title="Include stablecoin pairs (USDT/USD, USDC/USD, …) in the symbol dropdown">
+              <input type="checkbox" id="watchlistShowStable" onchange="populateWatchlistOptions()"> Show stablecoins
+            </label>
+            <span class="small" style="color:var(--muted)"><span id="watchlistCountEl">0</span>/20</span>
+          </div>
+          <div class="small" style="margin-top:6px;color:var(--muted)">Used by Autopilot, Daily Journal, Signals tab, and Portfolio tabs. Changes take effect immediately after saving.</div>
+
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
+            <button class="btn btn-green" onclick="saveSettings()">Save Settings</button>
+            <button class="btn btn-red" onclick="clearSettings()">Clear Settings</button>
+          </div>
+
+          <div class="small" style="margin-top:14px">
+            For a production setup, avoid calling Alpaca directly from browser-side HTML.
+            Use a backend/proxy so your API secret is not exposed in the browser.
+          </div>
+        </div>
+      </section>
+    </div>

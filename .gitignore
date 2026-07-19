@@ -11,6 +11,9 @@ __pycache__/
 # Node.js (scaffolding — see src/)
 node_modules/
 
+# Vite build output (generated — see client/src/)
+client/dist/
+
 # OS noise
 .DS_Store
 Thumbs.db

@@ -1,14 +1,19 @@
 // Unit tests for the Socials tab's Twitter/X fetch logic in
-// docs/dashboard_professional.html (socFetchAccount + helpers).
+// src/js/tabs-socials.js (socFetchAccount + helpers).
 //
 // Why a Node harness instead of pytest: this logic is dashboard-only
-// client-side JS (no server, no npm build). The test extracts the exact
-// function/const source from the live HTML file (so it can never silently
+// client-side JS (no server-side equivalent). The test extracts the exact
+// function/const source from the live source file (so it can never silently
 // drift from production) and runs it in a vm context with `fetch` and a
 // minimal `document.createElement("textarea")` stub mocked — no network
 // calls are made, so this runs offline and in CI.
 //
 // Run: node tests/test_socials_fetch.js
+//
+// (Until 2026-07-19 this logic lived inline in docs/dashboard_professional.html;
+// the dashboard was converted to a Node.js-rendered frontend and the file this
+// test extracts from moved to src/js/tabs-socials.js — see CLAUDE.md › Dashboard
+// frontend architecture.)
 
 const fs = require("node:fs");
 const path = require("node:path");
@@ -16,8 +21,8 @@ const vm = require("node:vm");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const HTML_PATH = path.join(__dirname, "..", "docs", "dashboard_professional.html");
-const html = fs.readFileSync(HTML_PATH, "utf8");
+const SRC_PATH = path.join(__dirname, "..", "src", "js", "tabs-socials.js");
+const html = fs.readFileSync(SRC_PATH, "utf8");
 
 // Bracket-matching extractor: finds `function <name>(` or `const <name> =`
 // and returns the full statement source. Safe here because none of the

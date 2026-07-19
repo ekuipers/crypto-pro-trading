@@ -1,0 +1,43 @@
+    .period-btns { display:flex; gap:6px; flex-wrap:wrap; }
+    .period-btn { color:var(--muted); }
+    .period-btn.active { color:var(--blue); border-color:rgba(88,166,255,.4); background:rgba(88,166,255,.1); }
+
+    .cal-grid {
+      display:grid;
+      gap:3px;
+      margin-top:10px;
+    }
+    .cal-cell {
+      border-radius:4px;
+      font-size:10px;
+      padding:3px 5px;
+      min-height:38px;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+    }
+    .cal-cell.pos { background:rgba(63,185,80,.18); color:var(--green); }
+    .cal-cell.neg { background:rgba(248,81,73,.15); color:var(--red); }
+    .cal-cell.neu { background:var(--surface2); color:var(--muted); }
+    .cal-cell.empty { background:transparent; }
+    .cal-day { font-size:9px; color:var(--muted); }
+    .cal-pnl { font-weight:900; font-size:10px; }
+    .cal-month-label { font-size:10px; color:var(--muted); font-weight:900; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+
+    .score-bar { display:inline-flex; gap:2px; }
+
+    .regime-badge {
+      display:inline-flex; align-items:center; gap:5px;
+      padding:2px 7px; border-radius:999px; font-size:10px; font-weight:900;
+    }
+    .regime-badge.up { color:var(--green); background:rgba(63,185,80,.14); }
+    .regime-badge.down { color:var(--red); background:rgba(248,81,73,.12); }
+    .regime-badge.mixed { color:var(--yellow); background:rgba(210,153,34,.12); }
+    .regime-badge.blocked { color:var(--red); background:rgba(248,81,73,.18); }
+
+    .kbd {
+      display:inline-block; padding:1px 5px; border-radius:4px;
+      background:var(--surface2); border:1px solid var(--border);
+      font-size:10px; font-family:monospace;
+    }
+

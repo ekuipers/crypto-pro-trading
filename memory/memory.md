@@ -8,6 +8,146 @@
 
 ---
 
+## v2026-07-19.4 — 2026-07-19 — Skills audit: programmatic opportunities identified
+
+**Analysis completed:** Reviewed all 5 existing skills (hourly-research, morning-brief, daily-journal, 
+crypto-trader, crypto-catalysts) against conversation history. Identified:
+
+- **3 Tier-1 candidates for script migration** (hourly-research, daily-journal, morning-brief hybrid): 
+  collectively reduce Claude inference time from 145 sec → 28 sec / day (82% latency reduction).
+- **2 Tier-2 script helpers** (news-catalyst classifier, trader-decision validator): improve hourl 
+  research speed and post-trade verification.
+- **10 new skills to create** (prioritized): stop-watchdog-executor, rebalance-executor, market-researcher 
+  invocation, node-cutover-parity-verification, dashboard-browser-QA, edge-analytics-interpretation, 
+  scout-strategy-guide, backtest-interpretation, scalping-scanner, glossary-maintenance.
+
+**Full analysis in `memory/skills_analysis.md`** with migration plan (Week 1 / Month 1 / Node-cutover 
+checkpoints), ROI estimates, and implementation roadmap. Immediate actions: port hourly-research and 
+daily-journal to Python scripts + `.github/workflows/` triggers.
+
+## v2026-07-19.3 — 2026-07-19 — CLAUDE.md compacted; full detail archived
+
+**Change (docs only, no code touched):** CLAUDE.md had grown to 746 lines (~70k tokens), dominated by
+full hard-rule tables, per-tab dashboard specs, the Node-port table, and bug histories. It was compacted
+to a <100-line operational summary. **Every removed line is preserved verbatim in
+`memory/claude_md_archive.md`** (pre-compaction snapshot + header note), which the compact file points to
+as the authoritative detail layer. Kept in CLAUDE.md: workflow/standing doc rule, schedule, one-line hard
+rules with key numbers and config pointers, ships-OFF flag list, method summary, module pointers,
+dashboard parity rules. `README.md`, `memory/glossary.md`, and `docs/dashboard_layout.md` unchanged (no
+feature or behavior change to describe).
+
+## v2026-07-19.2 — 2026-07-19 — EJS shell replaced with a React (Vite) shell, mid-session rule discovery
+
+**What happened:** immediately after finishing the EJS conversion below and moving to clear the
+CryptoPro Suite roadmap item, `CryptoPro Suite/CLAUDE.md` was found to have gained two new standing
+rules since this session started — "Use React as Front-end framework for all projects" and "Use Node.js
+as backend for all projects" (the latter already satisfied). This wasn't visible at the start of the
+task; the file must have been edited by the user while this session was in progress (they had it open in
+their IDE). Flagged the conflict directly rather than silently either ignoring the new rule or discarding
+completed work, and asked how to reconcile it.
+
+**Decision:** the user chose to redo the conversion as React now. When warned that a full blind JSX
+rewrite of ~200 render functions plus the Autopilot's imperative loop couldn't be verified without a
+browser tool in this environment (a real risk for a live paper-trading UI), they chose the safe middle
+option over the other two offered (full blind rewrite now; pilot one tab first): build the real
+React/Vite shell now, keep tab bodies and all business logic as the already-verified vanilla
+`src/js/*.js`/`src/css/*.css` unchanged, and convert tabs to true JSX incrementally in future sessions,
+each verified in a browser before the next — the same phased-with-checkpoint pattern already used for the
+backend's Node.js port.
+
+**Design choice that lowered risk further, found during planning, not assumed upfront:** rather than
+reimplementing `switchTab()`'s per-tab loader dispatch table (`signals` → `loadSignals()`,
+`port-overview` → `portLoadOverview()`, etc.) as new React state/effects — which risked silently
+duplicating and drifting from logic already proven correct in `src/js/nav.js` — React was designed to
+render the entire static shell **once** (mechanically equivalent to what the EJS shell produced) and then
+hand off **all** interactivity, unchanged, to the same 30 vanilla files. The only genuinely new code
+became: (1) mechanical EJS→JSX conversion of 4 static shell partials (Header/Nav/Footer — Modals used
+`dangerouslySetInnerHTML` instead, since its many inline `style="..."` strings would each need
+error-prone manual conversion to JSX style objects with no way to visually verify the result), and (2) a
+script-loading timing fix — `main.js`'s `bootstrapDashboard()` touches the DOM immediately, so the 30
+`src/js/*.js` files are now loaded dynamically from a `useEffect` in `App.jsx` (after React's first
+commit) rather than as static `<script>` tags in `index.html`, guaranteeing the `.page` divs it queries
+already exist. No `src/js/*.js` file was edited.
+
+**Output:** `client/` (new Vite + React project — `package.json`, `vite.config.js` with a dev-proxy to
+the Express server for `/js`/`/css`/`/api`/favicons, `index.html`). `client/src/components/*.jsx`
+(Header/Nav real JSX, Footer real JSX, Modals via `dangerouslySetInnerHTML`). `client/src/tabs/*.html` —
+the 13 tab partials copied verbatim (diff-verified byte-identical modulo one blank line) from the deleted
+`views/tabs/*.ejs`. `client/src/App.jsx` + `main.jsx` + `scriptLoader.js`. `views/` deleted; `ejs`
+uninstalled; `concurrently` added as a dev dependency for running the Express + Vite dev servers
+together; root `package.json` gained a `build` script.
+
+**A note-worthy build hiccup, caught and fixed before finishing:** the initial `vite@^5.4`/
+`@vitejs/plugin-react@^4.3` pairing pulled in a known moderate esbuild dev-server CORS vulnerability
+(GHSA-67mh-4wv8-2f99). Rather than accept a known vulnerability in newly-added scaffolding, re-pinned to
+`vite@^7.3.6` + `@vitejs/plugin-react@^5.0.4` (compatible per its peer-dependency range) — `npm audit`
+now reports 0 vulnerabilities for the client project.
+
+**Verified:** `npm --prefix client run build` completes with no errors (the real compile/syntax check for
+JSX, since `node --check` doesn't apply); the built bundle contains the expected tab/modal DOM-id markers
+and script-order markers; `curl` smoke tests on a production `node server.js` — `/` (200, contains
+`<div id="root">` and the hashed bundle script tag), the built `/assets/*.js` bundle (200), every
+`/js/*.js` and `/css/*.css` (unchanged, 200), `/api/health` (200); the 280-test backend suite still
+passes unchanged. **Not verified — no browser tool available this session:** whether React actually
+mounts correctly, whether the dynamically-injected scripts successfully fire `bootstrapDashboard()`, or
+whether clicking a nav button correctly switches tabs and triggers the right loader. This is more
+significant here than for the EJS conversion, since the script-injection timing fix is genuinely new
+integration glue with no mechanical proof of behavioral equivalence (the EJS conversion had a
+byte-for-byte reconstruction diff as its safety net; this doesn't). Flagged explicitly to the user:
+run `npm run dev` and click through every tab, a couple of sub-tabs, and the Autopilot toggle before
+trusting this for live trading.
+
+## v2026-07-19.1 — 2026-07-19 — Dashboard converted to a Node.js-rendered frontend, static HTML removed
+
+**Change (CryptoPro Suite roadmap item — the only open roadmap item across all four sub-projects at the
+time of the scan):** "convert `dashboard_professional.html` to a Node.js frontend and remove the static
+HTML." Given the size (10,088 lines) and the fact this is the live paper-trading UI (Autopilot places
+real paper orders), this was planned first (`EnterPlanMode`) rather than executed blind. Chosen approach:
+Express + EJS templates + classic (non-module) `<script>` files — a structural extraction, not a rewrite,
+deliberately avoiding a bundler/SPA-framework rewrite (React/Vite) that would have meant re-implementing
+scoring/Autopilot logic inside new component boundaries with no frontend test harness to catch a
+regression. Also deliberately avoided ES modules with `import`/`export`: the original script relied on
+same-scope function hoisting and a few immediately-executing top-level statements (the
+`bootstrapDashboard()` IIFE; three `_orig<Fn> = <Fn>` monkey-patch overrides for
+`renderPositions`/`renderRisk`/`renderPerformance`); hand-wiring ~350 cross-file imports for a
+live-trading UI with no way to catch a missed one was judged too risky, so 30 classic
+`<script src>` files sharing one global `window` scope were used instead, loaded in an order that exactly
+reproduces the original single script's execution order (one deliberate exception: `main.js`, containing
+only `bootstrapDashboard()` + 3 bootstrap calls, is pulled out of its original mid-file position and
+loaded last, since it transitively depends on code defined throughout the rest of the file).
+
+**Method:** the split was scripted (Node, ~30 lines of boundary-detection + a byte-for-byte
+reconstruction diff against the original as a correctness gate), not hand-copied — this caught a real bug
+mid-process (a named IIFE, `(async function bootstrapDashboard(){...})()`, wasn't recognized by the first
+version of the boundary-detector, which would have silently cut the function in half across two files;
+found and fixed before any file was written by cross-checking every top-level executable statement in the
+file, not just declarations). Full line coverage (no line dropped, duplicated, or reordered within any
+single output file) was mathematically verified before any file was written, not assumed.
+
+**Output:** `views/dashboard.ejs` + `views/partials/{head,header,nav,main-open,modals,footer}.ejs` +
+13 `views/tabs/*.ejs`; `src/css/*.css` (10 files, original cascade order preserved via `<link>` tags);
+`src/js/*.js` (30 files — see `CLAUDE.md › Dashboard frontend architecture` for the full list and load
+order). `server.js`: `res.sendFile()` → `res.render('dashboard')` (EJS view engine), plus two new
+`express.static` mounts (`/js` → `src/js`, `/css` → `src/css`). `docs/dashboard_professional.html`
+deleted. Fixed a real (if minor) breakage this caused: `tests/test_socials_fetch.js` hardcoded a path to
+the now-deleted file — repointed at `src/js/tabs-socials.js` (its new home) and re-verified the 7 tests
+still pass logically (via a scratch `.cjs` copy, since the file has an unrelated pre-existing
+`require()`-in-an-ESM-project bug dating to 2026-07-13, outside `npm test`'s glob, left unfixed as
+out-of-scope).
+
+**Consequence flagged to the user:** `ekuipers.github.io/crypto-pro-trading/dashboard_professional.html`
+(GitHub Pages) no longer works — GitHub Pages only serves static files and none remain to publish. The
+Vercel deployment (`server.js`, already Node-capable) is the live URL now; local use requires
+`npm start`/`npm run dev`.
+
+**Verified:** all 30 `src/js/*.js` files pass `node --check` (proves no file boundary fell mid-statement);
+the existing 280-test backend suite (`npm test`) passes unchanged (no backend file touched); `curl` smoke
+tests on `/`, every `/js/*.js` (30/30), every `/css/*.css` (10/10), and `/api/health` return 200 with
+correct content-type; rendered-page DOM `id`s are an exact 198/198 match against the original file's ids.
+**Not verified — no browser tool available this session:** an actual click-through of every tab in a
+browser. Flagged explicitly to the user rather than claimed; recommended manually exercising the
+Autopilot toggle, Settings save, and a few tabs before relying on this for live trading.
+
 ## v2026-07-18.6 — 2026-07-18 — Cross-suite title-bar/footer branding consistency
 
 **Change (driven by a CryptoPro Suite workflow-rules audit, rules 7 + 17):** aligned the dashboard's

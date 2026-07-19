@@ -1,0 +1,202 @@
+    /* ── GAP & GO TAB ── */
+    .gg-toolbar {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-bottom:18px;
+    }
+    .gg-card {
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      margin-bottom:18px;
+      overflow:hidden;
+    }
+    .gg-card-header {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding:14px 18px;
+      background:var(--surface2);
+      border-bottom:1px solid var(--border);
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .gg-rank {
+      width:30px;
+      height:30px;
+      border-radius:50%;
+      background:var(--bg);
+      border:2px solid var(--border);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:900;
+      font-size:12px;
+      color:var(--muted);
+      flex-shrink:0;
+    }
+    .gg-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+    }
+    .gg-section {
+      padding:14px 16px;
+      border-right:1px solid var(--border);
+      border-bottom:1px solid var(--border);
+    }
+    .gg-section-wide {
+      grid-column:1 / -1;
+      border-right:none;
+    }
+    .gg-section-title {
+      font-size:10px;
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:1px;
+      color:var(--muted);
+      margin-bottom:8px;
+    }
+    .gg-legend {
+      display:flex;
+      gap:14px;
+      flex-wrap:wrap;
+      padding:12px 16px;
+      background:var(--surface2);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      margin-bottom:18px;
+      font-size:11px;
+      color:var(--muted);
+    }
+    .gg-score-bar {
+      height:4px;
+      border-radius:2px;
+      background:var(--surface2);
+      margin-top:6px;
+      overflow:hidden;
+    }
+    .gg-score-fill {
+      height:100%;
+      border-radius:2px;
+      transition:width .4s;
+    }
+    .gg-news-link {
+      color:var(--blue);
+      font-size:11px;
+      text-decoration:none;
+      margin-right:8px;
+    }
+    .gg-news-link:hover { text-decoration:underline; }
+    /* 📰 Command › News sub-tab (roadmap 2026-07-09) */
+    .news-item {
+      display:flex;
+      gap:10px;
+      padding:9px 2px;
+      border-bottom:1px solid var(--border);
+      align-items:baseline;
+      font-size:13px;
+      line-height:1.45;
+    }
+    .news-item:last-child { border-bottom:none; }
+    .news-time {
+      color:var(--muted);
+      font-size:11px;
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+      white-space:nowrap;
+      flex:0 0 88px;
+    }
+    .news-badge {
+      display:inline-block;
+      font-size:10px;
+      font-weight:700;
+      padding:1px 6px;
+      border-radius:4px;
+      margin-right:6px;
+      vertical-align:1px;
+      white-space:nowrap;
+    }
+    .news-t1 { background:rgba(239,68,68,.18); color:var(--red); }
+    .news-t2 { background:rgba(234,179,8,.18);  color:var(--yellow); }
+    .news-src {
+      color:var(--muted);
+      font-size:11px;
+      white-space:nowrap;
+    }
+    .news-item a.news-headline {
+      color:var(--text);
+      text-decoration:none;
+    }
+    .news-item a.news-headline:hover { color:var(--blue); text-decoration:underline; }
+    .news-syms { color:var(--blue); font-size:11px; white-space:nowrap; }
+    .news-filter-btn.active { color:var(--blue); border-color:rgba(88,166,255,.4); background:rgba(88,166,255,.1); }
+
+    /* 📖 Glossary sub-tab (roadmap 2026-07-18) */
+    .glossary-h { margin:18px 0 8px; color:var(--text); }
+    .glossary-h:first-child { margin-top:0; }
+    .glossary-p { margin:4px 0; font-size:13px; color:var(--text); line-height:1.5; }
+    .glossary-table { min-width:0; table-layout:auto; }
+    .glossary-table td, .glossary-table th { vertical-align:top; }
+    .glossary-table td:first-child { white-space:nowrap; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; }
+    #glossaryList hr { border:none; border-top:1px solid var(--border); margin:18px 0; }
+    /* 🐦 Command › Socials sub-tab (roadmap 2026-07-09) — tweet items reuse the
+       .news-item family; only the per-account stat chips are new. */
+    .soc-acct {
+      display:inline-flex;
+      align-items:center;
+      gap:5px;
+      font-size:11px;
+      padding:2px 8px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      margin:0 6px 6px 0;
+      color:var(--muted);
+      white-space:nowrap;
+    }
+    .soc-acct b { color:var(--text); font-weight:600; }
+    .soc-acct.soc-dead { color:var(--red); border-color:rgba(239,68,68,.35); }
+    .soc-followers { color:var(--blue); font-size:10px; }
+    .gg-level-row {
+      display:flex;
+      justify-content:space-between;
+      padding:4px 0;
+      border-bottom:1px solid var(--border);
+      font-size:12px;
+      align-items:center;
+      gap:8px;
+    }
+    .gg-level-row:last-child { border-bottom:none; }
+    .gg-range-bar {
+      position:relative;
+      height:8px;
+      background:linear-gradient(to right,rgba(248,81,73,.25),rgba(210,153,34,.2),rgba(63,185,80,.25));
+      border-radius:4px;
+      border:1px solid var(--border);
+      margin:8px 0;
+    }
+    .gg-range-cursor {
+      position:absolute;
+      top:-4px;
+      width:4px;
+      height:16px;
+      background:var(--blue);
+      border-radius:2px;
+      transform:translateX(-50%);
+      box-shadow:0 0 6px rgba(88,166,255,.6);
+    }
+    .gg-plan-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(175px,1fr));
+      gap:10px;
+    }
+    .gg-plan-item-label {
+      font-size:10px;
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:.5px;
+      margin-bottom:3px;
+    }
+
+

@@ -1,0 +1,59 @@
+    <div id="page-execution" class="page">
+      <section>
+        <div class="section-title">Execution Quality</div>
+        <div id="executionKpis" class="grid-3"></div>
+      </section>
+
+      <section>
+        <div class="panel">
+          <div class="panel-title">🎯 Recent Orders</div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+            <label class="small" style="color:var(--muted)">Symbol
+              <select id="execFilterSymbol" onchange="applyExecutionFilters()" style="margin-left:4px">
+                <option value="">All</option>
+              </select>
+            </label>
+            <label class="small" style="color:var(--muted)">Type
+              <select id="execFilterType" onchange="applyExecutionFilters()" style="margin-left:4px">
+                <option value="">All</option>
+              </select>
+            </label>
+            <label class="small" style="color:var(--muted)">Side
+              <select id="execFilterSide" onchange="applyExecutionFilters()" style="margin-left:4px">
+                <option value="">All</option>
+                <option value="buy">Buy</option>
+                <option value="sell">Sell</option>
+              </select>
+            </label>
+            <label class="small" style="color:var(--muted)">Status
+              <select id="execFilterStatus" onchange="applyExecutionFilters()" style="margin-left:4px">
+                <option value="">All</option>
+              </select>
+            </label>
+            <button class="btn" onclick="resetExecutionFilters()">Reset</button>
+            <span id="execFilterCount" class="small" style="color:var(--muted);margin-left:auto"></span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th data-tip="Asset or trading pair. Click to sort.">Symbol <span class="sort">⇅</span></th>
+                  <th data-tip="Buy or sell side. Click to sort.">Side <span class="sort">⇅</span></th>
+                  <th data-tip="Order type. Click to sort.">Type <span class="sort">⇅</span></th>
+                  <th class="right" data-tip="Order quantity. Click to sort.">Qty <span class="sort">⇅</span></th>
+                  <th class="right" data-tip="Submitted limit price. Click to sort.">Limit <span class="sort">⇅</span></th>
+                  <th class="right" data-tip="Average fill price. Click to sort.">Avg Fill <span class="sort">⇅</span></th>
+                  <th class="right" data-tip="Total order value in USD — filled qty × avg fill for (partially) filled orders, otherwise qty × limit price. Click to sort.">Total <span class="sort">⇅</span></th>
+                  <th class="right" data-tip="Approximate execution drag using limit price versus fill price. Click to sort.">Slippage Proxy <span class="sort">⇅</span></th>
+                  <th data-tip="Order status. Click to sort.">Status <span class="sort">⇅</span></th>
+                  <th data-tip="Order creation time. Click to sort.">Time <span class="sort">⇅</span></th>
+                </tr>
+              </thead>
+              <tbody id="executionOrdersBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+
+

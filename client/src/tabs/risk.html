@@ -1,0 +1,65 @@
+    <div id="page-risk" class="page">
+      <section>
+        <div class="section-title">Risk Dashboard</div>
+        <div id="riskKpis" class="grid-3"></div>
+      </section>
+
+      <section>
+        <div class="grid-2">
+          <div class="chart-card">
+            <div class="chart-header">
+              <div>
+                <div class="chart-title">Drawdown Curve</div>
+                <div class="chart-meta">Peak-to-trough drawdown from equity history</div>
+              </div>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="drawdownChart"></canvas>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">🚨 Risk Alerts</div>
+            <div id="riskAlerts" class="small">Load account data to calculate alerts.</div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">Portfolio Concentration &amp; Correlation Risk</div>
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-title">🔗 Live Correlation Matrix</div>
+            <div class="small" style="margin-bottom:8px;color:var(--muted)">Pairwise Pearson ρ of daily log-returns. Load Signals tab to compute from live bar data.</div>
+            <div id="correlationPanel" class="small">Load positions to calculate.</div>
+            <div id="corrHeatmap" style="margin-top:10px"><div class="small" style="color:var(--muted)">Open Signals tab and click Scan Now to populate correlation data.</div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">📊 Effective Exposure</div>
+            <div id="concentrationPanel" class="small">Load positions to calculate effective exposure.</div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">Open Exposure & Concentration</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-tip="Asset or trading pair. Click to sort.">Symbol <span class="sort">⇅</span></th>
+                <th class="right" data-tip="Current market value of the position. Click to sort.">Market Value <span class="sort">⇅</span></th>
+                <th class="right" data-tip="Position size as percentage of total equity. Click to sort.">% Equity <span class="sort">⇅</span></th>
+                <th class="right" data-tip="Current allocation vs symbol cap from portfolio_caps.json. Click to sort.">Cap Usage <span class="sort">⇅</span></th>
+                <th class="right" data-tip="Open profit or loss that has not been realized. Click to sort.">Unrealized P&L <span class="sort">⇅</span></th>
+                <th class="right" data-tip="Estimated loss using the assumed stop-loss percentage. Click to sort.">Assumed Open Risk <span class="sort">⇅</span></th>
+                <th data-tip="Risk status for this position. Click to sort.">Status <span class="sort">⇅</span></th>
+              </tr>
+            </thead>
+            <tbody id="riskExposureBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+

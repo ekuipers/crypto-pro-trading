@@ -1,0 +1,190 @@
+
+    * {
+      box-sizing:border-box;
+      margin:0;
+      padding:0;
+    }
+
+    body {
+      background:var(--bg);
+      color:var(--text);
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+      font-size:14px;
+      min-height:100vh;
+    }
+
+    header {
+      background:var(--surface);
+      border-bottom:1px solid var(--border);
+      padding:16px 24px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      position:sticky;
+      top:0;
+      z-index:100;
+    }
+
+    .logo {
+      display:flex;
+      align-items:center;
+      gap:10px;
+      font-size:17px;
+      font-weight:850;
+      letter-spacing:-.2px;
+    }
+
+    .header-right {
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .badge {
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      padding:5px 12px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:850;
+      border:1px solid var(--border);
+      color:var(--muted);
+      background:var(--surface2);
+    }
+
+    .badge.paper {
+      color:var(--yellow);
+      border-color:rgba(210,153,34,.35);
+      background:rgba(210,153,34,.12);
+    }
+
+    .badge.live {
+      color:var(--green);
+      border-color:rgba(63,185,80,.35);
+      background:rgba(63,185,80,.12);
+    }
+    .badge select {
+      background: transparent; border: none; outline: none;
+      color: inherit; font: inherit; font-size: 12px; font-weight: 700;
+      letter-spacing: .3px; cursor: pointer; padding: 0; margin: 0;
+      appearance: none; -webkit-appearance: none;
+    }
+    .badge select option { background: var(--surface2); color: var(--text); }
+
+    .dot {
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background:currentColor;
+      animation:pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%,100% { opacity:1; }
+      50% { opacity:.35; }
+    }
+
+    button {
+      font-family:inherit;
+    }
+
+    .btn {
+      background:var(--surface2);
+      border:1px solid var(--border);
+      color:var(--blue);
+      padding:7px 12px;
+      border-radius:var(--radius);
+      cursor:pointer;
+      font-size:13px;
+      font-weight:750;
+    }
+
+    .btn:hover {
+      background:var(--hover);
+    }
+
+    .btn-green {
+      background:rgba(63,185,80,.15);
+      border-color:rgba(63,185,80,.35);
+      color:var(--green);
+    }
+
+    .btn-red {
+      background:rgba(248,81,73,.12);
+      border-color:rgba(248,81,73,.35);
+      color:var(--red);
+    }
+
+    .last-updated {
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    .layout {
+      display:flex;
+      align-items:flex-start;
+    }
+
+    nav {
+      background:var(--surface);
+      border-right:1px solid var(--border);
+      padding:14px 10px;
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+      width:210px;
+      flex:0 0 210px;
+      position:sticky;
+      top:57px;
+      max-height:calc(100vh - 57px);
+      overflow-y:auto;
+      z-index:99;
+    }
+
+    .tab-btn {
+      background:transparent;
+      border:none;
+      color:var(--muted);
+      cursor:pointer;
+      padding:10px 14px;
+      font-size:13px;
+      font-weight:850;
+      border-left:3px solid transparent;
+      border-radius:0 var(--radius) var(--radius) 0;
+      white-space:nowrap;
+      display:flex;
+      align-items:center;
+      gap:9px;
+      text-align:left;
+      width:100%;
+    }
+
+    .tab-btn:hover {
+      color:var(--text);
+      background:var(--border);
+    }
+
+    .tab-btn.active {
+      color:var(--blue);
+      border-left-color:var(--blue);
+      background:rgba(88,166,255,.10);
+    }
+
+    main {
+      flex:1;
+      min-width:0;
+      padding:24px;
+      max-width:1500px;
+      margin:0 auto;
+    }
+
+    .page {
+      display:none;
+    }
+
+    .page.active {
+      display:block;
+    }
+

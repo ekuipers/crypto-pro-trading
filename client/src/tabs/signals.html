@@ -1,0 +1,56 @@
+    <div id="page-signals" class="page">
+      <section>
+        <div class="section-title">Signal Scanner — 6-Point Confluence</div>
+        <div id="signalKpis" class="grid-3"></div>
+      </section>
+
+      <section>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
+          <div class="section-title" style="margin-bottom:0">Live Signal Scores</div>
+          <span class="small">15-min bars · 4H regime · Scores update on Refresh</span>
+          <button class="btn" onclick="loadSignals()" style="margin-left:auto">⟳ Scan Now</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-tip="Crypto pair.">Symbol</th>
+                <th class="right" data-tip="Current ask price.">Price</th>
+                <th class="right" data-tip="Live bid-ask spread as % of mid (from snapshot quotes). Part of the round-trip cost: 2× taker fee + spread.">Spread</th>
+                <th class="right" data-tip="6-point confluence score. ≥4 = BUY, 3 = half-size; ≤−3 shown as BEAR (shorts unsupported on Alpaca spot).">Score</th>
+                <th data-tip="Score trend vs previous scan. ↑ improving, ↓ worsening, → unchanged.">Trend</th>
+                <th data-tip="20/50 EMA cross on 15-min chart.">EMA Cross</th>
+                <th class="right" data-tip="RSI (14) on 15-min. 40–65 bullish, &lt;30 oversold +1, &gt;70 overbought −1.">RSI</th>
+                <th data-tip="MACD histogram direction.">MACD</th>
+                <th class="right" data-tip="Bollinger %b. &lt;0.25 bullish +1, &gt;0.75 bearish −1.">BB %b</th>
+                <th class="right" data-tip="Volume vs 20-bar average. ≥1.2× bullish, &lt;0.7× bearish.">Volume</th>
+                <th class="right" data-tip="ADX(14) trend strength — informational only, not scored. &lt;20 ranging, 20–25 emerging, 25–40 trending, ≥40 strong.">ADX</th>
+                <th data-tip="OBV volume-flow trend over 20 bars — informational only, not scored. Rising = accumulation, falling = distribution.">OBV</th>
+                <th data-tip="4H EMA 20/50 regime. Golden = uptrend, Death = downtrend.">4H Regime</th>
+                <th data-tip="Daily regime gate. Uptrend = buys allowed.">Daily</th>
+                <th class="right" data-tip="ATR-based suggested quantity using 1% equity risk rule. Requires account data loaded first.">ATR Qty</th>
+                <th class="right" data-tip="NET reward:risk — 4H swing-low stop vs BB-upper target, with the round-trip cost (2× taker fee + spread) subtracted from the reward leg. Entries below 1.0 are blocked, 1.0–1.5 half-sized (soft gate).">Net R:R</th>
+                <th data-tip="Recommended action. BUY button pre-fills trade modal with ATR sizing.">Action</th>
+              </tr>
+            </thead>
+            <tbody id="signalBody"><tr><td colspan="17" class="placeholder">Click Scan Now or Refresh to load signals.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-title">📊 Score Distribution</div>
+            <div id="scoreDist" class="small">Load signals to see distribution.</div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">⚡ Setup Alerts</div>
+            <div class="small" style="margin-bottom:10px">Get a browser notification when any symbol hits score ≥ 4 (BUY) or ≤ −4 in downtrend (BEAR — informational, no short on spot venue).</div>
+            <div id="notifStatus" class="small" style="margin-bottom:10px;color:var(--muted)">Notifications: not enabled</div>
+            <button class="btn btn-green" onclick="requestNotifications()">Enable Notifications</button>
+          </div>
+        </div>
+      </section>
+    </div>
+

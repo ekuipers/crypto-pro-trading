@@ -1,0 +1,180 @@
+    <div id="page-command" class="page active">
+      <div class="subnav">
+        <button id="subtab-command-overview" class="subtab-btn active" onclick="commandSubTab('command-overview')">🧭 Overview</button>
+        <button id="subtab-news" class="subtab-btn" onclick="commandSubTab('news')">📰 News</button>
+        <button id="subtab-socials" class="subtab-btn" onclick="commandSubTab('socials')">🐦 Socials</button>
+        <button id="subtab-glossary" class="subtab-btn" onclick="commandSubTab('glossary')">📖 Glossary</button>
+      </div>
+
+    <div id="subpage-command-overview" class="subpage active">
+      <section>
+        <div class="section-title">Professional Command Center</div>
+        <!-- Autopilot controls live ABOVE the trading-permission indicator
+             (roadmap 2026-07-10 item 11 v2) — always in sight; the activity
+             log stays in the 🤖 Autopilot panel at the bottom of the page. -->
+        <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+          <button id="apToggleBtn" class="btn" onclick="apToggle()" data-tip="Start/stop the autopilot loop. Never auto-resumes after a reload.">▶ Autopilot OFF</button>
+          <label class="small" style="color:var(--muted)">Interval
+            <select id="apInterval" onchange="apIntervalChanged()" style="margin-left:4px">
+              <option value="15">15 min</option>
+              <option value="30">30 min</option>
+              <option value="60" selected>60 min</option>
+            </select>
+          </label>
+          <button class="btn btn-red" onclick="apKillSwitch()" data-tip="Stop the autopilot loop AND cancel all open orders.">⛔ Kill switch</button>
+        </div>
+        <div id="apStatus" class="small" style="color:var(--muted);text-align:center;margin-bottom:10px">Autopilot is OFF. Cycles run: 0 · orders placed: 0.</div>
+        <div id="tradingStatus" class="status-main reduce" data-tip="Final trading permission based on risk limits, drawdown, open risk, concentration, and journal discipline.">Connect Alpaca</div>
+        <div id="tradingStatusLog" class="small" data-tip="Last 3 entries from the Autopilot activity log." style="text-align:center;margin:6px 0 8px;line-height:1.5;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px"></div>
+        <div id="sessionBanner" style="display:none;text-align:center;font-size:12px;color:var(--muted);margin-bottom:8px"></div>
+        <div id="scoutChip" style="display:none;text-align:center;font-size:12px;margin-bottom:8px"></div>
+        <div id="budgetChip" style="display:none;text-align:center;font-size:12px;margin-bottom:8px"></div>
+        <div id="tickerStrip" class="ticker-strip">
+          <div style="padding:10px 16px;color:var(--muted);font-size:12px;align-self:center">Connect Alpaca to see live prices</div>
+        </div>
+        <div id="commandKpis" class="grid-3"></div>
+      </section>
+
+      <section>
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-title">🚦 Trading Permission Rules</div>
+            <div id="recentActivities" class="small" style="margin-bottom:10px;text-align:left"></div>
+            <div id="permissionRules" class="small">Load data to calculate trading permission.</div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">📌 Hard Rules — Live Status</div>
+            <div id="hardRulesLive"><div class="small" style="color:var(--muted)">Load data to check live rule status.</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Autopilot controls sit at the top of the page (item 11 v2); this
+           panel keeps the description + activity log at the bottom. -->
+      <section>
+        <div class="panel">
+          <div class="panel-title">🤖 Autopilot</div>
+          <div class="small" style="color:var(--muted);margin-bottom:10px">
+            Automated <b>long-only</b> execution of the 6-point confluence strategy on the watchlist
+            + fresh scout promotions (entry score ≥ 3.5 full / ≥ 2.5 half, half-size counter-trend long
+            in a downtrend at ≥ 4, correlation budget + live-ρ half-sizing above 0.9, per-symbol caps,
+            ATR sizing, 4H swing-low stop, trailing stop, TA exit — thresholds seeded from
+            <code>config.json</code>). Daily-drawdown gate blocks new entries once equity falls 3% below
+            day open; limit prices anchor to a live snapshot quote; stale orders are
+            cancelled (entries) or cancel-replaced with a wider band (exits). Paper mode only.
+            <b>Always OFF on page load.</b>
+          </div>
+          <div id="hwmSplitWarning" class="small" style="display:none;color:var(--yellow);margin-bottom:8px"></div>
+          <!-- Controls (toggle / interval / kill switch) moved above the
+               trading-permission indicator — roadmap 2026-07-10 item 11 v2.
+               Only the activity log remains here. -->
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">Activity Log</div>
+            <button class="btn" style="margin-left:auto;font-size:11px;padding:3px 9px" onclick="apClearLog()">Clear</button>
+          </div>
+          <div id="apLog" class="small" style="max-height:260px;overflow-y:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.6"><span style="color:var(--muted)">No autopilot activity yet.</span></div>
+        </div>
+      </section>
+    </div><!-- /subpage-command-overview -->
+
+    <!-- 📰 News sub-tab — aggregated crypto headlines (roadmap 2026-07-09).
+         Sources: Alpaca News API (Benzinga, existing keys) + CoinDesk /
+         Cointelegraph / Decrypt RSS via rss2json. Merged, deduped by
+         normalized headline, tagged with T1/T2 catalyst badges per the
+         crypto-catalysts skill. Analysis-only — never places orders. -->
+    <div id="subpage-news" class="subpage">
+      <section>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap">
+          <div class="section-title" style="margin-bottom:0">📰 Crypto News</div>
+          <span id="newsStatus" class="small" style="color:var(--muted)"></span>
+          <div style="display:flex;gap:6px;margin-left:auto">
+            <button id="newsFilterAll" class="btn news-filter-btn active" onclick="newsSetFilter('all')" data-tip="Show every deduped headline.">All</button>
+            <button id="newsFilterKey" class="btn news-filter-btn" onclick="newsSetFilter('key')" data-tip="Only T1/T2 catalyst headlines (hacks, depegs, enforcement, ETF flows, unlocks, macro).">⚡ Key only</button>
+            <button class="btn" onclick="loadNews(true)" data-tip="Re-fetch headlines from all sources now.">↻ Refresh</button>
+          </div>
+        </div>
+        <div class="small" style="color:var(--muted);margin-bottom:12px">
+          Aggregated from the <b>Alpaca News API</b> (Benzinga) plus the <b>CoinDesk</b>,
+          <b>Cointelegraph</b>, and <b>Decrypt</b> feeds, deduplicated by headline.
+          <b>T1</b> = structural (hack, depeg, enforcement, chain halt) · <b>T2</b> = flow
+          (ETF flows, unlocks, listings, macro prints) per the crypto-catalysts ladder.
+          News is a <b>defensive input only</b> — it can veto or downsize an entry or flag a
+          position for close, never justify an entry below the score gates.
+        </div>
+        <div id="newsList"><div class="small" style="color:var(--muted)">Loading news…</div></div>
+      </section>
+    </div><!-- /subpage-news -->
+
+    <!-- 🐦 Socials sub-tab — crypto posts + stats from >0.5M-follower accounts
+         (roadmap 2026-07-09; sources fixed 2026-07-10). X/Twitter has no
+         keyless API and blocks CORS. Stats: live follower/tweet counts via the
+         keyless fxtwitter API (api.fxtwitter.com, ACAO:* — verified working).
+         Posts: official Telegram mirror first (RSS-Bridge TelegramBridge →
+         rss2json, verified 2026-07-10), then Nitter-mirror RSS as best-effort
+         (all public mirrors now bot-wall or UA-whitelist /rss; error feeds are
+         rejected by feed-title validation). The >0.5M gate is enforced by the
+         curated SOC_ACCOUNTS list; static followersM snapshots are the render
+         fallback. Analysis-only — never places orders. -->
+    <div id="subpage-socials" class="subpage">
+      <section>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap">
+          <div class="section-title" style="margin-bottom:0">🐦 Crypto Socials</div>
+          <span id="socStatus" class="small" style="color:var(--muted)"></span>
+          <div style="display:flex;gap:6px;margin-left:auto">
+            <button id="socFilterAll" class="btn news-filter-btn active" onclick="socSetFilter('all')" data-tip="Show every fetched tweet.">All</button>
+            <button id="socFilterKey" class="btn news-filter-btn" onclick="socSetFilter('key')" data-tip="Only T1/T2 catalyst tweets (hacks, depegs, enforcement, ETF flows, unlocks, macro).">⚡ Key only</button>
+            <button class="btn" onclick="loadSocials(true)" data-tip="Re-fetch timelines from all accounts now.">↻ Refresh</button>
+          </div>
+        </div>
+        <div class="small" style="color:var(--muted);margin-bottom:12px">
+          Latest original posts (retweets skipped) from curated crypto accounts with
+          <b>&gt; 0.5M followers</b>. Account stats (follower counts) refresh <b>live via the
+          keyless fxtwitter API</b>; a <b>*</b> marks a static snapshot when that call fails.
+          Post text comes from each account's <b>official Telegram mirror</b> where one exists
+          (marked <b>TG</b> — Binance, Watcher.Guru, Whale Alert, Cointelegraph), falling back
+          to public Nitter-mirror RSS, which X now blocks for keyless readers — accounts with
+          no reachable source show a red ✕ chip (stats still live); hit ↻ Refresh to retry.
+          Generalist accounts are filtered to crypto-keyword posts only, and posts get the
+          same <b>T1/T2</b> catalyst badges as the News tab. Social flow is a
+          <b>defensive input only</b> — it never justifies an entry below the score gates.
+        </div>
+        <div id="socAccts" style="margin-bottom:10px"></div>
+        <div id="socList"><div class="small" style="color:var(--muted)">Loading tweets…</div></div>
+      </section>
+    </div><!-- /subpage-socials -->
+
+    <!-- 📖 Glossary sub-tab — renders memory/glossary.md (the project's full
+         decoder ring: trading terms, acronyms, and dated notes on every
+         indicator, gate, or dashboard feature added) directly in the
+         dashboard, so definitions are one click away instead of living only
+         in the repo (roadmap 2026-07-18). Fetched relative to this file
+         (../memory/glossary.md primary; a couple of same-directory fallbacks
+         in case the HTML is copied elsewhere). Read-only reference —
+         never places orders. -->
+    <div id="subpage-glossary" class="subpage">
+      <section>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap">
+          <div class="section-title" style="margin-bottom:0">📖 Glossary</div>
+          <span id="glossaryStatus" class="small" style="color:var(--muted)"></span>
+          <div style="display:flex;gap:6px;margin-left:auto;align-items:center">
+            <input id="glossarySearch" type="text" placeholder="Search terms…" oninput="filterGlossary()" style="width:220px" />
+            <button class="btn" onclick="loadGlossary(true)" data-tip="Re-read memory/glossary.md from disk.">↻ Refresh</button>
+          </div>
+        </div>
+        <div class="small" style="color:var(--muted);margin-bottom:12px">
+          The project's full decoder ring — trading terms, acronyms, and dated notes on every
+          indicator, gate, or dashboard feature added. Rendered live from
+          <code>memory/glossary.md</code> so it never drifts from the repo when the fetch succeeds;
+          falls back to a small built-in reference when the browser blocks reading a local sibling
+          file (common when this page is opened directly from disk). Read-only reference —
+          never places orders.
+        </div>
+        <div id="glossaryList"><div class="small" style="color:var(--muted)">Loading glossary…</div></div>
+      </section>
+    </div><!-- /subpage-glossary -->
+    </div>
+
+    <!-- Analytics parent page — merges Performance + P&L + Edge (roadmap). Deep
+         links #performance / #pnl / #edge still resolve here via ANALYTICS_SUBS
+         in applyTabFromUrl(); switchTab() redirects them to this parent. -->

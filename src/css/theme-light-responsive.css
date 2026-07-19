@@ -1,0 +1,100 @@
+    /* ── LIGHT THEME ── */
+    :root[data-theme="light"] {
+      --bg:      #f6f8fa;
+      --surface: #ffffff;
+      --surface2:#f0f3f7;
+      --border:  #d0d7de;
+      --text:    #1f2328;
+      --muted:   #656d76;
+      --green:   #1a7f37;
+      --red:     #cf222e;
+      --yellow:  #9a6700;
+      --blue:    #0969da;
+      --purple:  #8250df;
+      --orange:  #bc4c00;
+      --hover:   #e2e7ed;
+    }
+    :root[data-theme="light"] .btn {
+      background:#f0f3f7;
+    }
+    :root[data-theme="light"] input,
+    :root[data-theme="light"] select,
+    :root[data-theme="light"] textarea {
+      background:#f0f3f7;
+    }
+
+    .theme-btn {
+      background:var(--surface2);
+      border:1px solid var(--border);
+      color:var(--muted);
+      padding:6px 10px;
+      border-radius:var(--radius);
+      cursor:pointer;
+      font-size:15px;
+      line-height:1;
+      transition:color .15s, background .15s;
+    }
+    .theme-btn:hover { color:var(--text); background:var(--border); }
+
+    @media (max-width:700px) {
+      header {
+        align-items:flex-start;
+        flex-direction:column;
+        gap:12px;
+      }
+
+      .layout {
+        flex-direction:column;
+      }
+
+      nav {
+        top:104px;
+        flex-direction:row;
+        width:auto;
+        flex:0 0 auto;
+        max-height:none;
+        overflow-x:auto;
+        overflow-y:hidden;
+        border-right:none;
+        border-bottom:1px solid var(--border);
+        padding:0 14px;
+        position:sticky;
+      }
+
+      .tab-btn {
+        width:auto;
+        border-left:none;
+        border-radius:0;
+        border-bottom:3px solid transparent;
+        padding:12px 14px;
+      }
+
+      .tab-btn.active {
+        border-left-color:transparent;
+        border-bottom-color:var(--blue);
+        background:transparent;
+      }
+
+      main {
+        padding:16px;
+      }
+
+      .status-main {
+        font-size:25px;
+      }
+
+      .grid-2 {
+        grid-template-columns:1fr;
+      }
+
+      /* Tables: clamp wrapper to viewport width so overflow-x:auto actually kicks in */
+      .table-wrap {
+        max-width:calc(100vw - 32px);
+        overflow-x:scroll; /* scroll (not auto) is more reliable on mobile Safari */
+      }
+
+      /* Also constrain the correlation matrix wrapper */
+      .corr-wrap {
+        max-width:calc(100vw - 32px);
+      }
+    }

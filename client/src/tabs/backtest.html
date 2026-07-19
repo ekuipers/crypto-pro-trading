@@ -1,0 +1,71 @@
+    <div id="page-backtest" class="page">
+      <section>
+        <div class="section-title">Backtest vs Live</div>
+
+        <!-- Walk-forward baseline banner (roadmap 2026-07-10 item 8): reads
+             reports/walkforward_latest.json; red when the baseline is older
+             than walkforward.max_baseline_age_days (45). -->
+        <div id="wfBaseline" class="small" style="display:none;margin-bottom:12px;padding:8px 12px;border:1px solid var(--border);border-radius:8px"></div>
+
+        <div class="panel">
+          <div class="panel-title">🧪 Expected Strategy Metrics</div>
+          <div class="small" style="margin-bottom:12px">
+            These values are stored locally in your browser and compared against your live account history.
+          </div>
+
+          <div class="form-grid">
+            <div>
+              <label>Expected Sharpe</label>
+              <input id="btSharpe" type="number" step="0.01">
+            </div>
+
+            <div>
+              <label>Expected Max Drawdown %</label>
+              <input id="btMaxDD" type="number" step="0.1">
+            </div>
+
+            <div>
+              <label>Expected Win Rate %</label>
+              <input id="btWinRate" type="number" step="0.1">
+            </div>
+
+            <div>
+              <label>Expected Profit Factor</label>
+              <input id="btProfitFactor" type="number" step="0.01">
+            </div>
+
+            <div>
+              <label>Expected Avg Daily Return %</label>
+              <input id="btAvgDaily" type="number" step="0.001">
+            </div>
+          </div>
+
+          <button class="btn btn-green" onclick="saveBacktestDefaults()">Save Expected Metrics</button>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">Live Strategy Health</div>
+        <div id="backtestKpis" class="grid-3"></div>
+      </section>
+
+      <section>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-tip="Metric being compared. Click to sort.">Metric <span class="sort">⇅</span></th>
+                <th class="right" data-tip="Live metric from account history. Click to sort.">Live <span class="sort">⇅</span></th>
+                <th class="right" data-tip="Expected metric saved by you. Click to sort.">Expected <span class="sort">⇅</span></th>
+                <th data-tip="Whether live performance is within expectation. Click to sort.">Status <span class="sort">⇅</span></th>
+              </tr>
+            </thead>
+            <tbody id="backtestCompareBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+    <!-- Market parent page — merges Market Overview + Market Signals + Breakout
+         Scanner under one tab with sub-tabs (shared symbol universe / Max Symbols
+         setting). Deep links #market-overview / #market-signals / #gapgo still
+         resolve here via applyTabFromUrl()'s SUBS list. -->

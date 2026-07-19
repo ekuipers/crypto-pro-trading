@@ -1,0 +1,76 @@
+    <div id="page-port-dist" class="page">
+      <div id="portDistErrorBox" class="error" style="display:none"></div>
+
+      <!-- Summary cards -->
+      <section>
+        <div class="section-title">Portfolio Allocation</div>
+        <div class="cards">
+          <div class="card"><div class="card-label">Total Equity</div><div class="card-value" id="portDistEquity"><span class="spinner"></span></div></div>
+          <div class="card"><div class="card-label">Invested</div><div class="card-value" id="portDistInvested"></div><div class="card-sub" id="portDistInvestedPct"></div></div>
+          <div class="card"><div class="card-label">Cash</div><div class="card-value" id="portDistCash"></div><div class="card-sub" id="portDistCashPct"></div></div>
+          <div class="card"><div class="card-label">Positions</div><div class="card-value" id="portDistPosCount"></div></div>
+          <div class="card"><div class="card-label">Largest Position</div><div class="card-value" id="portDistLargest"></div><div class="card-sub" id="portDistLargestPct"></div></div>
+        </div>
+      </section>
+
+      <!-- Chart + table -->
+      <section>
+        <div style="display:grid;grid-template-columns:380px 1fr;gap:20px;align-items:start;">
+
+          <!-- Donut chart -->
+          <div class="chart-card" style="padding:20px;">
+            <div class="chart-title" style="margin-bottom:16px;">Allocation Breakdown</div>
+            <div style="position:relative;height:300px;display:flex;align-items:center;justify-content:center;">
+              <canvas id="portDistChart"></canvas>
+              <div id="portDistChartCenter" style="position:absolute;text-align:center;pointer-events:none;">
+                <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Equity</div>
+                <div id="portDistCenterVal" style="font-size:20px;font-weight:700;margin-top:4px;">—</div>
+              </div>
+            </div>
+            <!-- Legend -->
+            <div id="portDistLegend" style="margin-top:16px;display:flex;flex-direction:column;gap:7px;"></div>
+          </div>
+
+          <!-- Breakdown table -->
+          <div class="table-wrap">
+            <table>
+              <thead id="portDistTableHead"><tr>
+                <th class="port-sortable"       data-key="symbol"         data-tip="Asset symbol" onclick="portSortDistTable('symbol')">Symbol <span class="sort-icon">⇅</span></th>
+                <th class="port-sortable right" data-key="market_value"   data-tip="Current market value (qty × price)" onclick="portSortDistTable('market_value')">Market Value <span class="sort-icon">⇅</span></th>
+                <th class="port-sortable right" data-key="pct"            data-tip="Position value as % of total portfolio equity" onclick="portSortDistTable('pct')">% of Portfolio <span class="sort-icon">⇅</span></th>
+                <th class="port-sortable right" data-key="qty"            data-tip="Number of units held" onclick="portSortDistTable('qty')">Qty <span class="sort-icon">⇅</span></th>
+                <th class="port-sortable right" data-key="avg_entry_price" data-tip="Average cost per unit" onclick="portSortDistTable('avg_entry_price')">Avg Entry <span class="sort-icon">⇅</span></th>
+                <th class="port-sortable right" data-key="current_price"  data-tip="Latest market price per unit" onclick="portSortDistTable('current_price')">Current Price <span class="sort-icon">⇅</span></th>
+                <th class="port-sortable right" data-key="unrealized_pl"  data-tip="Unrealized profit/loss in dollars" onclick="portSortDistTable('unrealized_pl')">Unrealized P&amp;L <span class="sort-icon">⇅</span></th>
+                <th class="port-sortable right" data-key="unrealized_plpc" data-tip="Unrealized P&L as % of cost basis" onclick="portSortDistTable('unrealized_plpc')">P&amp;L % <span class="sort-icon">⇅</span></th>
+              </tr></thead>
+              <tbody id="portDistTableBody">
+                <tr><td colspan="8" class="placeholder"><span class="spinner"></span> Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Cap utilisation -->
+      <section>
+        <div class="section-title">Cap Utilisation vs. Strategy Limits</div>
+        <div class="table-wrap">
+          <table>
+            <thead id="portDistCapHead"><tr>
+              <th class="port-sortable"       data-key="sym"      data-tip="Asset symbol (all watchlist symbols shown)" onclick="portSortDistCap('sym')">Symbol <span class="sort-icon">⇅</span></th>
+              <th class="port-sortable right" data-key="curPct"   data-tip="Current position as % of portfolio equity (– if no position)" onclick="portSortDistCap('curPct')">Current % <span class="sort-icon">⇅</span></th>
+              <th class="port-sortable right" data-key="capPct"   data-tip="Maximum allowed % of equity per portfolio_caps.json" onclick="portSortDistCap('capPct')">Cap Limit <span class="sort-icon">⇅</span></th>
+              <th class="port-sortable right" data-key="headroom" data-tip="Remaining room before hitting cap (Cap − Current%)" onclick="portSortDistCap('headroom')">Headroom <span class="sort-icon">⇅</span></th>
+              <th style="width:220px" data-tip="Bar showing % of cap used — green = OK, yellow = ≥80%, red = over cap">Utilisation</th>
+              <th data-tip="Cap compliance status for this position">Status</th>
+            </tr></thead>
+            <tbody id="portDistCapBody">
+              <tr><td colspan="6" class="placeholder"><span class="spinner"></span> Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div><!-- /page-port-dist -->
+

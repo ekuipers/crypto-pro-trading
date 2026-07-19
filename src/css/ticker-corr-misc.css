@@ -1,0 +1,54 @@
+
+    /* ── Ticker strip ────────────────────────────────────── */
+    .ticker-strip {
+      display:flex;
+      gap:0;
+      overflow-x:auto;
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      background:var(--surface2);
+      margin-bottom:14px;
+      flex-wrap:nowrap;
+      scrollbar-width:none;
+      min-height:54px;
+      align-items:stretch;
+    }
+    .ticker-strip::-webkit-scrollbar { display:none; }
+    .ticker-item {
+      flex:0 0 auto;
+      padding:7px 14px;
+      border-right:1px solid var(--border);
+      min-width:110px;
+      cursor:default;
+      transition:background .15s;
+    }
+    .ticker-item:last-child { border-right:none; }
+    .ticker-item:hover { background:rgba(255,255,255,.04); }
+    .ticker-sym { font-size:10px; font-weight:850; color:var(--muted); letter-spacing:.5px; text-transform:uppercase; }
+    .ticker-price { font-size:13px; font-weight:700; font-family:"SF Mono",Consolas,monospace; margin:2px 0 1px; }
+    .ticker-chg { font-size:10px; font-weight:700; }
+
+    /* ── Correlation heatmap ─────────────────────────────── */
+    .corr-wrap { overflow-x:auto; margin-top:8px; }
+    .corr-wrap table { border-collapse:separate; border-spacing:2px; font-size:9px; min-width:0; width:auto; }
+    .corr-cell {
+      width:28px; height:24px;
+      text-align:center; vertical-align:middle;
+      border-radius:3px; font-weight:700;
+      cursor:default; font-size:9px;
+    }
+    .corr-head { color:var(--muted); font-weight:850; font-size:9px; text-align:center; padding:0 2px; }
+
+    /* ── Trend arrows ────────────────────────────────────── */
+    .trend-up   { color:var(--green); font-weight:900; font-size:13px; }
+    .trend-down { color:var(--red);   font-weight:900; font-size:13px; }
+    .trend-flat { color:var(--muted); font-size:13px; }
+
+    /* ── R:R colours ─────────────────────────────────────── */
+    .rr-good { color:var(--green); font-weight:700; }
+    .rr-warn { color:var(--yellow); font-weight:700; }
+    .rr-bad  { color:var(--red);   font-weight:700; }
+
+    /* ── Day-of-week heatmap bar ─────────────────────────── */
+    .dow-bar { display:inline-block; height:8px; border-radius:4px; vertical-align:middle; }
+

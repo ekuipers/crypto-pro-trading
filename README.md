@@ -228,11 +228,11 @@ Run with: `pytest tests/` (75 tests, ~0.25 s)
 
 ### Dashboard JS tests
 
-Dashboard-only client-side logic (no Python equivalent) gets a standalone Node harness instead of pytest. `tests/test_socials_fetch.js` extracts the Socials tab's tweet-fetch functions straight from `docs/dashboard_professional.html` and runs them against mocked `fetch` responses (no network) — covers the Telegram-mirror success path, the retweet/media-only filters, the fake-"whitelisted" Nitter feed rejection, and the generalist-account crypto-keyword filter. Run with: `node tests/test_socials_fetch.js`.
+Dashboard-only client-side logic (no Python equivalent) gets a standalone Node harness instead of pytest. `tests/test_socials_fetch.js` extracts the Socials tab's tweet-fetch functions straight from `src/js/tabs-socials.js` (moved there 2026-07-19 in the dashboard's conversion to a Node.js-rendered frontend — was `docs/dashboard_professional.html` before) and runs them against mocked `fetch` responses (no network) — covers the Telegram-mirror success path, the retweet/media-only filters, the fake-"whitelisted" Nitter feed rejection, and the generalist-account crypto-keyword filter. Run with: `node tests/test_socials_fetch.js`. **Pre-existing, unrelated to the 2026-07-19 conversion:** this file uses CommonJS `require()` but `package.json` sets `"type":"module"`, so it currently fails with `ReferenceError: require is not defined` regardless — it is not part of `npm test`'s glob (`src/*.test.js`) and this latent breakage predates the dashboard conversion (present since the file was added 2026-07-13). Logic verified correct by running it as `.cjs` in a scratch copy — all 7 tests pass; the `require`/ESM fix itself is out of scope here.
 
 ### Python ↔ Dashboard consistency
 
-`docs/dashboard_professional.html`'s `calcSignalScore()` must stay in parity with `scripts/indicators.py`'s `signal_score()`. After any indicator change, verify the 10-point checklist in `CLAUDE.md › Python ↔ Dashboard consistency check`. Key pitfalls caught in the 2026-05-26 audit:
+`src/js/ta-lib.js`'s `calcSignalScore()` must stay in parity with `scripts/indicators.py`'s `signal_score()`. After any indicator change, verify the 10-point checklist in `CLAUDE.md › Python ↔ Dashboard consistency check`. Key pitfalls caught in the 2026-05-26 audit:
 
 - **MACD signal line NaN** — the 9-bar signal EMA must be seeded on the NaN-stripped MACD series (not the raw NaN-prefixed array). See `calcMACD()` comment.
 - **Half-size pill thresholds** — use `score >= 3 && score < 4` (not `=== 3`) to catch scores like 3.5.
@@ -274,12 +274,18 @@ Configure under **Settings → Environments** in the GitHub repo. The `environme
 
 ## Hosting
 
-The dashboard is a static file served via GitHub Pages
-(`ekuipers.github.io/crypto-pro-trading/dashboard_professional.html`); the trading engine runs on the
-GitHub Actions cron above. Neither needs a server. A minimal `server.js` (Express, serves `docs/` +
-`GET /api/health`) exists only so a Vercel deployment of this repo has a valid entrypoint instead of
-failing with "No entrypoint found" — added 2026-07-19 after exactly that error. `npm start` runs it
-locally on `PORT` (default 3000); it is not part of the production trading path.
+The trading engine runs on the GitHub Actions cron above and needs no server. The dashboard **used to**
+be a static file served via GitHub Pages
+(`ekuipers.github.io/crypto-pro-trading/dashboard_professional.html`); as of 2026-07-19 it's a React
+(Vite) frontend built to `client/dist/` and served by `server.js` (see `## Dashboard` above), so **that
+GitHub Pages URL no longer works** — GitHub Pages can only serve static files, and there is no longer a
+static HTML file to publish. `server.js` (Express, serves `client/dist/`, `src/js/`, `src/css/`,
+`docs/`'s remaining static assets, + `GET /api/health`) was originally added 2026-07-19 just to fix a
+Vercel "No entrypoint found" deploy failure, and now serves the whole dashboard. **Run `npm run build`
+once before `npm start`** (or in dev, `npm run dev` runs the Express server + Vite dev server together);
+listens locally on `PORT` (default 3000); the Vercel deployment is the live URL for the dashboard —
+its build step needs to run `npm run build` too. Still not part of the
+production trading path (that's the GitHub Actions cron).
 
 ---
 
@@ -337,9 +343,23 @@ Latest report (`walkforward_20260514T103155Z`) summary — 23 windows, 2024-01-0
 
 ## Dashboard
 
-A self-contained HTML dashboard lives in `docs/`. Open either locally in a browser — no server required.
+**As of 2026-07-19 the dashboard is a React (Vite) frontend, not a static HTML file** — converted per
+CryptoPro Suite's roadmap, first to Node.js-rendered EJS, then to React once a "use React for all
+frontends" rule appeared in `CryptoPro Suite/CLAUDE.md` mid-session (see `memory/memory.md` v2026-07-19.2
+for the full reasoning). Run `npm run build` once, then `npm start` (or `npm run dev` for the Vite dev
+server + Express together) and open `http://localhost:3000`; it is no longer openable via `file://` or a
+plain static host. **Only the shell is React so far** — header, nav, and layout are real JSX
+(`client/src/components/*.jsx`); the 13 tabs' markup and **all** business logic (scoring, Autopilot, tab
+switching, sub-tabs) are the exact same unmodified `src/css/*.css` + `src/js/*.js` (30 classic
+`<script>`-loaded files sharing one global scope) as the EJS version, mounted into the React tree via
+`dangerouslySetInnerHTML` and loaded dynamically after React's first render (see `CLAUDE.md › Dashboard`
+for the full architecture, the script-loading timing fix, and why tabs weren't rewritten as JSX yet — no
+browser tool was available to verify a blind rewrite of ~200 render functions). **This also means the old
+GitHub Pages URL (`ekuipers.github.io/crypto-pro-trading/dashboard_professional.html`) no longer works**
+— there is no static file left to publish; the Vercel deployment (already Node-capable) is the live URL
+now, and it needs its build step to run `npm run build` before starting.
 
-### `docs/dashboard_professional.html` *(primary)*
+### Professional dashboard *(primary — `client/src/App.jsx` + `src/js/`)*
 
 Professional trader decision cockpit in a **left sidebar navigation** (sticky 210px vertical column beside the content; collapses to a horizontal scroll bar on mobile ≤700px). The tabs are **grouped by job-to-be-done** under section headers — an *Act → Hold → Analyze* flow:
 
@@ -349,7 +369,7 @@ Professional trader decision cockpit in a **left sidebar navigation** (sticky 21
 - **📊 Analysis** — 🔬 Analytics (Performance / P&L / Edge sub-tabs) · 🧠 Insights · Backtest vs Live · Markov
 - **⚙ Settings**
 
-Three parent tabs nest sub-tabs via a shared sub-tab system: **🧭 Command** (Overview / 📰 News / 🐦 Socials — added 2026-07-09 / 📖 Glossary — added 2026-07-18), **🌐 Market** (Overview / Scanner / Breakout) and **🔬 Analytics** (Performance / P&L / Edge). The active tab is stored in the URL hash (e.g. `dashboard_professional.html#signals`), so you can bookmark or link straight to any tab instead of always landing on Command, and a browser refresh restores the last tab you had open. (Driven by `switchTab()` writing the hash + `localStorage.lastTab`, and `applyTabFromUrl()` restoring it on load and on `hashchange`.) All parent tabs also route their sub-tabs through the hash (`#command-overview` / `#news` / `#socials` / `#glossary`; `#market-overview` / `#market-signals` / `#gapgo`; `#performance` / `#pnl` / `#edge`), so those legacy deep links still open the right sub-tab.
+Three parent tabs nest sub-tabs via a shared sub-tab system: **🧭 Command** (Overview / 📰 News / 🐦 Socials — added 2026-07-09 / 📖 Glossary — added 2026-07-18), **🌐 Market** (Overview / Scanner / Breakout) and **🔬 Analytics** (Performance / P&L / Edge). The active tab is stored in the URL hash (e.g. `/#signals`), so you can bookmark or link straight to any tab instead of always landing on Command, and a browser refresh restores the last tab you had open. (Driven by `switchTab()` writing the hash + `localStorage.lastTab`, and `applyTabFromUrl()` restoring it on load and on `hashchange`.) All parent tabs also route their sub-tabs through the hash (`#command-overview` / `#news` / `#socials` / `#glossary`; `#market-overview` / `#market-signals` / `#gapgo`; `#performance` / `#pnl` / `#edge`), so those legacy deep links still open the right sub-tab.
 
 Key features:
 - **Live ticker strip** — top-of-page price bar driven by the **active watchlist** (Settings, up to 20 symbols) via `getWatchlist()`, not a static list. Fetches from Alpaca `/v1beta3/crypto/us/snapshots`, auto-refreshes every 15 seconds independently of the main dashboard, and re-renders immediately when the watchlist is edited (`saveWatchlistData` calls `loadTickerStrip`).
@@ -386,7 +406,7 @@ Key features:
 - **📓 Daily Journal button** — top-row header button (`generateDailyJournal()`) that produces today's closing journal entry from live data: a Summary block (close equity, day P&L vs day-open, cash %, open-position count + unrealized P&L, trades-executed-today + session realized P&L via FIFO), a Trades Today table (FILL activities filtered to the GMT+2 calendar day), an Open Positions table, and a templated Market Observations paragraph backed by a closing 10-symbol confluence scan. Opens a preview modal with **📋 Copy** and **↓ Download .md** (filename `daily-journal-YYYY-MM-DD.md`). No backend required.
 - **⚙ Settings tab** — grouped into labelled sections: **📄 Paper Trading** (API Key + Secret), **🔴 Live Trading** (API Key + Secret), **🛡 Risk Limits** (Assumed Stop Loss %, Max Daily Loss %, Max Open Risk %), **🔭 Signals Analysis** (Max Symbols, default 30, no upper clamp), **🔗 Correlation Budget (Autopilot)** (Max Open Positions total + Max Positions Per Tier, defaults 4 / 3, min 1 — the Autopilot reads these live each cycle), and **📋 Active Watchlist** (tag editor — add/remove/reset up to 20 symbols; the add-symbol control is a dropdown of the full tradable Alpaca exchange universe via `<input list>` + `<datalist>` — pick from the list or type to filter, already-added symbols excluded; the universe now includes pairs quoted in **USD, USDT, and USDC** (e.g. BTC/USDT, ETH/USDC), not just USD — **selector-only since the 2026-07-09 v2 bugfix**: the Scanner and Market Overview filter their scan universe to `/USD` pairs (Alpaca trades against USD); a **Show stablecoins** checkbox (default off) additionally opts stablecoin-*base* USD pairs like USDT/USD into the dropdown — selector-only, scans stay stablecoin-base-free; stored in `localStorage.proDashboardWatchlist`; used by Autopilot, Daily Journal, Signals tab, and all Portfolio tabs). Settings persist to `localStorage` (no save-to-file); `config.json` seeds only a fresh browser with no saved state.
 
-### Portfolio tabs (integrated into `docs/dashboard_professional.html`)
+### Portfolio tabs (integrated — `client/src/tabs/port-overview.html` + `port-dist.html`, logic in `src/js/tabs-portfolio.js`)
 
 As of 2026-06-15, the portfolio dashboard pages were merged into the Professional Dashboard as new nav tabs under a **"💼 Portfolio"** section label in the sidebar. The legacy `docs/portfolio-dashboard.html` file was deleted on 2026-06-17 — the Professional Dashboard is the sole entry point.
 
@@ -505,8 +525,25 @@ alpaca-trading-agent/
 │   ├── trade.yml              # Hourly trading + daily summary
 │   └── forward.yml            # Daily walk-forward analysis
 ├── docs/
-│   ├── dashboard_professional.html     # Professional dashboard (sole entry point; includes the portfolio tabs)
+│   ├── favicon.*, apple-touch-icon.png # Static assets (still served directly from here)
 │   └── dashboard_layout.md            # Dashboard layout & changelog (Professional + Portfolio sections)
+├── client/                    # React (Vite) dashboard shell — replaced views/ (EJS) on 2026-07-19,
+│   │                          # which had itself replaced docs/dashboard_professional.html the same day
+│   ├── index.html              # Vite entry — head content + CSS <link> tags + <div id="root">
+│   └── src/
+│       ├── main.jsx             # ReactDOM.createRoot(...).render(<App/>)
+│       ├── App.jsx              # Shell composition + the script-loading timing fix (useEffect)
+│       ├── scriptLoader.js      # Loads the 30 src/js/*.js files, in order, after React's first render
+│       ├── components/          # Header/Nav/Footer/Modals — real hand-converted JSX
+│       ├── tabs/                # 13 tab .html files — verbatim markup, unmodified from before
+│       └── fragments/modals.html # Trade/journal modal markup (dangerouslySetInnerHTML — see CLAUDE.md)
+├── src/
+│   ├── css/                    # 10 stylesheets split from the old inline <style> block
+│   ├── js/                     # 30 classic-script files split from the old inline <script> block —
+│   │   └── ...                 # unmodified by the React conversion (see CLAUDE.md › Dashboard for the
+│   │                           #  full list + load order — they intentionally are not ES modules)
+│   └── *.js, *.test.js         # Node.js port of the Python trading engine (see CLAUDE.md; not yet live)
+├── server.js                   # Express app: serves client/dist/ (built), src/js + src/css + docs/
 ├── journal/
 │   ├── _template.md           # Journal entry template
 │   └── YYYY-MM-DD.md          # One file per calendar day

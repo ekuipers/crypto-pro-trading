@@ -10,7 +10,8 @@
   },
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js",
+    "dev": "concurrently \"node --watch server.js\" \"npm --prefix client run dev\"",
+    "build": "npm --prefix client run build",
     "test": "node --test src/*.test.js",
     "evaluate": "node src/runEvaluation.js"
   },
@@ -18,5 +19,8 @@
     "express": "^4.22.2"
   },
   "author": "Erik Kuipers",
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "concurrently": "^10.0.3"
+  }
 }

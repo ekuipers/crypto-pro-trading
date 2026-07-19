@@ -1,0 +1,21 @@
+    <div id="page-markov" class="page">
+      <section>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
+          <div class="section-title" style="margin-bottom:0">🔗 Markov Chain Analysis — BTC/USD &amp; ETH/USD</div>
+          <span class="small">Daily close-to-close return states · transition matrix · stationary distribution · next-day forecast</span>
+          <button class="btn btn-green" onclick="loadMarkov()" style="margin-left:auto">▶ Run Markov Analysis</button>
+        </div>
+        <div class="small" style="margin-bottom:14px;color:var(--muted)">
+          Each daily return is classified into one of three states using a ±<span id="mkThreshLabel">1.0</span>% band:
+          <b style="color:var(--green)">Up</b> (r &gt; +band), <b style="color:var(--muted)">Flat</b> (|r| ≤ band),
+          <b style="color:var(--red)">Down</b> (r &lt; −band). The transition matrix shows P(next state | current state) over each lookback window.
+        </div>
+        <div id="markovKpis" class="grid-3" style="margin-bottom:18px"></div>
+        <div id="markovLastUpdated" style="font-size:12px;color:var(--muted);margin-bottom:10px">Click "Run Markov Analysis" to compute transition matrices.</div>
+        <div id="markovContent"></div>
+      </section>
+    </div>
+
+    <!-- Behavioral Insights tab — plain-language trading-psychology read-outs from
+         realized FIFO round-trips (exit-time attribution, GMT+2). On-demand
+         (▶ Analyze) like Edge/Markov; analysis-only, places no orders. -->

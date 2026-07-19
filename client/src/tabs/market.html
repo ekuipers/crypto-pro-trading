@@ -1,0 +1,133 @@
+    <div id="page-market" class="page">
+      <div class="subnav">
+        <button id="subtab-market-overview" class="subtab-btn active" onclick="marketSubTab('market-overview')">🌍 Overview</button>
+        <button id="subtab-market-signals" class="subtab-btn" onclick="marketSubTab('market-signals')">🔭 Scanner</button>
+        <button id="subtab-gapgo" class="subtab-btn" onclick="marketSubTab('gapgo')">📊 Breakout</button>
+      </div>
+
+      <div id="subpage-market-overview" class="subpage active">
+      <section>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
+          <div class="section-title" style="margin-bottom:0" title="Symbol count set in Settings › Signals Analysis › Max Symbols">🌍 Market Overview — Crypto</div>
+          <button class="btn" onclick="loadMarketOverview()" style="margin-left:auto">⟳ Refresh</button>
+          <button class="btn" onclick="marketSubTab('market-signals')" title="See confluence signals for this universe" data-tip="Jump to the confluence Scanner.">View scanner →</button>
+          <select id="moSortSelect" class="btn" style="color:var(--text);background:var(--surface2)" onchange="moApplySort()">
+            <option value="rank">Sort: Market Cap Rank</option>
+            <option value="chg24h_desc">Sort: 24h % ↓</option>
+            <option value="chg24h_asc">Sort: 24h % ↑</option>
+            <option value="chg7d_desc">Sort: 7d % ↓</option>
+            <option value="score_desc">Sort: Signal Score ↓</option>
+          </select>
+        </div>
+        <div id="moKpis" class="grid-3" style="margin-bottom:18px"></div>
+        <div id="moLastUpdated" style="font-size:12px;color:var(--muted);margin-bottom:10px">Click Refresh to load.</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-tip="Approximate market cap rank (stablecoins excluded).">Rank</th>
+                <th data-tip="Trading pair on Alpaca.">Symbol</th>
+                <th class="right" data-tip="Latest trade price.">Price</th>
+                <th class="right" data-tip="24-hour price change %.">24h %</th>
+                <th class="right" data-tip="7-day price change % from daily closes.">7d %</th>
+                <th class="right" data-tip="24h volume in USD.">Vol 24h</th>
+                <th data-tip="7-day trend direction.">Trend</th>
+                <th data-tip="Market cap tier.">Cap Tier</th>
+                <th data-tip="Signal score from last Market Signals scan.">Score</th>
+                <th data-tip="Open a paper trade ticket for this symbol.">Trade</th>
+              </tr>
+            </thead>
+            <tbody id="moTableBody"><tr><td colspan="10" class="placeholder">Click Refresh to load market data.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <section>
+        <div class="section-title">Market Momentum Heatmap — 24h % Change</div>
+        <div id="moHeatmap" class="panel" style="padding:14px">
+          <div class="small" style="color:var(--muted)">Load data to see heatmap.</div>
+        </div>
+      </section>
+      </div><!-- /subpage-market-overview -->
+
+      <!-- Market Signals sub-page -->
+      <div id="subpage-market-signals" class="subpage">
+      <section>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
+          <div class="section-title" style="margin-bottom:0">🔭 Market Signals — Confluence Scanner</div>
+          <span class="small">15-min bars · 4H regime · Daily gate</span>
+          <button class="btn" onclick="marketSubTab('market-overview')" style="margin-left:auto" title="Return to market context" data-tip="Back to the Market Overview tab.">← Back to market context</button>
+          <button id="msScanBtn" class="btn btn-green" onclick="loadMarketSignals()" title="Symbol count set in Settings › Signals Analysis">▶ Scan</button>
+          <button id="msHideBtn" class="btn" onclick="msToggleUnavailable()" data-tip="Hide symbols not available on Alpaca">👁 Show All</button>
+        </div>
+        <div id="msKpis" class="grid-3" style="margin-bottom:18px"></div>
+        <div id="msLastUpdated" style="font-size:12px;color:var(--muted);margin-bottom:10px">Click "Scan" to run confluence analysis. Symbol count is set in Settings › Signals Analysis.</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-tip="Approximate market cap rank.">Rank</th>
+                <th data-tip="Trading pair.">Symbol</th>
+                <th class="right" data-tip="Latest price.">Price</th>
+                <th class="right" data-tip="6-point confluence score.">Score</th>
+                <th data-tip="Score trend vs previous scan.">Δ</th>
+                <th data-tip="20/50 EMA cross on 15-min.">EMA Cross</th>
+                <th class="right" data-tip="RSI (14) on 15-min.">RSI</th>
+                <th data-tip="MACD histogram.">MACD</th>
+                <th class="right" data-tip="Bollinger %b.">BB %b</th>
+                <th class="right" data-tip="Volume vs 20-bar average.">Volume</th>
+                <th data-tip="4H regime (EMA 20/50).">4H</th>
+                <th data-tip="Daily regime gate.">Daily</th>
+                <th data-tip="Recommended action.">Action</th>
+                <th data-tip="Add to watchlist when score ≥ buy signal; remove on a sell signal when no position is open.">Watchlist</th>
+              </tr>
+            </thead>
+            <tbody id="msTableBody"><tr><td colspan="14" class="placeholder">Click "Scan" to run the scanner.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <section>
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-title">📊 Score Distribution</div>
+            <div id="msScoreDist" class="small">Run scan to see distribution.</div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">🏆 Top Opportunities</div>
+            <div id="msTopOpps" class="small">Run scan to see top setups.</div>
+          </div>
+        </div>
+      </section>
+      </div><!-- /subpage-market-signals -->
+
+      <!-- Breakout Scanner sub-page (folded in from the former standalone tab) -->
+      <div id="subpage-gapgo" class="subpage">
+      <section>
+        <div class="gg-toolbar">
+          <div>
+            <div class="section-title" style="margin-bottom:2px">📊 Breakout Scanner — Pre-Session Analysis</div>
+            <div id="ggLastUpdated" style="font-size:12px;color:var(--muted)">Click "Run Analysis" to fetch live data</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="btn" onclick="marketSubTab('market-overview')" title="Return to market context" data-tip="Back to the Market Overview tab.">← Back to market context</button>
+            <button class="btn btn-green" onclick="loadGapGo()">▶ Run Analysis</button>
+            <span style="font-size:11px;color:var(--muted)">Crypto watchlist · 24/7</span>
+          </div>
+        </div>
+
+        <div class="gg-legend">
+          <span><span class="pill green" style="font-size:9px">HIGH</span> Breakout Scanner likelihood — momentum aligned, volume confirms</span>
+          <span><span class="pill yellow" style="font-size:9px">MEDIUM</span> Mixed signals — wait for ORB confirmation</span>
+          <span><span class="pill red" style="font-size:9px">LOW</span> Fade risk — avoid chasing, watch for reversal</span>
+          <span><span class="pill red" style="font-size:9px">⚠ AVOID</span> Downtrend + negative gap or very high risk</span>
+          <span style="color:var(--muted)">Conviction: +7 max → −6 min · Signal: same 6-point score as Signals &amp; Market Signals tabs</span>
+        </div>
+
+        <div id="ggContainer">
+          <div class="placeholder" style="padding:48px">
+            ▶ Click <strong>Run Analysis</strong> to fetch the latest price data and generate the full Breakout Scanner playbook for all 10 watchlist symbols.
+          </div>
+        </div>
+      </section>
+      </div><!-- /subpage-gapgo -->
+    </div><!-- /page-market -->
+
