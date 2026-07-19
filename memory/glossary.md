@@ -4,6 +4,20 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-19 — Node.js port Phase 2: order execution + evaluation loop
+
+| Term | Meaning |
+|------|---------|
+| `deps` injection pattern | Convention used throughout `src/evaluateSymbol.js`, `src/scout.js`, `src/rotation.js`, `src/runEvaluation.js`: every network-calling or otherwise side-effecting function accepts an optional `deps`/options object whose fields default to the real implementation (e.g. `deps.getLatestQuote` falling back to the real `getLatestQuote`). Lets tests swap in plain async functions returning canned data instead of stubbing HTTP, so the full decision ladder is unit-tested with zero network mocking. `evaluateSymbol.js` extends this to indicator functions too (`deps.ind`), letting tests force a specific score or Bollinger target without a realistic price series. |
+| `assertNotShipped(flagName, flagValue, missingFn)` | `src/strategyConfig.js`. Throws a clear "not yet ported" error if a ships-OFF config flag (`pyramid_enabled`, `conviction_sizing_enabled`, `measured_move_enabled`, `breadth_gate_enabled`, `risk.trail_mode === "chandelier"`) is ever switched on before its risk.js counterpart (`shouldPyramid`, `convictionRiskMultiplier`, `measuredMoveTarget`, `breadthPct`/`breadthPolicy`, `chandelierTrailPct`) is ported. Called once at module-load time in `evaluateSymbol.js`/`runEvaluation.js` rather than left to fail with a confusing `ReferenceError` deep inside a rarely-hit branch. |
+| `src/marketData.js` | New shared module with no Python equivalent as a standalone file — extracted from `run_evaluation.py`'s module-level bar-fetch/fill-history functions specifically to break the circular coupling where `scout.py`/`rebalance.py` reach into `run_evaluation.py` for them (Python tolerates this via late-binding function calls inside `main()`; ESM static imports would deadlock on it). |
+| `src/strategyConfig.js` | Holds the strategy-level score thresholds and sizing constants that live as bare module-level constants in `run_evaluation.py` (not in `risk.py`) — `BUY_SCORE_THRESHOLD`, `SESSION_FILTER_ENABLED`, etc. — plus the five ships-OFF flag constants and `assertNotShipped()`. |
+| `fifoRoundTrips` vs `reconcilePositionsFromFills`'s dust tolerance (two different epsilons) | `src/marketData.js`'s `fifoRoundTrips()` (session-edge filter, streak throttle P&L) closes a FIFO lot at an **absolute** `1e-6` epsilon — this is a different, unrelated function from `src/reconcile.js`'s `reconcilePositionsFromFills()`, which uses the **relative** `RECONCILE_DUST_REL_TOL = 0.005` (the Bug #6 fix below). Don't conflate the two when porting or reviewing — they intentionally use different tolerance strategies for different purposes. |
+| Camel-case decision objects | `evaluateSymbol.js`/`rotation.js`/`journal.js` use camelCase keys (`limitPrice`, `dailyRegime`, `netRr`) for the internal decision object, matching this port's existing convention (`indicators.js`'s `signalScore()` breakdown already made this shift from Python's snake_case). Only the literal journal **text** (labels like `score`, `ema_x`, `4h`) has to match Python's output — the JS variable names don't need to. |
+| Node port "parity checkpoint" | Defined in `CLAUDE.md`'s Node.js port section: deterministic-input parity (frozen fixtures, both engines), live shadow-run parity (≥24 hourly cycles against the same paper account, diffed), and a state-file round-trip check — the gate before `.github/workflows/*.yml` changes or `--execute` is ever pointed at the Node engine. |
+
+---
+
 ## 2026-07-18 — Bug fix: Autopilot re-firing its own partial-TP (breakeven-pin cascade)
 
 | Term | Meaning |

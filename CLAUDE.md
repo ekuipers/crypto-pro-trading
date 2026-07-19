@@ -25,23 +25,65 @@ Creator: Erik Kuipers
 
 ---
 
-## Node.js port (scaffolding, in progress)
+## Node.js port (Phase 2 complete — order execution + evaluation loop; not yet wired to production)
 
-CryptoPro Suite's roadmap includes converting this project to Node.js. Per the
-user's explicit scope choice (2026-07-19): **scaffolding only for now** — set
-up the Node.js project structure/tooling and port the pure-logic modules with
-tests, leaving trade execution and the GitHub Actions cutover as a separate
-future decision. **The live trading engine is still 100% Python** (`scripts/*.py`,
-run hourly via `.github/workflows/trade.yml` and every 5 min via
-`watchdog.yml`) — nothing under `src/` is wired into any live/paper order flow
-yet.
+CryptoPro Suite's roadmap includes converting this project to Node.js. Phase 1
+(2026-07-19, scaffolding) ported the pure-logic modules. Phase 2 (2026-07-19)
+ported the pieces that actually place orders and run the hourly evaluation
+cycle — `scripts/trade.py` and `scripts/run_evaluation.py` — plus every module
+they depend on (including the universe scout, since `config.json > scout.enabled`
+is `true` in the live config and skipping it would evaluate a different symbol
+set than Python).
+
+**The live trading engine is still 100% Python** (`scripts/*.py`, run hourly via
+`.github/workflows/trade.yml` and every 5 min via `watchdog.yml`) — nothing
+under `src/` is wired into any live/paper order flow yet, and
+`.github/workflows/*.yml` were not touched by this phase. That cutover is a
+separate future decision gated behind the parity checkpoint described below.
 
 | File | Ports | Status |
 |------|-------|--------|
-| `package.json` | — | Node project manifest (`type: module`, `npm test` runs the suite below) |
-| `src/indicators.js` | `scripts/indicators.py` | Full port — all technical indicators + the 6-point `signalScore()` confluence table, numeric parity verified against the same synthetic-data assertions as `tests/test_indicators.py` |
-| `src/risk.js` | `scripts/risk.py` | Port of every function exercised by the *default* config (sizing, limit band, swing-low/trailing stops, correlation budget, daily-drawdown gate, trade economics, partial-TP, stale-position exit, rotation). The ships-OFF "famous-trader package" extras (chandelier trail, conviction sizing, streak throttle, measured-move target, pyramid adds, breadth gate) are **not yet ported** |
-| `src/indicators.test.js`, `src/risk.test.js` | `tests/test_indicators.py`, `tests/test_risk.py` | Node's built-in test runner (`node --test`), zero extra dependencies — 92 tests, all passing |
+| `package.json` | — | Node project manifest (`type: module`, zero npm dependencies — uses Node 20's built-in global `fetch`). `npm test` runs the suite below; `npm run evaluate` runs `src/runEvaluation.js` (dry-run by default, `-- --execute` to place orders — **not recommended yet**, see the cutover checkpoint) |
+| `src/indicators.js` | `scripts/indicators.py` | Full port — all technical indicators + the 6-point `signalScore()` confluence table |
+| `src/risk.js` | `scripts/risk.py` | Port of every function exercised by the *live* config, **including the streak throttle** (Phase 2 Step 0 fixed a scope-note error that had wrongly listed it as an un-ported ships-OFF extra, even though `risk.streak_throttle_enabled: true` in the live config). Still not ported (genuinely `false`/`"fixed"` in the live config, ships-OFF): chandelier trail, conviction sizing, measured-move target, pyramid adds, breadth gate — `strategyConfig.js`'s `assertNotShipped()` throws a clear error if any of these flags is ever switched on in `config.json` before its function is ported, instead of silently misbehaving |
+| `src/symbols.js` | `scripts/symbols.py` | `toSlash()` — canonical `BASE/QUOTE` symbol normalization |
+| `src/tz.js` | (inlined `ZoneInfo("Europe/Amsterdam")` calls) | `amsterdamParts()` — the one place a UTC instant becomes a journal date/time string. Everything else (state timestamps, cadence checks) stays plain UTC — the two clocks are never mixed |
+| `src/env.js` | `scripts/_env.py` | `.env` loader (existing `process.env` values always win). `loadEnv(path, target)` is testable directly, unlike Python's load-on-import-only design |
+| `src/apiClient.js` | `scripts/_api.py` | Retry-with-exponential-backoff `fetch` wrapper (5xx/network errors retried, 4xx fails fast), retry policy from `config.json > api` |
+| `src/positionState.js` | `scripts/position_state.py` | Persistent per-symbol state store, atomic writes (temp file in the same directory, then rename) |
+| `src/trade.js` | `scripts/trade.py` | All Alpaca order placement/queries, every hard rule enforced in code (limit-orders-only, limit-band check with the stop-loss self-rejection clamp fix, per-symbol cap, stop-order dedup) |
+| `src/marketData.js` | `scripts/run_evaluation.py`'s bar-fetch/fill-history functions | New shared module (doesn't exist as a separate file in Python) extracted to resolve the circular coupling where `scout.py`/`rebalance.py` reach into `run_evaluation.py` — bar pagination, `aggregateBarsTo4h`, `fetchAllFills`, `fifoRoundTrips` |
+| `src/scout.js` | `scripts/scout.py` | Universe scout — **not deferred**, since `scout.enabled: true` live |
+| `src/strategyConfig.js` | `run_evaluation.py`'s strategy-threshold module constants | Score thresholds, sizing fallbacks, and the ships-OFF flag constants + `assertNotShipped()` |
+| `src/entrySizing.js` | `run_evaluation.py`'s `compute_entry_qty`/`symbol_cap` | ATR-based 1%-risk entry sizing, shared by the normal entry path and rotation |
+| `src/journal.js` | `run_evaluation.py`'s presentation helpers + `append_journal_block` | Decision-line/indicator-block text formatting and the journal writer |
+| `src/reconcile.js` | `run_evaluation.py`'s `reconcile_positions_from_fills`/`prune_stale_position_state`/session-edge/drawdown helpers | Includes the Bug #6 relative-tolerance dust fix (`RECONCILE_DUST_REL_TOL = 0.005`, not an absolute epsilon — see the Bugs history) |
+| `src/evaluateSymbol.js` | `run_evaluation.py`'s `evaluate_symbol()` | The full held-long / held-short / flat-entry decision ladder. Network calls and indicator functions are dependency-injectable (`deps` parameter) so every branch is unit-tested with plain objects and zero HTTP stubbing |
+| `src/rotation.js` | `run_evaluation.py`'s `apply_rotation()` | Correlation-budget rotation (SELL the weakest holding, BUY a blocked high-score candidate, same cycle) |
+| `src/runEvaluation.js` | `run_evaluation.py`'s `main()` | Orchestration: loads state, merges scout promotions, evaluates every symbol, applies rotation, places orders when `--execute` is passed (SELL/COVER before BUY/SHORT, sequential not parallel, per-order error isolation), always persists state + journal. Same `deps`-injection pattern for end-to-end orchestration tests |
+| `src/*.test.js` (18 files) + `src/testUtils/fetchStub.js` | `tests/test_*.py` where a matching file exists (ported as a floor), net-new elsewhere | Node's built-in test runner (`node --test`), zero extra dependencies — **280 tests, all passing**. Network-calling modules use a hand-rolled `globalThis.fetch` stub; `evaluateSymbol.js`/`scout.js`/`runEvaluation.js` use plain dependency injection instead where a whole function (not just an HTTP call) needed to be swappable |
+
+**Explicitly deferred, not this phase:** `scripts/rebalance.py` (no GitHub Actions
+trigger — manual CLI only), `scripts/daily_summary.py` (journal-only, no orders),
+`scripts/metrics.py`/`walkforward_evaluate.py` (backtest tooling, uses `numpy`).
+`scripts/stop_watchdog.py` is deferred **with a named caveat**: it runs every 5
+minutes in production and places real stop-loss SELL orders against the same
+`data/positions_state.json` `runEvaluation.js` writes — the future GitHub
+Actions cutover cannot happen script-by-script for `run_evaluation` vs
+`stop_watchdog` (they share state and a stop placed by one must be
+recognized/deduped by the other); port `stop_watchdog.js` in a follow-up
+before any cutover, or prove the Python watchdog round-trips a Node-written
+state file first.
+
+**GitHub Actions cutover checkpoint (not yet run):** before `.github/workflows/*.yml`
+changes or `--execute` is ever pointed at Node, "parity verified" means: (1)
+deterministic-input parity — identical frozen Alpaca API fixtures replayed to
+both engines produce identical decisions; (2) live shadow-run parity — both
+engines run dry-run against the same real paper account for ≥24 consecutive
+hourly cycles with every decision diffed; (3) a state-file round-trip check —
+`positionState.js` can load a `positions_state.json` last written by Python
+and vice versa. Only after all three pass does `--execute` get exercised,
+paper-only, with the Python cron kept as a rollback for at least a week.
 
 Not yet started: `trade.py` (order execution), `run_evaluation.py` (the
 hourly evaluation loop), `rebalance.py`, `scout.py`, `position_state.py`,

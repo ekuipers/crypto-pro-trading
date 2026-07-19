@@ -20,14 +20,14 @@
 // CLAUDE.md before changing any formula here without changing
 // scripts/risk.py too.
 //
-// Scope note (scaffolding pass): this port covers every function exercised
-// by the *default* config (all ships-OFF flags left off) — sizing, limit
-// band, swing-low/trailing stops, correlation budget, daily-drawdown gate,
-// trade economics, partial-TP, stale-position exit, and rotation. The
-// "famous-trader package" extras that ship OFF by default (chandelier
-// trail, conviction sizing, streak throttle, measured-move target, pyramid
-// adds, breadth gate) are not yet ported — add them here if/when those
-// flags are turned on in config.json.
+// Scope note (updated 2026-07-19, Node port Phase 2 Step 0): this port
+// covers every function exercised by the *live* config.json, which includes
+// the losing-streak/drawdown throttle (risk.streak_throttle_enabled: true —
+// it is NOT one of the ships-OFF extras despite an earlier version of this
+// comment claiming otherwise). The "famous-trader package" extras that
+// genuinely ship OFF in the live config (chandelier trail, conviction
+// sizing, measured-move target, pyramid adds, breadth gate) are still not
+// ported — add them here if/when those flags are turned on in config.json.
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -68,12 +68,25 @@ export const SWING_LOW_BUFFER_PCT = Number(_risk.swing_low_buffer_pct ?? 0.001);
 export const SWING_LOW_MAX_STOP_PCT = Number(_risk.swing_low_max_stop_pct ?? 0.08);
 
 export const TAKER_FEE_BPS_PER_SIDE = Number(_costs.taker_fee_bps_per_side ?? 25.0);
+export const ROTATION_ENABLED = Boolean(_strategy.rotation_enabled ?? true);
 export const ROTATION_MIN_SCORE = Number(_strategy.rotation_min_score ?? 4.0);
 export const ROTATION_SCORE_MARGIN = Number(_strategy.rotation_score_margin ?? 2.0);
 export const MIN_RR_FULL = Number(_strategy.min_rr_full ?? 1.5);
 export const MIN_RR_HALF = Number(_strategy.min_rr_half ?? 1.0);
+export const ENFORCE_BUDGET_ON_OPEN_POSITIONS = Boolean(_risk.enforce_budget_on_open_positions ?? false);
 export const MAX_HOLD_HOURS = Number(_risk.max_hold_hours ?? 48.0);
+export const PARTIAL_TP_ENABLED = Boolean(_risk.partial_tp_enabled ?? true);
 export const PARTIAL_TP_R_MULTIPLE = Number(_risk.partial_tp_r_multiple ?? 1.0);
+export const PARTIAL_TP_FRACTION = Number(_risk.partial_tp_fraction ?? 0.5);
+
+export const TRAIL_MODE = String(_risk.trail_mode ?? "fixed").toLowerCase();
+export const CHANDELIER_ATR_MULT = Number(_risk.chandelier_atr_mult ?? 2.5);
+export const STREAK_THROTTLE_ENABLED = Boolean(_risk.streak_throttle_enabled ?? true);
+export const STREAK_THROTTLE_LOSSES = Number(_risk.streak_throttle_losses ?? 3);
+export const STREAK_THROTTLE_DD_PCT = Number(_risk.streak_throttle_dd_pct ?? 0.05);
+export const STREAK_THROTTLE_RECOVER_DD_PCT = Number(_risk.streak_throttle_recover_dd_pct ?? 0.025);
+export const STREAK_THROTTLE_WINNERS = Number(_risk.streak_throttle_winners ?? 2);
+export const STREAK_THROTTLE_RISK_FACTOR = Number(_risk.streak_throttle_risk_factor ?? 0.5);
 
 // ---------------------------------------------------------------------------
 // Position sizing / limit-band checks
@@ -208,6 +221,83 @@ export function shouldTrailStopOut(
   const activated = (highWaterMark - entryPrice) / entryPrice >= activationPct;
   if (!activated) return false;
   return currentPrice <= trailingStopPrice(highWaterMark, trailPct);
+}
+
+/**
+ * The effective stop-loss percentage for a position: the capital-
+ * preservation stop when that mode is active, the (tighter) trail % once the
+ * trailing stop has activated, else the fixed hard-stop %.
+ */
+export function effectiveStopPct(
+  entryPrice,
+  highWaterMark,
+  activationPct = TRAILING_STOP_ACTIVATION_PCT,
+  trailPct = TRAILING_STOP_TRAIL_PCT,
+  capitalPreservation = false,
+  preservationStopPct = CAPITAL_PRESERVATION_STOP_PCT
+) {
+  if (capitalPreservation) return preservationStopPct;
+  if (entryPrice > 0 && highWaterMark !== null && highWaterMark !== undefined) {
+    const activated = (highWaterMark - entryPrice) / entryPrice >= activationPct;
+    if (activated) return trailPct;
+  }
+  return STOP_LOSS_PCT;
+}
+
+// ---------------------------------------------------------------------------
+// Losing-streak / drawdown throttle
+// ---------------------------------------------------------------------------
+
+/** Length of the losing streak at the end of a chronological P&L list. */
+export function consecutiveLossesTail(pnls) {
+  let n = 0;
+  for (let i = (pnls || []).length - 1; i >= 0; i--) {
+    if (pnls[i] < 0) n++;
+    else break;
+  }
+  return n;
+}
+
+/** Length of the winning streak at the end of a chronological P&L list. */
+export function consecutiveWinsTail(pnls) {
+  let n = 0;
+  for (let i = (pnls || []).length - 1; i >= 0; i--) {
+    if (pnls[i] > 0) n++;
+    else break;
+  }
+  return n;
+}
+
+/**
+ * Losing-streak / drawdown throttle state machine (PTJ "trade smallest when
+ * trading worst"). Activates after `losses` consecutive losing round-trips
+ * OR a rolling 7-day drawdown >= ddOn. Releases only once `winners`
+ * consecutive winners have printed AND the drawdown has recovered below
+ * ddOff (slightly stricter than either alone — conservative hysteresis).
+ * Anti-martingale: while active the caller halves risk.
+ */
+export function updateStreakThrottle(
+  wasActive,
+  roundTripPnls,
+  dd7d,
+  losses = STREAK_THROTTLE_LOSSES,
+  ddOn = STREAK_THROTTLE_DD_PCT,
+  ddOff = STREAK_THROTTLE_RECOVER_DD_PCT,
+  winners = STREAK_THROTTLE_WINNERS
+) {
+  const winsTail = consecutiveWinsTail(roundTripPnls);
+  if (wasActive) {
+    return !(winsTail >= winners && dd7d < ddOff);
+  }
+  return consecutiveLossesTail(roundTripPnls) >= losses || dd7d >= ddOn;
+}
+
+/** Drawdown of the last value from the peak of the series (0.05 = 5%). */
+export function rollingDrawdownPct(equities) {
+  const vals = (equities || []).filter((e) => e && e > 0);
+  if (vals.length < 2) return 0.0;
+  const peak = Math.max(...vals);
+  return Math.max((peak - vals[vals.length - 1]) / peak, 0.0);
 }
 
 // ---------------------------------------------------------------------------

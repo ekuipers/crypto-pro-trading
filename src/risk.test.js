@@ -211,3 +211,50 @@ describe("rotation gate", () => {
     assert.ok(!risk.rotationAllows(null, -1.0));
   });
 });
+
+describe("effective stop pct", () => {
+  test("capital preservation overrides everything", () => {
+    assert.equal(risk.effectiveStopPct(100, 110, 0.025, 0.03, true, 0.03), 0.03);
+  });
+  test("uses the trail pct once activated", () => {
+    assert.equal(risk.effectiveStopPct(100, 103, 0.025, 0.03), 0.03);
+  });
+  test("falls back to the fixed stop pct before activation", () => {
+    assert.equal(risk.effectiveStopPct(100, 101, 0.025, 0.03), risk.STOP_LOSS_PCT);
+  });
+  test("falls back to the fixed stop pct with no high-water mark", () => {
+    assert.equal(risk.effectiveStopPct(100, null, 0.025, 0.03), risk.STOP_LOSS_PCT);
+  });
+});
+
+// Port of tests/test_risk_roadmap.py's TestStreakThrottle class.
+describe("streak throttle", () => {
+  test("activates on three consecutive losses", () => {
+    assert.ok(risk.updateStreakThrottle(false, [10, -1, -2, -3], 0.0, 3, 0.05));
+  });
+  test("two losses is not enough", () => {
+    assert.ok(!risk.updateStreakThrottle(false, [10, -1, -2], 0.0, 3, 0.05));
+  });
+  test("activates on drawdown", () => {
+    assert.ok(risk.updateStreakThrottle(false, [10, 10], 0.06, 3, 0.05));
+  });
+  test("releases after two winners and recovery", () => {
+    assert.ok(!risk.updateStreakThrottle(true, [-1, -2, -3, 5, 6], 0.01, undefined, undefined, 0.025, 2));
+  });
+  test("stays active with only one winner", () => {
+    assert.ok(risk.updateStreakThrottle(true, [-1, -2, -3, 5], 0.01, undefined, undefined, 0.025, 2));
+  });
+  test("stays active while drawdown is still high", () => {
+    assert.ok(risk.updateStreakThrottle(true, [5, 6], 0.04, undefined, undefined, 0.025, 2));
+  });
+  test("rolling drawdown pct", () => {
+    assert.ok(Math.abs(risk.rollingDrawdownPct([100, 110, 99]) - 0.1) < 1e-9);
+    assert.equal(risk.rollingDrawdownPct([100, 110]), 0.0);
+    assert.equal(risk.rollingDrawdownPct([]), 0.0);
+  });
+  test("consecutive tail counters", () => {
+    assert.equal(risk.consecutiveLossesTail([10, -1, -2, -3]), 3);
+    assert.equal(risk.consecutiveWinsTail([-1, -2, 5, 6]), 2);
+    assert.equal(risk.consecutiveLossesTail([]), 0);
+  });
+});
