@@ -8,6 +8,20 @@
 
 ---
 
+## v2026-07-19.6 — 2026-07-19 — Bug closed: black screen on startup (browser cache, not app-side)
+
+**Task:** "rescan roadmap." Suite-level `CLAUDE.md` Bugs listed "Trader app is broken and only shows a
+black screen upon startup," filed after the React/Vite conversion. Per Suite workflow rule 22, bugs take
+precedence over roadmap.
+
+**Investigation:** rebuilt `client/` and served it locally (`node server.js`) — homepage, JS bundle, and
+all `/js/*` `/css/*` assets returned 200 with correct content; no reproduction. Confirmed by Erik: the
+black screen was a stale browser cache on the client side, not a server/build/app defect — no code change
+needed.
+
+**Resolved:** removed from `CryptoPro Suite/CLAUDE.md` › Bugs (moved here per Suite workflow rule 15).
+Suite roadmap remains empty — no further action from this scan.
+
 ## v2026-07-19.5 — 2026-07-19 — Bug fix: Vercel deploy failed with "vite: command not found"
 
 **Task:** "scan roadmap." Suite-level `CLAUDE.md` roadmap had no open items, but its Bugs list had one
