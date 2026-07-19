@@ -7,7 +7,7 @@ export default function Header() {
           alt="CryptoPro Trader logo"
           style={{ width: '22px', height: '22px', borderRadius: '6px', verticalAlign: '-5px' }}
         />{' '}
-        CryptoPro Trader
+        <span className="logo-brand">CryptoPro</span> Trader
       </div>
 
       <div className="header-right">

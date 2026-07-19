@@ -34,6 +34,8 @@
       letter-spacing:-.2px;
     }
 
+    .logo-brand { color:var(--blue); }
+
     .header-right {
       display:flex;
       align-items:center;

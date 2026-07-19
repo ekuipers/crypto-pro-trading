@@ -8,6 +8,35 @@
 
 ---
 
+## v2026-07-19.7 — 2026-07-19 — Roadmap: suite-wide workflow-rules verification pass
+
+**Task:** "rescan roadmap." Own Roadmap/Bugs were empty; Charts/Training Roadmap/Bugs were also empty. The
+only open item across the whole suite was the Suite-level roadmap: "Verify all projects against the
+workflow rules in this file" (25 rules in `CryptoPro Suite/CLAUDE.md`). Ran `git fetch` first per the
+existing lesson below — local HEAD was already even with the remote, no stale-checkout risk this time.
+
+**Gaps found and fixed in this repo** (checked against Suite rules 3, 14, 16 — full audit + Charts/Training
+fixes logged in `CryptoPro Suite/memory/memory.md`):
+- Rule 3 (title/year/creator/donation link in footer): `client/src/components/Footer.jsx` had everything
+  except the donation link. Added a `☕ Donate` link to `https://buymeacoffee.com/erikkuipers` (same URL
+  Suite's own footer uses) + a matching `.footer-donate` style (`src/css/forms-modals-footer.css`, same
+  amber `#e0b45c` Suite already uses, for cross-suite consistency per rule 17).
+- Rule 14 ("CryptoPro" a different color than the project-name extension): `Header.jsx` rendered
+  `CryptoPro Trader` as one plain-colored text node — no split at all. Wrapped `CryptoPro` in a
+  `<span className="logo-brand">`, colored `var(--blue)` (`src/css/base-layout.css`) — this repo's
+  existing accent-ish highlight color (no `--accent` var previously existed here, unlike Charts/Training).
+- Rule 16 (`/debug/` + `.gitignore`): `.gitignore` had no `/debug/` entry (Suite's own repo already did).
+  Added, matching Suite's comment style. No `debug/` folder exists yet in any of the 3 sub-projects.
+
+**Not touched, correctly out of scope:** Suite's own `CLAUDE.md › TO DO (don't implement, for planning
+only)` already lists "Trader: save settings and other items in the database" and "Use SSO on all
+projects" — rule 18 (single Supabase DB + SSO) work stays there, not auto-implemented from a roadmap
+scan. Rule 24 (React frontend) and rule 9 (frontend/backend split) were already satisfied here from the
+2026-07-19 conversions earlier today.
+
+**Verified:** `npm --prefix client run build` — succeeds, no JSX/CSS errors. `npm test` — 280/280 still
+green (no backend file touched). Footer version bumped v2026-07-19.3 → v2026-07-19.7.
+
 ## v2026-07-19.6 — 2026-07-19 — Bug closed: black screen on startup (browser cache, not app-side)
 
 **Task:** "rescan roadmap." Suite-level `CLAUDE.md` Bugs listed "Trader app is broken and only shows a

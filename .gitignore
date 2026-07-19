@@ -23,3 +23,6 @@ Thumbs.db
 
 # RuVector runtime state DB — mutates continuously, not source
 ruvector.db
+
+# Scratch/debug files from investigations — not source
+/debug/
