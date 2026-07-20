@@ -28,13 +28,13 @@
     .logo {
       display:flex;
       align-items:center;
-      gap:10px;
-      font-size:17px;
-      font-weight:850;
-      letter-spacing:-.2px;
+      gap:6px;
+      font-size:13px;
+      font-weight:700;
     }
 
     .logo-brand { color:var(--blue); }
+    .logo-icon { width:18px; height:18px; border-radius:4px; vertical-align:middle; }
 
     .header-right {
       display:flex;

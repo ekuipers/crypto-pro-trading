@@ -8,6 +8,46 @@
 
 ---
 
+## v2026-07-21.1 — 2026-07-21 — Roadmap rescan: header logo scaled down to match the footer
+
+**Task:** "rescan roadmap." Own Roadmap/Bugs (`CLAUDE.md`) and Suite's Bugs list were both empty. Suite's
+Roadmap had exactly one open item: "In every project use the same height, font and colors for the project
+logo in the header as in the footer." Checked Training and Charts too (`src/css/course.css`,
+`src/css/style.css`) — the same header/footer size mismatch exists in both, confirming this is a genuine,
+suite-wide gap and not something already fixed elsewhere to copy from.
+
+**Root cause:** the 2026-07-18 cross-suite branding pass (v2026-07-18.7) aligned header/footer *padding*
+and gave the footer its own logo icon for the first time, but never made the two identical — header stayed
+at a `22px` icon / `17px` weight-850 "CryptoPro Trader" with only "CryptoPro" colored `var(--blue)`, while
+the footer stayed at `18px` / `13px` weight-700 plain `var(--text)`, no color split at all. The roadmap item
+was still open because that pass solved *presence* (footer got a logo) but not *parity* (the two don't
+match).
+
+**Options presented to the user before touching anything** (three shapes: grow the footer up to the
+header, shrink the header down to the footer, or leave each section's own type scale and just unify icon
+radius + color): **chose shrinking the header down** to the footer's existing compact treatment.
+
+**Change:** `client/src/components/Header.jsx` — replaced the inline `style={{width:'22px',height:'22px',
+borderRadius:'6px',verticalAlign:'-5px'}}` on the logo `<img>` with the shared `.logo-icon` class (added to
+`src/css/base-layout.css`, `width/height:18px; border-radius:4px; vertical-align:middle` — identical values
+to the existing `.footer-logo-icon`). `.logo`'s `font-size`/`font-weight`/`gap`/`letter-spacing` changed
+from `17px`/`850`/`10px`/`-.2px` to `13px`/`700`/`6px`/*(removed)* — now byte-identical to `.footer-name`.
+`client/src/components/Footer.jsx` gained the missing `<span className="logo-brand">CryptoPro</span>`
+split (previously the footer's "CryptoPro Trader" was one plain, uncolored text node) — reuses the
+existing global `.logo-brand{color:var(--blue)}` rule already defined for the header, so no new CSS class
+was needed for the color half of the fix.
+
+**Not touched, correctly out of scope:** CryptoPro Charts (not yet converted to React per Suite TO DO item
+2 — its header uses a fixed `--topbar-h:44px` compact terminal chrome, deliberately left alone in the
+2026-07-18 pass since it's a dense charting UI) and CryptoPro Training (same unresolved header/footer
+mismatch found there during this scan, `src/css/course.css:49-52` vs `:84-85` — that project's own session
+needs to apply the equivalent fix; not edited from here since it's a separate repo with its own memory.md/
+CLAUDE.md workflow).
+
+**Verified:** `npm --prefix client run build` — succeeds, 46 modules, no JSX/CSS errors. No backend files
+touched, Python/Node test suites unaffected. Footer version bumped v2026-07-19.7 → v2026-07-21.1;
+`docs/dashboard_layout.md` changelog updated.
+
 ## v2026-07-20.2 — 2026-07-21 — Roadmap rescan: Bug #9 was never fully fixed — 2 more copies found
 
 **Task:** "rescan roadmap." Suite `CLAUDE.md` had a fresh bug report: LTC/USD and BTC/USD still

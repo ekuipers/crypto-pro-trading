@@ -2,11 +2,7 @@ export default function Header() {
   return (
     <header>
       <div className="logo">
-        <img
-          src="/favicon.svg"
-          alt="CryptoPro Trader logo"
-          style={{ width: '22px', height: '22px', borderRadius: '6px', verticalAlign: '-5px' }}
-        />{' '}
+        <img src="/favicon.svg" alt="CryptoPro Trader logo" className="logo-icon" />
         <span className="logo-brand">CryptoPro</span> Trader
       </div>
 
