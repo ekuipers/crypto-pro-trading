@@ -4,6 +4,16 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-20 — Bug #9: reconciliation flatness tracking + SSO ticket handoff + Charts link fix
+
+| Term | Meaning |
+|------|---------|
+| Bug #9 (reconciliation) | The 2026-07-18 Bug #6 fix compared each SELL's leftover against *that lot's own* size to decide "fully closed." Fine for a single-tranche position, but if the aggregate fee-rounding shortfall landed inside a small trailing lot (e.g. a partial-TP remainder), that lot's own tight tolerance never popped — so the walk never saw the position go flat again, and every later SELL for that symbol was miscounted as "still open" forever. Fixed by tracking flatness with one running net-quantity scalar compared against the whole episode's *peak* size instead of each lot's own size. |
+| SSO ticket (handoff) | Different from the Bug #6/#9 sessions above — a *second*, short-lived (60s) mechanism layered on top: a signed-in app mints a single-use token (`sso_tickets` table) and hands it to a sibling CryptoPro app via `?sso=<token>` in the URL, since the four apps live on different Vercel subdomains and can't share a session cookie directly (no common apex domain). The receiving app's server consumes the token once, mints its own normal session, and redirects to a clean URL. |
+| `exchange=alpaca` (Charts deep link) | `tvLink()` now pins the chart link's exchange explicitly. Charts' router otherwise applies the URL's symbol to its own *default* exchange (binance/bybit), which quotes most alts in USDT — but every symbol Trader trades is USD-quoted (Alpaca is USD-only), so the link 404'd for anything without a native USD pair on Binance. Alpaca is both the venue Trader actually trades on and genuinely USD-quoted, so pinning it makes the link resolve regardless of Charts' own settings. |
+
+---
+
 ## 2026-07-19 — Suite SSO (accounts/sessions ported from CryptoPro Charts)
 
 | Term | Meaning |

@@ -97,6 +97,14 @@ export async function init() {
     expires_at timestamptz not null
   )`);
   await q(`create index if not exists sessions_expires_idx on sessions(expires_at)`);
+  await q(`create table if not exists sso_tickets (
+    token      text primary key,
+    uid        text not null references accounts(id) on delete cascade,
+    created_at timestamptz not null default now(),
+    expires_at timestamptz not null,
+    used       boolean not null default false
+  )`);
+  await q(`create index if not exists sso_tickets_expires_idx on sso_tickets(expires_at)`);
   console.log('[db] connected; tables ready');
   return true;
 }
@@ -155,4 +163,29 @@ export async function deleteSession(sid) {
 // keeping the caller's own current session (`keepSid`) alive.
 export async function deleteOtherSessions(uid, keepSid) {
   await q('delete from sessions where uid = $1 and sid != $2', [uid, keepSid]);
+}
+
+// ---- SSO tickets -------------------------------------------------------
+// Short-lived, single-use handoff tokens for cross-project auto-sign-in
+// (Suite roadmap: "signed in to the Suite -> automatically signed in to
+// other projects"). Session cookies can't be shared directly — each app
+// lives on its own Vercel subdomain, not a shared apex domain a cookie's
+// Domain attribute could target — so a signed-in app mints a ticket and
+// hands it to the destination app via a URL param; the destination
+// consumes it once to mint its own local session.
+export async function createSsoTicket(token, uid, expiresAtMs) {
+  await q('delete from sso_tickets where expires_at < now()'); // prune expired
+  await q('insert into sso_tickets (token, uid, expires_at) values ($1, $2, to_timestamp($3 / 1000.0))', [token, uid, expiresAtMs]);
+}
+// Atomic consume: only succeeds once per ticket (used flag flips inside the
+// same statement as the validity check), so a replayed/leaked URL can't be
+// used to mint a second session.
+export async function consumeSsoTicket(token) {
+  const { rows } = await q(
+    `update sso_tickets set used = true
+     where token = $1 and used = false and expires_at > now()
+     returning uid`,
+    [token],
+  );
+  return rows[0]?.uid || null;
 }

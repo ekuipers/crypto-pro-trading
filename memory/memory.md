@@ -8,6 +8,62 @@
 
 ---
 
+## v2026-07-20.1 — 2026-07-20 — Roadmap rescan: quick-loss positions, dead Charts link, cross-project auto sign-in
+
+**Task:** "rescan roadmap." Own Roadmap/Bugs were empty; the open items lived at the Suite level
+(`CryptoPro Suite/CLAUDE.md`). Per rule 22 (bugs before roadmap), triaged all three Trader-relevant items
+with the user before touching trading logic, then implemented all three.
+
+**Bug #9 (P0) — LINK/ETH/LTC round-tripping into small losses within ~1h of entry.** Root cause: a
+2026-07-18 fix (Bug #6/#7) made `reconcile_positions_from_fills()`'s FIFO walk compare each SELL's leftover
+against *that lot's own* size (`scripts/run_evaluation.py`), which works for a single-lot position but not
+a multi-tranche one — if the aggregate fee-rounding shortfall happened to land inside a small trailing lot
+(e.g. a leftover partial-TP remainder), that lot's own tight tolerance never popped it, so the walk never
+saw the position go flat again. Every SELL for that symbol *forever after* got miscounted as "partial sell
+— still open," so `sells_since_start` only ever grew (LINK/USD: 16 → 37 partial sells across 10 days per
+the journal) and every fresh entry reconciled as "partial TP already done" on its first evaluation —
+pinning an un-overridable breakeven stop (`run_evaluation.py:1022-1037`) before any real profit, so the
+next tick's noise closed it for a few bps loss. Fixed by tracking flatness with a single running net-qty
+scalar compared against the *episode's peak size*, not each lot's own size — immune to how many tranches
+made up the position. Added 2 regression tests to `tests/test_reconcile.py` reproducing the exact
+small-trailing-lot shape and a multi-episode sequence; all 173 Python tests pass (was 171).
+
+**Bug (Suite list) — Trader→Charts symbol links never resolved.** Not actually a watchlist-membership
+issue (Erik's guess in the bug report) — `tvLink()` (`src/js/utils.js`) always emits USD-quoted tickers
+(Alpaca is USD-only), but Charts' router applied the link straight to its *default* exchange (binance/
+bybit), which lists alts in USDT, not USD, so the fetch 404'd for anything but a handful of USD-native
+pairs. Fixed by pinning `&exchange=alpaca` on every `tvLink()` URL — Alpaca is the venue Trader actually
+trades on and is genuinely USD-quoted, so every link now resolves regardless of Charts' own default
+exchange or watchlist contents.
+
+**Roadmap (Suite list) — "signed in to the Suite → automatically signed in to other projects."** Session
+cookies can't be shared directly (each CryptoPro app is its own Vercel subdomain, not a shared apex domain
+a cookie's `Domain` attribute could target), so implemented a short-lived (60s) single-use SSO ticket
+handoff instead: `POST /api/auth/sso-ticket` (authenticated) mints a token in a new `sso_tickets` table
+(shared Postgres); a `?sso=<token>` query param on any GET request is consumed atomically (`UPDATE ...
+WHERE used=false AND expires_at>now() RETURNING uid`) by a new `app.use` middleware registered before the
+static/SPA routes in `src/auth.js`, which mints a normal local session and always 302-redirects to a clean
+URL. Ported identically into `CryptoPro Charts`, `CryptoPro Training`, and `CryptoPro Suite`'s `src/auth.js`
++ `src/db.js` (see each project's own memory.md / `CryptoPro Suite/memory/memory.md` for the full
+cross-repo narrative) — Trader and Charts/Training only gained the *consuming* side for now; Suite's
+landing page (`src/js/auth.js`'s `wireCrossProjectLinks()`) is the one issuing tickets, since the roadmap
+item is specifically "signed in to the Suite." Trader's own `/api/auth/sso-ticket` issuance endpoint exists
+for symmetry/future use but nothing calls it yet.
+
+security-reviewer ran against the full 4-repo diff before commit (mandatory per this repo's
+code-review.md for auth changes): no CRITICAL/HIGH findings (atomic single-use consume, redirect target
+is always relative — verified no open-redirect via `new URL(req.originalUrl, 'http://x')`.pathname
+reconstruction, CSRF via SameSite=Lax + Origin/Referer check). One MEDIUM accepted risk, not mitigated:
+anyone who self-registers can mint a ticket for their own account and hand a victim a link that silently
+signs the victim's browser into the *attacker's* account on another app (session-fixation-style, no
+privilege escalation against the victim's own data) — acceptable for a single-operator hobby suite today,
+revisit if the suite gains other real users. One incidental fix: `CryptoPro Suite/server.js` was missing
+`trust proxy` + the Origin/Referer CSRF middleware the other three apps already had (drift, not part of
+this feature) — added for consistency since Suite is now the SSO trigger point.
+
+**Verified:** `npm test` (280/280 Node), `python -m pytest tests/` (173/173), `node --check` on every
+edited JS file across all 4 repos, `npm --prefix client run build` unaffected (no client/src touched).
+
 ## v2026-07-19.8 — 2026-07-19 — Suite TO DO item 1: SSO with CryptoPro Charts/Suite
 
 **Task:** explicit user request ("implement one roadmap item from the Suite project" → chose "SSO across

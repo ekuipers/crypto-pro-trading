@@ -48,10 +48,19 @@
     // Accepts BTC/USD, BTCUSD, BTC/USDT, or bare BTC. Strips the slash to the
     // exchange ticker form (BTCUSD, BTCUSDT, …) Charts' router expects in
     // ?symbol=; a bare base defaults to USD.
+    //
+    // exchange=alpaca is pinned explicitly (Suite bug, 2026-07-20): Charts'
+    // router applied the URL symbol straight to its default exchange
+    // (binance/bybit), which lists alts in USDT, not USD — every Trader deep
+    // link (always USD-quoted, since Alpaca is USD-only) silently failed to
+    // load unless the user had separately added a USDT-quoted version of the
+    // same symbol to Charts' own watchlist. Alpaca is the venue Trader
+    // actually trades on and is genuinely USD-quoted, so pinning it makes
+    // every link resolve regardless of Charts' default exchange/watchlist.
     function tvLink(sym, label) {
       var tv = String(sym).toUpperCase().replace('/', '');
       if (!/USD[TC]?$/.test(tv)) tv += 'USD';   // bare base like "BTC" -> BTCUSD
-      var url  = 'https://crypto-pro-charts.vercel.app/?symbol=' + tv;
+      var url  = 'https://crypto-pro-charts.vercel.app/?symbol=' + tv + '&exchange=alpaca';
       var txt  = (label !== undefined) ? label : sym;
       return '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="tv-link">' + txt + '</a>';
     }

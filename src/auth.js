@@ -13,6 +13,7 @@ import { generateSecret, verifyTotp, otpauthUri } from './totp.js';
 
 const SESSION_COOKIE = 'cpc_session';
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const SSO_TICKET_TTL_MS = 60 * 1000; // single-use, must be redeemed within 60s
 
 // ---- Rate limiting -----------------------------------------------------
 // In-memory sliding window per IP. Dependency-free rather than pulling in
@@ -108,6 +109,47 @@ export async function currentUid(req) {
 
 // ---- Routes --------------------------------------------------------------
 export function installAuthRoutes(app) {
+  // ---- Cross-project SSO handoff -----------------------------------------
+  // Registered before the static/SPA routes below so it can intercept any
+  // page request. A ticket in the query string is single-use and expires in
+  // 60s (see db.consumeSsoTicket), so the brief exposure in server logs/
+  // Referer headers can't be replayed into a second session.
+  app.use(async (req, res, next) => {
+    const ticket = req.method === 'GET' && typeof req.query?.sso === 'string' ? req.query.sso : null;
+    if (!ticket) return next();
+    try {
+      const uid = await db.consumeSsoTicket(ticket);
+      if (uid && await db.getAccount(uid)) {
+        const sid = token(24);
+        await db.createSession(sid, uid, Date.now() + SESSION_TTL_MS);
+        setCookie(res, SESSION_COOKIE, sid, SESSION_TTL_MS);
+      }
+    } catch (e) {
+      console.error('[auth] sso ticket consume failed:', e?.message || e);
+      // fall through to a clean redirect either way — a bad/expired ticket
+      // should never block the page from loading signed-out
+    }
+    const clean = new URL(req.originalUrl, 'http://x');
+    clean.searchParams.delete('sso');
+    res.redirect(302, clean.pathname + clean.search + clean.hash);
+  });
+
+  // Issues a short-lived ticket the client attaches to a link to another
+  // CryptoPro Suite app (?sso=<token>) so that app can sign the same
+  // account in automatically instead of showing its own login form.
+  app.post('/api/auth/sso-ticket', async (req, res) => {
+    try {
+      const uid = await currentUid(req);
+      if (uid === db.GUEST) return res.status(401).json({ error: 'Sign in first' });
+      const t = token(24);
+      await db.createSsoTicket(t, uid, Date.now() + SSO_TICKET_TTL_MS);
+      res.json({ token: t });
+    } catch (e) {
+      console.error('[auth] sso-ticket failed:', e?.stack || e);
+      res.status(500).json({ error: 'Could not create SSO ticket — database error, please retry.' });
+    }
+  });
+
   app.get('/api/me', async (req, res) => {
     const user = await currentUser(req);
     res.json({ user: user ? publicUser(user) : null });

@@ -88,6 +88,45 @@ class TestPartialTpIdempotency:
         assert pos["partial_tp_done"] is False
         assert not any("PARTIAL-TP RECONCILED" in w for w in warnings)
 
+    def test_final_close_with_small_trailing_lot_not_counted_as_partial(self):
+        # Bug #8 (2026-07-20) real-shape repro: two buy tranches (200 + a
+        # small 10-unit add), then one full-close sell whose ~0.24%
+        # aggregate fee/rounding shortfall lands entirely inside the small
+        # trailing lot — 0.5 units short against a lot whose OWN 0.5%
+        # tolerance is only 0.05. The old per-lot dust check left that lot
+        # stuck open forever, so LINK/USD's sells_since_start only ever grew
+        # (16 -> 37 across 10 days) and every fresh entry was immediately
+        # reconciled as "partial TP already done." A fresh buy afterward
+        # must NOT be flagged.
+        fills = [
+            _fill("sell", "LINKUSD", 209.5, 8.40,  "2026-07-19T12:00:00Z"),
+            _fill("buy",  "LINKUSD", 10.0,  8.30,  "2026-07-18T09:00:00Z"),
+            _fill("buy",  "LINKUSD", 200.0, 8.20,  "2026-07-18T08:00:00Z"),
+        ]
+        positions = [_pos("LINKUSD", 210.0, 8.20)]
+        state, warnings = _run(fills, positions)
+        pos = ps.get_position(state, "LINK/USD")
+        assert pos["partial_tp_done"] is False
+        assert not any("PARTIAL-TP RECONCILED" in w for w in warnings)
+
+    def test_repeated_full_episodes_never_inflate_counter(self):
+        # Two genuinely separate open->close episodes (each with a
+        # fee-rounding-shortfall full close) followed by a fresh, still-open
+        # third buy. sells_since_start must reset to 0 after each full
+        # close, never accumulate across episodes into the current holding.
+        fills = [
+            _fill("buy",  "LINKUSD", 100.0, 8.30, "2026-07-15T08:00:00Z"),
+            _fill("sell", "LINKUSD", 149.7, 8.10, "2026-07-13T10:00:00Z"),
+            _fill("buy",  "LINKUSD", 150.0, 8.20, "2026-07-13T08:00:00Z"),
+            _fill("sell", "LINKUSD", 79.85, 7.90, "2026-07-11T10:00:00Z"),
+            _fill("buy",  "LINKUSD", 80.0,  8.00, "2026-07-11T08:00:00Z"),
+        ]
+        positions = [_pos("LINKUSD", 100.0, 8.30)]
+        state, warnings = _run(fills, positions)
+        pos = ps.get_position(state, "LINK/USD")
+        assert pos["partial_tp_done"] is False
+        assert not any("PARTIAL-TP RECONCILED" in w for w in warnings)
+
     def test_already_done_flag_untouched(self):
         state = dict(ps._EMPTY_STATE, positions={})
         ps.get_position(state, "AAVE/USD")["partial_tp_done"] = True

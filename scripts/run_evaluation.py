@@ -398,6 +398,20 @@ def _seven_day_drawdown() -> float:
 # causing fast, mostly-losing buy->sell round trips. Fixed by comparing the
 # leftover against a tolerance relative to the lot's original size instead
 # of an absolute constant.
+#
+# Bug #8 (2026-07-20): the #6 fix compared each SELL's leftover against that
+# SAME lot's own (possibly already tiny, e.g. post-partial-TP) size, so once
+# a position had been through several partial-TP/rebalance tranches, the
+# final lot in the FIFO stack could be small enough that even a genuine full
+# close left a residual exceeding ITS 0.5%, so the lot never popped. The
+# walk then treated the position as perpetually open across every later
+# buy/sell for that symbol, so sells_since_start only ever grew (LINK/USD:
+# 16 -> 37 over 10 days) and every fresh entry was immediately reconciled as
+# "partial TP already done," breakeven-stopped, and closed on the next tick
+# — the actual root cause of the fast, small, repeated LINK/ETH/LTC losses.
+# Fixed by tracking flatness with a single running net-quantity scalar
+# compared against the EPISODE's peak size (not each individual lot's own
+# size), which is immune to how many tranches made up the position.
 _RECONCILE_DUST_REL_TOL = 0.005  # 5x the largest observed fee residual (~0.25%)
 
 def prune_stale_position_state(state: dict, open_symbols: list) -> list:
@@ -473,12 +487,25 @@ def reconcile_positions_from_fills(
         when  = act.get("transaction_time") or act.get("date")
         if not sym or qty <= 0 or price <= 0:
             continue
-        h = hist.setdefault(sym, {"lots": [], "start_iso": None, "sells_since_start": 0})
+        h = hist.setdefault(sym, {
+            "lots": [], "start_iso": None, "sells_since_start": 0,
+            "net_qty": 0.0, "peak_qty": 0.0,
+        })
+        # Flatness is decided by net_qty vs. this episode's own peak size —
+        # NOT by whether the FIFO lot list happens to have fully drained —
+        # so it can't be fooled by a small trailing lot's own tight dust
+        # tolerance (Bug #8, 2026-07-20).
+        is_flat = h["net_qty"] <= h["peak_qty"] * _RECONCILE_DUST_REL_TOL
         if side == "buy":
-            if not h["lots"]:          # flat -> long transition
+            if is_flat:                # flat -> long transition
                 h["start_iso"]         = when
                 h["sells_since_start"] = 0
+                h["lots"]              = []
+                h["net_qty"]           = 0.0
+                h["peak_qty"]          = 0.0
             h["lots"].append([qty, price, qty])  # [remaining, price, original_qty]
+            h["net_qty"]  += qty
+            h["peak_qty"] = max(h["peak_qty"], h["net_qty"])
         elif side == "sell":
             remaining = qty
             while remaining > 1e-9 and h["lots"]:
@@ -489,11 +516,15 @@ def reconcile_positions_from_fills(
                 dust = max(1e-9, lot[2] * _RECONCILE_DUST_REL_TOL)
                 if lot[0] < dust:
                     h["lots"].pop(0)
-            if h["lots"]:
+            h["net_qty"] = max(0.0, h["net_qty"] - qty)
+            if h["net_qty"] > h["peak_qty"] * _RECONCILE_DUST_REL_TOL:
                 h["sells_since_start"] += 1   # partial sell — position survives
             else:
                 h["start_iso"]         = None  # fully closed
                 h["sells_since_start"] = 0
+                h["lots"]              = []
+                h["net_qty"]           = 0.0
+                h["peak_qty"]          = 0.0
 
     for p in needs:
         sym = to_slash(p.get("symbol", ""))

@@ -93,6 +93,11 @@ CryptoPro Charts and CryptoPro Suite. Point `DBCRYPTOCHARTS_POSTGRES_URL[_NON_PO
 Supabase Postgres project Charts uses (see `.env.example`) to share one login across the whole suite.
 Without a connection string, sign-in/register return 503 and the rest of the dashboard works unaffected.
 
+Signing in on the CryptoPro Suite landing page and clicking through to this dashboard also signs you in
+here automatically — a short-lived, single-use `?sso=` ticket in the URL is redeemed for a local session
+and stripped from the address bar. This app only accepts that handoff today; it doesn't yet issue tickets
+for links to the other CryptoPro apps.
+
 ---
 
 ## Architecture
