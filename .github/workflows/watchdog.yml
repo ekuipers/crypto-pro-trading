@@ -8,7 +8,7 @@ name: Stop Watchdog
 # actually fires, so quiet runs create no repo churn.
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '0 3 * * *'
   workflow_dispatch:
 
 # Same group as the trading bot so pushes never race each other.
