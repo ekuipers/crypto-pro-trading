@@ -8,6 +8,41 @@
 
 ---
 
+## v2026-07-20.2 — 2026-07-21 — Roadmap rescan: Bug #9 was never fully fixed — 2 more copies found
+
+**Task:** "rescan roadmap." Suite `CLAUDE.md` had a fresh bug report: LTC/USD and BTC/USD still
+round-tripping within minutes (4m/13m apart) *after* v2026-07-20.1's Python fix (`scripts/
+run_evaluation.py`) had already been pushed and was live for several hourly cron runs — confirmed via
+`journal/2026-07-20.md`'s 15:19/17:23/18:49/21:10/22:43 GMT+2 evaluations, none of which logged a
+`PARTIAL-TP RECONCILED` warning (the BTC/USD sell in that window was a legitimate stale-exit, not the
+bug). So the Python fix *was* working — the new round trips had to be coming from somewhere else.
+
+**Root cause: the exact same Bug #9 logic exists in two more places I hadn't touched.** This codebase
+carries three independent ports of `reconcile_positions_from_fills()`, and I'd only fixed the original:
+1. `scripts/run_evaluation.py` (Python, live engine) — fixed in v2026-07-20.1.
+2. `src/js/edge-insights.js`'s `apReconcileFromFills()` — used by the **browser-side Autopilot**
+   (`src/js/autopilot.js`), which runs independently in Erik's browser whenever toggled on and places its
+   own real orders (`client_order_id` `ap-`). This was still running the pre-fix per-lot-dust logic, so it
+   kept mis-flagging LTC/BTC as "partial TP already done" and pinning breakeven stops — explaining the
+   continued round trips despite the Python fix being live.
+3. `src/reconcile.js` — the Node.js port's version (Phase 2, not wired to production, but kept at parity
+   for when cutover happens).
+
+Applied the identical peak-relative-flatness fix (net-qty scalar vs. episode peak, not each lot's own
+size) to both. `src/reconcile.js` has real test coverage (`src/reconcile.test.js`) — added the same 2
+regression tests ported from `tests/test_reconcile.py` (small-trailing-lot repro + repeated-episode
+non-inflation); 282/282 Node tests pass (was 280). `src/js/edge-insights.js` has no test harness (classic
+dashboard script, matches the rest of `src/js/*.js`) — verified with `node --check` only.
+
+**Lesson — three-way Python/browser-Autopilot/Node-port parity is easy to under-scope.** `CLAUDE.md`
+already has a documented parity discipline for `calcSignalScore()`, but this is the first time a
+*reconciliation-logic* bug needed the same three-way port. Any future fix to `scripts/run_evaluation.py`'s
+`reconcile_positions_from_fills` (or `prune_stale_position_state`) must also touch
+`src/js/edge-insights.js`'s `apReconcileFromFills` and `src/reconcile.js`'s `reconcilePositionsFromFills`
+— added as a glossary entry so this isn't missed again.
+
+**Verified:** `npm test` (282/282), `node --check` on `src/js/edge-insights.js` and `src/reconcile.js`.
+
 ## v2026-07-20.1 — 2026-07-20 — Roadmap rescan: quick-loss positions, dead Charts link, cross-project auto sign-in
 
 **Task:** "rescan roadmap." Own Roadmap/Bugs were empty; the open items lived at the Suite level

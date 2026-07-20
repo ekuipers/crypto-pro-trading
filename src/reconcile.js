@@ -24,6 +24,13 @@ import { SESSION_MIN_SAMPLE } from "./strategyConfig.js";
 // done" on its first evaluation, pinning the stop to breakeven before any
 // real profit. Fixed by comparing the leftover against a tolerance relative
 // to the lot's original size instead of an absolute constant.
+//
+// Bug #9 (2026-07-20): the #6 fix compared each SELL's leftover against
+// that SAME lot's own (possibly already tiny, e.g. post-partial-TP) size,
+// so a position that went through several tranches could leave a small
+// trailing lot whose own tolerance never absorbed the real shortfall,
+// permanently stuck "open." Fixed by tracking flatness with a running
+// net-quantity scalar compared against the episode's PEAK size instead.
 const RECONCILE_DUST_REL_TOL = 0.005; // 5x the largest observed fee residual (~0.25%)
 
 /**
@@ -95,15 +102,21 @@ export async function reconcilePositionsFromFills(state, positions, { fills = nu
     const price = Number(act.price || 0);
     const when = act.transaction_time || act.date;
     if (!sym || qty <= 0 || price <= 0) continue;
-    if (!hist[sym]) hist[sym] = { lots: [], startIso: null, sellsSinceStart: 0 };
+    if (!hist[sym]) hist[sym] = { lots: [], startIso: null, sellsSinceStart: 0, netQty: 0, peakQty: 0 };
     const h = hist[sym];
+    const isFlat = h.netQty <= h.peakQty * RECONCILE_DUST_REL_TOL;
     if (side === "buy") {
-      if (!h.lots.length) {
+      if (isFlat) {
         // flat -> long transition
         h.startIso = when;
         h.sellsSinceStart = 0;
+        h.lots = [];
+        h.netQty = 0;
+        h.peakQty = 0;
       }
       h.lots.push([qty, price, qty]); // [remaining, price, originalQty]
+      h.netQty += qty;
+      h.peakQty = Math.max(h.peakQty, h.netQty);
     } else if (side === "sell") {
       let remaining = qty;
       while (remaining > 1e-9 && h.lots.length) {
@@ -114,11 +127,15 @@ export async function reconcilePositionsFromFills(state, positions, { fills = nu
         const dust = Math.max(1e-9, lot[2] * RECONCILE_DUST_REL_TOL);
         if (lot[0] < dust) h.lots.shift();
       }
-      if (h.lots.length) {
+      h.netQty = Math.max(0, h.netQty - qty);
+      if (h.netQty > h.peakQty * RECONCILE_DUST_REL_TOL) {
         h.sellsSinceStart += 1; // partial sell — position survives
       } else {
         h.startIso = null; // fully closed
         h.sellsSinceStart = 0;
+        h.lots = [];
+        h.netQty = 0;
+        h.peakQty = 0;
       }
     }
   }

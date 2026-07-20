@@ -34,9 +34,21 @@
     // file://) and is the same source Python already trusts, so it is
     // authoritative regardless of whether the state-file merge works.
     const _AP_RECONCILE_DUST_REL_TOL = 0.005;   // mirrors Python's _RECONCILE_DUST_REL_TOL
+    // Bug #9 (2026-07-20, ported from scripts/run_evaluation.py): comparing
+    // each SELL's leftover against that lot's OWN size broke on a
+    // multi-tranche position — if the aggregate fee-rounding shortfall
+    // landed inside a small trailing lot (e.g. a partial-TP remainder),
+    // that lot's own tight tolerance never popped it, so the walk never saw
+    // the position go flat again and every later fill was miscounted as
+    // "still open" forever. Flatness is now decided by a single running
+    // net-qty scalar vs. the episode's own PEAK size, immune to how many
+    // tranches made up the position — same fix as the Python side, ported
+    // here since this browser-side Autopilot twin was still running the
+    // pre-fix logic and kept round-tripping LTC/BTC after the Python fix
+    // shipped.
     function apReconcileFromFills(fills, heldSymbols) {
       const held = new Set(heldSymbols);
-      const hist = {};   // sym -> { lots:[[remaining, price, original]], startIso, sellsSinceStart }
+      const hist = {};   // sym -> { lots:[[remaining, price, original]], startIso, sellsSinceStart, netQty, peakQty }
       const chron = [...(fills || [])].reverse();   // fills arrive newest-first
       for (const act of chron) {
         const sym   = toSlash(act.symbol || "");
@@ -45,11 +57,14 @@
         const price = Number(act.price || 0);
         const when  = act.transaction_time || act.date;
         if (!sym || qty <= 0 || price <= 0) continue;
-        if (!hist[sym]) hist[sym] = { lots: [], startIso: null, sellsSinceStart: 0 };
+        if (!hist[sym]) hist[sym] = { lots: [], startIso: null, sellsSinceStart: 0, netQty: 0, peakQty: 0 };
         const h = hist[sym];
+        const isFlat = h.netQty <= h.peakQty * _AP_RECONCILE_DUST_REL_TOL;
         if (side === "buy") {
-          if (h.lots.length === 0) { h.startIso = when; h.sellsSinceStart = 0; }   // flat -> long
+          if (isFlat) { h.startIso = when; h.sellsSinceStart = 0; h.lots = []; h.netQty = 0; h.peakQty = 0; }   // flat -> long
           h.lots.push([qty, price, qty]);   // [remaining, price, original]
+          h.netQty += qty;
+          h.peakQty = Math.max(h.peakQty, h.netQty);
         } else if (side === "sell") {
           let remaining = qty;
           while (remaining > 1e-9 && h.lots.length) {
@@ -59,8 +74,12 @@
             const dust = Math.max(1e-9, lot[2] * _AP_RECONCILE_DUST_REL_TOL);
             if (lot[0] < dust) h.lots.shift();
           }
-          if (h.lots.length) h.sellsSinceStart += 1;          // partial — position survives
-          else { h.startIso = null; h.sellsSinceStart = 0; }  // fully closed
+          h.netQty = Math.max(0, h.netQty - qty);
+          if (h.netQty > h.peakQty * _AP_RECONCILE_DUST_REL_TOL) {
+            h.sellsSinceStart += 1;          // partial — position survives
+          } else {
+            h.startIso = null; h.sellsSinceStart = 0; h.lots = []; h.netQty = 0; h.peakQty = 0;  // fully closed
+          }
         }
       }
       const partialTpSyms = new Set(), entryTime = {};

@@ -80,6 +80,45 @@ describe("reconcilePositionsFromFills — partial-TP idempotency", () => {
     assert.ok(!warnings.some((w) => w.includes("PARTIAL-TP RECONCILED")));
   });
 
+  test("Bug #9: a final close with a small trailing lot is NOT counted as a partial TP", async () => {
+    // Two buy tranches (200 + a small 10-unit add), then one full-close sell
+    // whose ~0.24% aggregate fee/rounding shortfall lands entirely inside
+    // the small trailing lot -- 0.5 units short against a lot whose OWN
+    // 0.5% tolerance is only 0.05. The pre-fix per-lot dust check left that
+    // lot stuck open forever, so LINK/USD's sellsSinceStart only ever grew
+    // and every fresh entry was immediately reconciled as "partial TP
+    // already done." A fresh buy afterward must NOT be flagged.
+    const fills = [
+      fill("sell", "LINKUSD", 209.5, 8.4, "2026-07-19T12:00:00Z"),
+      fill("buy", "LINKUSD", 10.0, 8.3, "2026-07-18T09:00:00Z"),
+      fill("buy", "LINKUSD", 200.0, 8.2, "2026-07-18T08:00:00Z"),
+    ];
+    const positions = [pos("LINKUSD", 210.0, 8.2)];
+    const state = freshState();
+    const warnings = await reconcilePositionsFromFills(state, positions, { fills });
+    assert.equal(ps.getPosition(state, "LINK/USD").partial_tp_done, false);
+    assert.ok(!warnings.some((w) => w.includes("PARTIAL-TP RECONCILED")));
+  });
+
+  test("Bug #9: repeated full episodes never inflate the counter", async () => {
+    // Two genuinely separate open->close episodes (each with a
+    // fee-rounding-shortfall full close) followed by a fresh, still-open
+    // third buy. sellsSinceStart must reset to 0 after each full close,
+    // never accumulate across episodes into the current holding.
+    const fills = [
+      fill("buy", "LINKUSD", 100.0, 8.3, "2026-07-15T08:00:00Z"),
+      fill("sell", "LINKUSD", 149.7, 8.1, "2026-07-13T10:00:00Z"),
+      fill("buy", "LINKUSD", 150.0, 8.2, "2026-07-13T08:00:00Z"),
+      fill("sell", "LINKUSD", 79.85, 7.9, "2026-07-11T10:00:00Z"),
+      fill("buy", "LINKUSD", 80.0, 8.0, "2026-07-11T08:00:00Z"),
+    ];
+    const positions = [pos("LINKUSD", 100.0, 8.3)];
+    const state = freshState();
+    const warnings = await reconcilePositionsFromFills(state, positions, { fills });
+    assert.equal(ps.getPosition(state, "LINK/USD").partial_tp_done, false);
+    assert.ok(!warnings.some((w) => w.includes("PARTIAL-TP RECONCILED")));
+  });
+
   test("an already-done flag is left untouched and skips the fills fetch entirely", async () => {
     const state = freshState();
     const p = ps.getPosition(state, "AAVE/USD");
