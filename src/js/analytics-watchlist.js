@@ -144,6 +144,7 @@
     function saveWatchlistData(arr) {
       localStorage.setItem(WL_STORAGE_KEY, JSON.stringify(arr));
       if (typeof loadTickerStrip === "function") loadTickerStrip();   // reflect new watchlist in the ticker immediately (roadmap item 1)
+      if (typeof scheduleSettingsSync === "function") scheduleSettingsSync();
     }
 
     function renderWatchlistTags() {

@@ -36,6 +36,7 @@ export const SCRIPT_ORDER = [
   'edge-insights.js',
   'tabs-portfolio.js',
   'auth.js',
+  'settings-sync.js',
   'main.js',
 ];
 

@@ -4,6 +4,16 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-21 — Settings sync (dashboard preferences follow the account)
+
+| Term | Meaning |
+|------|---------|
+| Settings sync | `src/js/settings-sync.js` mirrors a subset of dashboard `localStorage` (theme, last tab, watchlist, backtest-form defaults, trading mode, position limits) to Postgres so it follows the signed-in account across devices/browsers — same `layouts` table + `/api/session` pattern CryptoPro Charts already shipped for chart layouts. Server data wins whenever present; localStorage is only the offline/signed-out fallback. |
+| What's excluded, and why | Alpaca API key/secret (paper and live) never sync — a live-trading credential sitting in a shared Postgres DB is a different security posture than syncing UI preferences, and the user was asked explicitly rather than this being assumed. Every `autopilotXxx` key (HWM, partial-TP, entry time, order age) also never syncs — that's live Autopilot runtime bookkeeping tied to one running instance; syncing it cross-device could make two tabs/devices believe they own the same position's trailing-stop state, or run two Autopilot loops for one account at once. |
+| `db.SESSION_NAME` / `db.GUEST` | Sentinels that already existed in `src/db.js` (ported during the 2026-07-19 SSO work) but were unused until this change — `SESSION_NAME` is the fixed row name for the one autosave slot per account; `GUEST` is the uid used when nobody is signed in, so anonymous state still persists the same way signed-in state does. |
+
+---
+
 ## 2026-07-20 — Bug #9: reconciliation flatness tracking + SSO ticket handoff + Charts link fix
 
 | Term | Meaning |

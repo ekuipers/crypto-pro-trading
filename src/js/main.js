@@ -3,8 +3,10 @@
     enhanceTables();
 
     (async function bootstrapDashboard() {
+    if (typeof loadSyncedSettings === "function") await loadSyncedSettings();
     await loadConfigFromFile();
     renderMode();
+    loadBacktestForm();
     try { updateScanBtnLabel(); } catch (e) {}
     try { apInit(); } catch (e) {}
 

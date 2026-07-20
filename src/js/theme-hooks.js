@@ -65,6 +65,7 @@
       const btn = document.getElementById("themeBtn");
       if (btn) btn.textContent = theme === "light" ? "🌙" : "☀️";
       localStorage.setItem("dashTheme", theme);
+      if (typeof scheduleSettingsSync === "function") scheduleSettingsSync();
     }
 
     function toggleTheme() {

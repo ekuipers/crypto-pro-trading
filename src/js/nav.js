@@ -41,6 +41,7 @@
       const saved = JSON.parse(localStorage.getItem("proDashboardSettings") || "{}");
       saved.mode  = $("setMode").value;
       localStorage.setItem("proDashboardSettings", JSON.stringify(saved));
+      if (typeof scheduleSettingsSync === "function") scheduleSettingsSync();
       renderMode();
       refreshCurrent();
     }
@@ -72,6 +73,7 @@
       // Persist the active tab to the URL hash (deep-linkable) and localStorage
       // (restored on browser refresh). See applyTabFromUrl().
       try { localStorage.setItem("lastTab", id); } catch (e) {}
+      if (typeof scheduleSettingsSync === "function") scheduleSettingsSync();
       if (location.hash !== "#" + id) {
         try { history.replaceState(null, "", "#" + id); }
         catch (e) { location.hash = id; }
@@ -156,6 +158,7 @@
       if (sb) sb.classList.add("active");
       // Mirror the sub-tab id to the hash + lastTab for deep-links / refresh.
       try { localStorage.setItem("lastTab", subId); } catch (e) {}
+      if (typeof scheduleSettingsSync === "function") scheduleSettingsSync();
       if (location.hash !== "#" + subId) {
         try { history.replaceState(null, "", "#" + subId); }
         catch (e) { location.hash = subId; }

@@ -8,6 +8,69 @@
 
 ---
 
+## v2026-07-21.2 — 2026-07-21 — Roadmap: settings sync to Postgres (Suite roadmap)
+
+**Task:** "rescan roadmap." Own Roadmap/Bugs empty; Suite's Bugs empty; Suite's Roadmap had exactly one
+open item, freshly added: "Across all projects, save any user state like layouts, progress, etc. in the
+database. This makes it possible to save settings across devices, browsers and sessions."
+
+**Found a proven reference implementation already in production — CryptoPro Charts.** `src/db.js` there has
+a generic `layouts(uid, name, data jsonb, updated_at)` table (one row per account, or the `GUEST` sentinel
+when signed out), `/api/session` GET/PUT (a single autosave row keyed by `SESSION_NAME`) plus `/api/layouts`
+for named saves, and a client `persistence.js` with a debounced autosave and a server-first/localStorage-
+fallback load. Didn't need to design anything new — ported the exact same `layouts` table shape and
+`/api/session` routes; this project doesn't have a "named multiple saves" concept like Charts' layouts, so
+skipped `/api/layouts` entirely.
+
+**Security fork surfaced before writing any code:** `localStorage.proDashboardSettings` bundles paper/live
+Alpaca API key+secret together with plain preferences (mode, limits) — Charts' own synced state never
+included credentials (only chart layout/indicator prefs). Presented the user the choice explicitly rather
+than deciding silently: sync everything including API keys, or sync preferences only and keep keys local.
+**Chose preferences only.** This shaped the whole client design — `settingsSnapshot()`/`applySyncedSettings()`
+in the new `src/js/settings-sync.js` never touch `paperApiKey`/`paperApiSecret`/`liveApiKey`/`liveApiSecret`,
+only `mode`/`limits` from that object plus `dashTheme`/`lastTab`/`proDashboardWatchlist`/`proBacktestDefaults`.
+
+**Second exclusion, found while auditing every `localStorage` key in `src/js/*.js`, not asked about
+separately:** every `autopilotXxx` key (`autopilotHwm`, `autopilotPartialTp`, `autopilotEntryTime`,
+`autopilotOrderAge`, `autopilotDayOpen`, `autopilotEnabled`, `autopilotIntervalMin`, `autopilotLog`) is live
+Autopilot runtime bookkeeping, not a user preference — syncing it cross-device would risk two browser
+tabs/devices both believing they own the same position's trailing-stop/partial-TP state, or worse, two
+Autopilot loops running for one account simultaneously (Autopilot already places real paper orders whenever
+toggled on). `CLAUDE.md` already documents Autopilot as deliberately always-OFF-on-page-load; syncing its
+state would silently work against that design. Excluded outright, no separate question needed — the
+reasoning was unambiguous once the key was found.
+
+**Change:** `src/db.js` — added the `layouts` table to `init()` plus `getLayout`/`putLayout` (identical to
+Charts', `GUEST`/`SESSION_NAME` constants already existed unused since the SSO port). `server.js` — imported
+`currentUid`, added `/api/session` GET/PUT. New `src/js/settings-sync.js` (added to `client/src/
+scriptLoader.js`'s `SCRIPT_ORDER`, right before `main.js`): `settingsSnapshot()`/`applySyncedSettings()`
+(explicit allowlist, not a blanket copy of `proDashboardSettings`), a 1.5s-debounced `scheduleSettingsSync()`,
+and `loadSyncedSettings()` (server-wins-if-present, matching Charts' `loadAutosave()` exactly — no merge/diff
+against local). Hooked `scheduleSettingsSync()` into the 6 existing save call-sites: `applyTheme()`
+(`theme-hooks.js`), `switchTab()` + `_activateSubTab()` (`nav.js`, both `lastTab` writers), `onModeChange()`
+(`nav.js`), `saveWatchlistData()` (`analytics-watchlist.js`), `saveBacktestDefaults()` + `saveSettings()`
+(`tabs-backtest-settings.js`) — every one guarded with `typeof scheduleSettingsSync === "function"` since
+some of these files load earlier in `SCRIPT_ORDER` than `settings-sync.js` itself (harmless: none of these
+functions actually *run* until a user interacts, by which point every script has loaded). `main.js`'s
+`bootstrapDashboard()` now `await`s `loadSyncedSettings()` **before** `loadConfigFromFile()`, so precedence
+is fresh local edits > synced state from another device > `config.json` deploy-time defaults; also re-calls
+`loadBacktestForm()` after both loads so the backtest tab's expected-value inputs pick up a synced copy
+instead of showing pre-sync stale values on first paint. `saveSettings()`'s confirmation alert text updated
+— it previously said "Settings saved locally in this browser," which is no longer accurate for mode/limits.
+
+**Not touched, correctly out of scope:** `clearSettings()` (the button that wipes `proDashboardSettings`
+entirely, credentials included) — left local-only; wiring a server-side clear wasn't part of this feature
+and touching it risked conflating "clear my API keys" with "clear my synced preferences." Also didn't
+extend this to CryptoPro Training or re-touch Charts — those are separate repos/sessions (Training done in
+the same pass, see its own `memory/memory.md`; Charts already had this feature before today).
+
+**Verified:** `npm --prefix client run build` (46 modules, 0 errors). `node --check` on every touched
+`.js`/`server.js`/`db.js` file. Booted the server locally with no DB configured (`PORT=3011 node server.js`)
+and confirmed via `curl`: `/api/session` GET/PUT both 500 (caught by the route's own try/catch, logged, and
+by the client's try/catch — falls back to localStorage exactly as before this change, matching Charts'
+existing unguarded-`dbEnabled()` behavior on the same routes), `/js/settings-sync.js` 200s with the new
+file's content. Footer version bumped v2026-07-21.1 → v2026-07-21.2; `docs/dashboard_layout.md` updated.
+
 ## v2026-07-21.1 — 2026-07-21 — Roadmap rescan: header logo scaled down to match the footer
 
 **Task:** "rescan roadmap." Own Roadmap/Bugs (`CLAUDE.md`) and Suite's Bugs list were both empty. Suite's

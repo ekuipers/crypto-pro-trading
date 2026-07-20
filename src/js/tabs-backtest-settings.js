@@ -27,6 +27,7 @@
       };
 
       localStorage.setItem("proBacktestDefaults", JSON.stringify(b));
+      if (typeof scheduleSettingsSync === "function") scheduleSettingsSync();
       if (lastContext) renderBacktest(lastContext);
     }
 
@@ -150,10 +151,11 @@
       };
 
       localStorage.setItem("proDashboardSettings", JSON.stringify(saved));
+      if (typeof scheduleSettingsSync === "function") scheduleSettingsSync();
       renderMode();
       if (typeof updateScanBtnLabel === "function") updateScanBtnLabel();
       $("lastUpdated").textContent = "Settings saved";
-      alert("Settings saved locally in this browser.");
+      alert("Settings saved. Mode and position limits sync to your account when signed in — API keys/secrets always stay in this browser only.");
     }
 
     function clearSettings() {
