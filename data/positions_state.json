@@ -3,21 +3,7 @@
   "day_open_date": "2026-07-20",
   "capital_preservation_mode": false,
   "capital_preservation_since": null,
-  "positions": {
-    "BTC/USD": {
-      "entry_price": 64101.639437666,
-      "entry_time_iso": "2026-07-18T12:03:35.682665Z",
-      "high_water_mark": null,
-      "trailing_stop_active": false,
-      "partial_tp_done": false,
-      "breakeven_stop": null,
-      "pyramid_tranches": 0,
-      "stop_order_id": null,
-      "stop_order_placed_iso": null,
-      "stop_order_limit_price": null,
-      "stop_order_cycles": 0
-    }
-  },
-  "last_evaluation_iso": "2026-07-20T11:16:04.047583+00:00",
+  "positions": {},
+  "last_evaluation_iso": "2026-07-20T13:19:02.682795+00:00",
   "streak_throttle_active": true
 }
