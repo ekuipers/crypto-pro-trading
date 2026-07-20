@@ -1,11 +1,8 @@
 name: Stop Watchdog
 
-# 5-minute stop-loss watchdog (roadmap 2026-07-10 item 7): checks ONLY the
+# Daily stop-loss watchdog, checks ONLY the
 # exit levels of open long positions and fires the trade.py stop path.
-# Decouples loss-cutting from the hourly evaluation. NOTE: GitHub schedules
-# are best-effort — */5 typically lands every 5-15 minutes, which still beats
-# the hourly gap by an order of magnitude. Commits happen only when a stop
-# actually fires, so quiet runs create no repo churn.
+# Decouples loss-cutting from the hourly evaluation. 
 on:
   schedule:
     - cron: '0 3 * * *'
