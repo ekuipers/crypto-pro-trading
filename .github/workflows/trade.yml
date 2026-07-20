@@ -4,7 +4,7 @@ on:
   schedule:
      # Hourly at :23 per CLAUDE.md (Bug #4 2026-07-10: was '7 */4 * * *' —
      # every 4 hours — which left stops unchecked for multi-hour gaps).
-     - cron: '23 * * * *'
+     - cron: '2 */8 * * *'
      - cron: '23 21 * * *'
   workflow_dispatch:
     inputs:
@@ -43,7 +43,7 @@ jobs:
     # Run voor manual dispatch, als event is schedule dan voer schedule uit) 
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'schedule' && github.event.schedule == '23 * * * *')
+      (github.event_name == 'schedule' && github.event.schedule == '2 */8 * * *')
 
     # Inputs bestaan alleen bij workflow_dispatch; bij schedule zijn ze null. 
     # Daarom kiezen we veilig een default:
