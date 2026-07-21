@@ -1,5 +1,8 @@
 {
   "crons": [
     { "path": "/api/cron/dispatch", "schedule": "0 * * * *" }
-  ]
+  ],
+  "functions": {
+    "server.js": { "maxDuration": 120 }
+  }
 }

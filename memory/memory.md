@@ -1,5 +1,68 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-21.8 — 2026-07-21 — Node port cutover: worked all 4 gates, 3 pass, 1 blocked on real time
+
+**Task:** "Execute Node port cutover" — actually close out the 4-check parity checkpoint gating
+`trade.yml`/`watchdog.yml`/`forward.yml` retirement (the live Python engine on GitHub Actions) in favor
+of the Node port. Went gate by gate rather than flipping `CRON_EXECUTE`/removing workflows on faith.
+
+**Gate 3 (state round-trip) — PASSED.** New `scripts/verify_state_roundtrip.py` round-trips the real
+committed `data/positions_state.json` plus a synthetic fully-populated position through the ACTUAL
+`load_state()`/`save_state()` (Python, module-level `_STATE_FILE` redirected to a temp path — no logic
+reimplemented) and `loadState()`/`saveState()` (Node), both directions. Lossless both ways.
+
+**Gate 1 (decision parity) — strong evidence, not a true frozen-fixture replay.** Python's
+`evaluate_symbol()` has no dependency-injection design (unlike Node's `deps` pattern), so a literal
+"replay identical frozen fixtures through both" harness would need invasive Python refactoring. Pragmatic
+alternative: `scripts/verify_decision_parity.py`/`.mjs` call the real per-symbol evaluator directly
+(bypassing all state/journal writes — fully read-only, only GETs) against the same live positions/account,
+run concurrently via `node ... & ; python ... ; wait`. Two concurrent trials: **10/10 watchlist symbols
+exact match** on action + 9 indicator fields each. A first *sequential* trial (subprocess gap of several
+seconds) showed BTC/ETH mismatches — traced to a one-bar shift from the two calls straddling a bar
+boundary on the two most actively-traded pairs specifically (their forming candle already had trades in
+the gap; quieter alts didn't). Confirmed as a timing artifact, not a logic bug, by the concurrent re-runs
+matching exactly.
+
+**Gate 4 (Vercel execution-time budget) — real risk found and fixed, unverified live.** `debug/time_cron_jobs.mjs`
+timed each engine's dry-run end-to-end: `runEvaluation.main` ~37.7s, `stopWatchdog.main` ~0.1s,
+`dailySummary.main` ~1.6s. Then found `handleDispatch` in `src/cronRoutes.js` awaits all due jobs
+**sequentially in a for-loop** — an hour where all three happen to be due could sum to ~40s. `vercel.json`
+had no `maxDuration` configured anywhere, so Vercel's low default function timeout would very likely have
+504'd this in production the first time evaluate was due. Fixed: added
+`"functions": { "server.js": { "maxDuration": 120 } }` to `vercel.json` (Pro plan allows up to 300s) —
+~3x margin over the observed worst case. Local timing is a proxy only; an actual Vercel deployment run is
+still needed to fully close this gate.
+
+**Gate 2 (≥24h live shadow-run parity) — NOT satisfied, clock started today.** This is the one gate that
+cannot be compressed into a single session: it requires real elapsed wall-clock time across multiple
+independent automated cycles. Built `.github/workflows/node-shadow-run.yml` — runs independently of
+`trade.yml` (offset cron `17 */8 * * *` vs trade's `2 */8 * * *`, own concurrency group
+`node-shadow-run-*`, own git identity/commit) so it can never race with or block the live trading
+workflow. Each run: both evaluators concurrently (read-only), diff via `scripts/shadow_run_diff.py`,
+append one JSON line to `data/shadow_run_log.jsonl`, commit+push (mirrors `trade.yml`'s
+commit-journal-and-retry-push pattern). Seeded `data/shadow_run_log.jsonl` with the 3 trials run manually
+this session (tagged `"source": "session-seed"` — NOT independent hourly cycles, all captured within
+~15 minutes of each other) so the log isn't empty, but **the real gate requires the scheduled workflow to
+actually accumulate ~24h of clean automated runs before this can be called passed.** Check
+`data/shadow_run_log.jsonl` in a future session before considering cutover further.
+
+**What did NOT happen, on purpose:** `CRON_EXECUTE` was NOT set to `true`. `trade.yml`, `watchdog.yml`,
+`forward.yml` were NOT removed or modified. Gate 2 alone blocks the cutover regardless of how clean gates
+1/3/4 are — this needs elapsed real time, not more engineering, and CLAUDE.md's own hard rule says not to
+flip `--execute` until all four pass.
+
+**Also noticed, not fixed (out of scope for this task):** `trade.yml`'s own comment says "Hourly at :23
+per CLAUDE.md" but its actual `cron: '2 */8 * * *'` runs every 8 hours (per the recent "Change trading bot
+schedule to every 8 hours" commit) — the comment is stale and CLAUDE.md's "Schedule" section still
+describes hourly evaluation too. Flagged to Erik; not corrected here since it's a separate
+documentation-drift issue unrelated to the cutover gates.
+
+**Verified:** `npm test` 305/305 (no `src/` logic touched — only new `scripts/verify_*`/`shadow_run_diff.py`
+files, `vercel.json`, and a new workflow). Live Alpaca paper API reachable and used read-only throughout
+(`scripts/verify.py`). **Not verified — outside this session's reach:** the `node-shadow-run.yml` workflow's
+first real scheduled trigger, the `maxDuration` config actually taking effect on a live Vercel deployment,
+and (by definition) gate 2's 24h requirement.
+
 ## v2026-07-21.7 — 2026-07-21 — Roadmap rescan: Vercel upgraded to Pro, GitHub Actions pinger removed
 
 **Task:** "rescan roadmap." Suite roadmap item #1 (Trader-only) asks to move all scheduling off GitHub

@@ -4,6 +4,19 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-21 — Node port cutover: 4-gate checkpoint worked, 3 pass, gate 2 blocked on real time
+
+| Term | Meaning |
+|------|---------|
+| `verify_state_roundtrip.py` | Gate 3 script. Redirects the module-level `_STATE_FILE` path in Python's `position_state.py` to temp files so the REAL `load_state()`/`save_state()` round-trip through Node's real `loadState()`/`saveState()` — no logic reimplemented. Passed both directions. |
+| `verify_decision_parity.py` / `.mjs` | Gate 1 scripts. Call `evaluate_symbol()`/`evaluateSymbol()` directly (bypassing `main()`'s state/journal writes entirely) against the same live positions/account, meant to be run concurrently so both see the same closed candles. |
+| Sequential vs concurrent trial | Running the two parity scripts one after another (not at the same instant) let BTC/ETH's live bar roll over between calls, producing a false-looking mismatch — running them concurrently (`node ... & ; python ... ; wait`) eliminated it, 10/10 exact match twice. Lesson: any future parity check MUST run both engines concurrently, not sequentially. |
+| `node-shadow-run.yml` | Gate 2 workflow. Independent of `trade.yml` — own schedule (offset 15 min), own concurrency group, never touches `positions_state.json`/`journal/*.md`/places orders. Appends one diff line per cycle to `data/shadow_run_log.jsonl`. |
+| `data/shadow_run_log.jsonl` | The Gate 2 audit trail. `"source": "session-seed"` entries were captured manually within one session (not independent hourly cycles) to avoid starting from an empty log — the real ≥24h requirement is only satisfied once the scheduled workflow has accumulated that much real elapsed time on its own. |
+| Dispatch timing risk (Gate 4) | `handleDispatch` awaits all due jobs sequentially in a loop — an hour where evaluate/watchdog/daily-summary are all due could sum to ~40s. No `maxDuration` was configured anywhere, so Vercel's low default timeout would likely have 504'd this. Fixed with `vercel.json`'s `functions."server.js".maxDuration: 120`. |
+
+---
+
 ## 2026-07-21 — Roadmap rescan: Vercel Pro upgrade, GitHub Actions pinger retired
 
 | Term | Meaning |

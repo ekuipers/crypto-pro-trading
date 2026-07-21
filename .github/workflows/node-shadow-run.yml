@@ -1,0 +1,92 @@
+name: Node Port Shadow Run
+
+# Node port cutover -- Gate 2 (live shadow-run parity, >=24h required before
+# cutover, per CLAUDE.md's "Node.js port" section). Runs the Python and Node
+# evaluators back-to-back against the SAME live paper account/market data,
+# diffs every decision field, and appends one line to
+# data/shadow_run_log.jsonl for later review. Fully read-only: never calls
+# save_state()/saveState(), append_journal_block()/appendJournalBlock(), or
+# place_order()/placeOrder() -- cannot place an order or touch
+# positions_state.json/journal/*.md. Independent of trade.yml (own schedule,
+# own concurrency group, own commit) so it can never race with or block the
+# live trading workflow.
+
+on:
+  schedule:
+    # Offset 15 min after trade.yml's evaluate schedule (2 */8 * * *) so both
+    # hit a freshly-evaluated market state without racing each other's git push.
+    - cron: '17 */8 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: node-shadow-run-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  shadow-run:
+    name: Compare Python vs Node decisions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Configure paper env vars
+        run: |
+          echo "APCA_BASE_URL=https://paper-api.alpaca.markets" >> "$GITHUB_ENV"
+          echo "APCA_API_KEY_ID=${{ secrets.APCA_PAPER_KEY_ID }}" >> "$GITHUB_ENV"
+          echo "APCA_API_SECRET_KEY=${{ secrets.APCA_PAPER_SECRET_KEY }}" >> "$GITHUB_ENV"
+
+      - name: Run both evaluators concurrently (read-only, dry-run)
+        run: |
+          node scripts/verify_decision_parity.mjs > /tmp/node_parity.json 2> /tmp/node_parity.err &
+          NODE_PID=$!
+          python scripts/verify_decision_parity.py > /tmp/py_parity.json 2> /tmp/py_parity.err
+          wait "$NODE_PID"
+          echo "--- python stderr ---"; cat /tmp/py_parity.err
+          echo "--- node stderr ---"; cat /tmp/node_parity.err
+
+      - name: Diff and append to shadow-run log
+        run: |
+          mkdir -p data
+          python scripts/shadow_run_diff.py /tmp/py_parity.json /tmp/node_parity.json | tee -a data/shadow_run_log.jsonl
+
+      - name: Commit & push shadow-run log (safe)
+        run: |
+          git config user.name  "Node Shadow Run"
+          git config user.email "bot@alpaca-trading"
+
+          git add data/shadow_run_log.jsonl
+          git diff --cached --quiet && { echo "No shadow-run log changes"; exit 0; }
+
+          git commit -m "shadow-run: [node-cutover-gate2] $(date -u '+%Y-%m-%d %H:%M UTC')"
+
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && \
+            git push origin HEAD:main && break
+            echo "Push failed, retrying ($i/3)..."
+            sleep 2
+          done
