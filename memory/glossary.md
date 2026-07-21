@@ -4,6 +4,16 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-21 — Roadmap rescan: Vercel Pro upgrade, GitHub Actions pinger retired
+
+| Term | Meaning |
+|------|---------|
+| Roadmap conflict | Suite roadmap item #1 ("no GitHub scheduling, Vercel executes autonomously") was flatly contradicted by the previous day's own fix, which had just added a GitHub Actions pinger because Vercel Hobby can't run hourly cron. Flagged to Erik as a cost decision rather than silently picking a side. |
+| Resolution | Upgraded to **Vercel Pro** (supports sub-daily cron). `vercel.json` now drives `/api/cron/dispatch` hourly natively; `cron-dispatch-ping.yml` deleted. |
+| Still open | `trade.yml` / `watchdog.yml` / `forward.yml` still run the live Python engine via GitHub Actions — not the dispatcher, the actual trading logic — and stay until the Node port's 4-gate parity check passes. |
+
+---
+
 ## 2026-07-21 — Vercel Hobby cron limit broke deployment; fixed with a GitHub Actions pinger
 
 | Term | Meaning |

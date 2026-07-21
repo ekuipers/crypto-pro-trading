@@ -1,5 +1,38 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-21.7 — 2026-07-21 — Roadmap rescan: Vercel upgraded to Pro, GitHub Actions pinger removed
+
+**Task:** "rescan roadmap." Suite roadmap item #1 (Trader-only) asks to move all scheduling off GitHub
+Actions onto Vercel, with no GitHub dependency left. That directly conflicted with the previous entry
+(v2026-07-21.6), which had just *re-added* a GitHub Actions pinger (`cron-dispatch-ping.yml`) because
+Vercel Hobby only allows once-daily cron. Surfaced the conflict and the underlying decision (pay for
+Vercel Pro vs. a free non-GitHub external pinger vs. deferring the item) to Erik rather than guessing —
+this has a cost implication only he can decide. He chose to upgrade to Vercel Pro.
+
+**Changes:**
+1. `vercel.json`'s cron reverted from once-daily back to hourly (`0 * * * *`) hitting
+   `/api/cron/dispatch` — now legal on Pro, so this is once again the actual driver of the adjustable
+   per-job schedule, not a safety net.
+2. Deleted `.github/workflows/cron-dispatch-ping.yml` — no longer needed now that Vercel Cron calls the
+   dispatcher directly. No GitHub secret round-trip needed for this path anymore.
+3. Updated `CLAUDE.md`, `README.md`, `.env.example`, and the Scheduled Jobs panel comment in
+   `client/src/tabs/command.html` to drop the Hobby-plan caveats and describe the Pro-tier direct-cron
+   setup as current state.
+
+**What's still NOT done from that roadmap item:** `trade.yml`, `watchdog.yml`, and `forward.yml` still
+run on GitHub Actions — they run the **live Python trading engine** itself (research, evaluation, stop
+watchdog, daily summary), not just a dispatcher ping. Removing them means cutting the engine over to the
+Node port, which stays gated on the existing 4-check parity process (frozen-fixture parity, ≥24h live
+shadow-run parity, state round-trip, Vercel execution-time budget — see "Node.js port" in `CLAUDE.md`).
+Retiring those three workflows before that gate passes would stop the live paper-trading loop entirely,
+so they were deliberately left in place. Suite `CLAUDE.md`'s roadmap item annotated accordingly rather
+than marked done.
+
+**Verified:** `npm test` still green (no `src/` logic touched, only cron config/comments/docs). **Not
+verified — outside this session's reach:** the actual Vercel plan upgrade taking effect, or a live hourly
+`/api/cron/dispatch` invocation post-upgrade (both require Erik's Vercel dashboard).
+
+
 **Status:** Active — paper trading only  
 **Account:** PA3EZEE1I9RS  
 **Root:** `C:\Users\ERKUIPER\OneDrive - Capgemini\015. Repos\alpaca-trading-bot\alpaca-trading-agent`  

@@ -108,14 +108,10 @@ for links to the other CryptoPro apps.
 `GET /api/cron/dispatch` is a dispatcher that checks each job's dashboard-configured hour (Command tab's
 "☁ Scheduled Jobs" panel) and runs it once per UTC day at that hour — an alternative to the GitHub Actions
 workflows, built ahead of an eventual cutover decision (see `CLAUDE.md`'s "Cron cutover" section). This
-project is on **Vercel Hobby**, which only allows once-daily cron schedules, so the hourly checks the
-adjustable schedule needs come from `.github/workflows/cron-dispatch-ping.yml` — a GitHub Actions job that
-does nothing but `curl` the dispatcher hourly with the bearer secret (no Python/checkout/git-commit,
-negligible Actions minutes); `vercel.json`'s own cron entry is a once-daily safety net, not the primary
-driver. **This needs the same `CRON_SECRET` value set as a GitHub repo secret** (`gh secret set
-CRON_SECRET`), not just a Vercel env var, or the pinger 401s every hour. (If you're on Vercel Pro or
-above, you could instead point `vercel.json` back at an hourly schedule and drop the GitHub Actions
-pinger — not done here since this project is on Hobby.) Three env vars control it, all optional:
+project is on **Vercel Pro**, so `vercel.json`'s own cron entry drives the dispatcher directly, hourly
+(`0 * * * *`) — no GitHub Actions involved in triggering it. (The project briefly ran a GitHub Actions
+hourly pinger as a Hobby-plan workaround; removed once the plan was upgraded.) Three env vars control it,
+all optional:
 
 - `CRON_SECRET` — Vercel sends `Authorization: Bearer $CRON_SECRET` with every scheduled call; without
   it, scheduled runs 401 (the endpoints still work for a manual trigger via `TRADER_OWNER_UID`).

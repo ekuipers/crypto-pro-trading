@@ -84,10 +84,9 @@
            instead of GitHub Actions workflow files. An hourly dispatcher
            (`vercel.json` -> `/api/cron/dispatch`) checks each job's
            dashboard-configured hour (src/cronSchedule.js) so the schedule
-           below is genuinely adjustable without a redeploy — this needs
-           Vercel's non-daily cron cadence (Pro tier or above; Hobby only
-           allows once-daily schedules and would need an external hourly
-           pinger instead). Each job also has a "Run now" manual trigger.
+           below is genuinely adjustable without a redeploy — runs natively
+           on Vercel Pro's hourly cron, no external pinger needed. Each job
+           also has a "Run now" manual trigger.
            CRON_EXECUTE stays OFF (dry-run only) until the Node/Python parity
            checkpoint passes — see CLAUDE.md's Node.js port section — so
            these jobs run read-only today even when scheduled. -->
