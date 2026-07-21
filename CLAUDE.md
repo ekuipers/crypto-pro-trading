@@ -16,7 +16,7 @@ Year: 2026
 ## Roadmap
 
 ## Bugs
-*(none open — history in `memory/claude_md_archive.md` and `memory/memory.md`)*
+
 
 ## Hosting & frontend
 - Live trading engine = Python via GitHub Actions cron (`.github/workflows/*.yml`); hosting concerns the dashboard only.
