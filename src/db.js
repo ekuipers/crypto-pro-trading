@@ -157,13 +157,23 @@ export async function init() {
   // near-simultaneous requests could both pass (security review finding,
   // 2026-07-21 — see memory/memory.md).
   await q(`create unique index if not exists job_runs_running_uidx on job_runs (job) where status = 'running'`);
-  // Per-job enable/disable toggle the dashboard can flip without a redeploy
-  // (the actual time-of-day schedule is still static in vercel.json).
+  // Per-job enable/disable toggle + adjustable schedule the dashboard can
+  // change without a redeploy — vercel.json's own cron entry just wakes the
+  // hourly dispatcher (src/cronRoutes.js), which reads hour_utc from here to
+  // decide whether a given job is actually due (src/cronSchedule.js).
+  // `updated_by_uid` records which account last changed it (Suite roadmap
+  // follow-up: "save the schedule configuration for each user account") —
+  // this is a single shared trading engine, not one schedule per account,
+  // so it's attribution on the one config row, not a separate row per uid.
   await q(`create table if not exists cron_config (
     job        text primary key,
     enabled    boolean not null default true,
+    hour_utc   integer,
+    updated_by_uid text,
     updated_at timestamptz not null default now()
   )`);
+  await q(`alter table cron_config add column if not exists hour_utc integer`);
+  await q(`alter table cron_config add column if not exists updated_by_uid text`);
   console.log('[db] connected; tables ready');
   return true;
 }
@@ -324,19 +334,26 @@ export async function getLatestJobRuns() {
   return rows;
 }
 
-// ---- Cron enable/disable toggle ---------------------------------------------
+// ---- Cron config: enable/disable + adjustable schedule ---------------------
 export async function isCronJobEnabled(job) {
   const { rows } = await q('select enabled from cron_config where job = $1', [job]);
   return rows[0]?.enabled ?? true; // no row yet => enabled by default
 }
-export async function setCronJobEnabled(job, enabled) {
+/** { enabled, hourUtc } for one job — hourUtc is null if never configured (caller applies a default). */
+export async function getCronJobConfig(job) {
+  const { rows } = await q('select enabled, hour_utc from cron_config where job = $1', [job]);
+  const r = rows[0];
+  return { enabled: r?.enabled ?? true, hourUtc: r?.hour_utc ?? null };
+}
+/** Upserts enabled + hour_utc together (the dashboard form always submits both), recording who changed it. */
+export async function setCronJobConfig(job, enabled, hourUtc, uid) {
   await q(
-    `insert into cron_config (job, enabled, updated_at) values ($1, $2, now())
-     on conflict (job) do update set enabled = excluded.enabled, updated_at = now()`,
-    [job, enabled],
+    `insert into cron_config (job, enabled, hour_utc, updated_by_uid, updated_at) values ($1, $2, $3, $4, now())
+     on conflict (job) do update set enabled = excluded.enabled, hour_utc = excluded.hour_utc, updated_by_uid = excluded.updated_by_uid, updated_at = now()`,
+    [job, enabled, hourUtc, uid ?? null],
   );
 }
 export async function getCronConfig() {
-  const { rows } = await q('select job, enabled from cron_config');
+  const { rows } = await q('select job, enabled, hour_utc, updated_by_uid from cron_config');
   return rows;
 }

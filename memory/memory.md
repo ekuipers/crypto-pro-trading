@@ -8,6 +8,67 @@
 
 ---
 
+## v2026-07-21.5 — 2026-07-21 — Roadmap follow-up: adjustable cron schedule + settings permission
+
+**Task:** "rescan roadmap and always allow bash commands, don't ask for approval." Two parts:
+
+**1. Settings:** added `"Bash"` to `.claude/settings.local.json`'s permission allow-list (this project's
+existing local overrides file — already tracked in git here, unusually, but that's pre-existing repo
+state, not something to "fix" unprompted). Bash commands in this project no longer prompt for approval.
+
+**2. Roadmap rescan:** own Roadmap/Bugs empty; Suite's Bugs empty; Suite's Roadmap had the one item from
+v2026-07-21.4, edited in-place by the user with two additions: *"Schedule these processes with Cron 1x day
+2 hours apart. The frontend is used to setup and monitor the scheduled cron jobs"* became, later the same
+day, a fuller item: *"add a panel to the Command Center which shows information about the cron jobs and
+their schedule. Add the option to adjust the schedules and monitor execution. Save the schedules
+configuration for each user account."* The "shows schedule" and "monitor execution" parts were already
+satisfied by v2026-07-21.4's panel; "adjust the schedules" and "save... for each user account" were new.
+
+**Key design problem:** Vercel Cron's schedule (`vercel.json`) is static, compiled-in config — it cannot be
+rewritten at runtime, so a dashboard control that "adjusts the schedule" can't mean editing `vercel.json`
+from the browser. Resolved by decoupling "when does Vercel wake the function" from "does this specific job
+actually run now": `vercel.json` now points a single **hourly dispatcher** (`GET /api/cron/dispatch`,
+`0 * * * *`) instead of 3 fixed daily times; the dispatcher reads each job's dashboard-configured hour from
+a new `cron_config.hour_utc` column and only runs it once that UTC hour arrives and it hasn't already run
+today. The due/not-due decision is pure logic (`src/cronSchedule.js`'s `isJobDue()`, `todayUtcDateStr()`)
+— extracted into its own tested module rather than left inline, matching this project's strong convention
+of unit-testing all pure logic (7 new tests, 305 total) even though the routing/DB layer around it isn't
+unit-tested (see v2026-07-21.4's note on that convention).
+
+**Explicit tradeoff, documented rather than hidden:** hourly Vercel Cron invocation needs a non-daily tier
+(Pro or above) — Vercel Hobby only allows once-daily schedules. This is the same open question flagged
+back in the original v2026-07-21.3 analysis, now actually load-bearing instead of avoidable: "adjust the
+schedule" and "stay on Hobby's daily-only cron" are mutually exclusive, so the daily-cadence workaround
+from v2026-07-21.4 (3 separate daily crons, no dispatcher) had to be replaced. Documented prominently in
+`CLAUDE.md`, `README.md`, and the dashboard panel's own HTML comment — including the fallback (an external
+hourly pinger hitting `/api/cron/dispatch` with the bearer secret) for anyone who stays on Hobby.
+
+**"Save the schedule configuration for each user account"** — applied honestly rather than literally:
+this is a single-tenant trading engine (one Alpaca account), so a genuinely separate schedule per Suite
+account would be incoherent (whose schedule wins?). Implemented as `cron_config.updated_by_uid`:
+attribution of which account last changed the one shared schedule, not a schedule-per-uid table. Since
+only `TRADER_OWNER_UID` can write it at all (per v2026-07-21.4's fix), this is consistent with the existing
+security model rather than a new tenancy concept bolted on top.
+
+**Second security-reviewer pass** (mandatory per this project's rules — new route, new DB writes) on
+`/api/cron/dispatch` and the extended `PUT /api/cron/config/:job` (now `{enabled, hourUtc}`, validated as
+an integer 0-23): no CRITICAL/HIGH. Confirmed the dispatcher reuses the exact same bearer-only auth and
+`job_runs` concurrency lock as the existing per-job routes (no new bypass), and that `hourUtc`'s type
+coercion has no injection path (parameterized query regardless). Two LOW nits fixed opportunistically:
+`enabled` is now checked with strict `=== true` instead of `Boolean(...)` (a stray truthy string like
+`"false"` previously would have coerced to enabled — never reachable from the one real client, but cheap
+to close). Not fixed (accepted as genuinely low-severity): a last-write-wins race if the owner toggles
+`enabled` and changes the hour in very quick succession from two overlapping requests — self-inflicted,
+single-account, doesn't bypass any gate.
+
+**Verified:** `npm test` (305/305), `npm run build` (46 modules, 0 errors), `node --check` + a full
+`server.js` import smoke test. **Still not verified** — same caveats as v2026-07-21.4: no live Vercel Cron
+invocation, no browser click-through of the new hour selector, no live Postgres connection to confirm the
+`alter table cron_config add column if not exists hour_utc/updated_by_uid` migrations apply cleanly.
+
+**Filed:** Suite's `CLAUDE.md` Roadmap item cleared again; `CLAUDE.md`/`README.md`/`.env.example`/glossary/
+dashboard-layout updated. Footer version bumped v2026-07-21.4 → v2026-07-21.5.
+
 ## v2026-07-21.4 — 2026-07-21 — Roadmap implementation: cron cutover infrastructure built (dry-run only)
 
 **Task:** "Rescan and implement roadmap." Own Roadmap/Bugs empty; Suite's Bugs empty; Suite's Roadmap had

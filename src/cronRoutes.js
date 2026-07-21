@@ -36,6 +36,7 @@ import { buildJournalBlockText } from "./journal.js";
 import { main as stopWatchdogMain, buildStopWatchdogBlockText } from "./stopWatchdog.js";
 import { main as dailySummaryMain } from "./dailySummary.js";
 import { amsterdamParts } from "./tz.js";
+import { DEFAULT_HOUR_UTC, isJobDue } from "./cronSchedule.js";
 
 const CRON_EXECUTE = process.env.CRON_EXECUTE === "true";
 const JOBS = ["evaluate", "watchdog", "daily-summary"];
@@ -138,39 +139,71 @@ async function isOwner(req) {
   return uid === OWNER_UID;
 }
 
+/** Runs one job (lock + record), independent of any HTTP response — shared by the direct-trigger routes and the dispatcher. */
+async function executeJob(job, triggeredBy) {
+  if (triggeredBy === "cron" && !(await db.isCronJobEnabled(job))) {
+    return { job, triggeredBy, skipped: true, reason: "disabled via dashboard" };
+  }
+  const runId = await db.startJobRun(job, triggeredBy);
+  if (runId === null) return { job, triggeredBy, status: 409, error: "already running" };
+  try {
+    const result = await RUNNERS[job]();
+    await db.finishJobRun(runId, result.code === 0 ? "ok" : "error", result.detail);
+    return { job, triggeredBy, ok: result.code === 0, ...result };
+  } catch (e) {
+    const detail = String(e?.message || e);
+    console.error(`[cron] ${job} failed:`, e?.stack || e);
+    await db.finishJobRun(runId, "error", detail);
+    return { job, triggeredBy, status: 500, error: detail };
+  }
+}
+
 // GET is the Vercel Cron contract (bearer secret ONLY — session cookies are
 // SameSite=Lax, which are still sent on a top-level cross-site GET
 // navigation, so accepting session auth on GET here would let a hostile
 // page trigger a run just by getting the signed-in owner to open a link;
 // security review finding, 2026-07-21). POST is the owner-only manual path,
 // covered by server.js's CSRF Origin check on mutating /api/* requests.
+// Both run the job immediately/unconditionally (aside from the enabled +
+// concurrency-lock checks in executeJob) — the configured hour_utc only
+// gates the hourly dispatcher below, not a direct/manual trigger.
 async function handleCronTrigger(req, res, job) {
   if (!cronSecretOk(req)) return res.status(401).json({ error: "unauthorized" });
-  return runJob(req, res, job, "cron");
+  const result = await executeJob(job, "cron");
+  res.status(result.status || 200).json(result);
 }
 async function handleManualTrigger(req, res, job) {
   if (!(await isOwner(req))) return res.status(401).json({ error: "unauthorized" });
-  return runJob(req, res, job, "manual");
+  const result = await executeJob(job, "manual");
+  res.status(result.status || 200).json(result);
 }
 
-async function runJob(req, res, job, triggeredBy) {
-  if (triggeredBy === "cron" && !(await db.isCronJobEnabled(job))) {
-    return res.json({ skipped: true, reason: "disabled via dashboard" });
-  }
+/**
+ * Vercel Cron wakes this once an hour (bearer-secret only, same as the
+ * individual job routes); it decides per-job whether today's configured
+ * hour_utc has arrived and the job hasn't already run today
+ * (src/cronSchedule.js's isJobDue), which is how the dashboard's "adjust the
+ * schedule" actually takes effect without a redeploy.
+ */
+async function handleDispatch(req, res) {
+  if (!cronSecretOk(req)) return res.status(401).json({ error: "unauthorized" });
+  const now = new Date();
+  const latestRuns = await db.getLatestJobRuns();
+  const lastRunAtByJob = Object.fromEntries(latestRuns.map((r) => [r.job, r.started_at]));
 
-  const runId = await db.startJobRun(job, triggeredBy);
-  if (runId === null) return res.status(409).json({ error: "already running" });
-
-  try {
-    const result = await RUNNERS[job]();
-    await db.finishJobRun(runId, result.code === 0 ? "ok" : "error", result.detail);
-    res.json({ ok: result.code === 0, job, triggeredBy, ...result });
-  } catch (e) {
-    const detail = String(e?.message || e);
-    console.error(`[cron] ${job} failed:`, e?.stack || e);
-    await db.finishJobRun(runId, "error", detail);
-    res.status(500).json({ error: detail });
+  const results = [];
+  for (const job of JOBS) {
+    const cfg = await db.getCronJobConfig(job);
+    const hourUtc = cfg.hourUtc ?? DEFAULT_HOUR_UTC[job];
+    if (!cfg.enabled) {
+      results.push({ job, skipped: true, reason: "disabled via dashboard" });
+    } else if (!isJobDue(hourUtc, now, lastRunAtByJob[job])) {
+      results.push({ job, skipped: true, reason: "not due yet" });
+    } else {
+      results.push(await executeJob(job, "cron"));
+    }
   }
+  res.json({ results });
 }
 
 export function installCronRoutes(app) {
@@ -178,13 +211,22 @@ export function installCronRoutes(app) {
     app.get(`/api/cron/${job}`, (req, res) => handleCronTrigger(req, res, job));
     app.post(`/api/cron/${job}`, (req, res) => handleManualTrigger(req, res, job));
   }
+  app.get("/api/cron/dispatch", handleDispatch);
 
   // Dashboard-only: status/config, owner-only (see isOwner's comment).
   app.get("/api/cron/status", async (req, res) => {
     try {
       if (!(await isOwner(req))) return res.status(401).json({ error: "Sign in first" });
       const [runs, config] = await Promise.all([db.getLatestJobRuns(), db.getCronConfig()]);
-      res.json({ runs, config });
+      // Fill in the compiled-in default hour for any job with no saved config yet.
+      const byJob = Object.fromEntries(config.map((c) => [c.job, c]));
+      const jobs = JOBS.map((job) => ({
+        job,
+        enabled: byJob[job]?.enabled ?? true,
+        hourUtc: byJob[job]?.hour_utc ?? DEFAULT_HOUR_UTC[job],
+        updatedByUid: byJob[job]?.updated_by_uid ?? null,
+      }));
+      res.json({ runs, jobs });
     } catch (e) {
       console.error("[cron] status failed:", e?.stack || e);
       res.status(500).json({ error: String(e?.message || e) });
@@ -196,7 +238,13 @@ export function installCronRoutes(app) {
       if (!(await isOwner(req))) return res.status(401).json({ error: "Sign in first" });
       const { job } = req.params;
       if (!JOBS.includes(job)) return res.status(400).json({ error: "unknown job" });
-      await db.setCronJobEnabled(job, Boolean(req.body?.enabled));
+      const hourUtc = Number(req.body?.hourUtc);
+      if (!Number.isInteger(hourUtc) || hourUtc < 0 || hourUtc > 23) {
+        return res.status(400).json({ error: "hourUtc must be an integer 0-23" });
+      }
+      // isOwner(req) already confirmed the signed-in uid === OWNER_UID.
+      // Strict === true (not Boolean(...)) so a stray truthy string like "false" can't coerce to enabled.
+      await db.setCronJobConfig(job, req.body?.enabled === true, hourUtc, OWNER_UID);
       res.json({ ok: true });
     } catch (e) {
       console.error("[cron] config update failed:", e?.stack || e);

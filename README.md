@@ -106,15 +106,19 @@ for links to the other CryptoPro apps.
 
 ### 6. Scheduled jobs via Vercel Cron (optional, dry-run only)
 
-`vercel.json` schedules `GET /api/cron/evaluate|watchdog|daily-summary` once a day each (2h apart) —
-an alternative to the GitHub Actions workflows, built ahead of an eventual cutover decision (see
-`CLAUDE.md`'s "Cron cutover" section). Three env vars control it, all optional:
+`vercel.json` schedules `GET /api/cron/dispatch` hourly — a dispatcher that checks each job's
+dashboard-configured hour (Command tab's "☁ Scheduled Jobs" panel) and runs it once per UTC day at that
+hour — an alternative to the GitHub Actions workflows, built ahead of an eventual cutover decision (see
+`CLAUDE.md`'s "Cron cutover" section). **The hourly cadence needs Vercel's non-daily cron tier (Pro or
+above)** — Hobby only allows once-daily schedules; on Hobby, point an external hourly pinger (with the
+bearer secret below) at `/api/cron/dispatch` instead. Three env vars control it, all optional:
 
 - `CRON_SECRET` — Vercel sends `Authorization: Bearer $CRON_SECRET` with every scheduled call; without
   it, scheduled runs 401 (the endpoints still work for a manual trigger via `TRADER_OWNER_UID`).
 - `TRADER_OWNER_UID` — your account id (the username you registered with), required for the dashboard's
-  "☁ Scheduled Jobs" panel (Command tab) to view status or use "Run now". Unset means that panel is
-  disabled for everyone — accounts are shared Suite-wide, so this isn't opened to "any signed-in account".
+  "☁ Scheduled Jobs" panel (Command tab) to view/adjust status, schedule, or use "Run now". Unset means
+  that panel is disabled for everyone — accounts are shared Suite-wide, so this isn't opened to "any
+  signed-in account".
 - `CRON_EXECUTE` — **leave unset.** These routes place no real orders until this is explicitly set to
   `true`, and that should only happen after the parity checkpoint in `CLAUDE.md` passes.
 

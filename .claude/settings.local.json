@@ -11,7 +11,10 @@
       "Bash(python -m py_compile scripts/run_evaluation.py scripts/rebalance.py)",
       "Bash(node -e ' *)",
       "Bash(git commit -q -m 'feat: drop the /6 suffix from all score values *)",
-      "Bash(node --test src/scout.test.js)"
+      "Bash(node --test src/scout.test.js)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash"
     ]
   }
 }

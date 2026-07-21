@@ -77,19 +77,26 @@
         </div>
       </section>
 
-      <!-- ☁ Scheduled jobs panel (Suite roadmap, "For Trader only", 2026-07-21)
-           — the unattended Vercel Cron-triggered evaluate/watchdog/daily-
-           summary engines (src/cronRoutes.js), monitored/enabled/triggered
-           from the dashboard instead of GitHub Actions workflow files. Each
-           job also has a "Run now" manual trigger. CRON_EXECUTE stays OFF
-           (dry-run only) until the Node/Python parity checkpoint passes —
-           see CLAUDE.md's Node.js port section — so these jobs run
-           read-only today even when scheduled. -->
+      <!-- ☁ Scheduled jobs panel (Suite roadmap, "For Trader only", 2026-07-21;
+           adjustable-schedule follow-up 2026-07-21) — the unattended Vercel
+           Cron-triggered evaluate/watchdog/daily-summary engines
+           (src/cronRoutes.js), monitored/enabled/triggered from the dashboard
+           instead of GitHub Actions workflow files. An hourly dispatcher
+           (`vercel.json` -> `/api/cron/dispatch`) checks each job's
+           dashboard-configured hour (src/cronSchedule.js) so the schedule
+           below is genuinely adjustable without a redeploy — this needs
+           Vercel's non-daily cron cadence (Pro tier or above; Hobby only
+           allows once-daily schedules and would need an external hourly
+           pinger instead). Each job also has a "Run now" manual trigger.
+           CRON_EXECUTE stays OFF (dry-run only) until the Node/Python parity
+           checkpoint passes — see CLAUDE.md's Node.js port section — so
+           these jobs run read-only today even when scheduled. -->
       <section>
         <div class="panel">
           <div class="panel-title">☁ Scheduled Jobs</div>
           <div class="small" style="color:var(--muted);margin-bottom:10px">
-            Node engine, triggered by Vercel Cron once a day per job (see <code>vercel.json</code>) or manually below.
+            Node engine. An hourly dispatcher checks each job's schedule below and runs it once per UTC day at
+            the chosen hour, or trigger manually with "Run now".
             <b>Dry-run only</b> while <code>CRON_EXECUTE</code> is unset — no orders are placed until the Python/Node
             parity checkpoint passes.
           </div>

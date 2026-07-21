@@ -198,6 +198,14 @@
       return new Date(iso).toLocaleString("en-GB", { timeZone: "Etc/GMT-2", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" }) + " GMT+2";
     }
 
+    function cronHourOptions(selectedHour) {
+      let out = "";
+      for (let h = 0; h < 24; h++) {
+        out += '<option value="' + h + '"' + (h === selectedHour ? " selected" : "") + '>' + String(h).padStart(2, "0") + ":00 UTC</option>";
+      }
+      return out;
+    }
+
     async function renderCronJobs() {
       const el = $("cronJobsList");
       if (!el) return;
@@ -213,12 +221,12 @@
       }
       const runsByJob = {};
       (status.runs || []).forEach(function (run) { runsByJob[run.job] = run; });
-      const enabledByJob = {};
-      (status.config || []).forEach(function (c) { enabledByJob[c.job] = c.enabled; });
+      const cfgByJob = {};
+      (status.jobs || []).forEach(function (c) { cfgByJob[c.job] = c; });
 
       el.innerHTML = CRON_JOBS.map(function (j) {
         const run = runsByJob[j.id];
-        const enabled = enabledByJob[j.id] !== false; // no row yet => enabled by default
+        const cfg = cfgByJob[j.id] || { enabled: true, hourUtc: 0 };
         const statusLabel = !run ? "never run"
           : run.status === "running" ? "running…"
           : run.status === "ok" ? "OK · " + cronFmtTime(run.finished_at || run.started_at)
@@ -230,20 +238,26 @@
             '<b>' + j.label + '</b> <span class="small" style="color:' + statusColor + '">' + statusLabel + '</span>' +
             (run && run.triggered_by ? ' <span class="small" style="color:var(--muted)">(' + run.triggered_by + ')</span>' : '') +
           '</div>' +
+          '<label class="small" style="color:var(--muted);margin-right:8px">Daily at ' +
+            '<select id="cronHour_' + j.id + '" onchange="cronSaveConfig(\'' + j.id + '\')" style="margin:0 4px">' + cronHourOptions(cfg.hourUtc) + '</select>' +
+          '</label>' +
           '<label class="small" style="color:var(--muted);margin-right:10px">' +
-            '<input type="checkbox" ' + (enabled ? "checked" : "") + ' onchange="cronToggle(\'' + j.id + '\', this.checked)" /> enabled' +
+            '<input type="checkbox" id="cronEnabled_' + j.id + '" ' + (cfg.enabled !== false ? "checked" : "") + ' onchange="cronSaveConfig(\'' + j.id + '\')" /> enabled' +
           '</label>' +
           '<button class="btn" style="font-size:11px;padding:3px 9px" onclick="cronRunNow(\'' + j.id + '\')" data-tip="Trigger this job now (dry-run while CRON_EXECUTE is unset).">Run now</button>' +
         '</div>';
       }).join("");
     }
 
-    async function cronToggle(job, enabled) {
+    async function cronSaveConfig(job) {
+      const enabledEl = $("cronEnabled_" + job);
+      const hourEl = $("cronHour_" + job);
+      if (!enabledEl || !hourEl) return;
       try {
         await fetch("/api/cron/config/" + encodeURIComponent(job), {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ enabled: enabled })
+          body: JSON.stringify({ enabled: enabledEl.checked, hourUtc: Number(hourEl.value) })
         });
       } catch (e) {}
       renderCronJobs();
