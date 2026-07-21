@@ -90,6 +90,13 @@ Postgres database (`src/js/settings-sync.js`), so they follow you across devices
 > pointing `APCA_BASE_URL`, a GitHub `live` environment secret, or the dashboard's Live Trading fields at
 > `https://api.alpaca.markets`.
 
+### 4b. User manual
+
+Click the **❓** button in the header (next to the theme toggle) to open the in-app user manual — an
+off-canvas panel that unfolds from the left with a section list and search box covering every tab group,
+account sign-in, and keyboard shortcuts. Static content, no network call; `src/js/manual.js` +
+`src/css/manual.css`.
+
 ### 5. Account sign-in (Suite SSO, optional)
 
 The dashboard header has a **👤 Sign in** button (username/password, with optional TOTP 2FA) backed

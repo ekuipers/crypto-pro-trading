@@ -37,6 +37,7 @@ export const SCRIPT_ORDER = [
   'tabs-portfolio.js',
   'auth.js',
   'settings-sync.js',
+  'manual.js',
   'main.js',
 ];
 

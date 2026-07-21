@@ -10,9 +10,9 @@ export default function Footer() {
       <span className="footer-sep">·</span>
       <span>Creator: <strong>Erik Kuipers</strong></span>
       <span className="footer-sep">·</span>
-      <span>Last modified: <strong>2026-07-21</strong></span>
+      <span>Last modified: <strong>2026-07-22</strong></span>
       <span className="footer-sep">·</span>
-      <span>Version: <strong>v2026-07-21.5</strong></span>
+      <span>Version: <strong>v2026-07-22.1</strong></span>
       <a className="footer-donate" href="https://buymeacoffee.com/erikkuipers" target="_blank" rel="noopener">☕ Donate</a>
     </footer>
   );

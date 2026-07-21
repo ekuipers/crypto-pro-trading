@@ -1,5 +1,40 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-22.1 — 2026-07-22 — Roadmap: in-app user manual (Help button, unfolds from the left)
+
+**Task:** CryptoPro Suite roadmap item 1 ("add a user manual to Trader, invoked via the Help button in the
+top bar, enfolding from the left — consistent with Charts"), surfaced by a roadmap scan. Suite roadmap
+item 2 ("move all GitHub cron workflows to Vercel") was explicitly marked `(skip)` in the same scan and
+left untouched — it's also still blocked on the Node cutover's gate 2 (see `v2026-07-21.8` above).
+
+**Implementation:** Ported Charts' pattern (`helpBtn` → off-canvas `#manualPanel`, TOC + content + search)
+rather than reinventing it, adapted for this project's architecture:
+- `client/src/components/Header.jsx` — new `❓` `#helpBtn` next to the theme toggle (no `onClick`; wired by
+  the classic script below, matching how `#accountBtn` is wired by `src/auth.js`).
+- `client/src/fragments/modals.html` — `#manualPanel` markup (search input, left-rail `#manualToc`,
+  `#manualContent`) added alongside the existing modal fragments; rendered into the DOM the same way
+  (`Modals.jsx`'s `dangerouslySetInnerHTML`).
+- `src/css/manual.css` (new file, linked in `client/index.html`) — `.manual-overlay` is `position:fixed`,
+  `left:-560px` → `.open` flips it to `0` with `transition:left .2s`, same off-canvas mechanism Charts uses,
+  restyled with this project's own CSS variables (`--surface`/`--border`/`--blue`/`--hover`, no
+  `--panel`/`--topbar-h` equivalents existed here) and a `top:57px` to clear the sticky header (matches the
+  sidebar's own `top:57px`).
+- `src/js/manual.js` (new file, added to `client/src/scriptLoader.js`'s `SCRIPT_ORDER` right before
+  `main.js`) — plain global-scope script (Charts uses ES modules; this project's `src/js/*.js` share one
+  global scope, so the module syntax didn't port, only the wiring pattern). `MANUAL_SECTIONS` is a static
+  array of `{id, title, html}` written fresh for Trader's own tab structure (Command/Trade/Portfolio/
+  Analysis/Settings, Autopilot, Scheduled Jobs, Account/sign-in, keyboard shortcuts) — Charts' content
+  described its own charting/watchlist UI and didn't transfer. `initManualGuide()` self-invokes at the
+  bottom of the file, same pattern as `auth.js`'s `initAuth()`.
+- Footer version bumped to `v2026-07-22.1`, last-modified `2026-07-22`.
+
+**Verified:** `node --check src/js/manual.js`; `npm --prefix client run build` (46 modules, 0 errors, same
+count as before — no new modules since the CSS/classic-script files aren't bundled by Vite); a local
+`node server.js` smoke test — `/`, `/js/manual.js`, `/css/manual.css` all 200, and the served page contains
+`manual.css`'s `<link>`; `modals.html` div balance unchanged (41 open / 41 close). **Not verified — no
+browser tool in this session:** an actual click-through confirming the panel slides open, the TOC/search
+filter correctly, and Escape/✕ close it. Exercise it manually before relying on it.
+
 ## v2026-07-21.8 — 2026-07-21 — Node port cutover: worked all 4 gates, 3 pass, 1 blocked on real time
 
 **Task:** "Execute Node port cutover" — actually close out the 4-check parity checkpoint gating

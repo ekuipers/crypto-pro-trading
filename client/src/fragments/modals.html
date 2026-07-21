@@ -96,4 +96,17 @@
     <div class="modal" id="authModalBody" style="width:min(420px,100%)"></div>
   </div>
 
+  <!-- ══════════════ USER MANUAL PANEL (roadmap: Help button, unfolds from the left) ══════════════ -->
+  <div id="manualPanel" class="manual-overlay">
+    <div class="manual-head">
+      <div class="modal-title">📖 User Manual</div>
+      <input id="manualSearch" type="search" placeholder="Search the manual…">
+      <button class="btn" id="closeManualBtn">✕</button>
+    </div>
+    <div class="manual-body">
+      <nav id="manualToc" class="manual-toc"></nav>
+      <div id="manualContent" class="manual-content"></div>
+    </div>
+  </div>
+
   <div id="tooltip"></div>
