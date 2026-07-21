@@ -4,6 +4,16 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-21 — Vercel Hobby cron limit broke deployment; fixed with a GitHub Actions pinger
+
+| Term | Meaning |
+|------|---------|
+| The bug | An hourly `vercel.json` cron entry (shipped to make the adjustable schedule below actually take effect) silently blocked the next Vercel deployment from triggering — Vercel Hobby only allows once-daily cron schedules and rejects `vercel.json` at deploy time otherwise. Confirmed by asking rather than guessing which plan tier this project is on. |
+| `cron-dispatch-ping.yml` | New GitHub Actions workflow (`.github/workflows/`) that does nothing but `curl /api/cron/dispatch` hourly with the `CRON_SECRET` bearer token — no Python, no checkout, no git commit. This is what actually gives the adjustable schedule its hourly granularity on a Hobby-tier Vercel project; `vercel.json`'s own cron is back to once daily, a safety net rather than the driver. |
+| Two places for one secret | `CRON_SECRET` must now be set in **two** places with the same value: Vercel's env vars (for the dispatcher route itself to validate incoming calls) and as a GitHub repository secret (`gh secret set CRON_SECRET`, for the new pinger workflow to authenticate *outbound* calls). Easy to set one and forget the other — the pinger just 401s harmlessly (no state touched) until both are set. |
+
+---
+
 ## 2026-07-21 — Cron cutover (Vercel Cron + dashboard-orchestrated jobs, dry-run only) + adjustable schedule
 
 | Term | Meaning |

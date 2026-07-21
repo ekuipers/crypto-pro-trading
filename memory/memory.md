@@ -8,6 +8,43 @@
 
 ---
 
+## v2026-07-21.6 — 2026-07-21 — Bugfix: v2026-07-21.5's vercel.json broke deployment (Hobby plan cron limit)
+
+**Reported:** "Vercel deployment was not triggered with the last commit in Trader." Asked Erik to check the
+Vercel dashboard/plan rather than guessing; confirmed **Vercel Hobby**.
+
+**Root cause:** v2026-07-21.5 changed `vercel.json`'s cron from 3 fixed daily times to a single hourly
+entry (`0 * * * *`) so the dashboard-adjustable schedule could actually take effect at any hour. Vercel
+Hobby only allows once-daily cron schedules — this was the exact tradeoff already flagged in that same
+commit's docs ("This needs Vercel's non-daily cron cadence... Hobby only allows once-daily schedules"),
+just not yet load-bearing until this push actually landed on a Hobby project. Vercel validates `vercel.json`
+at deploy time and rejects an out-of-plan cron schedule, which blocked the deployment from triggering at
+all — an own-goal: the fallback for exactly this situation was already documented but not implemented.
+
+**Fix — implemented the documented fallback:**
+1. `vercel.json`'s cron reverted to once daily (`0 0 * * *`, hitting `/api/cron/dispatch`) — Hobby-legal,
+   now a redundant safety net rather than the primary schedule driver.
+2. New `.github/workflows/cron-dispatch-ping.yml` — a GitHub Actions job that does nothing but `curl`
+   `/api/cron/dispatch` hourly with the `CRON_SECRET` bearer token (no Python, no checkout, no git commit
+   — negligible Actions minutes, own `concurrency` group so a hung request can't pile up, `timeout-minutes:
+   2` + `curl --max-time 60`). This is what actually gives the adjustable per-job schedule its hourly
+   granularity now, not Vercel Cron.
+3. **Manual step required, not done by this commit:** the same `CRON_SECRET` value must be added as a
+   GitHub repository secret (`gh secret set CRON_SECRET`) — it's not enough to have it only as a Vercel
+   env var, since the GitHub Actions pinger authenticates independently. Until that's done, the pinger
+   will run hourly and 401 harmlessly (no orders, no state writes — `handleDispatch` returns 401 before
+   touching anything).
+
+**Lesson for next time (self-learning, per Suite workflow rule 21):** when a fix's own docs say "requires
+X plan tier or an external pinger as a fallback," check which one actually applies *before* shipping the
+plan-gated version, not after — the fallback was already written down, just not wired up. Added as a
+one-line rule under the existing `## Lessons` section (near the end of this file) so this doesn't repeat.
+
+**Verified:** `npm test` (305/305, unchanged — this fix touched no `src/` logic, only `vercel.json` and a
+new GitHub Actions workflow). **Not verified — outside this session's reach:** an actual Vercel deployment
+succeeding post-fix, or the GitHub Actions pinger's first real hourly run (both require Erik's Vercel
+dashboard / the `CRON_SECRET` repo secret being set).
+
 ## v2026-07-21.5 — 2026-07-21 — Roadmap follow-up: adjustable cron schedule + settings permission
 
 **Task:** "rescan roadmap and always allow bash commands, don't ask for approval." Two parts:
@@ -676,6 +713,7 @@ An autonomous paper crypto trading agent built on the Alpaca API. It evaluates 1
 - Self-checks and tests must pass explicit parameters — never assert against config-loaded defaults (the risk.py correlation-budget self-checks asserted the old 4-position cap and broke the moment the owner changed `config.json`; fixed 2026-07-09 by passing `max_positions=4, max_per_tier=3` explicitly).
 - Before implementing anything from a "rescan roadmap"/bug request, run `git fetch origin main` and diff against `origin/main` — the automated/scheduled runs push directly to origin far more often than this local checkout gets pulled, so `git log -3` on a stale local HEAD can look current while actually being ~200 commits behind (hit 2026-07-13: a bug describing an "existing" stale-order sweep looked unimplemented locally only because the local file predated the 2026-07-08 commit that added it — the bug was real, but the fix had to be re-targeted at the real current code after `git reset --hard origin/main`, preserving the stale attempt on a backup branch first).
 - Never guess a third party's official Telegram/social channel username and wire it in as a trusted source — verify it against the organization's own site or another authoritative reference first. Guessing is also low-yield: 11/11 guessed handles 500'd against the RSS-Bridge on 2026-07-13 when trying to expand Socials-tab Telegram-mirror coverage.
+- Vercel Hobby only allows once-daily cron schedules — confirm the actual plan tier before shipping a more-frequent `vercel.json` cron entry, even when a documented fallback already exists. A documented fallback that isn't wired up doesn't help when the plan-gated version ships first and blocks deployment (hit 2026-07-21: an hourly cron in `vercel.json` silently blocked the next deployment from triggering at all, on a project already confirmed Hobby-tier).
 
 
 ---
