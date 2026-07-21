@@ -11,6 +11,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
 import { installAuthRoutes, currentUid } from './src/auth.js';
+import { installCronRoutes } from './src/cronRoutes.js';
 import * as db from './src/db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -46,6 +47,11 @@ app.use(express.json({ limit: '2mb' }));
 // Multi-user auth (SSO) — accounts & sessions persist in the same Supabase
 // Postgres database as the rest of CryptoPro Suite. See src/db.js.
 installAuthRoutes(app);
+
+// Cron cutover (Suite roadmap, "For Trader only") — Vercel Cron (or a
+// manual dashboard trigger) drives the Node evaluation/watchdog/daily-
+// summary engines instead of GitHub Actions. See src/cronRoutes.js.
+installCronRoutes(app);
 
 // Dashboard settings sync (Suite roadmap: save user state in the database so
 // it follows the account across devices/browsers). One row per account (or

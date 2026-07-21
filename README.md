@@ -8,13 +8,16 @@ daily to validate strategy robustness.
 
 **Node.js port (in progress, not yet live):** the live engine below is still
 100% Python. A `src/` directory holds an in-progress Node.js port — order
-placement, the hourly evaluation loop, and the universe scout are now fully
-ported with a 280-test `node --test` suite (`npm test`), but
-`.github/workflows/*.yml` still runs Python exclusively; the Node engine is
-not wired into any live/paper order flow yet. See `CLAUDE.md`'s "Node.js
-port" section for scope, the deferred pieces (`stop_watchdog.py`,
-`rebalance.py`, `daily_summary.py`), and the parity checkpoint that must pass
-before any GitHub Actions cutover.
+placement, the hourly evaluation loop, the universe scout, the stop watchdog,
+and the daily summary are now fully ported with a 298-test `node --test`
+suite (`npm test`), but `.github/workflows/*.yml` still runs Python
+exclusively; the Node engine is not wired into any live/paper order flow yet.
+`src/cronRoutes.js` + `vercel.json` add Vercel Cron-triggered HTTP endpoints
+for the same engines (dashboard "☁ Scheduled Jobs" panel, Command tab) as an
+alternative to GitHub Actions, but they run **dry-run only** (`CRON_EXECUTE`
+unset) — see `CLAUDE.md`'s "Cron cutover" section. See `CLAUDE.md`'s
+"Node.js port" section for scope, the deferred piece (`rebalance.py`), and
+the 4-gate parity checkpoint that must pass before any real cutover.
 
 ---
 
@@ -100,6 +103,20 @@ Signing in on the CryptoPro Suite landing page and clicking through to this dash
 here automatically — a short-lived, single-use `?sso=` ticket in the URL is redeemed for a local session
 and stripped from the address bar. This app only accepts that handoff today; it doesn't yet issue tickets
 for links to the other CryptoPro apps.
+
+### 6. Scheduled jobs via Vercel Cron (optional, dry-run only)
+
+`vercel.json` schedules `GET /api/cron/evaluate|watchdog|daily-summary` once a day each (2h apart) —
+an alternative to the GitHub Actions workflows, built ahead of an eventual cutover decision (see
+`CLAUDE.md`'s "Cron cutover" section). Three env vars control it, all optional:
+
+- `CRON_SECRET` — Vercel sends `Authorization: Bearer $CRON_SECRET` with every scheduled call; without
+  it, scheduled runs 401 (the endpoints still work for a manual trigger via `TRADER_OWNER_UID`).
+- `TRADER_OWNER_UID` — your account id (the username you registered with), required for the dashboard's
+  "☁ Scheduled Jobs" panel (Command tab) to view status or use "Run now". Unset means that panel is
+  disabled for everyone — accounts are shared Suite-wide, so this isn't opened to "any signed-in account".
+- `CRON_EXECUTE` — **leave unset.** These routes place no real orders until this is explicitly set to
+  `true`, and that should only happen after the parity checkpoint in `CLAUDE.md` passes.
 
 ---
 

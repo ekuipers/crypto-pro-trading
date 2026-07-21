@@ -29,7 +29,7 @@ const PROJECT_ROOT = path.join(__dirname, "..");
 const DATA_DIR = path.join(PROJECT_ROOT, "data");
 const STATE_FILE = path.join(DATA_DIR, "positions_state.json");
 
-const EMPTY_STATE = () => ({
+export const EMPTY_STATE = () => ({
   day_open_equity: null,
   day_open_date: null,
   capital_preservation_mode: false,

@@ -4,6 +4,20 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-21 — Cron cutover (Vercel Cron + dashboard-orchestrated jobs, dry-run only)
+
+| Term | Meaning |
+|------|---------|
+| Cron cutover | Suite roadmap item ("For Trader only"): replace the GitHub Actions Python cron workflows with the Node engine, triggered by Vercel Cron and monitored/controlled from the dashboard instead of `.yml` files. Implemented 2026-07-21 as new infrastructure (`src/cronRoutes.js`, `vercel.json`, new Postgres tables) that runs **dry-run only** — GitHub Actions stays the live engine until the 4-gate parity checkpoint (`CLAUDE.md` › Node.js port) passes. See `memory/memory.md` v2026-07-21.3/.4 for the full analysis and build. |
+| `CRON_EXECUTE` | Env var gating real order placement from the cron routes — same role as the CLI's `--execute` flag. Must stay unset/false; this is a deliberate decision gate, not a "flip when ready" toggle, because two engines (Python + Node) placing orders against the same account at once risks duplicates. |
+| `CRON_SECRET` | The bearer token Vercel Cron sends (`Authorization: Bearer $CRON_SECRET`) with every scheduled `GET` call. Compared with `crypto.timingSafeEqual`, not `===` — a security-review fix, not the original implementation (see below). |
+| `TRADER_OWNER_UID` | Restricts the dashboard's manual "Run now" trigger and per-job enable/disable toggle to one specific account. Accounts are shared Suite-wide (any CryptoPro Charts/Training/Suite account can sign into Trader too), but these routes control one shared trading engine, not caller-owned data — "any signed-in account" would have let any Suite account trigger paper orders or disable the stop watchdog. Unset = those two routes are disabled for everyone (fail closed). |
+| `job_runs` / concurrency lock | Postgres table doubling as both the audit trail (what git commits used to be) and the concurrency lock — a partial unique index (`job_runs_running_uidx`, `where status = 'running'`) makes "only one running row per job" a database-enforced invariant, so `startJobRun`'s insert is atomic instead of a check-then-insert two near-simultaneous requests could both pass. |
+| Why state moved to Postgres | A Vercel serverless function has no persistent local disk across invocations — `positions_state.json`/`journal/*.md` (git-committed by GitHub Actions) can't work there. `trader_state`/`trader_journal` tables replace them; `runEvaluation.js`/`stopWatchdog.js`/`dailySummary.js`'s existing test-oriented `deps` injection point is reused to swap the storage backend without touching their decision logic. |
+| Security-review fixes (2026-07-21) | The first implementation had 3 HIGH findings, all fixed before commit: (1) the cron `GET` routes originally also accepted a signed-in session, not just the bearer secret — since session cookies are `SameSite=Lax` and still sent on a top-level cross-site GET navigation, a hostile link could have triggered a run; GET is now bearer-only, POST is the session path. (2) the manual-trigger/config routes originally accepted *any* signed-in Suite account, not just the owner — now gated by `TRADER_OWNER_UID`. (3) the concurrency lock was check-then-insert (race-able) — now an atomic insert backed by the partial unique index above. |
+
+---
+
 ## 2026-07-21 — Settings sync (dashboard preferences follow the account)
 
 | Term | Meaning |

@@ -76,6 +76,26 @@
           <div id="apLog" class="small" style="max-height:260px;overflow-y:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.6"><span style="color:var(--muted)">No autopilot activity yet.</span></div>
         </div>
       </section>
+
+      <!-- ☁ Scheduled jobs panel (Suite roadmap, "For Trader only", 2026-07-21)
+           — the unattended Vercel Cron-triggered evaluate/watchdog/daily-
+           summary engines (src/cronRoutes.js), monitored/enabled/triggered
+           from the dashboard instead of GitHub Actions workflow files. Each
+           job also has a "Run now" manual trigger. CRON_EXECUTE stays OFF
+           (dry-run only) until the Node/Python parity checkpoint passes —
+           see CLAUDE.md's Node.js port section — so these jobs run
+           read-only today even when scheduled. -->
+      <section>
+        <div class="panel">
+          <div class="panel-title">☁ Scheduled Jobs</div>
+          <div class="small" style="color:var(--muted);margin-bottom:10px">
+            Node engine, triggered by Vercel Cron once a day per job (see <code>vercel.json</code>) or manually below.
+            <b>Dry-run only</b> while <code>CRON_EXECUTE</code> is unset — no orders are placed until the Python/Node
+            parity checkpoint passes.
+          </div>
+          <div id="cronJobsList" class="small">Loading…</div>
+        </div>
+      </section>
     </div><!-- /subpage-command-overview -->
 
     <!-- 📰 News sub-tab — aggregated crypto headlines (roadmap 2026-07-09).

@@ -87,15 +87,13 @@ export function formatIndicatorBlock(d) {
 }
 
 /**
- * Append one `## Evaluation HH:MM GMT+2` block to journal/YYYY-MM-DD.md
- * (Amsterdam wall-clock date/time -- see tz.js). Writes even on a dry run
- * (empty `executed`).
+ * Build the `## Evaluation HH:MM GMT+2` block text (pure -- no I/O), so
+ * callers that need the text without writing to the local filesystem (e.g.
+ * the Postgres-backed cron routes, where a Vercel serverless function has no
+ * persistent local disk) can reuse the exact same formatting as the CLI path.
  */
-export function appendJournalBlock({ decisions, executed, warnings = [], now = new Date(), journalDir = JOURNAL_DIR } = {}) {
-  mkdirSync(journalDir, { recursive: true });
-  const { dateStr, timeStr } = amsterdamParts(now);
-  const filePath = path.join(journalDir, dateStr + ".md");
-
+export function buildJournalBlockText({ decisions, executed, warnings = [], now = new Date() } = {}) {
+  const { timeStr } = amsterdamParts(now);
   const lines = ["", `## Evaluation ${timeStr} GMT+2`, ""];
   for (const w of warnings) lines.push(`**WARNING: ${w}**`);
   if (warnings.length) lines.push("");
@@ -116,7 +114,18 @@ export function appendJournalBlock({ decisions, executed, warnings = [], now = n
     lines.push("");
     lines.push("### No orders submitted");
   }
+  return lines.join("\n") + "\n";
+}
 
-  appendFileSync(filePath, lines.join("\n") + "\n", "utf-8");
+/**
+ * Append one `## Evaluation HH:MM GMT+2` block to journal/YYYY-MM-DD.md
+ * (Amsterdam wall-clock date/time -- see tz.js). Writes even on a dry run
+ * (empty `executed`).
+ */
+export function appendJournalBlock({ decisions, executed, warnings = [], now = new Date(), journalDir = JOURNAL_DIR } = {}) {
+  mkdirSync(journalDir, { recursive: true });
+  const { dateStr } = amsterdamParts(now);
+  const filePath = path.join(journalDir, dateStr + ".md");
+  appendFileSync(filePath, buildJournalBlockText({ decisions, executed, warnings, now }), "utf-8");
   return filePath;
 }

@@ -8,6 +8,119 @@
 
 ---
 
+## v2026-07-21.4 — 2026-07-21 — Roadmap implementation: cron cutover infrastructure built (dry-run only)
+
+**Task:** "Rescan and implement roadmap." Own Roadmap/Bugs empty; Suite's Bugs empty; Suite's Roadmap had
+the one item filed as v2026-07-21.3 below, now elaborated with two clarifications the user added directly
+to Suite's `CLAUDE.md`: "Schedule these processes with Cron 1x day 2 hours apart. The frontend is used to
+setup and monitor the scheduled cron jobs." Both resolved open questions from the v2026-07-21.3 analysis —
+once/day-per-job sidesteps the Vercel Hobby-tier cron-cadence limit entirely, and "frontend sets up" was
+implemented as a per-job enable/disable toggle (the actual time-of-day stays static in `vercel.json`,
+since Vercel doesn't expose a runtime API to rewrite it) plus status/manual-trigger, not a fully dynamic
+scheduler.
+
+**Built, in order:** (1) `src/stopWatchdog.js`/`src/dailySummary.js` — ports of the two Python scripts
+the workflows call that weren't ported yet (Node port was previously blocked on `stop_watchdog.js`
+specifically, since it shares `positions_state.json` with `run_evaluation`); 16 new tests, 298 total,
+same `deps`-injection pattern as `runEvaluation.js`. Split `journal.js`'s `appendJournalBlock()` (and the
+two new modules' equivalents) into a pure text-builder + a thin fs-writer wrapper — needed so the cron
+routes could reuse the exact same formatting without doing synchronous file I/O. (2) `src/db.js` —
+`trader_state`/`trader_journal` (replace `positions_state.json`/`journal/*.md`, since a Vercel serverless
+function has no persistent local disk across invocations), `job_runs` (audit trail + concurrency lock),
+`cron_config` (per-job enable toggle). (3) `src/cronRoutes.js` — `GET`/`POST /api/cron/evaluate|watchdog|
+daily-summary`, `GET /api/cron/status`, `PUT /api/cron/config/:job`, wired into `server.js`. (4)
+`vercel.json` — 3 cron jobs, once daily, 2h apart (02:00/04:00/06:00 UTC) per the user's clarification.
+(5) Command-tab "☁ Scheduled Jobs" panel (`command.html`/`tabs-command.js`) — status, enable toggle,
+"Run now" per job.
+
+**Safety decisions made without asking (consistent with the project's own standing hard rules, not a new
+judgment call):** `CRON_EXECUTE` gates real order placement and defaults unset/false — the existing
+Node.js port cutover checklist (frozen-fixture parity, ≥24h live shadow-run parity, state round-trip; see
+below) hasn't been run, and flipping it on trust alone would risk two engines (Python cron + this) placing
+duplicate orders against the same paper account. This ships the *infrastructure* — routes, schema,
+dashboard panel, all real and testable — ahead of that go-live decision, which is deliberately left to
+Erik. GitHub Actions workflows are untouched and remain the live engine.
+
+**Mandatory security-reviewer pass** (this project's code-review rules require it for new auth/DB/
+external-API code) found 3 HIGH findings before commit, all fixed: (1) the `GET` cron routes originally
+accepted *either* the `CRON_SECRET` bearer token *or* a signed-in session — since the session cookie is
+`SameSite=Lax` (still sent on a top-level cross-site GET navigation), a hostile link could have triggered
+a real run just by getting the signed-in owner to click it; fixed by making `GET` bearer-only and `POST`
+the session-auth path. (2) the manual-trigger/config-toggle routes accepted *any* signed-in account —
+this project's accounts table is shared Suite-wide (open registration, any Charts/Training/Suite account
+works here too), so any Suite user could have triggered paper orders or disabled the stop watchdog; fixed
+with a new `TRADER_OWNER_UID` env var, fail-closed when unset. (3) the concurrency lock (`job_runs`,
+`status='running'`) was a check-then-insert two near-simultaneous requests could both pass; fixed with a
+partial unique index (`job_runs_running_uidx ... where status = 'running'`) making the insert itself
+atomic. Also applied on review as defense-in-depth: `crypto.timingSafeEqual` for the bearer-token compare
+(was `===`).
+
+**Verified:** `npm test` (298/298), `npm run build` (46 modules, 0 errors), `node --check` on every
+touched file, a full `server.js` import smoke test with `NODE_ENV=test` (catches missing-export/wiring
+bugs without needing a live Postgres connection). **Not verified — no DB/browser in this session:** an
+actual Vercel Cron invocation, the dashboard panel rendering/toggling in a real browser, or the Postgres
+schema's `create table if not exists`/index statements against a live database. `cronRoutes.js` itself
+(the routing/auth layer) has no dedicated test file — consistent with this repo's existing convention
+that I/O-boundary modules (`server.js`, `auth.js`, `db.js`, `totp.js`) aren't unit-tested the same way
+pure-logic modules are; there's no mocking/supertest infra anywhere in this codebase to test Express
+routes or a live Postgres pool against, and adding one felt like scope creep beyond what "implement this
+roadmap item" asked for.
+
+**Filed:** removed the item from CryptoPro Suite's `CLAUDE.md` Roadmap. `CLAUDE.md` gained a new "Cron
+cutover" section + a Dashboard bullet for the new panel + `.env.example` entries for `CRON_SECRET`/
+`CRON_EXECUTE`/`TRADER_OWNER_UID`; `README.md` gained a "Scheduled jobs via Vercel Cron" setup section;
+`memory/glossary.md` gained a full term list. Footer version bumped v2026-07-21.3 → v2026-07-21.4.
+
+**Next step, when Erik wants to go live:** check the Vercel plan tier isn't needed now (once/day sidesteps
+it), set `TRADER_OWNER_UID`, optionally `CRON_SECRET`, run the 4-gate parity checklist (`CLAUDE.md` ›
+Node.js port), then and only then set `CRON_EXECUTE=true`.
+
+## v2026-07-21.3 — 2026-07-21 — Roadmap rescan: GitHub Actions → Node.js cutover analysis (Suite roadmap, plan-only)
+
+**Task:** "rescan roadmap." Own Roadmap/Bugs empty; Suite's Bugs empty; Suite's Roadmap had exactly one
+open item, scoped "For Trader only": *"in plan mode, analyse what is needed to convert all Github related
+backend workflows like run_evaluate, Forward_analysis, etc. to the Node.JS backend as unattended process
+but orchestrated via the front end."* The item's own wording made this an analysis deliverable, not a
+code change — entered Plan Mode, produced the analysis below, then filed it. No `src/`, `.github/workflows/`,
+`server.js`, or `db.js` files were touched.
+
+**Verified current state (repo, not just docs):** three GitHub Actions workflows drive 100% of live
+automation, all Python, all committing state to git — `trade.yml` (`run_evaluation.py` every 8h +
+`daily_summary.py` daily), `forward.yml` (`walkforward_evaluate.py` daily, numpy), `watchdog.yml`
+(`stop_watchdog.py`, **actually cron `0 3 * * *`/once-daily**, not the "every 5 min" this file used to
+say — Erik manually throttled it 2026-07-20 (`1c6cb13`) to cut Actions minutes, doc now fixed above).
+Node port (Phase 2, `memory/claude_md_archive.md`) covers `runEvaluation.js`/`trade.js`/`evaluateSymbol.js`
+and everything they depend on (280 tests). **Not ported:** `stop_watchdog.js` (named blocker — shares
+`positions_state.json` with `run_evaluation`, must land before any cutover), `dailySummary.js`,
+`walkforward`/`metrics` (numpy). `server.js` runs as a stateless Vercel serverless function
+(`!process.env.VERCEL` guards `app.listen`), not an always-on process.
+
+**Recommended architecture (not yet built):** (1) Scheduler → Vercel Cron hitting new
+`/api/cron/evaluate|watchdog|daily-summary` routes, auth'd via Vercel's `CRON_SECRET` bearer header —
+**open question to verify first:** Vercel Hobby only allows daily-granularity cron; the 8h `trade.yml`
+cadence needs Pro, or a trivial external pinger (no Python/git) hitting the route on schedule. (2) State/
+journal storage moves from git-committed files to Postgres, reusing the exact `layouts` table pattern
+already in `src/db.js`/`settings-sync.js` (uid-scoped jsonb + upsert) — this also removes the
+`git pull --rebase --autostash` retry dance every workflow currently has, since it only exists to dodge
+concurrent-run git races. (3) "Orchestrated via the front end" = dashboard becomes the control/observability
+plane (Command-tab panel: last-run status per job + manual "Run now" POST to the same route), *not* the
+runtime host — deliberately distinct from the existing browser-based Autopilot (`autopilot.js`), which
+requires an open tab and is the "attended" path, the opposite of what this item asks for. (4) Port
+`stop_watchdog.js` + `dailySummary.js` before cutover; recommend descoping `walkforward`/`metrics` (numpy,
+no schedule-criticality) to stay manual/Python indefinitely rather than porting. (5) Reuse the existing
+three-gate cutover checkpoint (`memory/claude_md_archive.md`: fixture parity, ≥24h shadow-run parity,
+state round-trip), add a fourth gate — confirm each cron route completes inside Vercel's function
+execution-time budget. Considered and rejected: an always-on Node host (node-cron/PM2) — cleanly
+"unattended" but adds a hosting surface nothing else in the Suite has; Node-ported-but-still-GitHub-Actions
+— doesn't satisfy "orchestrated via the front end" at all.
+
+**Filed:** removed the item from CryptoPro Suite's `CLAUDE.md` Roadmap (rule 15); fixed the stale
+"Every 5 min" watchdog line in this file's Schedule section. Full plan text (superset of this entry,
+same content) was written to `C:\Users\An\.claude\plans\snappy-discovering-wind.md` during the session
+but that path is outside this repo and not guaranteed to survive — this memory entry is the durable copy.
+Next step, when Erik wants to act on it: check Vercel plan tier + time a local `runEvaluation.js` run,
+then port `stop_watchdog.js`/`dailySummary.js`, then build the `/api/cron/*` routes + Postgres tables.
+
 ## v2026-07-21.2 — 2026-07-21 — Roadmap: settings sync to Postgres (Suite roadmap)
 
 **Task:** "rescan roadmap." Own Roadmap/Bugs empty; Suite's Bugs empty; Suite's Roadmap had exactly one

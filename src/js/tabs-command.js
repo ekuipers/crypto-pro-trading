@@ -182,11 +182,86 @@
       el.innerHTML = `<span style="border:1px solid var(--red);border-radius:12px;padding:3px 10px;color:var(--red);font-weight:700" data-tip="The correlation budget (max ${maxPos} open positions) only gates new entries — the book is over budget. Enable risk.enforce_budget_on_open_positions in config.json to auto-trim the weakest overflow position, or close one manually.">⚠ BUDGET EXCEEDED ${openN}/${maxPos} positions</span>`;
     }
 
+    // ☁ Scheduled jobs panel (Suite roadmap, "For Trader only", 2026-07-21):
+    // status/config for the Vercel Cron-triggered evaluate/watchdog/daily-
+    // summary engines (src/cronRoutes.js). Server-authenticated (session
+    // cookie), unlike the rest of this tab which talks to Alpaca directly —
+    // job status lives in this app's own Postgres, not Alpaca.
+    const CRON_JOBS = [
+      { id: "evaluate", label: "Evaluate" },
+      { id: "watchdog", label: "Stop Watchdog" },
+      { id: "daily-summary", label: "Daily Summary" }
+    ];
+
+    function cronFmtTime(iso) {
+      if (!iso) return "never";
+      return new Date(iso).toLocaleString("en-GB", { timeZone: "Etc/GMT-2", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" }) + " GMT+2";
+    }
+
+    async function renderCronJobs() {
+      const el = $("cronJobsList");
+      if (!el) return;
+      let status;
+      try {
+        const r = await fetch("/api/cron/status");
+        if (r.status === 401) { el.innerHTML = '<span style="color:var(--muted)">Sign in as the configured owner account (TRADER_OWNER_UID) to view and manage scheduled jobs.</span>'; return; }
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        status = await r.json();
+      } catch (e) {
+        el.innerHTML = '<span style="color:var(--muted)">Could not load job status.</span>';
+        return;
+      }
+      const runsByJob = {};
+      (status.runs || []).forEach(function (run) { runsByJob[run.job] = run; });
+      const enabledByJob = {};
+      (status.config || []).forEach(function (c) { enabledByJob[c.job] = c.enabled; });
+
+      el.innerHTML = CRON_JOBS.map(function (j) {
+        const run = runsByJob[j.id];
+        const enabled = enabledByJob[j.id] !== false; // no row yet => enabled by default
+        const statusLabel = !run ? "never run"
+          : run.status === "running" ? "running…"
+          : run.status === "ok" ? "OK · " + cronFmtTime(run.finished_at || run.started_at)
+          : "FAILED · " + cronFmtTime(run.finished_at || run.started_at);
+        const statusColor = !run ? "var(--muted)" : run.status === "ok" ? "var(--green)" : run.status === "running" ? "var(--blue)" : "var(--red)";
+        return '<div class="rule-row">' +
+          '<div class="rule-dot" style="background:' + statusColor + '"></div>' +
+          '<div style="flex:1">' +
+            '<b>' + j.label + '</b> <span class="small" style="color:' + statusColor + '">' + statusLabel + '</span>' +
+            (run && run.triggered_by ? ' <span class="small" style="color:var(--muted)">(' + run.triggered_by + ')</span>' : '') +
+          '</div>' +
+          '<label class="small" style="color:var(--muted);margin-right:10px">' +
+            '<input type="checkbox" ' + (enabled ? "checked" : "") + ' onchange="cronToggle(\'' + j.id + '\', this.checked)" /> enabled' +
+          '</label>' +
+          '<button class="btn" style="font-size:11px;padding:3px 9px" onclick="cronRunNow(\'' + j.id + '\')" data-tip="Trigger this job now (dry-run while CRON_EXECUTE is unset).">Run now</button>' +
+        '</div>';
+      }).join("");
+    }
+
+    async function cronToggle(job, enabled) {
+      try {
+        await fetch("/api/cron/config/" + encodeURIComponent(job), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: enabled })
+        });
+      } catch (e) {}
+      renderCronJobs();
+    }
+
+    async function cronRunNow(job) {
+      try {
+        await fetch("/api/cron/" + encodeURIComponent(job), { method: "POST" });
+      } catch (e) {}
+      renderCronJobs();
+    }
+
     function renderCommand(c) {
       const L = getSettings().limits;
       renderScoutChip();          // best-effort async — fills #scoutChip
       renderHwmSplitWarning();    // best-effort async — fills #hwmSplitWarning
       renderBudgetChip(c);        // over-budget warning — fills #budgetChip (item 3)
+      renderCronJobs();           // best-effort async — fills #cronJobsList
       const rules = [];
 
       function add(level, title, detail) {

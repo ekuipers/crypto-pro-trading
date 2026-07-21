@@ -1,0 +1,7 @@
+{
+  "crons": [
+    { "path": "/api/cron/evaluate", "schedule": "0 2 * * *" },
+    { "path": "/api/cron/watchdog", "schedule": "0 4 * * *" },
+    { "path": "/api/cron/daily-summary", "schedule": "0 6 * * *" }
+  ]
+}
