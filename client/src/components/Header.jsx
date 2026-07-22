@@ -14,7 +14,7 @@ export default function Header() {
         >
           <span className="dot"></span>
           <select id="setMode" onChange={() => window.onModeChange()} title="Switch active trading mode">
-            <option value="paper">Paper Trading</option>
+            <option value="paper">Paper Spot Trading</option>
             <option value="live">Live Trading</option>
           </select>
         </span>

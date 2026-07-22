@@ -1,5 +1,34 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-22.3 — 2026-07-22 — Roadmap rescan: "Paper Trading" → "Paper Spot Trading"
+
+**Task:** Suite `CLAUDE.md` roadmap item 2: "Trader: replace all references 'Paper Trading' with 'Paper
+Spot Trading'. The reason for this is that Futures trading not yet available is in this Suite." Item removed
+from Suite roadmap per the "move completed items to the project's memory.md" workflow rule.
+
+**Implementation:** Updated every user-facing UI label and first-party doc/skill reference to the app's own
+paper-trading mode (left Alpaca's own dashboard UI label alone in README.md, since that's an external
+screenshot-accurate instruction, not our copy):
+- `client/src/components/Header.jsx` — mode-select dropdown option `"Paper Trading"` → `"Paper Spot Trading"`.
+- `client/src/components/Footer.jsx` — tagline "paper-trading cockpit" → "paper-spot-trading cockpit"; the
+  disclaimer line "Paper trading by default" → "Paper spot trading by default".
+- `client/src/tabs/settings.html` — "📄 Paper Trading" section header → "📄 Paper Spot Trading".
+- `client/src/fragments/modals.html` — Terms of Service copy: "paper-crypto trading cockpit" → "paper-crypto
+  spot trading cockpit", "paper trading mode by default" → "paper spot trading mode by default".
+- `src/js/trade-modal.js` — both live-order-blocked alert strings now say "Switch to Paper Spot Trading mode".
+- `README.md` — Settings-tab description (2 places) and the closing agent-purpose note now say "Paper Spot
+  Trading" / "paper spot trading agent".
+- `skills/crypto-trader/SKILL.md`, `skills/crypto-catalysts/SKILL.md` — frontmatter descriptions now say
+  "Alpaca paper spot trading agent".
+- `skills/daily-journal-SKILL.md` — hard-rule bullet now says "Paper spot trading only".
+- `memory/glossary.md` — glossary term renamed `Paper trading` → `Paper spot trading` with a "(no futures
+  support yet)" note.
+- **Left unchanged (historical record, not live copy):** past dated entries in `memory.md`,
+  `claude_md_archive.md`, and `reports/*.md` that quote the old wording as of when it was written; those
+  describe what shipped at the time, not current UI text.
+
+**Verified:** `npm run build` (Vite: 46 modules, 0 errors).
+
 ## v2026-07-22.2 — 2026-07-22 — Roadmap rescan: Scheduled Jobs own sub-tab, footer disclaimer + Terms of Service
 
 **Task:** A "rescan roadmap" pass found two uncommitted items hand-drafted in `CryptoPro Suite/CLAUDE.md`

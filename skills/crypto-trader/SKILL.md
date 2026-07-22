@@ -1,7 +1,7 @@
 ---
 name: crypto-trader
 description: >
-  Professional crypto trading strategy guide for the Alpaca paper trading agent.
+  Professional crypto trading strategy guide for the Alpaca paper spot trading agent.
   Use this skill whenever you are evaluating a trade, running the hourly evaluation,
   researching a symbol, or writing a journal entry. It covers entry/exit signals,
   technical analysis interpretation, multi-timeframe analysis, Wyckoff market

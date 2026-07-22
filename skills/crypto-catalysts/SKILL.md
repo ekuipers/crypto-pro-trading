@@ -1,7 +1,7 @@
 ---
 name: crypto-catalysts
 description: >
-  Crypto news & event interpretation guide for the Alpaca paper trading agent.
+  Crypto news & event interpretation guide for the Alpaca paper spot trading agent.
   Use this skill whenever the hourly research pass fetches headlines, whenever the
   Decision Checklist asks "What does recent news say? Any macro catalysts?", or
   before entering/holding a position through a known scheduled event. It maps

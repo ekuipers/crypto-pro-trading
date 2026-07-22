@@ -74,5 +74,5 @@ macro catalysts (if known from news fetched during research passes).
 - Per-symbol caps from config.json › portfolio_caps.caps (BTC=30%, ETH=15%, ADA/SOL=10%, DOGE=8%, LTC/DOT=6%, LINK/AVAX/AAVE=5%) — flag any breach
 - Stop-loss: −5% from entry for longs; +5% from entry for shorts (price rising)
 - TA exit threshold: score ≤ −2 closes a long; score ≥ +2 covers a short
-- Paper trading only — base URL must always contain "paper-api.alpaca.markets"
+- Paper spot trading only — base URL must always contain "paper-api.alpaca.markets"
 - Journal entry must be written every day without exception

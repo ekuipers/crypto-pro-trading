@@ -46,7 +46,7 @@
       const settings = getSettings();
 
       if (settings.mode === "live") {
-        alert("Live order execution is blocked by this dashboard. Switch to Paper Trading mode to submit a test order.");
+        alert("Live order execution is blocked by this dashboard. Switch to Paper Spot Trading mode to submit a test order.");
         return;
       }
 
@@ -174,7 +174,7 @@
       const settings = getSettings();
 
       if (settings.mode === "live") {
-        alert("Live order execution is blocked by this dashboard. Switch to Paper Trading mode to submit a test order.");
+        alert("Live order execution is blocked by this dashboard. Switch to Paper Spot Trading mode to submit a test order.");
         return;
       }
 

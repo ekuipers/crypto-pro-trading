@@ -441,7 +441,7 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | Hard cap | Position capped at 5% of total equity; enforced in trade.py |
 | ATR sizing | 1% risk rule: qty = (equity×1%) / (ATR×1.5), capped at 5% equity |
 | Limit order | Only order type used; price ≤ ask + 0.2% |
-| Paper trading | Simulated trades only; Alpaca paper environment |
+| Paper spot trading | Simulated spot trades only; Alpaca paper environment (no futures support yet) |
 | Morning brief | Scheduled 7 AM task: eval + journal block + dashboard summary |
 | Daily regime | Computed from 90-day daily bars: SMA-20 vs SMA-50 vs last close |
 | Vol ratio | Current bar volume / 20-bar average volume |
