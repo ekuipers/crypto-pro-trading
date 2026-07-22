@@ -107,6 +107,9 @@ Without a connection string, sign-in/register return 503 and the rest of the das
 The "Enable 2FA" dialog shows a scannable QR code (any TOTP authenticator app) alongside the manual-entry
 secret, generated client-side via a vendored `qrcode-generator` (no network call).
 
+The account modal also lets you save a notification email (`accounts.notification_email`), unrelated to
+sign-in. It's captured and persisted only — nothing sends a notification anywhere yet.
+
 Signing in on the CryptoPro Suite landing page and clicking through to this dashboard also signs you in
 here automatically — a short-lived, single-use `?sso=` ticket in the URL is redeemed for a local session
 and stripped from the address bar. This app only accepts that handoff today; it doesn't yet issue tickets

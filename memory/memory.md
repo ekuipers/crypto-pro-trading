@@ -1,5 +1,24 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-22.7 — 2026-07-22 — Roadmap: notification email on the account profile
+
+**Task:** "rescan roadmap" (Suite's shared master `CLAUDE.md`, roadmap item #1: "Add the option for the
+user to add an email address to their profile to receive notifications. Save it in the accounts table in
+the database"). Same shared auth stack as the 2FA QR code above, so implemented in all 4 suite projects.
+
+**Fix:** `src/db.js` — `alter table accounts add column if not exists notification_email text` (same
+idempotent pattern as `totp_secret`), `toAccount()` maps it, new `updateNotificationEmail(uid, email)`.
+`src/auth.js` — new authenticated `POST /api/auth/notification-email` route (plain regex validation, empty
+body clears the field); `publicUser()` now includes `notificationEmail`. `src/js/auth.js` — the account
+modal (`openAccountModal()`) gained a "Notification email" input + inline Save button that posts to the
+new route and updates local state on success, no page reload needed. No email is actually sent anywhere
+yet — this only captures and persists the address (no SMTP provider configured anywhere in the suite,
+same gap already noted for "forgot password").
+
+**Verified:** `node --check` passed on `src/db.js`, `src/auth.js`, `src/js/auth.js`. **Not verified: an
+actual browser save round-trip** — no running dev server with a live DB connection was exercised this
+session. Full cross-project writeup: Suite's `memory/memory.md` v2026-07-22.7.
+
 ## v2026-07-22.6 — 2026-07-22 — Roadmap: 2FA registration QR code
 
 **Task:** "scan roadmap" (Suite's shared master `CLAUDE.md`, roadmap item #3: "Add a QR Code to the 2FA

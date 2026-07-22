@@ -90,6 +90,8 @@ export async function init() {
   await q(`alter table accounts add column if not exists totp_secret text`);
   await q(`alter table accounts add column if not exists totp_enabled boolean not null default false`);
   await q(`alter table accounts add column if not exists password_changed_at timestamptz`);
+  // Suite roadmap: optional email for notifications, unrelated to sign-in.
+  await q(`alter table accounts add column if not exists notification_email text`);
   await q(`create table if not exists sessions (
     sid        text primary key,
     uid        text not null references accounts(id) on delete cascade,
@@ -185,6 +187,7 @@ function toAccount(r) {
     salt: r.salt, passwordHash: r.password_hash,
     createdAt: r.created_at, lastLogin: r.last_login,
     totpSecret: r.totp_secret, totpEnabled: !!r.totp_enabled,
+    notificationEmail: r.notification_email,
   };
 }
 export async function getAccount(uid) {
@@ -214,6 +217,9 @@ export async function enableTotp(uid) {
 }
 export async function disableTotp(uid) {
   await q('update accounts set totp_enabled = false, totp_secret = null where id = $1', [uid]);
+}
+export async function updateNotificationEmail(uid, email) {
+  await q('update accounts set notification_email = $2 where id = $1', [uid, email]);
 }
 
 // ---- Sessions --------------------------------------------------------------

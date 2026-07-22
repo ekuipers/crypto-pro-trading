@@ -84,8 +84,9 @@ const DUMMY_SALT = 'a'.repeat(32);
 const DUMMY_HASH = crypto.scryptSync('dummy-password-for-timing-parity', DUMMY_SALT, 64).toString('hex');
 
 const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const normUser = (u) => String(u || '').trim().toLowerCase();
-const publicUser = (u) => ({ id: u.id, username: u.username, displayName: u.displayName || u.username, totpEnabled: !!u.totpEnabled });
+const publicUser = (u) => ({ id: u.id, username: u.username, displayName: u.displayName || u.username, totpEnabled: !!u.totpEnabled, notificationEmail: u.notificationEmail || '' });
 
 // ---- Public: who is this request? ---------------------------------------
 export async function currentUser(req) {
@@ -251,6 +252,25 @@ export function installAuthRoutes(app) {
     } catch (e) {
       console.error('[auth] change-password failed:', e?.stack || e);
       res.status(500).json({ error: 'Could not change password — database error, please retry.' });
+    }
+  });
+
+  // ---- Notification email (Suite roadmap) --------------------------------
+  // Unrelated to sign-in; just an address the account can be reached at for
+  // future notifications. Optional — an empty body clears it.
+  app.post('/api/auth/notification-email', async (req, res) => {
+    try {
+      const uid = await currentUid(req);
+      if (uid === db.GUEST) return res.status(401).json({ error: 'Sign in first' });
+      const email = String(req.body?.email || '').trim();
+      if (email && !EMAIL_RE.test(email)) {
+        return res.status(400).json({ error: 'Enter a valid email address' });
+      }
+      await db.updateNotificationEmail(uid, email || null);
+      res.json({ ok: true, notificationEmail: email });
+    } catch (e) {
+      console.error('[auth] notification-email update failed:', e?.stack || e);
+      res.status(500).json({ error: 'Could not save email — database error, please retry.' });
     }
   });
 
