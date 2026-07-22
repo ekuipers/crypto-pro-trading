@@ -1,5 +1,21 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-22.5 — 2026-07-22 — Node-cutover gate 2: root cause of missing shadow-run entries confirmed + first automated run landed
+
+**Follow-up to v2026-07-22.4.** Erik fixed the actual root cause directly in the workflow (commits
+`534e4ed`/`c367149`/`a34cfaf`, GitHub web UI): the job had no `environment: 'paper'` block, so the
+GitHub Environment holding the paper Alpaca secrets never resolved and `APCA_API_KEY_ID`/
+`APCA_API_SECRET_KEY` came through empty — not a code bug in the evaluator scripts as first suspected.
+Fix added `environment: 'paper'` plus a "Validate credentials" step that fails fast with a clear error
+if any of `APCA_API_KEY_ID`/`APCA_API_SECRET_KEY`/`APCA_BASE_URL` is empty. My `set -e`/`pipefail` fix
+from v2026-07-22.4 stays as a general safety net (it's what would have surfaced this cleanly instead of
+silently reading as "no changes" once credentials were empty).
+
+**Result:** first genuine automated shadow-run entry landed 2026-07-22T19:31:39Z — 10 symbols compared,
+0 mismatches. Gate 2's clock has now actually started, but this is only 1 of the required ~24h/multiple
+cycles — do not treat gate 2 as satisfied until several more clean automated entries accumulate in
+`data/shadow_run_log.jsonl`.
+
 ## v2026-07-22.4 — 2026-07-22 — Roadmap rescan: fixed silent-failure gap in the Node-cutover shadow-run workflow
 
 **Task:** Suite roadmap's only open item (#1, Trader-only: retire GitHub Actions in favor of Vercel) is
