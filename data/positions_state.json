@@ -3,7 +3,73 @@
   "day_open_date": "2026-07-22",
   "capital_preservation_mode": false,
   "capital_preservation_since": null,
-  "positions": {},
-  "last_evaluation_iso": "2026-07-22T10:32:24.311391+00:00",
+  "positions": {
+    "AAVE/USD": {
+      "entry_price": 98.19,
+      "entry_time_iso": "2026-07-22T13:56:23.489416Z",
+      "high_water_mark": null,
+      "trailing_stop_active": false,
+      "partial_tp_done": false,
+      "breakeven_stop": null,
+      "pyramid_tranches": 0,
+      "stop_order_id": null,
+      "stop_order_placed_iso": null,
+      "stop_order_limit_price": null,
+      "stop_order_cycles": 0
+    },
+    "ETH/USD": {
+      "entry_price": 1938.11,
+      "entry_time_iso": "2026-07-22T13:56:03.802397Z",
+      "high_water_mark": null,
+      "trailing_stop_active": false,
+      "partial_tp_done": false,
+      "breakeven_stop": null,
+      "pyramid_tranches": 0,
+      "stop_order_id": null,
+      "stop_order_placed_iso": null,
+      "stop_order_limit_price": null,
+      "stop_order_cycles": 0
+    },
+    "LINK/USD": {
+      "entry_price": 8.700587009,
+      "entry_time_iso": "2026-07-22T15:40:00.544377Z",
+      "high_water_mark": null,
+      "trailing_stop_active": false,
+      "partial_tp_done": false,
+      "breakeven_stop": null,
+      "pyramid_tranches": 0,
+      "stop_order_id": null,
+      "stop_order_placed_iso": null,
+      "stop_order_limit_price": null,
+      "stop_order_cycles": 0
+    },
+    "LTC/USD": {
+      "entry_price": 46.87,
+      "entry_time_iso": "2026-07-22T15:24:47.28477Z",
+      "high_water_mark": null,
+      "trailing_stop_active": false,
+      "partial_tp_done": false,
+      "breakeven_stop": null,
+      "pyramid_tranches": 0,
+      "stop_order_id": null,
+      "stop_order_placed_iso": null,
+      "stop_order_limit_price": null,
+      "stop_order_cycles": 0
+    },
+    "SOL/USD": {
+      "entry_price": 77.6175,
+      "entry_time_iso": "2026-07-22T11:05:09.183635Z",
+      "high_water_mark": null,
+      "trailing_stop_active": false,
+      "partial_tp_done": false,
+      "breakeven_stop": null,
+      "pyramid_tranches": 0,
+      "stop_order_id": null,
+      "stop_order_placed_iso": null,
+      "stop_order_limit_price": null,
+      "stop_order_cycles": 0
+    }
+  },
+  "last_evaluation_iso": "2026-07-22T17:27:32.387611+00:00",
   "streak_throttle_active": true
 }
