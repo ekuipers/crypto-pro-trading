@@ -1,5 +1,29 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-22.6 — 2026-07-22 — Roadmap: 2FA registration QR code
+
+**Task:** "scan roadmap" (Suite's shared master `CLAUDE.md`, roadmap item #3: "Add a QR Code to the 2FA
+registration dialog"). This is auth infrastructure shared identically across all 4 suite projects (per
+this project's own `CLAUDE.md` "Auth / SSO" note — `src/auth.js`/`src/db.js`/`src/totp.js` were ported
+from Charts/Suite), so implemented in all 4, not just here. `/api/auth/2fa/setup` (`src/auth.js`) already
+returned an `otpauthUri` (`src/totp.js`'s `otpauthUri()`), but the client's `openSetupTotpModal()`
+(`src/js/auth.js`) only ever rendered the raw secret as text.
+
+**Fix:** vendored `qrcode-generator` (Kazuhiko Arase, MIT, pure JS, no deps — deliberately not hand-rolled,
+Reed-Solomon QR encoding is easy to get subtly wrong; also avoids a CDN script per the web-security
+ruleset) as `src/js/qrcode-lib.js`, added to `client/src/scriptLoader.js`'s `SCRIPT_ORDER` right before
+`auth.js` (loads as a classic global, `window.qrcode`). `openSetupTotpModal()` now renders a new
+`totpQrTag(setup.otpauthUri)` helper's `<img>` (inline data-URI, no network call) above the existing
+secret text.
+
+**Verified:** `node --check` passed on `src/js/auth.js` and `client/src/scriptLoader.js`; `npm run build`
+(client) built clean; the vendored encoder was round-tripped in Node against a real `otpauth://` URI to
+confirm it actually produces a valid QR (41×41-module `data:image/gif;base64,...`), not just that the file
+parses — same check run against all 4 projects' copies, checksums identical. **Not verified: an actual
+phone-camera scan of the rendered modal** — no browser-automation tool or a signed-in test session (needs
+Postgres) was available in this run; worth a manual check before considering this fully closed. Full
+cross-project writeup: Suite's `memory/memory.md` v2026-07-22.6.
+
 ## v2026-07-22.5 — 2026-07-22 — Node-cutover gate 2: root cause of missing shadow-run entries confirmed + first automated run landed
 
 **Follow-up to v2026-07-22.4.** Erik fixed the actual root cause directly in the workflow (commits
