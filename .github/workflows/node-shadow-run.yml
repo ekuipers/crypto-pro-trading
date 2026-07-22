@@ -54,11 +54,21 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
-      - name: Configure paper env vars
+      - name: Configure trading env vars
         run: |
-          echo "APCA_BASE_URL=https://paper-api.alpaca.markets" >> "$GITHUB_ENV"
-          echo "APCA_API_KEY_ID=${{ secrets.APCA_PAPER_KEY_ID }}" >> "$GITHUB_ENV"
-          echo "APCA_API_SECRET_KEY=${{ secrets.APCA_PAPER_SECRET_KEY }}" >> "$GITHUB_ENV"
+            echo "TRADING_ENV=paper" >> "$GITHUB_ENV"
+            echo "APCA_BASE_URL=https://paper-api.alpaca.markets" >> "$GITHUB_ENV"
+            echo "APCA_API_KEY_ID=${{ secrets.APCA_PAPER_KEY_ID }}" >> "$GITHUB_ENV"
+            echo "APCA_API_SECRET_KEY=${{ secrets.APCA_PAPER_SECRET_KEY }}" >> "$GITHUB_ENV"
+
+      - name: Validate credentials
+        run: |
+          missing=0
+          [ -z "$APCA_API_KEY_ID" ] && echo "ERROR: APCA_API_KEY_ID is empty" && missing=1
+          [ -z "$APCA_API_SECRET_KEY" ] && echo "ERROR: APCA_API_SECRET_KEY is empty" && missing=1
+          [ -z "$APCA_BASE_URL" ] && echo "ERROR: APCA_BASE_URL is empty" && missing=1
+          [ $missing -eq 1 ] && exit 1
+          echo "Credentials present. ENV=$TRADING_ENV BASE_URL=$APCA_BASE_URL"
 
       - name: Run both evaluators concurrently (read-only, dry-run)
         run: |
