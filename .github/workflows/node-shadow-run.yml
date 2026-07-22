@@ -62,15 +62,23 @@ jobs:
 
       - name: Run both evaluators concurrently (read-only, dry-run)
         run: |
+          set -uo pipefail
           node scripts/verify_decision_parity.mjs > /tmp/node_parity.json 2> /tmp/node_parity.err &
           NODE_PID=$!
           python scripts/verify_decision_parity.py > /tmp/py_parity.json 2> /tmp/py_parity.err
+          PY_STATUS=$?
           wait "$NODE_PID"
+          NODE_STATUS=$?
           echo "--- python stderr ---"; cat /tmp/py_parity.err
           echo "--- node stderr ---"; cat /tmp/node_parity.err
+          if [ "$PY_STATUS" -ne 0 ] || [ "$NODE_STATUS" -ne 0 ]; then
+            echo "::error::Evaluator failed (python exit=$PY_STATUS, node exit=$NODE_STATUS) -- see stderr above"
+            exit 1
+          fi
 
       - name: Diff and append to shadow-run log
         run: |
+          set -euo pipefail
           mkdir -p data
           python scripts/shadow_run_diff.py /tmp/py_parity.json /tmp/node_parity.json | tee -a data/shadow_run_log.jsonl
 

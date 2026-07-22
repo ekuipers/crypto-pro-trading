@@ -1,5 +1,35 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-22.4 — 2026-07-22 — Roadmap rescan: fixed silent-failure gap in the Node-cutover shadow-run workflow
+
+**Task:** Suite roadmap's only open item (#1, Trader-only: retire GitHub Actions in favor of Vercel) is
+correctly blocked — the remaining piece (removing `trade.yml`/`watchdog.yml`/`forward.yml`) needs the
+Node.js port's gate 2 (≥24h clean automated shadow-run parity, see `CLAUDE.md`'s "Node.js port" section)
+which is not satisfied. Nothing to implement there. While checking gate 2's actual progress, found a bug
+blocking the gate from ever being verifiable.
+
+**Bug found:** `.github/workflows/node-shadow-run.yml` was added 2026-07-21 ~19:00 UTC (commit `169d17b`)
+on an `17 */8 * * *` schedule, so it should have fired 3 times (00:17/08:17/16:17 UTC on 2026-07-22) by the
+time of this rescan (~19:13 UTC). `data/shadow_run_log.jsonl` still only holds the 3 manually-seeded
+session-setup entries from 2026-07-21 — zero automated entries — while `trade.yml` kept committing normally
+on its own schedule across that same window, so GitHub Actions itself is functioning for this repo.
+
+**Root cause:** neither run step used `set -e`/`pipefail`. If either evaluator script (`verify_decision_
+parity.py`/`.mjs`) crashed, `tee -a` would write nothing, `git diff --cached --quiet` would see no staged
+changes, and the job would report success with "No shadow-run log changes" — silently swallowing the exact
+failure that would explain missing entries, with no red X in Actions to flag it.
+
+**Fix:** "Run both evaluators concurrently" step now captures both processes' exit codes explicitly (can't
+just `set -e` through a backgrounded `wait`) and fails the step with `::error::` if either evaluator
+exited non-zero. "Diff and append to shadow-run log" step now runs under `set -euo pipefail` so a failing
+`shadow_run_diff.py` fails the pipeline instead of silently producing an empty append.
+
+**Not verified:** couldn't confirm this was the actual cause of the 3 missing runs — no `gh` CLI or GitHub
+API access in this session to pull the real Actions run history/logs. Recommend checking the Actions tab
+for `node-shadow-run.yml` runs; if they show green with no log entries even after this fix, the cause is
+elsewhere (e.g. cron scheduling, secrets). Gate 2's clock has not effectively started until confirmed
+automated entries are landing.
+
 ## v2026-07-22.3 — 2026-07-22 — Roadmap rescan: "Paper Trading" → "Paper Spot Trading"
 
 **Task:** Suite `CLAUDE.md` roadmap item 2: "Trader: replace all references 'Paper Trading' with 'Paper
