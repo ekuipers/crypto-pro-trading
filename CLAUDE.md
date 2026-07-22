@@ -1,6 +1,6 @@
 # CryptoPro Trader
 Description: Professional cryptocurrency trading & analytics platform. 
-Creator: Erik Kuipers.
+Creator: [name removed].
 Year: 2026
 
 > **Detail archive:** this file was compacted 2026-07-19. The complete pre-compaction text (full
@@ -8,7 +8,7 @@ Year: 2026
 > checklist) lives in **`memory/claude_md_archive.md`** — consult it before changing anything below.
 
 # Workflow rules
-> Master rules shared across all CryptoPro sub-projects: [CryptoPro Suite CLAUDE.md](https://github.com/ekuipers/crypto-pro-suite/blob/main/CLAUDE.md)
+> Master rules shared across all CryptoPro sub-projects: [CryptoPro Suite CLAUDE.md](https://github.com/[username]/crypto-pro-suite/blob/main/CLAUDE.md)
 
 1. Keep a maximum of 2 months of journals and reports.
 2. **Standing rule:** after every change (code, dashboard, config, scripts) update `CLAUDE.md`, `README.md`, `memory/memory.md`, `memory/glossary.md`, and — for dashboard changes — `docs/dashboard_layout.md`. No exceptions.

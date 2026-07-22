@@ -126,7 +126,7 @@ flip `--execute` until all four pass.
 **Also noticed, not fixed (out of scope for this task):** `trade.yml`'s own comment says "Hourly at :23
 per CLAUDE.md" but its actual `cron: '2 */8 * * *'` runs every 8 hours (per the recent "Change trading bot
 schedule to every 8 hours" commit) — the comment is stale and CLAUDE.md's "Schedule" section still
-describes hourly evaluation too. Flagged to Erik; not corrected here since it's a separate
+describes hourly evaluation too. Flagged to the user; not corrected here since it's a separate
 documentation-drift issue unrelated to the cutover gates.
 
 **Verified:** `npm test` 305/305 (no `src/` logic touched — only new `scripts/verify_*`/`shadow_run_diff.py`
@@ -141,7 +141,7 @@ and (by definition) gate 2's 24h requirement.
 Actions onto Vercel, with no GitHub dependency left. That directly conflicted with the previous entry
 (v2026-07-21.6), which had just *re-added* a GitHub Actions pinger (`cron-dispatch-ping.yml`) because
 Vercel Hobby only allows once-daily cron. Surfaced the conflict and the underlying decision (pay for
-Vercel Pro vs. a free non-GitHub external pinger vs. deferring the item) to Erik rather than guessing —
+Vercel Pro vs. a free non-GitHub external pinger vs. deferring the item) to the user rather than guessing —
 this has a cost implication only he can decide. He chose to upgrade to Vercel Pro.
 
 **Changes:**
@@ -165,13 +165,13 @@ than marked done.
 
 **Verified:** `npm test` still green (no `src/` logic touched, only cron config/comments/docs). **Not
 verified — outside this session's reach:** the actual Vercel plan upgrade taking effect, or a live hourly
-`/api/cron/dispatch` invocation post-upgrade (both require Erik's Vercel dashboard).
+`/api/cron/dispatch` invocation post-upgrade (both require the user's Vercel dashboard).
 
 ---
 
 ## v2026-07-21.6 — 2026-07-21 — Bugfix: v2026-07-21.5's vercel.json broke deployment (Hobby plan cron limit)
 
-**Reported:** "Vercel deployment was not triggered with the last commit in Trader." Asked Erik to check the
+**Reported:** "Vercel deployment was not triggered with the last commit in Trader." Asked the user to check the
 Vercel dashboard/plan rather than guessing; confirmed **Vercel Hobby**.
 
 **Root cause:** v2026-07-21.5 changed `vercel.json`'s cron from 3 fixed daily times to a single hourly
@@ -203,7 +203,7 @@ one-line rule under the existing `## Lessons` section (near the end of this file
 
 **Verified:** `npm test` (305/305, unchanged — this fix touched no `src/` logic, only `vercel.json` and a
 new GitHub Actions workflow). **Not verified — outside this session's reach:** an actual Vercel deployment
-succeeding post-fix, or the GitHub Actions pinger's first real hourly run (both require Erik's Vercel
+succeeding post-fix, or the GitHub Actions pinger's first real hourly run (both require the user's Vercel
 dashboard / the `CRON_SECRET` repo secret being set).
 
 ## v2026-07-21.5 — 2026-07-21 — Roadmap follow-up: adjustable cron schedule + settings permission
@@ -298,7 +298,7 @@ Node.js port cutover checklist (frozen-fixture parity, ≥24h live shadow-run pa
 below) hasn't been run, and flipping it on trust alone would risk two engines (Python cron + this) placing
 duplicate orders against the same paper account. This ships the *infrastructure* — routes, schema,
 dashboard panel, all real and testable — ahead of that go-live decision, which is deliberately left to
-Erik. GitHub Actions workflows are untouched and remain the live engine.
+the user. GitHub Actions workflows are untouched and remain the live engine.
 
 **Mandatory security-reviewer pass** (this project's code-review rules require it for new auth/DB/
 external-API code) found 3 HIGH findings before commit, all fixed: (1) the `GET` cron routes originally
@@ -330,7 +330,7 @@ cutover" section + a Dashboard bullet for the new panel + `.env.example` entries
 `CRON_EXECUTE`/`TRADER_OWNER_UID`; `README.md` gained a "Scheduled jobs via Vercel Cron" setup section;
 `memory/glossary.md` gained a full term list. Footer version bumped v2026-07-21.3 → v2026-07-21.4.
 
-**Next step, when Erik wants to go live:** check the Vercel plan tier isn't needed now (once/day sidesteps
+**Next step, when the user wants to go live:** check the Vercel plan tier isn't needed now (once/day sidesteps
 it), set `TRADER_OWNER_UID`, optionally `CRON_SECRET`, run the 4-gate parity checklist (`CLAUDE.md` ›
 Node.js port), then and only then set `CRON_EXECUTE=true`.
 
@@ -347,7 +347,7 @@ code change — entered Plan Mode, produced the analysis below, then filed it. N
 automation, all Python, all committing state to git — `trade.yml` (`run_evaluation.py` every 8h +
 `daily_summary.py` daily), `forward.yml` (`walkforward_evaluate.py` daily, numpy), `watchdog.yml`
 (`stop_watchdog.py`, **actually cron `0 3 * * *`/once-daily**, not the "every 5 min" this file used to
-say — Erik manually throttled it 2026-07-20 (`1c6cb13`) to cut Actions minutes, doc now fixed above).
+say — the user manually throttled it 2026-07-20 (`1c6cb13`) to cut Actions minutes, doc now fixed above).
 Node port (Phase 2, `memory/claude_md_archive.md`) covers `runEvaluation.js`/`trade.js`/`evaluateSymbol.js`
 and everything they depend on (280 tests). **Not ported:** `stop_watchdog.js` (named blocker — shares
 `positions_state.json` with `run_evaluation`, must land before any cutover), `dailySummary.js`,
@@ -377,7 +377,7 @@ execution-time budget. Considered and rejected: an always-on Node host (node-cro
 "Every 5 min" watchdog line in this file's Schedule section. Full plan text (superset of this entry,
 same content) was written to `C:\Users\An\.claude\plans\snappy-discovering-wind.md` during the session
 but that path is outside this repo and not guaranteed to survive — this memory entry is the durable copy.
-Next step, when Erik wants to act on it: check Vercel plan tier + time a local `runEvaluation.js` run,
+Next step, when the user wants to act on it: check Vercel plan tier + time a local `runEvaluation.js` run,
 then port `stop_watchdog.js`/`dailySummary.js`, then build the `/api/cron/*` routes + Postgres tables.
 
 ## v2026-07-21.2 — 2026-07-21 — Roadmap: settings sync to Postgres (Suite roadmap)
@@ -496,7 +496,7 @@ bug). So the Python fix *was* working — the new round trips had to be coming f
 carries three independent ports of `reconcile_positions_from_fills()`, and I'd only fixed the original:
 1. `scripts/run_evaluation.py` (Python, live engine) — fixed in v2026-07-20.1.
 2. `src/js/edge-insights.js`'s `apReconcileFromFills()` — used by the **browser-side Autopilot**
-   (`src/js/autopilot.js`), which runs independently in Erik's browser whenever toggled on and places its
+   (`src/js/autopilot.js`), which runs independently in the user's browser whenever toggled on and places its
    own real orders (`client_order_id` `ap-`). This was still running the pre-fix per-lot-dust logic, so it
    kept mis-flagging LTC/BTC as "partial TP already done" and pinning breakeven stops — explaining the
    continued round trips despite the Python fix being live.
@@ -539,7 +539,7 @@ made up the position. Added 2 regression tests to `tests/test_reconcile.py` repr
 small-trailing-lot shape and a multi-episode sequence; all 173 Python tests pass (was 171).
 
 **Bug (Suite list) — Trader→Charts symbol links never resolved.** Not actually a watchlist-membership
-issue (Erik's guess in the bug report) — `tvLink()` (`src/js/utils.js`) always emits USD-quoted tickers
+issue (the user's guess in the bug report) — `tvLink()` (`src/js/utils.js`) always emits USD-quoted tickers
 (Alpaca is USD-only), but Charts' router applied the link straight to its *default* exchange (binance/
 bybit), which lists alts in USDT, not USD, so the fetch 404'd for anything but a handful of USD-native
 pairs. Fixed by pinning `&exchange=alpaca` on every `tvLink()` URL — Alpaca is the venue Trader actually
@@ -634,7 +634,7 @@ existing lesson below — local HEAD was already even with the remote, no stale-
 **Gaps found and fixed in this repo** (checked against Suite rules 3, 14, 16 — full audit + Charts/Training
 fixes logged in `CryptoPro Suite/memory/memory.md`):
 - Rule 3 (title/year/creator/donation link in footer): `client/src/components/Footer.jsx` had everything
-  except the donation link. Added a `☕ Donate` link to `https://buymeacoffee.com/erikkuipers` (same URL
+  except the donation link. Added a `☕ Donate` link to `https://buymeacoffee.com/[username]` (same URL
   Suite's own footer uses) + a matching `.footer-donate` style (`src/css/forms-modals-footer.css`, same
   amber `#e0b45c` Suite already uses, for cross-suite consistency per rule 17).
 - Rule 14 ("CryptoPro" a different color than the project-name extension): `Header.jsx` rendered
@@ -660,7 +660,7 @@ black screen upon startup," filed after the React/Vite conversion. Per Suite wor
 precedence over roadmap.
 
 **Investigation:** rebuilt `client/` and served it locally (`node server.js`) — homepage, JS bundle, and
-all `/js/*` `/css/*` assets returned 200 with correct content; no reproduction. Confirmed by Erik: the
+all `/js/*` `/css/*` assets returned 200 with correct content; no reproduction. Confirmed by the user: the
 black screen was a stale browser cache on the client side, not a server/build/app defect — no code change
 needed.
 
@@ -821,7 +821,7 @@ still pass logically (via a scratch `.cjs` copy, since the file has an unrelated
 `require()`-in-an-ESM-project bug dating to 2026-07-13, outside `npm test`'s glob, left unfixed as
 out-of-scope).
 
-**Consequence flagged to the user:** `ekuipers.github.io/crypto-pro-trading/dashboard_professional.html`
+**Consequence flagged to the user:** `[username].github.io/crypto-pro-trading/dashboard_professional.html`
 (GitHub Pages) no longer works — GitHub Pages only serves static files and none remain to publish. The
 Vercel deployment (`server.js`, already Node-capable) is the live URL now; local use requires
 `npm start`/`npm run dev`.
@@ -852,7 +852,7 @@ truncation lesson below).
 
 ## v2026-07-18.5 — 2026-07-18 — CryptoPro suite favicon & logo
 
-**Change (branding, requested by Erik):** Added the shared CryptoPro suite favicon to the dashboard:
+**Change (branding, requested by the user):** Added the shared CryptoPro suite favicon to the dashboard:
 `docs/favicon.svg` (dark navy rounded square, green/red rising candlesticks, green trend line,
 orange badge — this app's badge is opposing buy/sell arrows; Charts uses a line-chart badge,
 Training a graduation cap) plus raster fallbacks `favicon.ico`, `favicon-32.png`,
@@ -932,7 +932,7 @@ alpaca-trading-agent/
 
 **Task:** Owner opened the newly-shipped 📖 Glossary sub-tab (previous session) and filed directly in `CLAUDE.md › Bugs`: "Could not load memory/glossary.md — the dashboard needs to be served (or the file must sit two directories as expected, ../memory/glossary.md from docs/); some browsers block file:// fetches of sibling files." — that text is literally the error message the tab itself showed. Then sent "rescan roadmap"; per rule 8 that triggers implementation, and rule 0 gives the (now-filed) bug precedence over the roadmap (which was already empty).
 
-**Investigation:** Confirmed this is a genuine, structural limitation, not a wrong relative path: `docs/dashboard_professional.html` is designed to be opened directly via `file://` (`CLAUDE.md` workflow rule 2 explicitly forbids starting a local server), and most browsers — Chrome in particular — block `fetch()`/`XMLHttpRequest()` reads of a *different* local file from a page loaded via `file://`, with no workaround available from page script (this is a browser security policy, not a bug in the fetch call itself). The dashboard's existing `loadConfigFromFile()` already hits this same wall for `config.json`, but degrades silently (`console.info`, not a UI error) because it has a harmless fallback — browser-stored settings. The new Glossary tab had no equivalent fallback, so the *first* time this general limitation became user-visible was the tab that had no graceful degradation path. Verified the private repo can't be used as a network fallback either: `curl` confirmed general internet connectivity works from this environment (`api.github.com` → 200) but `raw.githubusercontent.com/ekuipers/alpaca-trading-agent/main/...` 404s for both `README.md` and `glossary.md` — consistent with the repo being private, so an unauthenticated raw-GitHub fetch is a dead end, and embedding a GitHub token client-side to work around it would violate the project's own secret-handling rule.
+**Investigation:** Confirmed this is a genuine, structural limitation, not a wrong relative path: `docs/dashboard_professional.html` is designed to be opened directly via `file://` (`CLAUDE.md` workflow rule 2 explicitly forbids starting a local server), and most browsers — Chrome in particular — block `fetch()`/`XMLHttpRequest()` reads of a *different* local file from a page loaded via `file://`, with no workaround available from page script (this is a browser security policy, not a bug in the fetch call itself). The dashboard's existing `loadConfigFromFile()` already hits this same wall for `config.json`, but degrades silently (`console.info`, not a UI error) because it has a harmless fallback — browser-stored settings. The new Glossary tab had no equivalent fallback, so the *first* time this general limitation became user-visible was the tab that had no graceful degradation path. Verified the private repo can't be used as a network fallback either: `curl` confirmed general internet connectivity works from this environment (`api.github.com` → 200) but `raw.githubusercontent.com/[username]/alpaca-trading-agent/main/...` 404s for both `README.md` and `glossary.md` — consistent with the repo being private, so an unauthenticated raw-GitHub fetch is a dead end, and embedding a GitHub token client-side to work around it would violate the project's own secret-handling rule.
 
 **Fix (`docs/dashboard_professional.html`):**
 - Added a small built-in `GLOSSARY_FALLBACK_MD` constant: a deliberately low-churn curated subset of the real glossary — the Acronyms & Abbreviations table plus ~14 core conceptual Trading Terms (Confluence score, Wyckoff phases, Golden/Death cross, BB squeeze, Regime, Hard cap, ATR sizing, Trailing stop, HWM, Correlation budget, Tier-1 symbols, Daily drawdown gate, Short stop-loss/regime gate, Live R:R). Deliberately excludes the fast-changing dated/implementation-detail sections (function names, dashboard internals) so it won't need updating on every code change the way `memory/glossary.md` itself does.

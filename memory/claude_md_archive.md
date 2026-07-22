@@ -10,14 +10,14 @@
 # Introduction
 Description: Professional cryptocurrency trading & analytics platform.
 Project name: CryptoPro Trader
-Creator: Erik Kuipers
+Creator: [name removed]
 
 ---
 
 # Workflow rules
 
 > Master workflow rules shared across all CryptoPro sub-projects live in
-> [CryptoPro Suite's CLAUDE.md](https://github.com/ekuipers/crypto-pro-suite/blob/main/CLAUDE.md)
+> [CryptoPro Suite's CLAUDE.md](https://github.com/[username]/crypto-pro-suite/blob/main/CLAUDE.md)
 > (memory.md changelog discipline, auto-commit/sync, never delete `.env`, roadmap-scan-triggers-implementation,
 > completed-roadmap-items-to-memory, etc.). Only rules specific to this project are listed below.
 
@@ -52,7 +52,7 @@ file:
   holds `react`/`react-dom`/`vite`/`@vitejs/plugin-react`. **`npm run build` must be run once (or by the
   hosting platform) before `npm start`** — `client/dist/` is generated, not committed (`.gitignore`).
 - This **does** change how the dashboard is served: GitHub Pages
-  (`ekuipers.github.io/crypto-pro-trading/...`) can no longer serve it directly, since there is no
+  (`[username].github.io/crypto-pro-trading/...`) can no longer serve it directly, since there is no
   longer a single static HTML file to publish — the dashboard now requires a build + `node server.js`
   (or a Vercel deploy, which already worked and should auto-run the `build` script) to render. It does
   **not** change how the trading engine runs (GitHub Actions cron).
@@ -653,7 +653,7 @@ platform that runs Node, e.g. Vercel) — **not** openable via `file://` or a pl
   equivalence the way the EJS/JS file split had. **Before relying on this for live trading:** run `npm run
   dev`, open the dashboard, and manually exercise the Autopilot toggle, Settings save, and every top-level
   tab (plus a couple of sub-tabs) in a real browser.
-- **Consequence for the GitHub Pages URL:** `ekuipers.github.io/crypto-pro-trading/dashboard_professional.html`
+- **Consequence for the GitHub Pages URL:** `[username].github.io/crypto-pro-trading/dashboard_professional.html`
   can no longer be served — GitHub Pages only serves static files and there is no longer a static HTML
   file to publish. The Vercel deployment (`server.js`, already Node-capable) is unaffected and becomes the
   only working hosted URL for this dashboard; local use requires `npm run build` once, then
