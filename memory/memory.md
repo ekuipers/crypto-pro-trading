@@ -1,5 +1,42 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-22.2 — 2026-07-22 — Roadmap rescan: Scheduled Jobs own sub-tab, footer disclaimer + Terms of Service
+
+**Task:** A "rescan roadmap" pass found two uncommitted items hand-drafted in `CryptoPro Suite/CLAUDE.md`
+(item 1, the GitHub-cron-to-Vercel item, was already marked `(skip)` there — untouched):
+- Item 2: "Trader: In command center at the bottom of the page a panel is created to monitor scheduled
+  jobs in the backend. Move this section to a new pane next to the Overview pane in command center."
+- Item 3: "Add a disclaimer [to] the footer [for] Suite and Trader that trading can incur losses and that
+  the user is at risk if trading live. Also add a link 'Terms of Service' which opens the Terms of Service
+  description." (Suite side is out of scope for this repo's own memory.)
+
+**Implementation:**
+- **Scheduled Jobs → own sub-tab.** `client/src/tabs/command.html`'s ☁ Scheduled Jobs `<section>` moved out
+  of `subpage-command-overview` into a new `subpage-jobs`; `nav.js`'s `COMMAND_SUBS` gained `"jobs"`
+  (`["command-overview","jobs","news","socials","glossary"]`), placed right after `command-overview` so it's
+  the first sub-tab a user hits, matching the roadmap wording ("next to the Overview pane"). `commandSubTab()`
+  now calls `renderCronJobs()` when `subId === "jobs"` (same lazy-load-on-entry pattern as News/Socials/
+  Glossary); the previously-unconditional `renderCronJobs()` call inside `renderCommand(c)` (fired on every
+  Overview data refresh) is now gated on `_commandSub === "jobs"` so it only keeps refreshing while that
+  sub-tab is actually open. No changes to `src/cronRoutes.js`, `/api/cron/*`, or the panel's own markup —
+  purely a navigation reorganization.
+- **Footer disclaimer + Terms of Service.** `Footer.jsx` gained a yellow `.footer-disclaimer` line ("⚠ Paper
+  trading by default. Live trading can incur real losses — you are solely responsible for that risk.") and a
+  `.footer-terms-link` button calling `openTermsModal()`. New `src/js/terms-modal.js` (added to
+  `client/src/scriptLoader.js`'s `SCRIPT_ORDER`, now 31 files, right after `manual.js`) opens/closes a new
+  `#termsModalBackdrop` (`client/src/fragments/modals.html`) via `style.display = "flex"/"none"` — the same
+  pattern `trade-modal.js`/`daily-journal-shortcuts.js`/`auth.js` already use, no new modal framework. The
+  modal's copy is static (paper-by-default, live-trading risk, no financial advice, no warranty, user accepts
+  risk when enabling live trading) — no network fetch. `src/css/forms-modals-footer.css` gained
+  `.footer-disclaimer`/`.footer-terms-link` rules. `src/js/manual.js`'s Command section updated to say
+  "Scheduled Jobs sub-tab" instead of "panel" so the in-app manual doesn't describe stale navigation.
+
+**Verified:** `npm run build` (Vite: 46 modules, 0 errors — the two new files are runtime-loaded classic
+assets like the other 29, not part of the Vite bundle); a local `node server.js` smoke test (`/` and
+`/js/terms-modal.js` both 200). **Not verified — no browser tool this session:** an actual click-through of
+the new ☁ Scheduled Jobs sub-tab switching correctly, or the Terms of Service modal opening/closing and
+reading legibly in both themes. Footer version/last-modified bumped to `v2026-07-22.2` / `2026-07-22`.
+
 ## v2026-07-22.1 — 2026-07-22 — Roadmap: in-app user manual (Help button, unfolds from the left)
 
 **Task:** CryptoPro Suite roadmap item 1 ("add a user manual to Trader, invoked via the Help button in the
@@ -129,13 +166,6 @@ than marked done.
 **Verified:** `npm test` still green (no `src/` logic touched, only cron config/comments/docs). **Not
 verified — outside this session's reach:** the actual Vercel plan upgrade taking effect, or a live hourly
 `/api/cron/dispatch` invocation post-upgrade (both require Erik's Vercel dashboard).
-
-
-**Status:** Active — paper trading only  
-**Account:** PA3EZEE1I9RS  
-**Root:** `C:\Users\ERKUIPER\OneDrive - Capgemini\015. Repos\alpaca-trading-bot\alpaca-trading-agent`  
-**Owner:** Erik (the.eekman@gmail.com)  
-**Timezone:** GMT+2 (Europe/Amsterdam)
 
 ---
 

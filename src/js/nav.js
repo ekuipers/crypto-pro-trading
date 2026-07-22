@@ -127,7 +127,7 @@
     // state is preserved because the sub-pages keep their rendered DOM.
     const MARKET_SUBS    = ["market-overview", "market-signals", "gapgo"];
     const ANALYTICS_SUBS = ["performance", "pnl", "edge"];
-    const COMMAND_SUBS   = ["command-overview", "news", "socials", "glossary"];
+    const COMMAND_SUBS   = ["command-overview", "jobs", "news", "socials", "glossary"];
     let _marketSub    = "market-overview";
     let _analyticsSub = "performance";
     let _commandSub   = "command-overview";
@@ -187,6 +187,7 @@
       _commandSub = subId;
       _activateSubTab("command", subId);
       if (subId === "command-overview") refreshCurrent();  // reload account/positions context
+      else if (subId === "jobs")        renderCronJobs();  // best-effort async — fills #cronJobsList
       else if (subId === "news")        loadNews();        // 5-min cache; ↻ forces
       else if (subId === "socials")     loadSocials();     // 10-min cache; ↻ forces
       else if (subId === "glossary")    loadGlossary();    // 5-min cache; ↻ forces

@@ -232,6 +232,17 @@
     }
     .footer-logo-icon { width:18px; height:18px; border-radius:4px; vertical-align:middle; }
     .footer-sep { color:var(--border); }
+    .footer-disclaimer { color:var(--yellow); }
+    .footer-terms-link {
+      background:none;
+      border:none;
+      padding:0;
+      color:var(--muted);
+      font-size:12px;
+      text-decoration:underline;
+      cursor:pointer;
+    }
+    .footer-terms-link:hover { color:var(--text); }
     .footer-donate { color:#e0b45c; text-decoration:none; }
     .footer-donate:hover { color:#f0c876; }
     @media(max-width:700px) {

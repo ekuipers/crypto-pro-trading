@@ -20,7 +20,7 @@ const MANUAL_SECTIONS = [
     html: `
       <p>The trading-permission cockpit. The <b>Overview</b> sub-tab shows whether you're currently allowed to trade: live hard-rules checks, cash-reserve gate, equity/cash/open-risk/drawdown KPIs, and the last two fill activities.</p>
       <p>The <b>🤖 Autopilot</b> panel runs an automatic entry/exit loop in your browser tab — it stays off by default on every page load, tags its own orders <code>ap-</code>, and has a red ⛔ kill switch that cancels every open order and stops the loop immediately. Autopilot only works while this browser tab stays open.</p>
-      <p>The <b>☁ Scheduled Jobs</b> panel (only visible to the account owner) shows the last run of the server-side cron jobs — evaluate / watchdog / daily summary — with a per-job enable toggle, an hour-of-day schedule picker, and a manual "Run now" button.</p>
+      <p>The <b>☁ Scheduled Jobs</b> sub-tab (only visible to the account owner) shows the last run of the server-side cron jobs — evaluate / watchdog / daily summary — with a per-job enable toggle, an hour-of-day schedule picker, and a manual "Run now" button.</p>
       <p>The <b>📰 News</b>, <b>🐦 Socials</b>, and <b>📖 Glossary</b> sub-tabs are analysis-only — they never place orders. Glossary renders this project's trading-term dictionary straight into the dashboard with a live search box.</p>
     `,
   },

@@ -275,7 +275,7 @@
       renderScoutChip();          // best-effort async — fills #scoutChip
       renderHwmSplitWarning();    // best-effort async — fills #hwmSplitWarning
       renderBudgetChip(c);        // over-budget warning — fills #budgetChip (item 3)
-      renderCronJobs();           // best-effort async — fills #cronJobsList
+      if (_commandSub === "jobs") renderCronJobs();  // keep it fresh while that sub-tab is open
       const rules = [];
 
       function add(level, title, detail) {

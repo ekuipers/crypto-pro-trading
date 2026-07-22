@@ -1,6 +1,7 @@
     <div id="page-command" class="page active">
       <div class="subnav">
         <button id="subtab-command-overview" class="subtab-btn active" onclick="commandSubTab('command-overview')">🧭 Overview</button>
+        <button id="subtab-jobs" class="subtab-btn" onclick="commandSubTab('jobs')">☁ Scheduled Jobs</button>
         <button id="subtab-news" class="subtab-btn" onclick="commandSubTab('news')">📰 News</button>
         <button id="subtab-socials" class="subtab-btn" onclick="commandSubTab('socials')">🐦 Socials</button>
         <button id="subtab-glossary" class="subtab-btn" onclick="commandSubTab('glossary')">📖 Glossary</button>
@@ -77,19 +78,23 @@
         </div>
       </section>
 
-      <!-- ☁ Scheduled jobs panel (Suite roadmap, "For Trader only", 2026-07-21;
-           adjustable-schedule follow-up 2026-07-21) — the unattended Vercel
-           Cron-triggered evaluate/watchdog/daily-summary engines
-           (src/cronRoutes.js), monitored/enabled/triggered from the dashboard
-           instead of GitHub Actions workflow files. An hourly dispatcher
-           (`vercel.json` -> `/api/cron/dispatch`) checks each job's
-           dashboard-configured hour (src/cronSchedule.js) so the schedule
-           below is genuinely adjustable without a redeploy — runs natively
-           on Vercel Pro's hourly cron, no external pinger needed. Each job
-           also has a "Run now" manual trigger.
-           CRON_EXECUTE stays OFF (dry-run only) until the Node/Python parity
-           checkpoint passes — see CLAUDE.md's Node.js port section — so
-           these jobs run read-only today even when scheduled. -->
+    </div><!-- /subpage-command-overview -->
+
+    <!-- ☁ Scheduled Jobs sub-tab (Suite roadmap, "For Trader only", 2026-07-21;
+         adjustable-schedule follow-up 2026-07-21; moved into its own pane next
+         to Overview per Suite roadmap item 2026-07-22) — the unattended Vercel
+         Cron-triggered evaluate/watchdog/daily-summary engines
+         (src/cronRoutes.js), monitored/enabled/triggered from the dashboard
+         instead of GitHub Actions workflow files. An hourly dispatcher
+         (`vercel.json` -> `/api/cron/dispatch`) checks each job's
+         dashboard-configured hour (src/cronSchedule.js) so the schedule
+         below is genuinely adjustable without a redeploy — runs natively
+         on Vercel Pro's hourly cron, no external pinger needed. Each job
+         also has a "Run now" manual trigger.
+         CRON_EXECUTE stays OFF (dry-run only) until the Node/Python parity
+         checkpoint passes — see CLAUDE.md's Node.js port section — so
+         these jobs run read-only today even when scheduled. -->
+    <div id="subpage-jobs" class="subpage">
       <section>
         <div class="panel">
           <div class="panel-title">☁ Scheduled Jobs</div>
@@ -102,7 +107,7 @@
           <div id="cronJobsList" class="small">Loading…</div>
         </div>
       </section>
-    </div><!-- /subpage-command-overview -->
+    </div><!-- /subpage-jobs -->
 
     <!-- 📰 News sub-tab — aggregated crypto headlines (roadmap 2026-07-09).
          Sources: Alpaca News API (Benzinga, existing keys) + CoinDesk /

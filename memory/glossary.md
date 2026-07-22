@@ -4,6 +4,15 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-22 — Roadmap rescan: Scheduled Jobs own sub-tab, footer disclaimer + Terms of Service
+
+| Term | Meaning |
+|------|---------|
+| `subpage-jobs` | New Command-tab sub-page holding the ☁ Scheduled Jobs panel, split out of `subpage-command-overview` so it's a peer of Overview/News/Socials/Glossary (`COMMAND_SUBS` gained `"jobs"`) rather than a scrolled-past section at the bottom of Overview. `renderCronJobs()` now runs lazily when the Jobs sub-tab is opened (same lazy pattern as News/Socials/Glossary) instead of on every Command-tab data refresh. |
+| Footer disclaimer + Terms of Service | `Footer.jsx` gained a yellow "Paper trading by default. Live trading can incur real losses…" line plus a **Terms of Service** link (`openTermsModal()`, new `src/js/terms-modal.js` + `#termsModalBackdrop` in `modals.html`) with static risk/no-warranty copy — no network fetch, matching the Journal/Manual/Auth modal pattern already used elsewhere in this dashboard. |
+
+---
+
 ## 2026-07-21 — Node port cutover: 4-gate checkpoint worked, 3 pass, gate 2 blocked on real time
 
 | Term | Meaning |

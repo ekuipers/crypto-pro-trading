@@ -109,4 +109,24 @@
     </div>
   </div>
 
+  <!-- ══════════════ TERMS OF SERVICE MODAL (Suite roadmap: footer disclaimer + ToS link) ══════════════ -->
+  <div id="termsModalBackdrop" class="modal-backdrop">
+    <div class="modal" style="width:min(640px,100%);max-height:85vh;display:flex;flex-direction:column">
+      <div class="modal-header">
+        <div class="modal-title">Terms of Service</div>
+        <button class="btn" onclick="closeTermsModal()">✕</button>
+      </div>
+      <div class="modal-body" style="overflow-y:auto;flex:1;line-height:1.6">
+        <p><b>CryptoPro Trader is an educational, autonomous paper-crypto trading cockpit.</b> It ships in <b>paper trading mode by default</b> and connects to Alpaca's paper trading API, which simulates order execution with no real funds at risk.</p>
+        <p><b>Live trading risk.</b> Switching the trading mode to "Live" routes orders to a real brokerage account using your own API keys. Live trading involves substantial risk of loss, including the loss of your entire deposited capital, and is not suitable for every investor. You are solely responsible for any live-mode order this software places on your behalf, and for reviewing every signal, score, and risk parameter before enabling it.</p>
+        <p><b>No financial advice.</b> Nothing in this application — including signal scores, journal entries, research notes, or news/socials aggregation — constitutes investment, financial, legal, or tax advice. Historical or simulated performance shown in this app is not indicative of future results.</p>
+        <p><b>No warranty.</b> This software is provided "as is", without warranty of any kind, express or implied, including but not limited to fitness for a particular purpose, accuracy, or uninterrupted operation. The creator is not liable for any losses, direct or indirect, arising from use of this application.</p>
+        <p><b>Your responsibility.</b> By enabling live trading, adjusting risk limits, or connecting real brokerage credentials, you acknowledge and accept these risks and agree that you are trading at your own discretion and risk.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeTermsModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
   <div id="tooltip"></div>

@@ -1,10 +1,9 @@
-// Loads the 30 dashboard scripts (src/js/*.js, served by the Express server
+// Loads the 31 dashboard scripts (src/js/*.js, served by the Express server
 // at /js/*) as classic, non-module scripts sharing one global scope — the
 // same file set and load order as the prior EJS shell's <script> tags. They
 // must load *after* React's first render puts the .page divs in the
 // document, since the last file's bootstrapDashboard() touches the DOM
-// immediately — see App.jsx's useEffect. None of these 30 files are edited
-// by this change; only the timing of when they load moved.
+// immediately — see App.jsx's useEffect.
 export const SCRIPT_ORDER = [
   'strategy-config.js',
   'utils.js',
@@ -38,6 +37,7 @@ export const SCRIPT_ORDER = [
   'auth.js',
   'settings-sync.js',
   'manual.js',
+  'terms-modal.js',
   'main.js',
 ];
 
