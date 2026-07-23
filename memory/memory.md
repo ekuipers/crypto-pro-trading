@@ -1,5 +1,22 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-23.1 — 2026-07-23 — Roadmap: donation link swapped from Buy Me a Coffee to Patreon
+
+**Task:** "scan roadmap" (Suite's shared master `CLAUDE.md`, roadmap item #1: "Replace the buymeacoffee
+donation link to Patreon"). Suite's own `CLAUDE.md`/README/docs already *described* Patreon as the active
+donation link, but the actual footer code in all 4 suite projects still pointed at
+`buymeacoffee.com/erikkuipers` — the doc update had never been followed by a code change. Implemented
+identically across all 4 projects since the footer donate link is a shared pattern (Suite workflow rule 17).
+
+**Fix:** `client/src/components/Footer.jsx` — `.footer-donate` link now points to
+`https://patreon.com/vibesoftstudio` with label "♥ Support" (was "☕ Donate" → buymeacoffee). Bumped the
+footer's Last modified/Version fields to 2026-07-23 / v2026-07-23.1. Removed the completed item from Suite's
+`CLAUDE.md` "Roadmap (implement)" list (item 2, the Skip'd GitHub-workflow item, renumbered to 1).
+
+**Verified:** visual diff of the footer JSX only (link target + label text); no dev server run this session —
+this is a static link/label change with no logic to exercise. Full cross-project writeup: Suite's
+`memory/memory.md` this same date.
+
 ## v2026-07-22.7 — 2026-07-22 — Roadmap: notification email on the account profile
 
 **Task:** "rescan roadmap" (Suite's shared master `CLAUDE.md`, roadmap item #1: "Add the option for the
