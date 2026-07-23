@@ -2289,6 +2289,16 @@ python scripts/rebalance.py --execute # place orders
 
 ---
 
+## 2026-07-23 — Roadmap rescan: Node cutover gate 2 status check (still open)
+
+**Roadmap item (CryptoPro Suite CLAUDE.md item 1, Trader-only):** remove `trade.yml`/`watchdog.yml`/`forward.yml` GitHub Actions once the Node port cutover's 4-gate parity process passes.
+
+**Finding:** re-checked `data/shadow_run_log.jsonl` during a suite-wide roadmap rescan. Log now holds 4 clean automated cycles (2026-07-22 19:31, 2026-07-23 03:44, 10:35, 17:46 UTC — all `mismatch_count: 0`), but elapsed time between the first and most recent logged entry is ~22h14m, still short of the ≥24h bar by one more scheduled 8h cycle. Initially miscalculated this as passed by comparing the first log entry to current wall-clock time instead of to the most recent logged entry — corrected after re-reading the gate-status memory note, which explicitly warns against that mistake. No code or config changed; `CLAUDE.md`'s gate-2 paragraph timestamp/wording refreshed to match. The next scheduled shadow-run (~2026-07-24 01:46 UTC) should close this gate if it stays clean — did not manually trigger the workflow to force it, since the gate specifically validates the unattended automated mechanism.
+
+**Other roadmap/bugs sections checked this rescan:** Trader, Charts, and Training `CLAUDE.md` all report no open roadmap items or bugs of their own — the Suite item above is the only outstanding actionable item suite-wide, and it remains blocked on gate 2 (and gate 4, execution-time budget, still unverified in production).
+
+---
+
 ## lessons
 - Any `fetch()`/XHR of a same-origin relative local file (config.json, positions_state.json, glossary.md, etc.) in `docs/dashboard_professional.html` can be silently blocked when the dashboard is opened via `file://` — never rely on it as the *only* source for cross-engine state; prefer deriving the same fact from an HTTPS call (e.g. Alpaca's own API via `apiFetch`) when one is available, and treat the local-file fetch as a best-effort enhancement only.
 - When renaming the project, `grep -ri` the whole repo (not just `CLAUDE.md`) for every prior name variant (e.g. "CryptoPro Dashboard", "Alpaca Crypto Trading Agent") before considering the rename done — `<title>` tags, in-page header labels, footer names, and README H1s are easy to miss and only surface later during an unrelated rules audit.
