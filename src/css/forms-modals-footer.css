@@ -231,6 +231,7 @@
       font-size:13px;
     }
     .footer-logo-icon { width:18px; height:18px; border-radius:4px; vertical-align:middle; }
+    .footer-studio { display:inline-flex; align-items:center; gap:6px; }
     .footer-sep { color:var(--border); }
     .footer-disclaimer { color:var(--yellow); }
     .footer-terms-link {
