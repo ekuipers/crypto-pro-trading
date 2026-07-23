@@ -1,5 +1,19 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-23.3 — 2026-07-23 — Fix: footer Developer Studio name typo ("SoftVibe" → "VibeSoft")
+
+**Task:** user asked to revise the footer's studio line. The name landed transposed in v2026-07-23.2 —
+Suite's shared master `CLAUDE.md` (source of truth, workflow rule/line 9) has always said "VibeSoft Studio",
+but this project's footer and journal entry both said "SoftVibe Studio".
+
+**Fix:** `client/src/components/Footer.jsx` — corrected the `<strong>` text to "VibeSoft Studio". Also
+corrected the v2026-07-23.2 journal entry above, which had the same typo. Bumped footer Version
+`v2026-07-23.2` → `.3`. Single-project fix — did not check whether Charts/Training/Suite footers have the
+same typo.
+
+**Verified:** visual diff of the two strings against Suite `CLAUDE.md` line 9; no build run (single JSX text
+change).
+
 ## v2026-07-23.2 — 2026-07-23 — Roadmap: "rescan workflows rules" — Developer Studio logo added to footer
 
 **Task:** "rescan roadmap" (Suite's shared master `CLAUDE.md`, roadmap item #1: "rescan workflows rules").
@@ -12,7 +26,7 @@ footer pattern, Suite workflow rule 17); full cross-project detail in Suite's ow
 
 **Fix:** resized the source PNG to a 96×96 `docs/studio-logo.png` (served at `/studio-logo.png` via this
 project's existing `express.static(docs)`, same path convention as `favicon.svg`). `client/src/components/
-Footer.jsx` gained a "Developer Studio: **SoftVibe Studio**" span (logo + text) next to the existing
+Footer.jsx` gained a "Developer Studio: **VibeSoft Studio**" span (logo + text) next to the existing
 "Creator: Erik Kuipers" line, reusing the existing `.footer-logo-icon` (18×18) sizing; added a `.footer-studio`
 flex-wrapper class to `src/css/forms-modals-footer.css`. Bumped footer Version `v2026-07-23.1` → `.2`.
 
