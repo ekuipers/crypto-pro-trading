@@ -185,12 +185,15 @@ export async function init() {
   await q(`alter table cron_config add column if not exists updated_by_uid text`);
   // Suite roadmap: "Add glossary to the database instead of loading it from
   // a file." Same single-shared-row shape as trader_state — memory/glossary.md
-  // stays the git-tracked, human/AI-edited source (Trader CLAUDE.md workflow
-  // rule 2 still applies to it), but server.js syncs its content into this row
-  // on every boot so the dashboard can actually serve it. This also fixes a
-  // latent production bug: server.js never statically served memory/, so the
-  // live Glossary tab was silently falling back to the small hardcoded
-  // GLOSSARY_FALLBACK_MD snapshot instead of the real ~700-line file.
+  // stays the git-tracked, human/AI-edited source in full (Trader CLAUDE.md
+  // workflow rule 2 still applies to it), but server.js extracts just the
+  // "Acronyms & Abbreviations" + "Trading Terms" sections (src/glossaryExtract.js)
+  // and syncs that into this row on every boot — the rest of the file is a
+  // dated implementation changelog, not glossary content (user correction,
+  // 2026-07-24). This also fixes a latent production bug: server.js never
+  // statically served memory/, so the live Glossary tab was silently falling
+  // back to the small hardcoded GLOSSARY_FALLBACK_MD snapshot instead of the
+  // real file.
   await q(`create table if not exists glossary (
     id         text primary key default 'trader',
     content    text not null,

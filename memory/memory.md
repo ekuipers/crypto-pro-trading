@@ -1,4 +1,36 @@
-# Project: Alpaca Trading Agent
+# Project: CryptoPro Trader
+
+## v2026-07-24.14 — 2026-07-24 ~18:20 UTC — Glossary scope correction: Acronyms + Trading Terms only
+
+**Task:** user correction on the `.13` entry below: "I meant only the Acronyms and Trading terms from the
+glossary. Please correct in the database." The initial implementation synced the entire `memory/glossary.md`
+(~700 lines, ~30 dated implementation-changelog sections) into the DB — too broad. The user's actual intent was
+the two stable reference sections that already exist as distinct `## ` headings in the file: "Acronyms &
+Abbreviations" and "Trading Terms" — not the dated feature/bug-history sections around them.
+
+**Fix:** new `src/glossaryExtract.js` (`extractGlossarySections(md, headings)`) locates level-2 headings by
+title and slices out just the matched sections (trimming trailing blank lines / `---` separators), defaulting
+to `["Acronyms & Abbreviations", "Trading Terms"]`. 5 unit tests (`src/glossaryExtract.test.js`): correct
+sections pulled in file order, dated/other sections excluded, trailing-separator trimming, empty-input and
+no-match edge cases, and a section running to end-of-file with no trailing heading. `server.js`'s startup sync
+and `glossaryRoutes.js`'s file-read fallback (used when the DB is unset) both now pipe the raw file through the
+extractor before storing/serving — `memory/glossary.md` itself is completely untouched, still the full
+git-tracked source, workflow rule 2 still applies to it unchanged. Only the DB row (and what
+`GET /api/glossary` serves) narrowed.
+
+**Verified:** `npm test` 310/310 passing (305 prior + 5 new). Standalone extraction against the real file
+confirmed exactly the two sections (22,709 chars) with no dated-changelog text leaking in. Re-booted
+`node server.js` locally against real Postgres credentials and re-curled `/api/glossary`: confirmed the DB row
+now holds exactly that same 22,709-char content, starting `## Acronyms & Abbreviations`, containing
+`## Trading Terms`, containing zero occurrences of "Roadmap rescan" (the dated-section marker) — the reseed
+took effect cleanly (`putGlossary`'s `is distinct from` guard fired a real write since content changed from the
+full-file version).
+
+**Docs:** `CLAUDE.md` (correction note appended under item 4, not rewritten — preserves the original
+implementation's own verification trail), `README.md`, `docs/dashboard_layout.md`, and this file updated.
+`memory/glossary.md` was not touched — the correction only affects what's extracted from it downstream.
+
+---
 
 ## v2026-07-24.13 — 2026-07-24 ~18:10 UTC — Roadmap rescan: Suite item 1 — glossary moved from file to database
 

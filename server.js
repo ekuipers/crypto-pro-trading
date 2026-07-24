@@ -13,6 +13,7 @@ import { readFileSync } from 'fs';
 import { installAuthRoutes, currentUid } from './src/auth.js';
 import { installCronRoutes } from './src/cronRoutes.js';
 import { installGlossaryRoutes } from './src/glossaryRoutes.js';
+import { extractGlossarySections } from './src/glossaryExtract.js';
 import * as db from './src/db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -100,10 +101,13 @@ db.init()
     if (!ok) return;
     // Sync the git-tracked source file into Postgres on every boot so the DB
     // row never drifts from whatever was last committed (cheap no-op write
-    // when content is unchanged — see db.putGlossary's `is distinct from` guard).
+    // when content is unchanged — see db.putGlossary's `is distinct from`
+    // guard). Only the "Acronyms & Abbreviations" and "Trading Terms"
+    // sections are kept — the rest of the file is a dated implementation
+    // changelog, not glossary content (user correction, 2026-07-24).
     try {
-      const content = readFileSync(join(__dirname, 'memory', 'glossary.md'), 'utf8');
-      await db.putGlossary(content);
+      const raw = readFileSync(join(__dirname, 'memory', 'glossary.md'), 'utf8');
+      await db.putGlossary(extractGlossarySections(raw));
     } catch (e) {
       console.error('[glossary] startup sync failed:', e?.message || e);
     }
