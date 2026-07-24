@@ -2,14 +2,14 @@
     <div class="modal">
       <div class="modal-header">
         <div>
-          <div class="modal-title">Execute Paper Trade</div>
+          <div class="modal-title" data-i18n="modals.trade.title">Execute Paper Trade</div>
           <div class="small" id="tradeModalSymbol">—</div>
         </div>
         <button class="btn" onclick="closeTradeModal()">✕</button>
       </div>
 
       <div class="modal-body">
-        <div id="tradeModeWarning" class="trade-warning">
+        <div id="tradeModeWarning" class="trade-warning" data-i18n="modals.trade.warning">
           This ticket only submits paper-mode limit orders. Live-mode execution is blocked.
         </div>
 
@@ -17,25 +17,25 @@
 
         <div class="form-grid">
           <div>
-            <label>Side</label>
+            <label data-i18n="modals.trade.side">Side</label>
             <select id="tradeSide">
-              <option value="buy">Buy</option>
-              <option value="sell">Sell</option>
+              <option value="buy" data-i18n="modals.trade.buy">Buy</option>
+              <option value="sell" data-i18n="modals.trade.sell">Sell</option>
             </select>
           </div>
 
           <div>
-            <label>Quantity</label>
+            <label data-i18n="modals.trade.quantity">Quantity</label>
             <input id="tradeQty" type="number" min="0" step="0.000001" placeholder="0.001">
           </div>
 
           <div>
-            <label>Limit Price</label>
+            <label data-i18n="modals.trade.limitPrice">Limit Price</label>
             <input id="tradeLimitPrice" type="number" min="0" step="0.000001" placeholder="Price">
           </div>
 
           <div>
-            <label>Time in Force</label>
+            <label data-i18n="modals.trade.tif">Time in Force</label>
             <select id="tradeTif">
               <option value="gtc">GTC</option>
               <option value="day">DAY</option>
@@ -43,7 +43,7 @@
           </div>
         </div>
 
-        <div class="trade-summary" id="tradeSummary">
+        <div class="trade-summary" id="tradeSummary" data-i18n="modals.trade.summaryPlaceholder">
           Fill in quantity and limit price to see estimated notional value.
         </div>
 
@@ -52,20 +52,20 @@
         <div class="small" id="tradeRrInfo" style="display:none;margin-top:8px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;line-height:1.6"></div>
 
         <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
-          <div class="small" style="margin-bottom:8px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">ATR Position Sizer (1% risk rule)</div>
+          <div class="small" style="margin-bottom:8px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px" data-i18n="modals.trade.sizerTitle">ATR Position Sizer (1% risk rule)</div>
           <div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">
-            <div><label>Equity ($)</label><input id="sizerEquity" type="number" placeholder="e.g. 100000" oninput="calcSizer()"></div>
-            <div><label>ATR</label><input id="sizerAtr" type="number" step="0.000001" placeholder="e.g. 500" oninput="calcSizer()"></div>
-            <div><label>Ask Price ($)</label><input id="sizerAsk" type="number" step="0.000001" placeholder="e.g. 80000" oninput="calcSizer()"></div>
-            <div><label>Cap % equity</label><input id="sizerCap" type="number" step="1" value="5" oninput="calcSizer()"></div>
+            <div><label data-i18n="modals.trade.equity">Equity ($)</label><input id="sizerEquity" type="number" placeholder="e.g. 100000" oninput="calcSizer()"></div>
+            <div><label data-i18n="modals.trade.atr">ATR</label><input id="sizerAtr" type="number" step="0.000001" placeholder="e.g. 500" oninput="calcSizer()"></div>
+            <div><label data-i18n="modals.trade.askPrice">Ask Price ($)</label><input id="sizerAsk" type="number" step="0.000001" placeholder="e.g. 80000" oninput="calcSizer()"></div>
+            <div><label data-i18n="modals.trade.capPct">Cap % equity</label><input id="sizerCap" type="number" step="1" value="5" oninput="calcSizer()"></div>
           </div>
-          <div class="trade-summary" id="sizerResult" style="margin-top:8px">Enter equity, ATR and ask to calculate suggested quantity.</div>
+          <div class="trade-summary" id="sizerResult" style="margin-top:8px" data-i18n="modals.trade.sizerPlaceholder">Enter equity, ATR and ask to calculate suggested quantity.</div>
         </div>
       </div>
 
       <div class="modal-footer">
-        <button class="btn" onclick="closeTradeModal()">Cancel</button>
-        <button class="btn btn-green" onclick="submitPaperTrade()">Submit Paper Limit Order</button>
+        <button class="btn" onclick="closeTradeModal()" data-i18n="modals.trade.cancel">Cancel</button>
+        <button class="btn btn-green" onclick="submitPaperTrade()" data-i18n="modals.trade.submit">Submit Paper Limit Order</button>
       </div>
     </div>
   </div>
@@ -75,7 +75,7 @@
     <div class="modal" style="width:min(820px,100%);max-height:90vh;display:flex;flex-direction:column">
       <div class="modal-header">
         <div>
-          <div class="modal-title">📓 Daily Journal</div>
+          <div class="modal-title" data-i18n="modals.journal.title">📓 Daily Journal</div>
           <div class="small" id="journalDocSub" style="color:var(--muted)">—</div>
         </div>
         <button class="btn" onclick="closeJournalDoc()">✕</button>
@@ -84,9 +84,9 @@
         <pre id="journalDocText" style="white-space:pre-wrap;word-break:break-word;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.5;margin:0;color:var(--text)"></pre>
       </div>
       <div class="modal-footer">
-        <button class="btn" onclick="copyJournalDoc()">📋 Copy</button>
-        <button class="btn" onclick="closeJournalDoc()">Close</button>
-        <button class="btn btn-green" onclick="downloadJournalDoc()">↓ Download .md</button>
+        <button class="btn" onclick="copyJournalDoc()" data-i18n="modals.journal.copy">📋 Copy</button>
+        <button class="btn" onclick="closeJournalDoc()" data-i18n="modals.journal.close">Close</button>
+        <button class="btn btn-green" onclick="downloadJournalDoc()" data-i18n="modals.journal.download">↓ Download .md</button>
       </div>
     </div>
   </div>
@@ -99,8 +99,8 @@
   <!-- ══════════════ USER MANUAL PANEL (roadmap: Help button, unfolds from the left) ══════════════ -->
   <div id="manualPanel" class="manual-overlay">
     <div class="manual-head">
-      <div class="modal-title">📖 User Manual</div>
-      <input id="manualSearch" type="search" placeholder="Search the manual…">
+      <div class="modal-title" data-i18n="modals.manual.title">📖 User Manual</div>
+      <input id="manualSearch" type="search" data-i18n-placeholder="modals.manual.searchPlaceholder" placeholder="Search the manual…">
       <button class="btn" id="closeManualBtn">✕</button>
     </div>
     <div class="manual-body">
@@ -113,18 +113,18 @@
   <div id="termsModalBackdrop" class="modal-backdrop">
     <div class="modal" style="width:min(640px,100%);max-height:85vh;display:flex;flex-direction:column">
       <div class="modal-header">
-        <div class="modal-title">Terms of Service</div>
+        <div class="modal-title" data-i18n="modals.terms.title">Terms of Service</div>
         <button class="btn" onclick="closeTermsModal()">✕</button>
       </div>
       <div class="modal-body" style="overflow-y:auto;flex:1;line-height:1.6">
-        <p><b>CryptoPro Trader is an educational, autonomous paper-crypto spot trading cockpit.</b> It ships in <b>paper spot trading mode by default</b> and connects to Alpaca's paper trading API, which simulates order execution with no real funds at risk.</p>
-        <p><b>Live trading risk.</b> Switching the trading mode to "Live" routes orders to a real brokerage account using your own API keys. Live trading involves substantial risk of loss, including the loss of your entire deposited capital, and is not suitable for every investor. You are solely responsible for any live-mode order this software places on your behalf, and for reviewing every signal, score, and risk parameter before enabling it.</p>
-        <p><b>No financial advice.</b> Nothing in this application — including signal scores, journal entries, research notes, or news/socials aggregation — constitutes investment, financial, legal, or tax advice. Historical or simulated performance shown in this app is not indicative of future results.</p>
-        <p><b>No warranty.</b> This software is provided "as is", without warranty of any kind, express or implied, including but not limited to fitness for a particular purpose, accuracy, or uninterrupted operation. The creator is not liable for any losses, direct or indirect, arising from use of this application.</p>
-        <p><b>Your responsibility.</b> By enabling live trading, adjusting risk limits, or connecting real brokerage credentials, you acknowledge and accept these risks and agree that you are trading at your own discretion and risk.</p>
+        <p data-i18n-html="modals.terms.p1"><b>CryptoPro Trader is an educational, autonomous paper-crypto spot trading cockpit.</b> It ships in <b>paper spot trading mode by default</b> and connects to Alpaca's paper trading API, which simulates order execution with no real funds at risk.</p>
+        <p data-i18n-html="modals.terms.p2"><b>Live trading risk.</b> Switching the trading mode to "Live" routes orders to a real brokerage account using your own API keys. Live trading involves substantial risk of loss, including the loss of your entire deposited capital, and is not suitable for every investor. You are solely responsible for any live-mode order this software places on your behalf, and for reviewing every signal, score, and risk parameter before enabling it.</p>
+        <p data-i18n-html="modals.terms.p3"><b>No financial advice.</b> Nothing in this application — including signal scores, journal entries, research notes, or news/socials aggregation — constitutes investment, financial, legal, or tax advice. Historical or simulated performance shown in this app is not indicative of future results.</p>
+        <p data-i18n-html="modals.terms.p4"><b>No warranty.</b> This software is provided "as is", without warranty of any kind, express or implied, including but not limited to fitness for a particular purpose, accuracy, or uninterrupted operation. The creator is not liable for any losses, direct or indirect, arising from use of this application.</p>
+        <p data-i18n-html="modals.terms.p5"><b>Your responsibility.</b> By enabling live trading, adjusting risk limits, or connecting real brokerage credentials, you acknowledge and accept these risks and agree that you are trading at your own discretion and risk.</p>
       </div>
       <div class="modal-footer">
-        <button class="btn" onclick="closeTermsModal()">Close</button>
+        <button class="btn" onclick="closeTermsModal()" data-i18n="modals.terms.close">Close</button>
       </div>
     </div>
   </div>

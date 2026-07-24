@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 function tab(id, label, extraStyle) {
   return (
     <button
@@ -11,28 +13,30 @@ function tab(id, label, extraStyle) {
 }
 
 export default function Nav() {
+  const { t } = useTranslation();
+
   return (
     <nav>
-      {tab('command', '🧭 Command')}
+      {tab('command', t('nav.command'))}
 
-      <div className="nav-section-label">⚡ Trade</div>
-      {tab('signals', '📡 Signals')}
-      {tab('scalp', '⚡ Scalping')}
-      {tab('market', '🌐 Market')}
-      {tab('execution', '🎯 Execution')}
+      <div className="nav-section-label">{t('nav.tradeSection')}</div>
+      {tab('signals', t('nav.signals'))}
+      {tab('scalp', t('nav.scalping'))}
+      {tab('market', t('nav.market'))}
+      {tab('execution', t('nav.execution'))}
 
-      <div className="nav-section-label">💼 Portfolio</div>
-      {tab('port-overview', '📊 Overview')}
-      {tab('port-dist', '🥧 Allocation')}
-      {tab('risk', '⚠️ Risk')}
+      <div className="nav-section-label">{t('nav.portfolioSection')}</div>
+      {tab('port-overview', t('nav.overview'))}
+      {tab('port-dist', t('nav.allocation'))}
+      {tab('risk', t('nav.risk'))}
 
-      <div className="nav-section-label">📊 Analysis</div>
-      {tab('analytics', '🔬 Analytics')}
-      {tab('insights', '🧠 Insights')}
-      {tab('backtest', '🧪 Backtest vs Live')}
-      {tab('markov', '🔗 Markov')}
+      <div className="nav-section-label">{t('nav.analysisSection')}</div>
+      {tab('analytics', t('nav.analytics'))}
+      {tab('insights', t('nav.insights'))}
+      {tab('backtest', t('nav.backtest'))}
+      {tab('markov', t('nav.markov'))}
 
-      {tab('settings', '⚙ Settings', { marginTop: '14px' })}
+      {tab('settings', t('nav.settings'), { marginTop: '14px' })}
     </nav>
   );
 }

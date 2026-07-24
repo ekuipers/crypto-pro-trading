@@ -36,6 +36,12 @@
     }
     .theme-btn:hover { color:var(--text); background:var(--border); }
 
+    .lang-switcher {
+      width:auto;
+      font-weight:700;
+      appearance:auto;
+    }
+
     @media (max-width:700px) {
       header {
         align-items:flex-start;

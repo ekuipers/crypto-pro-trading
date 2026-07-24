@@ -1,0 +1,87 @@
+{
+  "header": {
+    "modeBadgeTip": "Modo de trading activo — alterna entre paper y live. Paper es seguro para probar.",
+    "modeSwitchTitle": "Cambiar el modo de trading activo",
+    "modePaper": "Paper Spot Trading",
+    "modeLive": "Live Trading",
+    "notLoaded": "No cargado",
+    "dailyJournal": "📓 Diario del día",
+    "dailyJournalTip": "Generar el diario de cierre de hoy como un documento Markdown descargable",
+    "refresh": "⟳ Actualizar",
+    "autoOff": "⟳ Auto DESACT.",
+    "autoRefreshTip": "Alternar la actualización automática cada 60 segundos. Verde = ACTIVADO.",
+    "helpTitle": "Manual de usuario",
+    "themeTitle": "Alternar tema claro / oscuro",
+    "signIn": "👤 Iniciar sesión",
+    "settings": "⚙ Configuración",
+    "languageTitle": "Cambiar idioma"
+  },
+  "footer": {
+    "tagline": "Cabina autónoma de trading spot de cripto en paper — confluencia de señales, dimensionamiento por ATR, solo órdenes limitadas, API de Alpaca",
+    "creator": "Creador:",
+    "studio": "Estudio de desarrollo:",
+    "lastModified": "Última modificación:",
+    "version": "Versión:",
+    "disclaimer": "⚠ Trading spot en paper por defecto. El trading en vivo puede generar pérdidas reales — usted es el único responsable de ese riesgo.",
+    "terms": "Términos de servicio",
+    "donate": "♥ Apoyar"
+  },
+  "nav": {
+    "command": "🧭 Comando",
+    "tradeSection": "⚡ Trading",
+    "signals": "📡 Señales",
+    "scalping": "⚡ Scalping",
+    "market": "🌐 Mercado",
+    "execution": "🎯 Ejecución",
+    "portfolioSection": "💼 Cartera",
+    "overview": "📊 Resumen",
+    "allocation": "🥧 Distribución",
+    "risk": "⚠️ Riesgo",
+    "analysisSection": "📊 Análisis",
+    "analytics": "🔬 Analítica",
+    "insights": "🧠 Perspectivas",
+    "backtest": "🧪 Backtest vs Live",
+    "markov": "🔗 Markov",
+    "settings": "⚙ Configuración"
+  },
+  "modals": {
+    "trade": {
+      "title": "Ejecutar orden paper",
+      "warning": "Este ticket solo envía órdenes limitadas en modo paper. La ejecución en modo live está bloqueada.",
+      "side": "Lado",
+      "buy": "Comprar",
+      "sell": "Vender",
+      "quantity": "Cantidad",
+      "limitPrice": "Precio límite",
+      "tif": "Vigencia de la orden",
+      "summaryPlaceholder": "Ingrese cantidad y precio límite para ver el valor nocional estimado.",
+      "sizerTitle": "Calculadora de posición ATR (regla de riesgo del 1 %)",
+      "equity": "Capital ($)",
+      "atr": "ATR",
+      "askPrice": "Precio de venta ($)",
+      "capPct": "Tope % del capital",
+      "sizerPlaceholder": "Ingrese capital, ATR y precio de venta para calcular la cantidad sugerida.",
+      "cancel": "Cancelar",
+      "submit": "Enviar orden paper limitada"
+    },
+    "journal": {
+      "title": "📓 Diario del día",
+      "copy": "📋 Copiar",
+      "close": "Cerrar",
+      "download": "↓ Descargar .md"
+    },
+    "manual": {
+      "title": "📖 Manual de usuario",
+      "searchPlaceholder": "Buscar en el manual…"
+    },
+    "terms": {
+      "title": "Términos de servicio",
+      "close": "Cerrar",
+      "p1": "<b>CryptoPro Trader es una cabina educativa y autónoma de trading spot de criptomonedas en paper.</b> Funciona por defecto en <b>modo paper spot trading</b> y se conecta a la API de paper trading de Alpaca, que simula la ejecución de órdenes sin arriesgar fondos reales.",
+      "p2": "<b>Riesgo del trading en vivo.</b> Cambiar el modo de trading a «Live» envía órdenes a una cuenta de corretaje real usando sus propias claves API. El trading en vivo implica un riesgo sustancial de pérdida, incluida la pérdida de la totalidad de su capital depositado, y no es adecuado para todos los inversores. Usted es el único responsable de cualquier orden que este software coloque en su nombre en modo live, y de revisar cada señal, puntuación y parámetro de riesgo antes de habilitarlo.",
+      "p3": "<b>Sin asesoría financiera.</b> Nada en esta aplicación — incluidas las puntuaciones de señales, entradas de diario, notas de investigación o la agregación de noticias/redes sociales — constituye asesoría de inversión, financiera, legal o fiscal. El rendimiento histórico o simulado mostrado en esta aplicación no es indicativo de resultados futuros.",
+      "p4": "<b>Sin garantía.</b> Este software se proporciona «tal cual», sin garantía de ningún tipo, expresa o implícita, incluyendo entre otras la idoneidad para un propósito particular, la exactitud o el funcionamiento ininterrumpido. El creador no es responsable de ninguna pérdida, directa o indirecta, derivada del uso de esta aplicación.",
+      "p5": "<b>Su responsabilidad.</b> Al habilitar el trading en vivo, ajustar los límites de riesgo o conectar credenciales de corretaje reales, usted reconoce y acepta estos riesgos y acuerda que opera bajo su propio criterio y riesgo."
+    }
+  }
+}

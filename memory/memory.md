@@ -2815,6 +2815,53 @@ entry for the actual fix.
 
 ---
 
+## 2026-07-24 — Multi-language support Phase 0: i18n foundation + common chrome (v2026-07-24.7)
+
+Suite roadmap item 0 ("Add multi-language support for Dutch, English, French and Spanish"),
+implemented directly per the user's go-ahead (full scope: all projects' UI chrome + Training's
+full course content, AI-translated now — not scaffolded placeholders). Full cross-repo plan
+recorded in `memory/i18n-suite-plan.md` (a planner-agent pass surveyed all 5 repos before any
+code was written) — this entry covers only what shipped in this repo this session.
+
+Trader is the pattern-establishing project: it has the hardest case in the suite (a React shell
+wrapping ~30 classic-global `src/js/*.js` files that inject text via `innerHTML`/`.textContent`,
+not JSX) — solving it here produces the reusable mechanism every other app in the suite copies.
+
+**What shipped:** `client/src/i18n/index.js` initializes `i18next` + `react-i18next` before the
+app renders (`main.jsx`), and exposes two things the vanilla scripts/raw-HTML fragments need
+since they can't use React hooks: a plain `window.t()` and `applyDomI18n(root)`, a generic walker
+for `data-i18n`/`data-i18n-html`/`data-i18n-placeholder`/`data-i18n-title` attributes. `App.jsx`
+calls `applyDomI18n(document)` in its mount effect, before `loadDashboardScripts()`. A language
+switcher (`EN/NL/FR/ES` `<select>`, `.theme-btn` styling) sits in the header next to the theme
+toggle; the choice persists to `localStorage`'s new `dashLang` key, added to `settings-sync.js`'s
+`SETTINGS_SYNC_KEYS` — it round-trips through the existing `/api/session` server-sync with zero
+new backend code (same server-wins pattern as theme/last-tab).
+
+Translated this pass (the `common` namespace — `client/src/i18n/locales/common/{en,nl,fr,es}.json`,
+meant to be ported identically to Charts/Suite/Mobile per this suite's established shared-chrome
+convention): `Header.jsx`, `Footer.jsx`, `Nav.jsx` (all converted to `useTranslation()`), and
+`client/src/fragments/modals.html`'s trade ticket, daily-journal, manual-panel chrome, and terms
+modal (including the 5 ToS paragraphs, via `data-i18n-html` to preserve the `<b>` tags).
+
+**Verified, not just built:** no test suite covers client strings, so used Playwright (headless
+Chromium, via `npx playwright` — not `chromium-cli`, which isn't installed in this environment)
+against the Vite dev server. Confirmed: EN renders correctly on load; switching to NL re-renders
+nav labels ("Command"→"Commando", "Trade"→"Handelen"), footer text (tagline, disclaimer, creator/
+studio labels), and the terms modal (opened via the footer link) with all 5 translated paragraphs
+and intact `<b>` markup; switching back to EN restores original text; zero console errors
+throughout. Screenshots kept in the session scratchpad, not committed (verification artifacts,
+not project files). `npm run build` (80 modules, no errors) and the full `node --test` suite
+(310/310, unchanged) both still pass.
+
+**Not done in this pass — real, sizeable remaining scope, not an oversight:** the 13 tab HTML
+fragments (`client/src/tabs/*.html`, ~1123 lines of static labels covering every tab) and the
+dynamic strings inside `auth.js`/`manual.js` are still English-only; no `app` i18next namespace
+exists yet. Phases 1-3 (porting the `common` pattern to Charts/Suite/Mobile, then Training's
+chrome + its 67-module course content — estimated ~60,000 words across NL/FR/ES, chunked into 27
+passes) haven't started. Full remaining scope and the architecture rationale: `memory/i18n-suite-plan.md`.
+
+---
+
 ## lessons
 - Any `fetch()`/XHR of a same-origin relative local file (config.json, positions_state.json, glossary.md, etc.) in `docs/dashboard_professional.html` can be silently blocked when the dashboard is opened via `file://` — never rely on it as the *only* source for cross-engine state; prefer deriving the same fact from an HTTPS call (e.g. Alpaca's own API via `apiFetch`) when one is available, and treat the local-file fetch as a best-effort enhancement only.
 - When renaming the project, `grep -ri` the whole repo (not just `CLAUDE.md`) for every prior name variant (e.g. "CryptoPro Dashboard", "Alpaca Crypto Trading Agent") before considering the rename done — `<title>` tags, in-page header labels, footer names, and README H1s are easy to miss and only surface later during an unrelated rules audit.

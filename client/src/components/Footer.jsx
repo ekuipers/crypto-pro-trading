@@ -1,4 +1,8 @@
+import { useTranslation } from 'react-i18next';
+
 export default function Footer() {
+  const { t } = useTranslation();
+
   return (
     <footer>
       <span className="footer-name">
@@ -6,22 +10,22 @@ export default function Footer() {
         <span className="logo-brand">CryptoPro</span> Trader
       </span>
       <span className="footer-sep">·</span>
-      <span>Autonomous crypto paper-spot-trading cockpit — signal confluence, ATR sizing, limit orders only, Alpaca API</span>
+      <span>{t('footer.tagline')}</span>
       <span className="footer-sep">·</span>
-      <span>Creator: <strong>Erik Kuipers</strong></span>
+      <span>{t('footer.creator')} <strong>Erik Kuipers</strong></span>
       <span className="footer-sep">·</span>
       <span className="footer-studio">
         <img src="/studio-logo.png" alt="" className="footer-logo-icon" />
-        Developer Studio: <strong>VibeSoft Studio</strong>
+        {t('footer.studio')} <strong>VibeSoft Studio</strong>
       </span>
       <span className="footer-sep">·</span>
-      <span>Last modified: <strong>2026-07-24</strong></span>
+      <span>{t('footer.lastModified')} <strong>2026-07-24</strong></span>
       <span className="footer-sep">·</span>
-      <span>Version: <strong>v2026-07-24.6</strong></span>
+      <span>{t('footer.version')} <strong>v2026-07-24.7</strong></span>
       <span className="footer-sep">·</span>
-      <span className="footer-disclaimer">⚠ Paper spot trading by default. Live trading can incur real losses — you are solely responsible for that risk.</span>
-      <button type="button" className="footer-terms-link" onClick={() => window.openTermsModal()}>Terms of Service</button>
-      <a className="footer-donate" href="https://patreon.com/vibesoftstudio" target="_blank" rel="noopener">♥ Support</a>
+      <span className="footer-disclaimer">{t('footer.disclaimer')}</span>
+      <button type="button" className="footer-terms-link" onClick={() => window.openTermsModal()}>{t('footer.terms')}</button>
+      <a className="footer-donate" href="https://patreon.com/vibesoftstudio" target="_blank" rel="noopener">{t('footer.donate')}</a>
     </footer>
   );
 }

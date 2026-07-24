@@ -1,4 +1,11 @@
+import { useTranslation } from 'react-i18next';
+import { SUPPORTED_LANGUAGES, setDashLang } from '../i18n/index.js';
+
+const LANGUAGE_LABELS = { en: 'EN', nl: 'NL', fr: 'FR', es: 'ES' };
+
 export default function Header() {
+  const { t, i18n } = useTranslation();
+
   return (
     <header>
       <div className="logo">
@@ -10,38 +17,48 @@ export default function Header() {
         <span
           id="modeBadge"
           className="badge paper"
-          data-tip="Active trading mode — switch between paper and live. Paper is safe for testing."
+          data-tip={t('header.modeBadgeTip')}
         >
           <span className="dot"></span>
-          <select id="setMode" onChange={() => window.onModeChange()} title="Switch active trading mode">
-            <option value="paper">Paper Spot Trading</option>
-            <option value="live">Live Trading</option>
+          <select id="setMode" onChange={() => window.onModeChange()} title={t('header.modeSwitchTitle')}>
+            <option value="paper">{t('header.modePaper')}</option>
+            <option value="live">{t('header.modeLive')}</option>
           </select>
         </span>
 
-        <span id="lastUpdated" className="last-updated">Not loaded</span>
+        <span id="lastUpdated" className="last-updated">{t('header.notLoaded')}</span>
 
         <button
           className="btn"
           onClick={() => window.generateDailyJournal()}
-          data-tip="Generate today's closing journal entry as a downloadable Markdown document"
+          data-tip={t('header.dailyJournalTip')}
         >
-          📓 Daily Journal
+          {t('header.dailyJournal')}
         </button>
-        <button className="btn" onClick={() => window.refreshCurrent()}>⟳ Refresh</button>
+        <button className="btn" onClick={() => window.refreshCurrent()}>{t('header.refresh')}</button>
         <button
           className="btn"
           id="autoRefreshBtn"
           onClick={() => window.toggleAutoRefresh()}
-          data-tip="Toggle 60-second auto-refresh. Green = ON."
+          data-tip={t('header.autoRefreshTip')}
           style={{ color: 'var(--muted)' }}
         >
-          ⟳ Auto OFF
+          {t('header.autoOff')}
         </button>
-        <button className="theme-btn" id="helpBtn" title="User manual">❓</button>
-        <button className="theme-btn" id="themeBtn" onClick={() => window.toggleTheme()} title="Toggle light / dark theme">🌙</button>
-        <button id="accountBtn" className="btn acct-btn" title="Sign in">👤 Sign in</button>
-        <button className="btn btn-green" onClick={() => window.openSettings()}>⚙ Settings</button>
+        <select
+          className="theme-btn lang-switcher"
+          value={i18n.language}
+          onChange={(e) => setDashLang(e.target.value)}
+          title={t('header.languageTitle')}
+        >
+          {SUPPORTED_LANGUAGES.map((lng) => (
+            <option key={lng} value={lng}>{LANGUAGE_LABELS[lng]}</option>
+          ))}
+        </select>
+        <button className="theme-btn" id="helpBtn" title={t('header.helpTitle')}>❓</button>
+        <button className="theme-btn" id="themeBtn" onClick={() => window.toggleTheme()} title={t('header.themeTitle')}>🌙</button>
+        <button id="accountBtn" className="btn acct-btn" title={t('header.signIn')}>{t('header.signIn')}</button>
+        <button className="btn btn-green" onClick={() => window.openSettings()}>{t('header.settings')}</button>
       </div>
     </header>
   );

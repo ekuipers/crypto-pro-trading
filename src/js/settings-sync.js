@@ -23,7 +23,7 @@
     //     for one account at once.
     // ═══════════════════════════════════════════════════════════════════════
 
-    const SETTINGS_SYNC_KEYS = ["dashTheme", "lastTab", "proDashboardWatchlist", "proBacktestDefaults"];
+    const SETTINGS_SYNC_KEYS = ["dashTheme", "dashLang", "lastTab", "proDashboardWatchlist", "proBacktestDefaults"];
 
     async function settingsSyncGet(path) {
       const r = await fetch(path);

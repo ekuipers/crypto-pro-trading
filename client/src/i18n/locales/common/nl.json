@@ -1,0 +1,87 @@
+{
+  "header": {
+    "modeBadgeTip": "Actieve handelsmodus — wissel tussen paper en live. Paper is veilig om te testen.",
+    "modeSwitchTitle": "Wissel actieve handelsmodus",
+    "modePaper": "Paper Spot Trading",
+    "modeLive": "Live Trading",
+    "notLoaded": "Niet geladen",
+    "dailyJournal": "📓 Dagjournaal",
+    "dailyJournalTip": "Genereer het afsluitende journaal van vandaag als downloadbaar Markdown-document",
+    "refresh": "⟳ Vernieuwen",
+    "autoOff": "⟳ Auto UIT",
+    "autoRefreshTip": "Automatisch vernieuwen elke 60 seconden aan/uit. Groen = AAN.",
+    "helpTitle": "Gebruikershandleiding",
+    "themeTitle": "Wissel licht / donker thema",
+    "signIn": "👤 Aanmelden",
+    "settings": "⚙ Instellingen",
+    "languageTitle": "Taal wijzigen"
+  },
+  "footer": {
+    "tagline": "Autonome crypto paper-spot-handelscockpit — signaalconfluentie, ATR-positiegrootte, alleen limietorders, Alpaca API",
+    "creator": "Maker:",
+    "studio": "Ontwikkelstudio:",
+    "lastModified": "Laatst gewijzigd:",
+    "version": "Versie:",
+    "disclaimer": "⚠ Standaard paper spot trading. Live handelen kan tot echte verliezen leiden — u bent zelf volledig verantwoordelijk voor dat risico.",
+    "terms": "Gebruiksvoorwaarden",
+    "donate": "♥ Steun ons"
+  },
+  "nav": {
+    "command": "🧭 Commando",
+    "tradeSection": "⚡ Handelen",
+    "signals": "📡 Signalen",
+    "scalping": "⚡ Scalping",
+    "market": "🌐 Markt",
+    "execution": "🎯 Uitvoering",
+    "portfolioSection": "💼 Portefeuille",
+    "overview": "📊 Overzicht",
+    "allocation": "🥧 Verdeling",
+    "risk": "⚠️ Risico",
+    "analysisSection": "📊 Analyse",
+    "analytics": "🔬 Analytics",
+    "insights": "🧠 Inzichten",
+    "backtest": "🧪 Backtest vs Live",
+    "markov": "🔗 Markov",
+    "settings": "⚙ Instellingen"
+  },
+  "modals": {
+    "trade": {
+      "title": "Paper-order uitvoeren",
+      "warning": "Dit ticket plaatst alleen limietorders in paper-modus. Uitvoering in live-modus is geblokkeerd.",
+      "side": "Zijde",
+      "buy": "Kopen",
+      "sell": "Verkopen",
+      "quantity": "Hoeveelheid",
+      "limitPrice": "Limietprijs",
+      "tif": "Geldigheidsduur",
+      "summaryPlaceholder": "Vul hoeveelheid en limietprijs in om de geschatte notionele waarde te zien.",
+      "sizerTitle": "ATR-positiecalculator (1% risicoregel)",
+      "equity": "Kapitaal ($)",
+      "atr": "ATR",
+      "askPrice": "Laatprijs ($)",
+      "capPct": "Max % van kapitaal",
+      "sizerPlaceholder": "Voer kapitaal, ATR en laatprijs in om de voorgestelde hoeveelheid te berekenen.",
+      "cancel": "Annuleren",
+      "submit": "Paper-limietorder plaatsen"
+    },
+    "journal": {
+      "title": "📓 Dagjournaal",
+      "copy": "📋 Kopiëren",
+      "close": "Sluiten",
+      "download": "↓ Downloaden .md"
+    },
+    "manual": {
+      "title": "📖 Gebruikershandleiding",
+      "searchPlaceholder": "Doorzoek de handleiding…"
+    },
+    "terms": {
+      "title": "Gebruiksvoorwaarden",
+      "close": "Sluiten",
+      "p1": "<b>CryptoPro Trader is een educatieve, autonome paper-crypto spot-handelscockpit.</b> Het draait standaard in <b>paper spot trading-modus</b> en maakt verbinding met Alpaca's paper trading-API, die orderuitvoering simuleert zonder dat er echt geld op het spel staat.",
+      "p2": "<b>Risico van live handelen.</b> Door de handelsmodus op \"Live\" te zetten, worden orders via uw eigen API-sleutels naar een echte brokerrekening geleid. Live handelen brengt aanzienlijk risico op verlies met zich mee, inclusief het verlies van uw volledige ingelegde kapitaal, en is niet voor elke belegger geschikt. U bent zelf volledig verantwoordelijk voor elke order die deze software in live-modus namens u plaatst, en voor het beoordelen van elk signaal, elke score en elke risicoparameter voordat u dit inschakelt.",
+      "p3": "<b>Geen financieel advies.</b> Niets in deze applicatie — inclusief signaalscores, journaalinvoer, onderzoeksnotities of nieuws-/social media-aggregatie — vormt beleggings-, financieel, juridisch of fiscaal advies. Historische of gesimuleerde prestaties getoond in deze app zijn geen indicatie voor toekomstige resultaten.",
+      "p4": "<b>Geen garantie.</b> Deze software wordt geleverd \"zoals ze is\", zonder enige vorm van garantie, expliciet of impliciet, inclusief maar niet beperkt tot geschiktheid voor een bepaald doel, nauwkeurigheid of ononderbroken werking. De maker is niet aansprakelijk voor enig verlies, direct of indirect, voortvloeiend uit het gebruik van deze applicatie.",
+      "p5": "<b>Uw verantwoordelijkheid.</b> Door live handelen in te schakelen, risicolimieten aan te passen of echte brokergegevens te koppelen, erkent en aanvaardt u deze risico's en gaat u ermee akkoord dat u handelt naar eigen inzicht en risico."
+    }
+  }
+}
