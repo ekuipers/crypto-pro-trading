@@ -2481,6 +2481,22 @@ After gate 4 closed and the user said "proceed" with the actual Node cutover, pr
 
 ---
 
+## 2026-07-24 — Roadmap rescan (14:16 UTC): no regression, cutover still one confirmed data point (v2026-07-24.3)
+
+Re-checked everything the prior same-day rescan (`ce4706f`) left open, ~4h47m after the `928e365` pause landed (09:29:46 UTC):
+
+- **`trade.yml`/`watchdog.yml`: zero `schedule`-triggered runs since the pause**, confirmed against GitHub's Actions API (each workflow's most recent run is still the one from before 09:29 UTC). The pause is holding.
+- **`GET /api/trader-state` unchanged** from the prior rescan (`last_evaluation_iso` still `2026-07-24T08:56:35.049Z`, same 3 positions). This is expected, not a stall: `evaluate`'s `hour_utc=2` already fired once today, so `isJobDue()`'s "hasn't run today" gate correctly no-ops every later hourly dispatcher tick. Real multi-cycle confirmation needs the **2026-07-25 ~02:00–06:00 UTC** window, when `evaluate`/`watchdog`/`daily-summary` next come due.
+- `data/shadow_run_log.jsonl` newest entry still `10:28:47 UTC` (6 clean cycles, all `mismatch_count: 0`) — its own ~8h cadence means the next fire is ~18:28 UTC, not yet due.
+- Full test suite re-run: same 8 pre-existing env-dependent failures (this sandbox has no local Alpaca credentials, so `apiClient.js`'s `buildUrl` gets an `undefined` base URL) — zero new failures, no regression from the `9cae1c7` `db.js` fix or anything else merged since.
+- Multi-tenant Phase 2 (`src/secretsCrypto.js`, `src/credentialsRoutes.js`) confirmed not started — only Phase 1 (`src/alpacaClient.js`) exists. Roadmap item 1 (cron cadence reconciliation) confirmed still unimplemented — `src/cronSchedule.js`'s `isJobDue()` is still single-hour-per-job only, no repeat-interval support.
+- No new bugs found. `CLAUDE.md`'s `## Bugs` section is (correctly) empty.
+- Noted for the user: one local commit (`ce4706f`) was still unpushed to `origin/main` at the start of this rescan — flagged rather than pushed unprompted, since a push here triggers Vercel's auto-redeploy (git integration).
+
+**Lesson:** on a same-day rescan of a once-daily cron job, "no change since last check" is the *expected* result until the next UTC calendar day's trigger hour passes — don't mistake it for a stall. The useful check on a same-day re-run is negative evidence (no unexpected schedule-triggered runs, no regressions), not waiting for the state to move.
+
+---
+
 ## lessons
 - Any `fetch()`/XHR of a same-origin relative local file (config.json, positions_state.json, glossary.md, etc.) in `docs/dashboard_professional.html` can be silently blocked when the dashboard is opened via `file://` — never rely on it as the *only* source for cross-engine state; prefer deriving the same fact from an HTTPS call (e.g. Alpaca's own API via `apiFetch`) when one is available, and treat the local-file fetch as a best-effort enhancement only.
 - When renaming the project, `grep -ri` the whole repo (not just `CLAUDE.md`) for every prior name variant (e.g. "CryptoPro Dashboard", "Alpaca Crypto Trading Agent") before considering the rename done — `<title>` tags, in-page header labels, footer names, and README H1s are easy to miss and only surface later during an unrelated rules audit.
