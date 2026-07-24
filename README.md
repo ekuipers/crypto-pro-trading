@@ -5,18 +5,17 @@ A fully automated crypto trading agent running on Alpaca. The agent evaluates pr
 when a score threshold is met, and journals every decision. A walk-forward backtester runs
 daily to validate strategy robustness.
 
-**Node.js port (in progress, not yet live):** the live engine below is still
-100% Python. A `src/` directory holds an in-progress Node.js port — order
-placement, the hourly evaluation loop, the universe scout, the stop watchdog,
-and the daily summary are now fully ported with a 298-test `node --test`
-suite (`npm test`), but `.github/workflows/*.yml` still runs Python
-exclusively; the Node engine is not wired into any live/paper order flow yet.
-`src/cronRoutes.js` + `vercel.json` add Vercel Cron-triggered HTTP endpoints
-for the same engines (dashboard "☁ Scheduled Jobs" panel, Command tab) as an
-alternative to GitHub Actions, but they run **dry-run only** (`CRON_EXECUTE`
-unset) — see `CLAUDE.md`'s "Cron cutover" section. See `CLAUDE.md`'s
-"Node.js port" section for scope, the deferred piece (`rebalance.py`), and
-the 4-gate parity checkpoint that must pass before any real cutover.
+**Node.js port — cutover confirmed live (2026-07-24):** the Node engine
+(`src/`, 305-test `node --test` suite via `npm test`) is now the live paper
+engine, running as Vercel Cron-triggered HTTP endpoints (`src/cronRoutes.js` +
+`vercel.json`, `CRON_EXECUTE=true`) instead of `.github/workflows/*.yml`.
+`trade.yml`/`watchdog.yml`'s `schedule:` triggers are paused (commented out,
+not deleted — instant rollback via `workflow_dispatch`) now that Vercel Cron
+is confirmed writing diverging state to Postgres `trader_state`. `forward.yml`
+(walk-forward backtesting, no live orders) is unaffected and keeps running on
+GitHub Actions. See `CLAUDE.md`'s roadmap item 3 for the confirmation evidence
+and remaining stability-watch period before the paused workflows are deleted
+outright.
 
 ---
 
@@ -118,12 +117,12 @@ here automatically — a short-lived, single-use `?sso=` ticket in the URL is re
 and stripped from the address bar. This app only accepts that handoff today; it doesn't yet issue tickets
 for links to the other CryptoPro apps.
 
-### 6. Scheduled jobs via Vercel Cron (optional, dry-run only)
+### 6. Scheduled jobs via Vercel Cron (live paper engine as of 2026-07-24)
 
 `GET /api/cron/dispatch` is a dispatcher that checks each job's dashboard-configured hour (Command tab's
-"☁ Scheduled Jobs" panel) and runs it once per UTC day at that hour — an alternative to the GitHub Actions
-workflows, built ahead of an eventual cutover decision (see `CLAUDE.md`'s "Cron cutover" section). This
-project is on **Vercel Pro**, so `vercel.json`'s own cron entry drives the dispatcher directly, hourly
+"☁ Scheduled Jobs" panel) and runs it once per UTC day at that hour — now the **live** engine, having
+replaced the GitHub Actions workflows (`CLAUDE.md` roadmap item 3 has the cutover-confirmation evidence).
+This project is on **Vercel Pro**, so `vercel.json`'s own cron entry drives the dispatcher directly, hourly
 (`0 * * * *`) — no GitHub Actions involved in triggering it. (The project briefly ran a GitHub Actions
 hourly pinger as a Hobby-plan workaround; removed once the plan was upgraded.) Three env vars control it,
 all optional:
@@ -134,8 +133,9 @@ all optional:
   "☁ Scheduled Jobs" panel (Command tab) to view/adjust status, schedule, or use "Run now". Unset means
   that panel is disabled for everyone — accounts are shared Suite-wide, so this isn't opened to "any
   signed-in account".
-- `CRON_EXECUTE` — **leave unset.** These routes place no real orders until this is explicitly set to
-  `true`, and that should only happen after the parity checkpoint in `CLAUDE.md` passes.
+- `CRON_EXECUTE` — **`true` in production.** These routes place real paper orders now that the parity
+  checkpoint in `CLAUDE.md` passed and the cutover is confirmed live. Leave unset in any environment
+  where real order placement isn't wanted (local dev, a fork, etc.).
 
 ---
 

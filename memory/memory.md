@@ -1,5 +1,48 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-24.3 — 2026-07-24 — Roadmap rescan: Node cutover CONFIRMED LIVE (ahead of planned check window)
+
+**Task:** Routine roadmap rescan of `CLAUDE.md` open items.
+
+**Finding — item 3 resolved.** `GET /api/trader-state` (unauthenticated, `crypto-pro-trading-bice.vercel.app`)
+now returns `last_evaluation_iso: 2026-07-24T08:56:35.049Z` with positions `ETH/USD, AAVE/USD,
+LINK/USD` — diverged from the git-committed `data/positions_state.json` frozen at
+`2026-07-24T03:32:11...` with 4 positions (incl. `SOL/USD`, now closed in the live state). This is
+the exact signal the previous two rescans (`caa64cc`, `227c818`) were waiting on, and it arrived
+before the planned 2026-07-25 02:00 UTC check.
+
+**Cross-check ruling out the Python engine:** pulled `trade.yml`/`watchdog.yml` run history via the
+public GitHub Actions API (`api.github.com/repos/ekuipers/crypto-pro-trading/actions/workflows/*/runs`,
+no `gh` CLI available in this shell, used `curl` directly). Neither workflow has a run anywhere near
+08:56 UTC, and neither has fired on `schedule` since the `227c818` pause commit landed
+(2026-07-24T10:44:48+02:00 = 08:44:48 UTC — note this is only ~12 minutes after the 08:56 write, so
+the pause landed just after, not before; the write predates the pause but is still not attributable
+to either GH Actions workflow at that exact minute). Python also has no code path that writes to
+Postgres `trader_state` at all — it only ever writes the static file — so a diverged Postgres row is
+structurally only explainable by the Node engine (`src/cronRoutes.js` → `db.putTraderState`).
+
+**Also found + fixed during this rescan, unprompted:** [[v2026-07-24.2's CONN_VARS bug]] meant
+`db.js`'s `connString()` returned `null` on the actual deployed env (`CRYPTOPROTRADER_POSTGRES_URL*`
+wasn't recognized), which would make `getPool()` throw on *any* Postgres call — not just auth. Since
+`cronRoutes.js` shares the same `db.js` pool for `trader_state`/`trader_journal`/`job_runs`/
+`cron_config`, this bug — while it was live — could have caused the Node dispatcher to silently error
+on a due job with no visible symptom beyond a `job_runs` row marked `status='error'`. Confirmed the
+fix (`9cae1c7`, pushed same day) is live in production via a read-only `GET /api/session` probe
+(200 with real row data, not the 500 the bug would produce). The 08:56 UTC write predates this fix
+landing, so DB connectivity was evidently fine at that specific moment — but the window between then
+and the fix should be treated as "cutover confirmed live, but reliability during that window unproven."
+
+**Not yet closed out:** only one divergence observed — not a stable multi-cycle track record.
+`trade.yml`/`watchdog.yml` intentionally left in place (schedule commented out, not deleted) per the
+standing instruction against hard-to-reverse actions without explicit go-ahead; `CLAUDE.md` item 3
+now asks the user before deleting them, once a few more dispatcher windows confirm stability.
+
+**Other roadmap items checked, unchanged:** item 1 (cron cadence redesign) still blocked — no changes
+to `src/cronSchedule.js`'s `isJobDue()`. Item 2 (multi-tenant conversion) still only Phase 1 shipped —
+`src/secretsCrypto.js`/`src/credentialsRoutes.js` (Phase 2) don't exist yet. Full test suite re-run:
+297/305 pass, same 8 pre-existing env-dependent failures (`ALPACA` base URL unset in test env) as
+every prior rescan.
+
 ## v2026-07-24.2 — 2026-07-24 — Fix: sign-in database error (stale Supabase env var names)
 
 **Task:** Suite roadmap item — "I changed the environment variables in Vercel and the local .env
