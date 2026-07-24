@@ -1,4 +1,4 @@
-# Glossary — Alpaca Trading Agent
+# Glossary — CryptoPro Tader
 
 Full decoder ring. Everything that would clutter `memory.md` lives here.
 
@@ -431,7 +431,7 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | Term | Meaning |
 |------|---------|
 | Confluence score | 6-point TA signal score; ≥3.5 = buy, ≥2.5 = half-size, <2.5 = hold (≥4.0 = half-size counter-trend long in a downtrend); ≤−4 = short, −3 = half-size short, ≥+2 = cover |
-| Markov analysis | Dashboard Markov tab. First-order Markov chain over daily close-to-close returns. 3 states via ±1% band (`MK_THRESH`): Up (r>+1%), Flat (|r|≤1%), Down (r<−1%). Builds transition matrix `P(next\|current)`, stationary distribution (power iteration), and next-day forecast from current state. Run for BTC/USD & ETH/USD over 30/60/90/180/365-day windows. Analysis-only, no order routing. Matrix tables use the `.mk-matrix` CSS class (`min-width:0; table-layout:fixed`) to override the global 760px table min-width so they fit their narrow grid panels without overlapping. |
+| Markov analysis | Dashboard Markov tab. First-order Markov chain over daily close-to-close returns. |
 | Transition matrix | 3×3 matrix where cell (i,j) = empirical probability of moving from state i to state j on the next day. Rows sum to 1. |
 | Stationary distribution | Long-run state probabilities π satisfying π = πP; computed via power iteration. The Markov tab shows it alongside the empirical state frequencies. |
 | Regime block | Daily downtrend detected → all new long entries blocked |
@@ -440,8 +440,8 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | Death cross | 20 EMA crosses below 50 EMA → bearish |
 | EMA cross state | Detected from last two bars; "golden" / "death" / "neutral" |
 | 4H regime | Primary trend filter: 20 EMA vs 50 EMA on 4-hour bars |
-| ADX | Average Directional Index (14, Wilder) — trend *strength* 0–100, direction-agnostic. Journal-only informational line (`adx :`), not part of the 6-point score. Labels via `adx_label()`: <20 ranging/weak, 20–25 emerging trend, 25–40 trending, ≥40 strong trend |
-| OBV / OBV trend | On-Balance Volume — cumulative volume signed by close-to-close direction. `obv_trend()` compares OBV now vs 20 bars ago with a 5%-of-window-volume dead zone → rising/falling/flat. Journal-only informational line (`obv :`), not scored |
+| ADX | Average Directional Index (14, Wilder) — trend *strength* 0–100, direction-agnostic. |
+| OBV / OBV trend | On-Balance Volume — cumulative volume signed by close-to-close direction. |
 | Wyckoff | Market cycle phases: Accumulation → Mark-Up → Distribution → Mark-Down |
 | Mark-Up | Wyckoff trend phase: consistent HH/HL, buy pullbacks |
 | Mark-Down | Wyckoff downtrend phase: consistent LH/LL, stay flat |
@@ -456,92 +456,17 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | Daily regime | Computed from 90-day daily bars: SMA-20 vs SMA-50 vs last close |
 | Vol ratio | Current bar volume / 20-bar average volume |
 | Live R:R | Real-time risk-to-reward: `(target − current) / (current − stop)` using −5% stop, +10% target |
-| Ticker strip | Top-of-dashboard price bar driven by the active watchlist (`getWatchlist()`, up to 20 symbols — not a static 10); 15-second auto-refresh via Alpaca snapshots API, re-renders immediately on watchlist edits |
+| Ticker strip | Top-of-dashboard price bar driven by the active watchlist. |
 | Correlation heatmap | 10×10 Pearson ρ matrix of daily log-returns; shown in Risk tab |
 | Trend arrow | ↑/↓/→ indicator in Signals tab comparing current confluence score to previous scan |
 | Quick-buy (⚡) | Signals tab button for setups scoring ≥ 3; pre-fills trade modal with ATR-sized qty |
 | Execute button (▶) | Directly submits the signal row's ATR-sized paper order from the Signals tab without opening the trade modal |
-| SHORT (action) | Open a new short position — sends `side="sell"` to Alpaca with no existing position. Triggered when score ≤ −4 in a confirmed daily downtrend |
-| COVER (action) | Close an existing short position — sends `side="buy"` to Alpaca. Triggered by stop-loss (+5%) or score ≥ +2 (bullish flip) |
-| Short stop-loss | COVER triggered when price rises ≥5% above short entry (`risk.should_cover_short()`). Inverse of long stop-loss |
-| Cover stop price | `entry × 1.05` — the hard stop price for a short position (`risk.short_stop_price()`) |
-| Short regime gate | SHORT entries only allowed in confirmed daily downtrend (close < 50-SMA AND 20-SMA < 50-SMA). No shorts in uptrend or mixed regime |
-| `should_cover_short()` | `risk.py` function: returns True if `(current - entry) / entry >= 0.05`. Short equivalent of `should_stop_out()` |
-| `short_stop_price()` | `risk.py` function: returns `entry_price × (1 + STOP_LOSS_PCT)` — the hard stop price for a short |
-| `SHORT_SCORE_THRESHOLD` | Constant in `run_evaluation.py` (= −4.0). Full-size short entry gate |
-| `SHORT_SCORE_HALF_SIZE` | Constant in `run_evaluation.py` (= −3.0). Half-size short entry gate if R:R ≥ 1:3 |
-| `COVER_SCORE_THRESHOLD` | Constant in `run_evaluation.py` (= +2.0). TA-based cover trigger when score turns bullish |
-| Trailing stop | Activates once a long position is ≥2.5% in profit. Trails 3% below the high-water mark (HWM). Supersedes the hard 5% stop once active |
-| HWM | High-water mark — the highest close price seen since entry. Ratchets up only, never down. Persisted in `data/positions_state.json` |
-| Stop-loss deduplication | Before placing any SELL/COVER stop-loss order, `get_open_orders(symbol)` is called. If a pending order exists within the escalation window, the duplicate is suppressed |
-| Time-escalation | When a stop-loss order has been pending for `stop_loss_escalation_cycles` (2) evaluation cycles without filling, it is cancelled and replaced with a wider limit (base 0.5% + extra 0.3%) |
-| `stop_loss_limit_price(ask, cycles_open)` | `risk.py` function: returns the limit price for a SELL stop. Uses 0.5% band; widens after 2 unfilled cycles |
-| `cover_limit_price(ask, cycles_open)` | `risk.py` function: mirror of `stop_loss_limit_price` for COVER (short) orders; limit is placed above ask |
-| `is_stop_loss` | `place_order()` bool param — when True, uses 0.5% limit band instead of 0.2% to allow stop-loss fills in volatile markets |
-| Correlation budget | Max open positions total + max per tier are **user-configurable** (defaults loosened 2026-06-19 to 4 total, 3 per tier; Tier-1: BTC/USD+ETH/USD; Tier-2: alts). New entries blocked when either limit is reached. Python reads `config.json › risk.max_open_positions` / `max_positions_per_tier` (checked by `correlation_budget_allows()` in `risk.py`); the dashboard Autopilot reads `getSettings().limits.maxOpenPositions` / `maxPositionsPerTier` (Settings › 🔗 Correlation Budget) live via `apMaxPositions()` / `apMaxPerTier()` |
+| Trailing stop | Activates once a long position is ≥2.5% in profit. Trails 3% below the high-water mark (HWM). |
+| HWM | High-water mark — the highest close price seen since entry. |
 | Tier-1 symbols | BTC/USD and ETH/USD — most liquid, highest correlation. Separate per-tier budget from Tier-2 alts |
 | Daily drawdown gate | If portfolio equity drops ≥3% vs day-open equity, capital preservation mode activates: all new entries blocked, existing stops tighten to 3%. Resets at midnight UTC |
-| Capital preservation mode | State flag in `data/positions_state.json`. Set by `activate_capital_preservation()`, cleared by `check_and_refresh_day_open()` at start of each new day |
-| `position_state.py` | New module (2026-05-27): manages `data/positions_state.json`. Stores HWM, stop order IDs + cycle counts per symbol, plus day-open equity and capital preservation flag |
-| `positions_state.json` | Persistent JSON state file in `data/`. Survives evaluation cycles. Atomic writes via temp-file + os.replace() |
-| `correlation_budget_allows(symbol, open_symbols)` | `risk.py` function: returns `(allowed, reason)`. Checks total position count and per-tier count |
-| `daily_drawdown_gate_triggered(day_open, current)` | `risk.py` function: returns True if drawdown ≥ 3% (configurable via `config.json > risk.daily_drawdown_gate_pct`) |
-| Rebalance script | `scripts/rebalance.py` — trims over-cap positions, tops up under-cap positions (signal-gated). Run with `--execute` to submit orders |
 | Over-cap trim | Position value > cap% of equity → sell excess to bring back to cap. No signal gate; always fires |
 | Under-cap top-up | Position value < cap% → buy to close the gap, subject to signal gate (score ≥ 3) and regime gate (no downtrend) |
-| `isShort` | Dashboard JS pattern: `const isShort = qty < 0`. Alpaca returns negative `qty` for open short positions |
-| SHORT badge | Red `SHORT` label displayed next to symbol name in Positions tab for short positions (both dashboards) |
-| ⚡ Short button | Signals tab quick-fill button for short setups (`down && score <= -3`); pre-fills trade modal with `side='sell'` and ATR-sized qty |
-| TOP30_SYMBOLS | 30-element JS array in the dashboard covering the top crypto by market cap available on Alpaca (stablecoins and BNB excluded) |
-| TOP30_INFO | JS object keyed by symbol; stores `rank`, `tier` (Mega/Large/Mid/Small), `capLabel`, and `name` for each of the 30 symbols |
-| _activateSubTab(parentId, subId) | Generic dashboard helper powering both parent tabs' sub-tabs. Scoped to `#page-<parentId>`, it toggles the `.subpage` divs + `.subtab-btn` buttons within that parent (so 🌐 Market and 🔬 Analytics never clash), then mirrors `subId` to the URL hash + `localStorage.lastTab`. `marketSubTab`/`analyticsSubTab` are thin wrappers that add validation + lazy-loading. (CSS `.subnav`/`.subpage` were renamed from `.market-subnav`/`.market-subpage` when generalised 2026-06-17; button ids unified to `subtab-<subId>`.) |
-| Market tab / page-market | Single nav tab merging Market Overview + Scanner + Breakout (2026-06-17). `switchTab('market')` shows `page-market`; the shared `.subnav`/`.subtab-btn` bar switches the three `.subpage` divs (`subpage-market-overview`/`subpage-market-signals`/`subpage-gapgo`). Middle sub-tab labelled **🔭 Scanner** (renamed from "Signals" to fix the duplicate-name bug; sub-id stays `market-signals`) |
-| Analytics tab / page-analytics | Single nav tab merging Performance + P&L + Edge (roadmap, 2026-06-17), in the **📊 Analysis** nav section. `switchTab('analytics')` shows `page-analytics`; `.subpage` divs `subpage-performance`/`subpage-pnl`/`subpage-edge`. Performance auto-loads (`refreshCurrent`→`loadDashboard`); P&L on select (`loadPnl`); Edge manual |
-| MARKET_SUBS / ANALYTICS_SUBS | Const arrays of each parent tab's valid sub-ids — `["market-overview","market-signals","gapgo"]` and `["performance","pnl","edge"]`. Single source of truth used by `marketSubTab`/`analyticsSubTab` (validation), `applyTabFromUrl()` (`SUBS = MARKET_SUBS.concat(ANALYTICS_SUBS)`, deep-link resolution), and `switchTab()` (redirect guard: any sub-id → its parent + sub-tab, so keyboard shortcuts / `#gapgo` / `#pnl` / legacy `switchTab('pnl')` keep working) |
-| marketSubTab(subId) / analyticsSubTab(subId) | Wrappers over `_activateSubTab` for the two parent tabs: validate `subId` against `MARKET_SUBS`/`ANALYTICS_SUBS`, store `_marketSub`/`_analyticsSub` for restore, and lazy-load (Overview / Performance auto-load; P&L on select; Scanner/Breakout/Edge manual). Cross-link buttons in each sub-tab header call them |
-| Breakout sub-tab / subpage-gapgo | Pre-session breakout/gap analysis, formerly the standalone `gapgo` tab, folded into the Market tab as the third sub-tab 2026-06-17. `loadGapGo()` renders Conviction (±7) + Signal (`calcSignalScore`; the `/6` suffix was dropped 2026-06-29) per card; manual run. Element `subpage-gapgo`, button `subtab-gapgo` |
-| Market Overview sub-tab | Dashboard sub-tab (inside the Market tab) showing live price, 24h%, 7d%, volume, trend and cap tier; auto-loads on selection; includes momentum heatmap. Symbol set is the shared `getCryptoUniverse()` filtered to `/USD` pairs (`usdPairsOnly()`, bugfix 2026-07-09 v2) and sliced by the Max Symbols setting (`MO_SYMBOLS = usdPairsOnly(universe).slice(0, n)`) — no longer hardcoded to 30; symbol cells show the full pair. Each row has a **Trade** column with Buy/Sell buttons (`moTradeButtons()`) |
-| moTradeButtons(row) | Dashboard fn rendering the Market Overview row's Buy/Sell buttons; calls `openTradeModal(row.sym→BTCUSD, displaySym, side, '', row.price)` (qty blank, side+price pre-filled). Returns `–` when the row has no live price. Reuses the shared trade modal — no new submit logic |
-| populateWatchlistOptions() | Dashboard fn filling the Settings watchlist `<datalist id="watchlistSymbolOptions">` from `getCryptoUniverse()`, excluding already-added symbols. Called from `renderWatchlistTags()` so it re-syncs after add/remove/reset. Powers the watchlist add-symbol dropdown (`<input list>`); degrades to free-text if the assets call fails. When the **Show stablecoins** checkbox (`#watchlistShowStable`, default off) is checked, also appends `getStablecoinPairs()` so stablecoin pairs appear in the dropdown |
-| getStablecoinPairs() / _stablecoinUniverse | `_stablecoinUniverse` is the list of stablecoin `*/USD` pairs found in the tradable universe — collected (not just dropped) by `getCryptoUniverse()` alongside `_cryptoUniverse`. `getStablecoinPairs()` awaits the universe build then returns it. Used only by the Settings symbol selector's opt-in **Show stablecoins** filter; the trading universe / scans never include these |
-| Market Signals sub-tab | Dashboard sub-tab (inside the Market tab) running the full 6-point confluence scan on demand across `getCryptoUniverse()` filtered to `/USD` pairs (`usdPairsOnly()`, bugfix 2026-07-09 v2 — USDT/USDC duplicates removed), capped by the Max Symbols setting; same scoring engine as the watchlist Signals tab. Symbol cells show the full pair (`BTC/USD`). Has a per-symbol Watchlist column (`msWatchlistCell()`) |
-| msWatchlistCell(row) / msAddWatch / msRemoveWatch | Market Signals Watchlist-column helpers. `msWatchlistCell()` renders **+ Watch** when score ≥ 4 and symbol not on watchlist, **– Unwatch** when score ≤ −2 (sell) and no open position (`_msOpenPosSyms`), else ✓ watched / – (or "full" at the 20-cap). The buttons call `msAddWatch`/`msRemoveWatch`, which mutate the shared watchlist (`saveWatchlistData`+`renderWatchlistTags`) and re-render only the cells via `renderMsWatchlistCells()` (cached `_msLastRows`, cells keyed `mswl-<alpSym>`) — no rescan |
-| _msOpenPosSyms / _msLastRows | Market Signals globals: `_msOpenPosSyms` is a Set of `BASE/QUOTE` symbols with an open position (normalized via `toSlash`, from `/v2/positions`, fetched in `loadMarketSignals`) used to gate the Watchlist – Unwatch button; `_msLastRows` caches the last scanned rows so watchlist cells can re-render without a rescan |
-| symbolInfo(sym) / _universeRank | `symbolInfo()` returns a symbol's display info: curated `TOP30_INFO` when known, else `{ rank: _universeRank[sym] (1-based universe position), tier:"?", capLabel:"?", name: baseTicker(sym) }`. `_universeRank` is rebuilt by `rebuildUniverseRank()` at the end of `getCryptoUniverse()`. Used by Market Overview + Market Signals so every row has a contiguous rank instead of `#?` |
-| getCryptoUniverse() | Dashboard fn that fetches the full tradable crypto universe once (`/v2/assets?asset_class=crypto&status=active`), caches it in `_cryptoUniverse`, and orders it as still-tradable `TOP30_SYMBOLS` first then the rest alphabetically. Robust to symbol format: normalizes both `BTC/USD` and bare `BTCUSD` to `BASE/QUOTE`. Accepts quotes in `ALLOWED_QUOTES` (**USD, USDT, USDC** — so `BTC/USDT`/`ETH/USDC` are included, roadmap 2026-06-19), drops other quotes (BTC-quoted etc.), and drops stablecoin bases (see `STABLECOIN_BASES`). Falls back to `TOP30_SYMBOLS` on failure/empty **without caching it** (fixed 2026-06-18) — only a real, non-empty result is stored in `_cryptoUniverse`, so a failed first call (e.g. on page load before credentials are seeded) retries instead of sticking the universe at 30 for the session and capping every scan below `maxSignalSymbols`. Shared by **both** Market Signals and Market Overview (and the Settings watchlist dropdown), replacing the 30-symbol ceiling so `maxSignalSymbols` can exceed 30 on both |
-| ALLOWED_QUOTES | Dashboard const `{USD,USDT,USDC}` — the quote currencies `getCryptoUniverse()` keeps. Added 2026-06-19 to allow stablecoin-quoted pairs (BTC/USDT, ETH/USDC) into the dashboard universe; pairs in any other quote (BTC-quoted, EUR, …) are dropped. `addWatchlistSymbol()` validates against the same three quotes. Since the 2026-07-09 v2 bugfix the USDT/USDC pairs feed only the Settings watchlist selector — the scan surfaces filter them out via `usdPairsOnly()` |
-| usdPairsOnly(universe) | Dashboard helper (bugfix 2026-07-09 v2) — filters the shared crypto universe to symbols ending `/USD`. Applied by `loadMarketSignals()` (Scanner), `loadMarketOverview()`, and `updateScanBtnLabel()`'s ceiling clamp, because Alpaca executes trades against USD and the mixed USDT/USDC quotes made the same base appear up to 3× per scan (all displayed as the bare base ticker). Scan-surface symbol cells now also render the full pair (`tvLink(row.sym)` → `BTC/USD`) instead of `baseTicker()` |
-| baseTicker(sym) | Dashboard helper returning the base asset before the slash (`BTC/USDT`→`BTC`, `BTC/USD`→`BTC`, bare `BTC`→`BTC`). Replaced display-only `sym.replace("/USD","")` calls everywhere once USDT/USDC quotes entered the universe (the old strip turned `BTC/USDT` into `BTCT`). Display labels only — order symbols still use `sym.replace("/","")` |
-| STABLECOIN_BASES | Dashboard const set of stablecoin base symbols (USDT, USDC, DAI, USDP, PYUSD, TUSD, BUSD, GUSD, USDG, FDUSD, USDD, FRAX, LUSD, USTC) excluded from the trading universe by `getCryptoUniverse()` — a `USDT/USD`/`USDC/USD` pair is just the stablecoin priced in dollars, never a tradeable setup, so it must not pollute scans/overview. Since 2026-06-19 these pairs are *collected* into `_stablecoinUniverse` (see `getStablecoinPairs()`) so the Settings symbol selector's opt-in **Show stablecoins** filter can offer them in the watchlist dropdown only |
-| _msPrevScores | Dashboard JS cache (`{}` keyed by symbol) storing confluence scores from the last Market Signals scan; read by Market Overview to populate its Score column |
-| applyTabFromUrl() | Dashboard fn that resolves the active tab from the URL hash, then `localStorage.lastTab`, and activates it. Called at end of `bootstrapDashboard()` and on `hashchange`. Enables deep-linking to a tab (`#signals`) and restoring the last tab on browser refresh. A `SUBS = MARKET_SUBS` list (`market-overview`/`market-signals`/`gapgo`) makes it recognise Market sub-tab ids and open the parent `market` tab + sub-tab (sets `_marketSub` first to skip a wasted Overview load when deep-linking to a non-Overview sub-tab) |
-| nav-section-label / nav grouping | Sidebar tabs grouped under `.nav-section-label` headers: ⚡ Trade (Signals · Market · Execution) · 💼 Portfolio (Overview · Allocation · Risk) · 📊 Analysis (🔬 Analytics · Backtest vs Live · Markov); Command + Settings are ungrouped anchors. (As of v2026-06-17.17: Performance/P&L/Edge live inside the 🔬 Analytics parent tab, and the standalone Positions tab was dropped.) Keyboard `TAB_ORDER` (keys 1-9) follows the visual order |
-| validTabIds() / tabBtnFor(id) | Dashboard helpers: `validTabIds()` derives the list of valid tab ids by parsing each nav button's `switchTab('<id>',…)` onclick (so routing never drifts as tabs change); `tabBtnFor(id)` returns the nav button for a given id |
-| lastTab (localStorage) | Dashboard `localStorage` key holding the last opened tab id; written by `switchTab()`, read by `applyTabFromUrl()` as the fallback when the URL has no tab hash |
-| Cap tier | Classification of a crypto's market cap: Mega (>$100B), Large ($10B–$100B), Mid ($1B–$10B), Small (<$1B) |
-| `generateMorningBrief()` | Portfolio dashboard header-button handler. Builds the morning brief Markdown (Portfolio Health, Alerts, Signal Confluence, Market Notes) from live data + the `confluenceScore`/`fetchBars` engine; shows modal `#briefDocBackdrop`; downloads `morning-brief-YYYY-MM-DD.md` |
-| `generateDailyJournal()` | Professional dashboard header-button handler. Builds the closing journal Markdown (Summary, Trades Today, Open Positions, Market Observations) from account/positions/FILL activities + a `JOURNAL_WL` `calcSignalScore` scan; shows modal `#journalDocBackdrop`; downloads `daily-journal-YYYY-MM-DD.md` |
-| `getWatchlist()` | Returns the active watchlist array from `localStorage.proDashboardWatchlist` (falls back to `DEFAULT_WATCHLIST` — the 10 default crypto symbols). Used by `generateDailyJournal()` (was `JOURNAL_WL`), Autopilot (`getApWatchlist()`), and portfolio tabs (`getPortCryptoWL()`). Users manage it in the Settings tab watchlist editor. |
-| `DEFAULT_WATCHLIST` | `["BTC/USD","ETH/USD","SOL/USD","AVAX/USD","LINK/USD","DOT/USD","LTC/USD","DOGE/USD","ADA/USD","AAVE/USD"]` — the 10-symbol fallback used when no watchlist is saved in localStorage. `resetWatchlist()` restores this. |
-| `WL_STORAGE_KEY` | `"proDashboardWatchlist"` — localStorage key for the user-managed watchlist. Separate from `proDashboardSettings`. |
-| `Etc/GMT-2` | IANA timezone string used by the brief/journal generators for GMT+2 timestamps and day filtering. Note the inverted sign: `Etc/GMT-2` == UTC+2 == GMT+2 |
-
----
-
-## Watchlist Symbols
-
-| Symbol | Asset | Notes |
-|--------|-------|-------|
-| BTC/USD | Bitcoin | Largest by cap; lowest volatility |
-| ETH/USD | Ethereum | DeFi hub; correlated with BTC |
-| SOL/USD | Solana | High-throughput L1; volatile |
-| AVAX/USD | Avalanche | L1; subnet ecosystem |
-| LINK/USD | Chainlink | Oracle network |
-| DOT/USD | Polkadot | Parachain ecosystem |
-| LTC/USD | Litecoin | OG altcoin; often leads BTC moves |
-| DOGE/USD | Dogecoin | Meme coin; high sensitivity to sentiment |
-| UNI/USD | Uniswap | DeFi AMM token |
-| AAVE/USD | Aave | DeFi lending protocol |
 
 ---
 
