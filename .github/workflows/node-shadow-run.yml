@@ -13,8 +13,11 @@ name: Node Port Shadow Run
 
 on:
   schedule:
-    # Offset 15 min after trade.yml's evaluate schedule (2 */8 * * *) so both
-    # hit a freshly-evaluated market state without racing each other's git push.
+    # Runs its own every-8h cadence to accumulate gate-2 parity samples
+    # faster than trade.yml's own (cost-throttled, currently once/day —
+    # see trade.yml's schedule comment) cadence; both hit live market data
+    # independently and can never race each other's git push (separate
+    # concurrency group + commit identity).
     - cron: '17 */8 * * *'
   workflow_dispatch:
 

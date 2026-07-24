@@ -196,6 +196,12 @@ BARS_TIMEFRAME       = "15Min"
 BARS_4H_TIMEFRAME    = "4Hour"
 DAILY_BARS_TIMEFRAME = "1Day"
 
+# trade.yml's evaluate cron (2026-07-24: once/day, cost-throttled pending
+# Vercel Pro — see CLAUDE.md "Schedule"). CADENCE_WARNING_MIN adds ~1h of
+# slack over the expected gap to absorb normal GitHub Actions scheduling jitter.
+CADENCE_EXPECTED_MIN = 24 * 60
+CADENCE_WARNING_MIN  = CADENCE_EXPECTED_MIN + 60
+
 # Minutes per bar for each timeframe — used to derive the `start` date.
 _TF_MINUTES = {
     "15Min": 15,
@@ -1651,20 +1657,23 @@ def main() -> int:
         print("INFO: " + w)
         journal_warnings.append(w)
 
-    # Cadence self-monitoring (Bug #4, 2026-07-10): the spec is one evaluation
-    # per hour at :23, but the real cadence degraded to 5-7 runs/day, leaving
-    # stops unchecked for multi-hour gaps. Journal a CADENCE WARNING whenever
-    # the previous evaluation is > 90 minutes old.
+    # Cadence self-monitoring (Bug #4, 2026-07-10): originally spec'd as one
+    # evaluation per hour at :23, then throttled to every 8h (2026-07-20) and
+    # to once/day (2026-07-24, pending Vercel Pro before revisiting — see
+    # CLAUDE.md "Schedule") to cut GitHub Actions minutes. Journal a CADENCE
+    # WARNING whenever the previous evaluation is > CADENCE_WARNING_MIN old —
+    # keep this in sync with trade.yml's actual cron so it doesn't false-fire
+    # on every intentional run.
     now_utc = datetime.now(timezone.utc)
     last_eval_iso = state.get("last_evaluation_iso")
     if last_eval_iso:
         try:
             last_eval = datetime.fromisoformat(str(last_eval_iso))
             gap_min = (now_utc - last_eval).total_seconds() / 60
-            if gap_min > 90:
+            if gap_min > CADENCE_WARNING_MIN:
                 msg = ("CADENCE WARNING: previous evaluation was %.0f minutes "
-                       "ago (expected hourly) — stops were unchecked in the gap"
-                       % gap_min)
+                       "ago (expected every %d min) — stops were unchecked in the gap"
+                       % (gap_min, CADENCE_EXPECTED_MIN))
                 print("WARNING: " + msg)
                 journal_warnings.append(msg)
         except Exception:

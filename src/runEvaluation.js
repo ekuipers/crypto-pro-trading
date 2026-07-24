@@ -68,6 +68,12 @@ import {
 // it's ever flipped on rather than silently skipping it.
 assertNotShipped("strategy.breadth_gate_enabled", BREADTH_GATE_ENABLED, "breadthPct/breadthPolicy");
 
+// trade.yml's evaluate cron (2026-07-24: once/day, cost-throttled pending
+// Vercel Pro -- see CLAUDE.md "Schedule"). CADENCE_WARNING_MIN adds ~1h of
+// slack over the expected gap to absorb normal GitHub Actions scheduling jitter.
+const CADENCE_EXPECTED_MIN = 24 * 60;
+const CADENCE_WARNING_MIN = CADENCE_EXPECTED_MIN + 60;
+
 /**
  * Run one evaluation cycle. Returns a process-style exit code (0 success,
  * 1 hard failure). `execute=false` (the default) is a dry run: decisions
@@ -167,15 +173,16 @@ export async function main({ execute = false, deps = {} } = {}) {
   }
 
   // Cadence self-monitoring: journal a CADENCE WARNING whenever the
-  // previous evaluation is > 90 minutes old.
+  // previous evaluation is > CADENCE_WARNING_MIN old -- keep this in sync
+  // with trade.yml's actual cron so it doesn't false-fire on every run.
   const nowUtc = now();
   const lastEvalIso = state.last_evaluation_iso;
   if (lastEvalIso) {
     const lastEval = new Date(lastEvalIso);
     if (!Number.isNaN(lastEval.getTime())) {
       const gapMin = (nowUtc.getTime() - lastEval.getTime()) / 60000;
-      if (gapMin > 90) {
-        const msg = `CADENCE WARNING: previous evaluation was ${gapMin.toFixed(0)} minutes ago (expected hourly) — stops were unchecked in the gap`;
+      if (gapMin > CADENCE_WARNING_MIN) {
+        const msg = `CADENCE WARNING: previous evaluation was ${gapMin.toFixed(0)} minutes ago (expected every ${CADENCE_EXPECTED_MIN} min) — stops were unchecked in the gap`;
         console.log("WARNING: " + msg);
         journalWarnings.push(msg);
       }

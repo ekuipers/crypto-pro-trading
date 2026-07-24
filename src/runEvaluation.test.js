@@ -178,9 +178,9 @@ describe("main — --execute path", () => {
 });
 
 describe("main — cadence and drawdown warnings", () => {
-  test("journals a CADENCE WARNING when the previous evaluation is >90 minutes old", async () => {
+  test("journals a CADENCE WARNING when the previous evaluation is older than the expected daily cadence + slack", async () => {
     const state = ps.loadState("/nonexistent");
-    state.last_evaluation_iso = new Date("2026-07-19T08:00:00Z").toISOString(); // 143 min before `now`
+    state.last_evaluation_iso = new Date("2026-07-18T08:23:00Z").toISOString(); // 1560 min (26h) before `now`
     const journalCalls = [];
     const deps = baseDeps({ loadState: () => state, __journalCalls: journalCalls });
     deps.appendJournalBlock = (args) => {

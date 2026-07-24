@@ -420,7 +420,7 @@ One Markdown file per calendar day in `journal/YYYY-MM-DD.md`, following `journa
 
 The bot appends three types of block:
 
-1. **`## Evaluation HH:MM GMT+2`** — written after every `:23` run (24× per day). Contains a one-line decision per symbol plus the full indicator breakdown for each.
+1. **`## Evaluation HH:MM GMT+2`** — written once per `trade.yml` run (currently once/day at 12:02 UTC, cost-throttled — see `CLAUDE.md` "Schedule"). Contains a one-line decision per symbol plus the full indicator breakdown for each.
 2. **`## Research HH:MM GMT+2`** — market research block written on the hour.
 3. **`## Daily Summary`** — written once at end of day (23:21 GMT+2).
 
@@ -647,7 +647,7 @@ alpaca-trading-agent/
 │   ├── routines.json          # Cowork agent routine definitions
 │   └── settings.local.json    # Agent permission grants
 ├── .github/workflows/
-│   ├── trade.yml              # Hourly trading + daily summary
+│   ├── trade.yml              # Daily trading (cost-throttled) + daily summary
 │   └── forward.yml            # Daily walk-forward analysis
 ├── docs/
 │   ├── favicon.*, apple-touch-icon.png # Static assets (still served directly from here)
