@@ -1,5 +1,30 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-24.5 — 2026-07-24 — Correction: Suite roadmap items 1+2 were misimplemented (logo doubled, not text; footer touched, not skipped)
+
+**Task:** user flagged that the earlier same-day pass (v2026-07-24.4, `76a9e99`) got the Suite roadmap items
+wrong and asked to force the correct implementation, ignoring the previous commit.
+
+**What was wrong:** Suite roadmap item 1 says "Increase the header **text** ... 2x. Don't touch the footer."
+Item 2 says "Decrease the **logo** size in the footer to half the size." The earlier pass doubled the
+`.logo-icon`/`.footer-logo-icon` **image** (not text) in **both** header and footer — wrong element for item
+1 and it touched the footer (forbidden), and wrong direction/scope for item 2 (increased instead of decreased,
+and applied to the header too).
+
+**Fix:** `src/css/base-layout.css`'s `.logo-icon` (header image) reverted to its original `18×18px`/
+`border-radius:4px` — item 1 never asked to resize the logo, only the text. `.logo` (header text container,
+covers both the `.logo-brand` "CryptoPro" span and the plain "Trader" text) `font-size` doubled `13px→26px`.
+`src/css/forms-modals-footer.css`'s `.footer-logo-icon` (footer image, shared by both the site logo and the
+Developer Studio logo) set to **half of the original pre-error size**: `9×9px`/`border-radius:2px`. Footer
+text (`.footer-name`, a separate class from `.logo`) untouched, matching item 1's "don't touch the footer."
+Same correction applied identically across Suite, Charts, Training, and Mobile's header mockup — full
+cross-project detail in `CryptoPro Suite/memory/memory.md` (2026-07-24, entry "Roadmap items 1+2 corrected").
+
+**Not verified:** no browser check this session — the doubled header text hasn't been visually confirmed to
+fit the header row without wrapping/overlap.
+
+---
+
 ## v2026-07-24.3 — 2026-07-24 — Roadmap rescan: Node cutover CONFIRMED LIVE (ahead of planned check window)
 
 **Task:** Routine roadmap rescan of `CLAUDE.md` open items.
@@ -2523,6 +2548,11 @@ repo specifically, per this project's own standing doc-update rule.
 
 **Not verified:** no browser tool this session — the larger logo hasn't been visually confirmed to fit
 cleanly in the header/footer flex row; worth a quick check before treating this as fully done.
+
+**CORRECTED same day, later session (v2026-07-24.5) — see entry near the top of this file.** Item 2 above
+was a misreading: it doubled the *logo image* in both header and footer, but the actual roadmap text asked
+to double the header *text* only ("don't touch the footer") and *halve* the footer logo. See the corrected
+entry for the actual fix.
 
 ---
 

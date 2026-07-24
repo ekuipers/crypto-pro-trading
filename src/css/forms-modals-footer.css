@@ -230,7 +230,7 @@
       color:var(--text);
       font-size:13px;
     }
-    .footer-logo-icon { width:36px; height:36px; border-radius:8px; vertical-align:middle; }
+    .footer-logo-icon { width:9px; height:9px; border-radius:2px; vertical-align:middle; }
     .footer-studio { display:inline-flex; align-items:center; gap:6px; }
     .footer-sep { color:var(--border); }
     .footer-disclaimer { color:var(--yellow); }
