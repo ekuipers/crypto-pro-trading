@@ -16,10 +16,17 @@ export const GUEST = '__guest__';
 export const SESSION_NAME = '__session__';
 
 // For accounts to actually be *shared* across the suite, this must resolve
-// to the exact same Supabase Postgres project CryptoPro Charts uses — hence
-// DBCRYPTOCHARTS_* takes priority over this project's own pre-existing
-// `trading_*` Postgres vars (a separate Supabase project). See .env.example.
+// to the exact same Supabase Postgres project CryptoPro Charts uses. As of
+// 2026-07-24 the Vercel Supabase integration issues per-project-prefixed
+// vars (CRYPTOPROTRADER_*, CRYPTOPROCHARTS_*, ...) that all point at the
+// SAME underlying Supabase project ref (confirmed by diffing this project's
+// .env against Charts' — identical host/password) rather than one project
+// aliasing another's var names, so CRYPTOPROTRADER_* is now the live source.
+// DBCRYPTOCHARTS_*/`trading_*` are kept as fallbacks for instant rollback.
+// See .env.example.
 const CONN_VARS = [
+  'CRYPTOPROTRADER_POSTGRES_URL',
+  'CRYPTOPROTRADER_POSTGRES_URL_NON_POOLING',
   'DBCRYPTOCHARTS_POSTGRES_URL',
   'DBCRYPTOCHARTS_POSTGRES_URL_NON_POOLING',
   'trading_POSTGRES_URL',

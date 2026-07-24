@@ -1,5 +1,47 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-24.2 — 2026-07-24 — Fix: sign-in database error (stale Supabase env var names)
+
+**Task:** Suite roadmap item — "I changed the environment variables in Vercel and the local .env
+files accordingly. Please verify Trader app whether the correct vars are used." Also directly
+closes Suite `CLAUDE.md`'s Bug #1 ("The trader app gives a database error when signing into the
+app").
+
+**Root cause:** `src/db.js`'s `CONN_VARS` only recognized `DBCRYPTOCHARTS_POSTGRES_URL[_NON_POOLING]`,
+`trading_POSTGRES_URL[_NON_POOLING]`, and the generic `POSTGRES_URL*`/`DATABASE_URL` names. The
+user's Vercel Supabase-integration reconfiguration now issues **per-project-prefixed** vars instead
+— this project's local `.env` (and, per the user, Vercel's dashboard identically) now only has
+`CRYPTOPROTRADER_POSTGRES_URL[_NON_POOLING]` (plus unused `*_SUPABASE_*` keys `db.js` never reads).
+None of `CONN_VARS`' old names matched, so `connString()` returned `null`, `dbEnabled()` was false,
+and every sign-in/register attempt hit the "database disabled" 503 path — reads as a generic
+"database error" in the UI.
+
+**Verified same underlying DB, not a new one:** diffed this project's `.env` against CryptoPro
+Charts' — identical Supabase host (`bgxjmpzfkxqwoyupqldj.supabase.co`) and password, just under each
+project's own prefix (`CRYPTOPROTRADER_*` here, `CRYPTOPROCHARTS_*` there). So the shared-accounts
+requirement (Suite workflow rule 18) still holds; only the var *names* changed, not the target
+database. Charts' own `src/db.js` has the identical stale-`CONN_VARS` issue but that's outside this
+task's scope (Trader was the explicit ask) — flagged to the user for a follow-up session per Suite
+workflow rule 26.
+
+**Fix:** added `CRYPTOPROTRADER_POSTGRES_URL`/`CRYPTOPROTRADER_POSTGRES_URL_NON_POOLING` to
+`CONN_VARS` as the first (highest-priority) entries; kept `DBCRYPTOCHARTS_*`/`trading_*`/generic as
+fallbacks for instant rollback. Updated `.env.example` and `README.md`'s sign-in section and
+`memory/glossary.md`'s SSO entry to describe the new per-project-prefix scheme.
+
+**Verified:** sourced the real local `.env` and called `db.dbEnabled()` (true) then `db.init()`
+against the live Supabase project — connected successfully, `create table if not exists` ran clean
+(idempotent, tables already exist from Charts). Full suite: 297/305 pass, same 8 pre-existing
+`APCA_*`-env-dependent failures as before this change (unrelated — Alpaca creds, not Postgres).
+
+**Not investigated:** whether Vercel's dashboard env vars actually match local `.env` as the user
+stated (not independently verifiable from this sandbox) — the code fix is correct for whatever the
+user pasted into both places identically, but if Vercel drifted from local `.env` this won't help.
+Also not investigated: `APCA_API_KEY_ID`/`APCA_API_SECRET_KEY`/`CRON_SECRET`/`TRADER_OWNER_UID` are
+absent from local `.env` (only Supabase-prefixed vars present) — out of scope for "verify the DB
+vars" but worth the user double-checking those weren't dropped from Vercel too when they pasted the
+new Supabase snippet over the old file.
+
 ## v2026-07-24.1 — 2026-07-24 — Multi-tenant conversion Phase 1: Alpaca credential-injection seam
 
 **Task:** roadmap rescan surfaced two new workflow rules (cron cadence + "cron jobs should be

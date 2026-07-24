@@ -101,8 +101,11 @@ account sign-in, and keyboard shortcuts. Static content, no network call; `src/j
 
 The dashboard header has a **👤 Sign in** button (username/password, with optional TOTP 2FA) backed
 by `src/auth.js` + `src/db.js` + `src/totp.js` — the same accounts/sessions pattern already running in
-CryptoPro Charts and CryptoPro Suite. Point `DBCRYPTOCHARTS_POSTGRES_URL[_NON_POOLING]` at the same
-Supabase Postgres project Charts uses (see `.env.example`) to share one login across the whole suite.
+CryptoPro Charts and CryptoPro Suite. As of 2026-07-24, Vercel's Supabase integration provisions this
+project's own `CRYPTOPROTRADER_POSTGRES_URL[_NON_POOLING]` vars pointing at the same shared Supabase
+project Charts uses under its own `CRYPTOPROCHARTS_*` prefix (see `.env.example`) — same database,
+per-project var names, so one login is still shared across the whole suite. Older
+`DBCRYPTOCHARTS_POSTGRES_URL[_NON_POOLING]` vars are still accepted as a fallback.
 Without a connection string, sign-in/register return 503 and the rest of the dashboard works unaffected.
 The "Enable 2FA" dialog shows a scannable QR code (any TOTP authenticator app) alongside the manual-entry
 secret, generated client-side via a vendored `qrcode-generator` (no network call).
