@@ -24,12 +24,19 @@ import {
   getOpenOrders as defaultGetOpenOrders,
   cancelOrder as defaultCancelOrder,
   placeOrder as defaultPlaceOrder,
+  defaultClient,
   TradeRejected,
 } from "./trade.js";
 import { evaluateSymbol as defaultEvaluateSymbol } from "./evaluateSymbol.js";
 import { applyRotation as defaultApplyRotation } from "./rotation.js";
 import { appendJournalBlock as defaultAppendJournalBlock, formatDecisionLine } from "./journal.js";
-import { fetchAllFills as defaultFetchAllFills, fifoRoundTrips } from "./marketData.js";
+import {
+  fetchAllFills as defaultFetchAllFills,
+  fifoRoundTrips,
+  getCryptoBars,
+  getCryptoBars4h,
+  getCryptoBarsDaily,
+} from "./marketData.js";
 import {
   reconcilePositionsFromFills as defaultReconcilePositionsFromFills,
   pruneStaleState,
@@ -96,6 +103,24 @@ export async function main({ execute = false, deps = {} } = {}) {
   const loadState = deps.loadState || ps.loadState;
   const saveState = deps.saveState || ps.saveState;
   const now = deps.now || (() => new Date());
+  // evaluateSymbol()/applyRotation() make their own internal HTTP calls
+  // (quote/bars/open-orders/account) and, unlike every other dependency in
+  // this function, previously had no override seam at all from main() --
+  // they'd silently keep trading on the legacy env-var account even when a
+  // caller (e.g. a future per-user cron dispatcher) swapped every other dep
+  // here. Both already accept a `deps`/options override internally
+  // (evaluateSymbol.js/rotation.js), so only a client-bound bridge is
+  // needed here, not a signature change in either file.
+  const client = deps.client || defaultClient;
+  const symbolDeps = {
+    getLatestQuote: (s) => client.getLatestQuote(s),
+    getOpenOrders: (s) => client.getOpenOrders(s),
+    cancelOrder: (id) => client.cancelOrder(id),
+    getAccount: () => client.getAccount(),
+    getCryptoBars: (s, l, tf) => getCryptoBars(s, l, tf, { client }),
+    getCryptoBars4h: (s, l) => getCryptoBars4h(s, l, { client }),
+    getCryptoBarsDaily: (s, l) => getCryptoBarsDaily(s, l, { client }),
+  };
 
   console.log("Starting evaluation...");
   const stopDesc =
@@ -260,11 +285,11 @@ export async function main({ execute = false, deps = {} } = {}) {
   // ── Evaluate all symbols ────────────────────────────────────────────────
   const decisions = [];
   for (const sym of symbols) {
-    decisions.push(await evaluateSymbol(sym, posBySymbol, state, openSymbols, { throttleActive }));
+    decisions.push(await evaluateSymbol(sym, posBySymbol, state, openSymbols, { throttleActive, deps: symbolDeps }));
   }
 
   // Position rotation at the correlation budget.
-  const rotationNote = await applyRotation(decisions, posBySymbol, openSymbols);
+  const rotationNote = await applyRotation(decisions, posBySymbol, openSymbols, { getAccount: () => client.getAccount() });
   if (rotationNote) {
     console.log("INFO: " + rotationNote);
     journalWarnings.push(rotationNote);

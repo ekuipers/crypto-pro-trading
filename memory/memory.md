@@ -1,5 +1,42 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-24.1 — 2026-07-24 — Multi-tenant conversion Phase 1: Alpaca credential-injection seam
+
+**Task:** roadmap rescan surfaced two new workflow rules (cron cadence + "cron jobs should be
+user bound") that don't match current behavior. User confirmed scope: convert the Node engine
+(only — Python/GitHub Actions is being retired separately) to full multi-tenant, each user
+connecting their own Alpaca credentials, with per-user strategy/risk config too. Full 6-phase
+design in `memory/project-trader-multitenant-plan.md`; this entry covers Phase 1 only.
+
+**Problem:** `src/trade.js` read `APCA_API_KEY_ID`/`APCA_API_SECRET_KEY`/`APCA_BASE_URL` as
+module-level constants at import time — every exported function closed over these, so there was
+no way to run the same trading logic against two different Alpaca accounts in one process. This
+is the root blocker every later phase depends on.
+
+**Fix:** new `src/alpacaClient.js` — `createAlpacaClient({keyId, secret, baseUrl, dataUrl,
+symbolCap})` factory holding every CLAUDE.md hard rule (limit-only orders, band %, position cap),
+moved verbatim out of `trade.js`. `trade.js` is now a thin legacy shim (`defaultClient` bound to
+the env vars, same destructured named exports) — every existing call site (tests, CLI scripts)
+keeps working unchanged. `marketData.js`/`reconcile.js`/`scout.js` gained an optional
+`{client = defaultClient}` option on their existing trailing-options convention, replacing direct
+`BASE_URL`/`headers` imports from `trade.js` (also deleted `scout.js`'s own dead duplicate
+`BASE_URL` read in the same pass). Closed a latent gap in `runEvaluation.js`: `evaluateSymbol()`/
+`applyRotation()` had zero credential-override seam at all even though `main()`'s other deps were
+overridable — added a `client`-bound `symbolDeps` object threaded into both calls.
+
+**Verified:** full 305-test suite — 297 pass / 8 fail, identical failing set before and after
+(diffed against a `git stash`-ed baseline run to confirm). The 8 failures are pre-existing and
+unrelated to this change — this sandbox's `.env` has no `APCA_BASE_URL` set, so a handful of
+tests that don't stub every HTTP call hit a real "undefined/v2/..." URL error regardless of the
+refactor. Grep confirms the only remaining `process.env.APCA_*` reads are in `trade.js`'s legacy
+shim.
+
+**Not done in this entry:** the earlier same-day Node-cutover-flip work (pushing commit `227c818`
+to trigger Vercel's redeploy after `CRON_EXECUTE=true` was saved) and the cron-cadence roadmap
+item are tracked in `CLAUDE.md`'s Roadmap and the global auto-memory system, not backfilled into
+this file's changelog — out of scope for this entry, flagged here so it isn't mistaken for
+"already logged."
+
 ## v2026-07-23.3 — 2026-07-23 — Fix: footer Developer Studio name typo ("SoftVibe" → "VibeSoft")
 
 **Task:** user asked to revise the footer's studio line. The name landed transposed in v2026-07-23.2 —

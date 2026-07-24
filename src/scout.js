@@ -34,15 +34,13 @@ import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { apiGet } from "./apiClient.js";
-import { headers } from "./trade.js";
+import { defaultClient } from "./trade.js";
 import { toSlash } from "./symbols.js";
 import { sma, signalScore } from "./indicators.js";
 import { getCryptoBars, getCryptoBars4h, getCryptoBarsDaily } from "./marketData.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.join(__dirname, "..");
-
-export const BASE_URL = process.env.APCA_BASE_URL;
 
 export const DYNAMIC_PATH = path.join(PROJECT_ROOT, "data", "watchlist_dynamic.json");
 
@@ -74,9 +72,9 @@ function toApiTimestamp(date) {
 }
 
 /** Active tradable USD-quoted crypto pairs, excluding the static watchlist. */
-export async function getUniverse() {
-  const r = await apiGet(BASE_URL + "/v2/assets", {
-    headers: headers(),
+export async function getUniverse({ client = defaultClient } = {}) {
+  const r = await apiGet(client.baseUrl + "/v2/assets", {
+    headers: client.headers(),
     params: { asset_class: "crypto", status: "active" },
     timeout: 20,
   });
@@ -93,8 +91,8 @@ export async function getUniverse() {
   return out.sort().slice(0, MAX_SCAN);
 }
 
-export async function dailyUptrend(symbol) {
-  const bars = await getCryptoBarsDaily(symbol);
+export async function dailyUptrend(symbol, { client = defaultClient } = {}) {
+  const bars = await getCryptoBarsDaily(symbol, undefined, { client });
   const closes = bars.filter((b) => b.c).map((b) => Number(b.c || 0));
   if (closes.length < 50) return false;
   const ma20 = sma(closes, 20);
@@ -103,8 +101,8 @@ export async function dailyUptrend(symbol) {
   return last > ma50 && ma20 > ma50;
 }
 
-export async function confluence(symbol) {
-  const bars = await getCryptoBars(symbol);
+export async function confluence(symbol, { client = defaultClient } = {}) {
+  const bars = await getCryptoBars(symbol, undefined, undefined, { client });
   const usable = bars.filter((b) => b.c);
   const closes = usable.map((b) => Number(b.c || 0));
   if (closes.length < 60) return null;
@@ -113,7 +111,7 @@ export async function confluence(symbol) {
   const volumes = usable.map((b) => Number(b.v || 0));
   let closes4h = null;
   try {
-    const bars4h = await getCryptoBars4h(symbol);
+    const bars4h = await getCryptoBars4h(symbol, undefined, { client });
     const c4 = bars4h.filter((b) => b.c).map((b) => Number(b.c || 0));
     closes4h = c4.length >= 51 ? c4 : null;
   } catch {
@@ -147,14 +145,15 @@ export async function scan({
   confluenceFn = confluence,
   dynamicPath = DYNAMIC_PATH,
   now = new Date(),
+  client = defaultClient,
 } = {}) {
   const candidates = [];
-  const universe = await getUniverseFn();
+  const universe = await getUniverseFn({ client });
   for (const sym of universe) {
     let score;
     try {
-      if (!(await dailyUptrendFn(sym))) continue;
-      score = await confluenceFn(sym);
+      if (!(await dailyUptrendFn(sym, { client }))) continue;
+      score = await confluenceFn(sym, { client });
     } catch (e) {
       console.log(`scout: ${sym} skipped (${e})`);
       continue;

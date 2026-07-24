@@ -7,9 +7,8 @@
 // _session_penalty_active, _seven_day_drawdown).
 
 import { toSlash } from "./symbols.js";
-import { headers } from "./trade.js";
+import { defaultClient } from "./trade.js";
 import { apiGet } from "./apiClient.js";
-import { BASE_URL } from "./trade.js";
 import { fetchAllFills, fifoRoundTrips } from "./marketData.js";
 import { getPosition, markPartialTp, clearPosition } from "./positionState.js";
 import { PARTIAL_TP_ENABLED, rollingDrawdownPct } from "./risk.js";
@@ -67,7 +66,7 @@ export function pruneStaleState(state, openSymbols) {
  * mutation and tests/test_reconcile.py's assertions against that mutation.
  * Returns journal warnings.
  */
-export async function reconcilePositionsFromFills(state, positions, { fills = null } = {}) {
+export async function reconcilePositionsFromFills(state, positions, { fills = null, client = defaultClient } = {}) {
   const warnings = [];
   const needs = [];
   for (const p of positions) {
@@ -86,7 +85,7 @@ export async function reconcilePositionsFromFills(state, positions, { fills = nu
 
   if (fills === null) {
     try {
-      fills = await fetchAllFills();
+      fills = await fetchAllFills({ client });
     } catch (e) {
       console.log(`position reconciliation skipped (fills fetch failed): ${e}`);
       return warnings;
@@ -167,10 +166,10 @@ export async function reconcilePositionsFromFills(state, positions, { fills = nu
 }
 
 /** Rolling 7-day equity drawdown from /v2/account/portfolio/history. */
-export async function sevenDayDrawdown({ maxAttempts, backoffSeconds } = {}) {
+export async function sevenDayDrawdown({ maxAttempts, backoffSeconds, client = defaultClient } = {}) {
   try {
-    const r = await apiGet(BASE_URL + "/v2/account/portfolio/history", {
-      headers: headers(),
+    const r = await apiGet(client.baseUrl + "/v2/account/portfolio/history", {
+      headers: client.headers(),
       params: { period: "1M", timeframe: "1D" },
       timeout: 20,
       ...(maxAttempts !== undefined && { maxAttempts }),
@@ -229,10 +228,10 @@ export function resetSessionPenaltyCache() {
 }
 
 /** True when the current GMT+2 hour or weekday is a penalized bucket. */
-export async function sessionPenaltyActive({ now = new Date(), roundTrips = null } = {}) {
+export async function sessionPenaltyActive({ now = new Date(), roundTrips = null, client = defaultClient } = {}) {
   if (_sessionPenaltyCache === null) {
     try {
-      const trips = roundTrips !== null ? roundTrips : fifoRoundTrips(await fetchAllFills());
+      const trips = roundTrips !== null ? roundTrips : fifoRoundTrips(await fetchAllFills({ client }));
       _sessionPenaltyCache = computeSessionPenalty(trips);
     } catch (e) {
       console.log(`session-edge filter skipped: ${e}`);

@@ -16,7 +16,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { apiGet } from "./apiClient.js";
-import { DATA_URL, BASE_URL, headers } from "./trade.js";
+import { defaultClient } from "./trade.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.join(__dirname, "..");
@@ -91,7 +91,7 @@ export function barsEnd(timeframe, now = new Date()) {
  * of `limit` -- follows `next_page_token` until `limit` bars are collected
  * or pages run out (hard cap of 10 pages, one page covers ~7 days).
  */
-export async function getCryptoBars(symbol, limit = BARS_FOR_INDICATORS, timeframe = BARS_TIMEFRAME) {
+export async function getCryptoBars(symbol, limit = BARS_FOR_INDICATORS, timeframe = BARS_TIMEFRAME, { client = defaultClient } = {}) {
   const params = {
     symbols: symbol,
     timeframe,
@@ -100,11 +100,11 @@ export async function getCryptoBars(symbol, limit = BARS_FOR_INDICATORS, timefra
     limit,
     sort: "desc", // newest N bars, not oldest N
   };
-  const url = DATA_URL + "/v1beta3/crypto/us/bars";
+  const url = client.dataUrl + "/v1beta3/crypto/us/bars";
   let bars = [];
   for (let i = 0; i < 10; i++) {
     // hard page cap -- one page covers ~7 days
-    const r = await apiGet(url, { headers: headers(), params, timeout: 20 });
+    const r = await apiGet(url, { headers: client.headers(), params, timeout: 20 });
     const payload = await r.json();
     bars = bars.concat(payload.bars?.[symbol] || []);
     const pageToken = payload.next_page_token;
@@ -115,13 +115,13 @@ export async function getCryptoBars(symbol, limit = BARS_FOR_INDICATORS, timefra
 }
 
 /** 4-Hour bars for the higher-timeframe trend filter. */
-export function getCryptoBars4h(symbol, limit = BARS_4H_LOOKBACK) {
-  return getCryptoBars(symbol, limit, BARS_4H_TIMEFRAME);
+export function getCryptoBars4h(symbol, limit = BARS_4H_LOOKBACK, { client = defaultClient } = {}) {
+  return getCryptoBars(symbol, limit, BARS_4H_TIMEFRAME, { client });
 }
 
 /** Daily bars for the 20/50-day SMA regime filter. */
-export function getCryptoBarsDaily(symbol, limit = DAILY_BARS_LOOKBACK) {
-  return getCryptoBars(symbol, limit, DAILY_BARS_TIMEFRAME);
+export function getCryptoBarsDaily(symbol, limit = DAILY_BARS_LOOKBACK, { client = defaultClient } = {}) {
+  return getCryptoBars(symbol, limit, DAILY_BARS_TIMEFRAME, { client });
 }
 
 /**
@@ -165,13 +165,13 @@ export function aggregateBarsTo4h(bars1h) {
 }
 
 /** Full paginated FILL activity history (newest first), capped at 10k. */
-export async function fetchAllFills() {
+export async function fetchAllFills({ client = defaultClient } = {}) {
   const fills = [];
   let pageToken = null;
   for (let i = 0; i < 100; i++) {
     const params = { activity_type: "FILL", page_size: 100, direction: "desc" };
     if (pageToken) params.page_token = pageToken;
-    const r = await apiGet(BASE_URL + "/v2/account/activities", { headers: headers(), params, timeout: 20 });
+    const r = await apiGet(client.baseUrl + "/v2/account/activities", { headers: client.headers(), params, timeout: 20 });
     const batch = await r.json();
     if (!Array.isArray(batch) || batch.length === 0) break;
     fills.push(...batch);
