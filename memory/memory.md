@@ -1,5 +1,39 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-24.9 — 2026-07-24 17:30 UTC — Bug found: all 3 cron jobs failing in production since ~17:22 UTC (Alpaca env vars)
+
+**Problem:** user reported the Scheduled Jobs panel now shows jobs (TRADER_OWNER_UID fix confirmed live), but
+running them fails: `FAIL: daily summary: TypeError: Invalid URL` (seen in Vercel logs).
+
+**Investigation:** used the real `CRON_SECRET` now in `.env` to hit `/api/cron/{evaluate,watchdog,daily-summary}`
+directly — all three return `{"ok":false,"code":1}`. Queried `job_runs` directly via Postgres (same pooler
+credentials): the 08:56 UTC cron-triggered runs of all 3 jobs succeeded (`status='ok'`); **every** run since
+17:22 UTC — both dashboard "Run now" clicks and the hourly hands-off `cron` dispatch — fails. Git history for
+`alpacaClient.js`/`trade.js`/`cronRoutes.js`/`env.js` shows no commits in that window, ruling out a code
+regression. `dailySummary.js`'s `main()` does `console.error("FAIL: daily summary: " + e)` around
+`getAccount()`/`getPositions()` (from `trade.js`'s `defaultClient`, which reads `APCA_API_KEY_ID`/
+`APCA_API_SECRET_KEY`/`APCA_BASE_URL` off `process.env`) — a `TypeError: Invalid URL` there is the exact
+signature of `APCA_BASE_URL` being `undefined` (`new URL(undefined + "/v2/account")`). Evaluate/watchdog share
+the same client, so they're almost certainly failing for the identical reason (both also `error` since 17:22).
+
+**Working theory:** the redeploy that picked up the new `TRADER_OWNER_UID` var (previous entry) is also the
+first deploy where the Alpaca env vars aren't reaching the Production runtime — timing lines up exactly.
+Cannot confirm from this sandbox (no Vercel dashboard access) whether they were dropped, mis-scoped to a
+non-Production environment, or something else.
+
+**Action needed (user, Vercel dashboard):** verify `APCA_API_KEY_ID`/`APCA_API_SECRET_KEY`/`APCA_BASE_URL` are
+set on the *Production* environment specifically, then redeploy.
+
+**Caution flagged:** `CRON_EXECUTE=true` is live in production — once Alpaca connectivity is restored, the next
+successful `evaluate`/`watchdog` run places real (paper) orders if conditions are met. Avoided further
+diagnostic triggers of those two from this sandbox for that reason; `daily-summary` is safe to re-test (no
+orders, no position-state writes, per its own docstring).
+
+**Side effect noted:** Postgres `trader_state` has been stuck at the 08:56 UTC snapshot (3 phantom positions,
+see v2026-07-24.7) and can't self-correct until a cron cycle completes successfully.
+
+---
+
 ## v2026-07-24.8 — 2026-07-24 — Fix: Scheduled Jobs panel showed no schedules/no "Run now" button (TRADER_OWNER_UID unset)
 
 **Problem:** user reported the Command tab's "☁ Scheduled Jobs" sub-tab showed no schedules and no "Run now"
