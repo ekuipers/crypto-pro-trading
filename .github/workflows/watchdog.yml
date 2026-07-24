@@ -4,8 +4,14 @@ name: Stop Watchdog
 # exit levels of open long positions and fires the trade.py stop path.
 # Decouples loss-cutting from the hourly evaluation. 
 on:
-  schedule:
-    - cron: '0 3 * * *'
+  # PAUSED 2026-07-24 (Node cutover, all 4 parity gates passed): the Node
+  # engine + Vercel Cron (src/cronRoutes.js, CRON_EXECUTE=true) is now the
+  # live trading engine. schedule: is commented out, not deleted -- kept as
+  # an instant rollback (uncomment + CRON_EXECUTE=false to revert) per the
+  # documented cutover plan (CLAUDE.md "Node.js port"). workflow_dispatch
+  # still works for a manual run if ever needed.
+  # schedule:
+  #   - cron: '0 3 * * *'
   workflow_dispatch:
 
 # Same group as the trading bot so pushes never race each other.

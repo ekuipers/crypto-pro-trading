@@ -1,15 +1,21 @@
 name: Trading Bot
 
 on:
-  schedule:
-     # Cost-throttled: hourly (Bug #4, 2026-07-10) -> every 8h (2026-07-20)
-     # -> once/day (2026-07-24, pending Vercel Pro -- see CLAUDE.md
-     # "Schedule" -- revisit for every-4h once purchased). Keep
-     # run_evaluation.py's CADENCE_WARNING_MIN / runEvaluation.js's
-     # CADENCE_EXPECTED_MIN in sync with this so the self-monitor doesn't
-     # false-fire on every intentional run.
-     - cron: '2 12 * * *'
-     - cron: '23 21 * * *'
+  # PAUSED 2026-07-24 (Node cutover, all 4 parity gates passed): the Node
+  # engine + Vercel Cron (src/cronRoutes.js, CRON_EXECUTE=true) is now the
+  # live trading engine. schedule: is commented out, not deleted -- kept as
+  # an instant rollback (uncomment + CRON_EXECUTE=false to revert) per the
+  # documented cutover plan (CLAUDE.md "Node.js port"). workflow_dispatch
+  # still works for a manual run if ever needed.
+  # schedule:
+  #    # Cost-throttled: hourly (Bug #4, 2026-07-10) -> every 8h (2026-07-20)
+  #    # -> once/day (2026-07-24, pending Vercel Pro -- see CLAUDE.md
+  #    # "Schedule" -- revisit for every-4h once purchased). Keep
+  #    # run_evaluation.py's CADENCE_WARNING_MIN / runEvaluation.js's
+  #    # CADENCE_EXPECTED_MIN in sync with this so the self-monitor doesn't
+  #    # false-fire on every intentional run.
+  #    - cron: '2 12 * * *'
+  #    - cron: '23 21 * * *'
   workflow_dispatch:
     inputs:
       environment:
