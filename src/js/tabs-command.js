@@ -188,10 +188,18 @@
     // summary engines (src/cronRoutes.js). Server-authenticated (session
     // cookie), unlike the rest of this tab which talks to Alpaca directly —
     // job status lives in this app's own Postgres, not Alpaca.
+    // `touchesState: true` jobs share one read-modify-write cycle over the
+    // single trader_state blob (src/db.js's putTraderState is a blind full-
+    // blob overwrite, no row/optimistic locking) -- running two of them
+    // concurrently (e.g. clicking "Run now" on Evaluate, then Watchdog,
+    // before Evaluate's ~20s Alpaca round-trip finishes) lets the faster
+    // job's stale read clobber the slower job's write. The dispatcher never
+    // hits this (it awaits each job in sequence), only manual "Run now"
+    // clicks can -- so the guard lives here, not in cronRoutes.js.
     const CRON_JOBS = [
-      { id: "evaluate", label: "Evaluate" },
-      { id: "watchdog", label: "Stop Watchdog" },
-      { id: "daily-summary", label: "Daily Summary" }
+      { id: "evaluate", label: "Evaluate", touchesState: true },
+      { id: "watchdog", label: "Stop Watchdog", touchesState: true },
+      { id: "daily-summary", label: "Daily Summary", touchesState: false }
     ];
 
     function cronFmtTime(iso) {
@@ -225,6 +233,12 @@
       const cfgByJob = {};
       (status.jobs || []).forEach(function (c) { cfgByJob[c.job] = c; });
 
+      // Any state-touching job mid-run blocks "Run now" on the other
+      // state-touching job too -- see CRON_JOBS' comment on why.
+      const stateJobRunning = CRON_JOBS.some(function (j) {
+        return j.touchesState && runsByJob[j.id] && runsByJob[j.id].status === "running";
+      });
+
       el.innerHTML = CRON_JOBS.map(function (j) {
         const run = runsByJob[j.id];
         const cfg = cfgByJob[j.id] || { enabled: true, hourUtc: 0 };
@@ -233,6 +247,12 @@
           : run.status === "ok" ? "OK · " + cronFmtTime(run.finished_at || run.started_at)
           : "FAILED · " + cronFmtTime(run.finished_at || run.started_at);
         const statusColor = !run ? "var(--muted)" : run.status === "ok" ? "var(--green)" : run.status === "running" ? "var(--blue)" : "var(--red)";
+        const thisRunning = run && run.status === "running";
+        const blocked = j.touchesState && stateJobRunning && !thisRunning;
+        const runNowDisabled = thisRunning || blocked;
+        const runNowTip = thisRunning ? "Already running."
+          : blocked ? "Waiting for Evaluate/Watchdog to finish (they share position state)."
+          : "Trigger this job now (dry-run while CRON_EXECUTE is unset).";
         return '<div class="rule-row">' +
           '<div class="rule-dot" style="background:' + statusColor + '"></div>' +
           '<div style="flex:1">' +
@@ -245,7 +265,7 @@
           '<label class="small" style="color:var(--muted);margin-right:10px">' +
             '<input type="checkbox" id="cronEnabled_' + j.id + '" ' + (cfg.enabled !== false ? "checked" : "") + ' onchange="cronSaveConfig(\'' + j.id + '\')" /> enabled' +
           '</label>' +
-          '<button class="btn" style="font-size:11px;padding:3px 9px" onclick="cronRunNow(\'' + j.id + '\')" data-tip="Trigger this job now (dry-run while CRON_EXECUTE is unset).">Run now</button>' +
+          '<button class="btn" style="font-size:11px;padding:3px 9px" onclick="cronRunNow(\'' + j.id + '\')" ' + (runNowDisabled ? "disabled" : "") + ' data-tip="' + runNowTip + '">Run now</button>' +
         '</div>';
       }).join("");
     }
@@ -265,6 +285,18 @@
     }
 
     async function cronRunNow(job) {
+      // Optimistically disable both state-touching buttons immediately --
+      // renderCronJobs() only reflects "running" after its next poll, and
+      // the point of this guard is to close that exact gap (see CRON_JOBS'
+      // comment) so a second quick click can't race the first job's write.
+      const jobMeta = CRON_JOBS.find(function (j) { return j.id === job; });
+      if (jobMeta && jobMeta.touchesState) {
+        CRON_JOBS.forEach(function (j) {
+          if (!j.touchesState) return;
+          const btn = document.querySelector('#cronJobsList button[onclick="cronRunNow(\'' + j.id + '\')"]');
+          if (btn) btn.disabled = true;
+        });
+      }
       try {
         await fetch("/api/cron/" + encodeURIComponent(job), { method: "POST" });
       } catch (e) {}

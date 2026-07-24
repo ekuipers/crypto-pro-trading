@@ -1,5 +1,38 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-24.10 — 2026-07-24 17:45 UTC — Fix: race condition let overlapping "Run now" clicks lose trader_state writes
+
+**Context:** user fixed the Vercel Alpaca env vars from v2026-07-24.9 and confirmed all 3 cron jobs now run
+`status='ok'`. Re-verified via `job_runs` + a direct Postgres read of `trader_state`.
+
+**New problem found during that verification:** `trader_state` still held the stale 08:56 UTC snapshot (3
+phantom positions, old `last_evaluation_iso`) even though the row's `updated_at` showed a fresh write at
+`17:33:38.546Z` — a write happened, but with the wrong (old) content.
+
+**Root cause:** `db.putTraderState()` (`src/db.js`) is a blind full-blob overwrite with no locking. `evaluate`
+and `watchdog` each do their own independent load→mutate→save cycle over that same blob. The user's manual
+"Run now" clicks overlapped: `watchdog` started (17:33:38.339) before `evaluate` (started 17:33:19.226, ~19s of
+real Alpaca calls) had written back (17:33:38.649) — so watchdog's stale read-then-write silently clobbered
+whichever write landed in between. The automatic hourly dispatcher isn't affected (`handleDispatch` awaits jobs
+strictly in sequence) — only concurrent manual triggers can hit this, and the dashboard didn't stop that.
+
+**Fix:** `src/js/tabs-command.js` — `CRON_JOBS` entries for `evaluate`/`watchdog` now carry `touchesState:
+true`; `renderCronJobs()` disables both jobs' "Run now" buttons whenever either shows `status:'running'`, and
+`cronRunNow()` also disables them optimistically the instant a state-touching job is clicked (closes the gap
+before the next status poll). `daily-summary` stays independently clickable (journal-only, never touches
+`trader_state`). Considered a backend Postgres advisory lock instead, but the pooler connection
+(`pooler.supabase.com:6543`, PgBouncer transaction mode) doesn't reliably support session-scoped advisory locks
+across separate queries, and holding a `SELECT ... FOR UPDATE` transaction open across evaluate's ~20s external
+API calls would tie up one of only 5 pooled connections for that whole duration — judged worse than the
+frontend guard for this specific trigger (manual button clicks, not the dispatcher). Full test suite: 380 pass,
+0 fail (also the first run with real Alpaca creds available locally — the previously-known 8 env-dependent
+failures are gone as a side effect, not related to this fix).
+
+**Still open:** the already-corrupted `trader_state` row itself isn't repaired by this fix — needs one clean,
+solo `evaluate` run (dashboard, post-redeploy) to prune the phantom positions and refresh `last_evaluation_iso`.
+
+---
+
 ## v2026-07-24.9 — 2026-07-24 17:30 UTC — Bug found: all 3 cron jobs failing in production since ~17:22 UTC (Alpaca env vars)
 
 **Problem:** user reported the Scheduled Jobs panel now shows jobs (TRADER_OWNER_UID fix confirmed live), but
