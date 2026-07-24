@@ -20,9 +20,12 @@ and every sign-in/register attempt hit the "database disabled" 503 path — read
 Charts' — identical Supabase host (`bgxjmpzfkxqwoyupqldj.supabase.co`) and password, just under each
 project's own prefix (`CRYPTOPROTRADER_*` here, `CRYPTOPROCHARTS_*` there). So the shared-accounts
 requirement (Suite workflow rule 18) still holds; only the var *names* changed, not the target
-database. Charts' own `src/db.js` has the identical stale-`CONN_VARS` issue but that's outside this
-task's scope (Trader was the explicit ask) — flagged to the user for a follow-up session per Suite
-workflow rule 26.
+database. Charts' own `src/db.js` has the identical-looking stale-`CONN_VARS` code pattern, but the
+user confirmed (same day, follow-up) Charts is still working fine — so that pattern isn't actually
+causing a bug there, most likely because Charts' real deployed Vercel env has a working fallback
+(e.g. generic `POSTGRES_URL`) this sandbox's local `.env` doesn't show. Lesson: local `.env` isn't a
+reliable proxy for a sibling project's actual deployed env — don't extrapolate a bug across projects
+from matching code alone.
 
 **Fix:** added `CRYPTOPROTRADER_POSTGRES_URL`/`CRYPTOPROTRADER_POSTGRES_URL_NON_POOLING` to
 `CONN_VARS` as the first (highest-priority) entries; kept `DBCRYPTOCHARTS_*`/`trading_*`/generic as
