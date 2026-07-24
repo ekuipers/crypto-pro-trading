@@ -2497,6 +2497,35 @@ Re-checked everything the prior same-day rescan (`ce4706f`) left open, ~4h47m af
 
 ---
 
+## 2026-07-24 — Suite roadmap: live-links swap + logo 2x (v2026-07-24.4)
+
+Same rescan session, continued after the Suite login-503 bug fix (see `CryptoPro Suite/memory/memory.md`).
+The user had live-edited Suite's `CLAUDE.md` with two new roadmap items and a new workflow rule ("always scan
+the Suite roadmap first") mid-session — surfaced by the harness as an out-of-band file change, not something
+found by re-reading on my own initiative. Per Suite rule 6 ("directly implement roadmap... when the roadmap
+scan command is issued") and the user's explicit "implement both now" answer, did both across all 4 projects
+and the mobile mockup in this same session rather than deferring to separate sessions (Suite rule 26 would
+normally call for that, but the user chose otherwise this time).
+
+1. **Vercel links → live custom domains.** `src/js/utils.js`'s `tvLink()` — the only Trader source file with
+   a hardcoded sibling-app link — now points its Charts deep-link at `https://charts.cryptoprosuite.com/`
+   instead of `https://crypto-pro-charts.vercel.app/` (same `?symbol=&exchange=alpaca` query, unchanged).
+   `docs/dashboard_layout.md`'s changelog entry describing the original TradingView→Charts link change
+   (v2026-07-19.3) was deliberately left alone — it documents what was true at the time, not current state.
+2. **Logo size doubled.** `src/css/base-layout.css`'s `.logo-icon` (header) and
+   `src/css/forms-modals-footer.css`'s `.footer-logo-icon` (footer, also used for the Developer Studio logo)
+   both went from `18×18px`/`border-radius:4px` to `36×36px`/`border-radius:8px`. Both files are static assets
+   linked directly (not Vite-bundled), so no `npm run build` was needed for this to take effect.
+
+Full cross-project rationale, the Suite login-bug fix, and the other 3 projects' identical changes are
+documented in `CryptoPro Suite/memory/memory.md` (2026-07-24) — this entry only covers what changed in this
+repo specifically, per this project's own standing doc-update rule.
+
+**Not verified:** no browser tool this session — the larger logo hasn't been visually confirmed to fit
+cleanly in the header/footer flex row; worth a quick check before treating this as fully done.
+
+---
+
 ## lessons
 - Any `fetch()`/XHR of a same-origin relative local file (config.json, positions_state.json, glossary.md, etc.) in `docs/dashboard_professional.html` can be silently blocked when the dashboard is opened via `file://` — never rely on it as the *only* source for cross-engine state; prefer deriving the same fact from an HTTPS call (e.g. Alpaca's own API via `apiFetch`) when one is available, and treat the local-file fetch as a best-effort enhancement only.
 - When renaming the project, `grep -ri` the whole repo (not just `CLAUDE.md`) for every prior name variant (e.g. "CryptoPro Dashboard", "Alpaca Crypto Trading Agent") before considering the rename done — `<title>` tags, in-page header labels, footer names, and README H1s are easy to miss and only surface later during an unrelated rules audit.

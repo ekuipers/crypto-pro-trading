@@ -60,7 +60,7 @@
     function tvLink(sym, label) {
       var tv = String(sym).toUpperCase().replace('/', '');
       if (!/USD[TC]?$/.test(tv)) tv += 'USD';   // bare base like "BTC" -> BTCUSD
-      var url  = 'https://crypto-pro-charts.vercel.app/?symbol=' + tv + '&exchange=alpaca';
+      var url  = 'https://charts.cryptoprosuite.com/?symbol=' + tv + '&exchange=alpaca';
       var txt  = (label !== undefined) ? label : sym;
       return '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="tv-link">' + txt + '</a>';
     }

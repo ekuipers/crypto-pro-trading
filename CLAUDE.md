@@ -17,6 +17,7 @@ Year: 2026
 - Evaluation: once per day 23.00
 - Forward analysis: once per day 04.00
 4. Backend cron jobs should be user bound. Resulting reports should be stored related to the user in the database. Every user can then manage their own schedules set via the front end in Command center/Scheduled Jobs.
+5. Always scan the Suite roadmap first
 
 ## Roadmap
 

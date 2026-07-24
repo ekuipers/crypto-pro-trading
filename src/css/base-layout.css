@@ -34,7 +34,7 @@
     }
 
     .logo-brand { color:var(--blue); }
-    .logo-icon { width:18px; height:18px; border-radius:4px; vertical-align:middle; }
+    .logo-icon { width:36px; height:36px; border-radius:8px; vertical-align:middle; }
 
     .header-right {
       display:flex;
