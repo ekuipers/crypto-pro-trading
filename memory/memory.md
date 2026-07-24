@@ -2327,6 +2327,23 @@ python scripts/rebalance.py --execute # place orders
 
 ---
 
+## 2026-07-24 — Roadmap rescan: gate 4 closed via live production timing test — all 4 Node cutover gates now PASS
+
+This session's rescan confirmed gates 1-3 already documented as passed (no drift since the prior entry above). Gate 4 (Vercel execution-time budget) was the sole open item — closing it needed a real request against the deployed Vercel function, which this sandboxed environment can't do alone (no `.env`/`CRON_SECRET`, no Vercel CLI/token). Asked the user how to close it; they chose to share the `CRON_SECRET` value directly in chat.
+
+**Test performed:** `GET https://crypto-pro-trading-bice.vercel.app/api/cron/dispatch` with the bearer token first (200 OK, 1.4s) — but all three jobs reported `skipped: "not due yet"`, so it didn't exercise real execution time. Per `cronRoutes.js`/`CLAUDE.md`, the individual `/api/cron/<job>` routes bypass the hour-of-day gate and run unconditionally, so those were hit directly instead (this specific action required a second permission prompt — the auto-mode classifier blocked the first attempt since it runs real, if dry-run, trading-evaluation logic in production; the user approved on retry):
+- `GET /api/cron/evaluate` → `200 {"ok":true,"code":0}` in **5.7s**
+- `GET /api/cron/watchdog` → `200 {"ok":true,"code":0}` in **1.4s**
+- `GET /api/cron/daily-summary` → `200 {"ok":true,"code":0}` in **1.1s**
+
+All well under `maxDuration: 120`, even summed (~8s vs. the ~40s worst-case estimate from local dry-run timing — production turned out faster than the local proxy suggested, likely due to network locality between the Vercel function and Alpaca's API vs. this dev environment's path). `CRON_EXECUTE` was still `false` during this test, so no real orders were placed — only the Postgres `trader_state`/`trader_journal`/`job_runs` tables (the Node cutover's own dry-run bookkeeping, separate from the live Python engine's `positions_state.json`/`journal/*.md`) received real writes.
+
+**Result: all 4 Node cutover gates now PASS.** `CLAUDE.md`'s "Node.js port" section and `memory/project-trader-node-cutover-gates.md` updated accordingly. **This does not mean the cutover itself (retiring `trade.yml`/`watchdog.yml`/`forward.yml`, flipping `CRON_EXECUTE=true`) was executed or should be auto-executed** — that remains a separate, hard-to-reverse decision on the live (paper) trading engine requiring the user's explicit go-ahead, flagged to them at the end of this rescan rather than acted on unilaterally.
+
+**Lesson:** when a production credential is shared specifically to close a verification gate, expect follow-on requests (like this one's per-job timing) to need their own permission approval even though the credential was already granted — the auto-mode classifier evaluates each action's blast radius independently, not the original intent behind sharing the secret. Don't treat "user gave me the secret" as blanket authorization for whatever request the goal requires; surface each escalation and let the approval/denial guide the next step.
+
+---
+
 ## lessons
 - Any `fetch()`/XHR of a same-origin relative local file (config.json, positions_state.json, glossary.md, etc.) in `docs/dashboard_professional.html` can be silently blocked when the dashboard is opened via `file://` — never rely on it as the *only* source for cross-engine state; prefer deriving the same fact from an HTTPS call (e.g. Alpaca's own API via `apiFetch`) when one is available, and treat the local-file fetch as a best-effort enhancement only.
 - When renaming the project, `grep -ri` the whole repo (not just `CLAUDE.md`) for every prior name variant (e.g. "CryptoPro Dashboard", "Alpaca Crypto Trading Agent") before considering the rename done — `<title>` tags, in-page header labels, footer names, and README H1s are easy to miss and only surface later during an unrelated rules audit.
