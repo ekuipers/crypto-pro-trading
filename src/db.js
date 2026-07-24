@@ -183,6 +183,19 @@ export async function init() {
   )`);
   await q(`alter table cron_config add column if not exists hour_utc integer`);
   await q(`alter table cron_config add column if not exists updated_by_uid text`);
+  // Suite roadmap: "Add glossary to the database instead of loading it from
+  // a file." Same single-shared-row shape as trader_state — memory/glossary.md
+  // stays the git-tracked, human/AI-edited source (Trader CLAUDE.md workflow
+  // rule 2 still applies to it), but server.js syncs its content into this row
+  // on every boot so the dashboard can actually serve it. This also fixes a
+  // latent production bug: server.js never statically served memory/, so the
+  // live Glossary tab was silently falling back to the small hardcoded
+  // GLOSSARY_FALLBACK_MD snapshot instead of the real ~700-line file.
+  await q(`create table if not exists glossary (
+    id         text primary key default 'trader',
+    content    text not null,
+    updated_at timestamptz not null default now()
+  )`);
   console.log('[db] connected; tables ready');
   return true;
 }
@@ -369,4 +382,19 @@ export async function setCronJobConfig(job, enabled, hourUtc, uid) {
 export async function getCronConfig() {
   const { rows } = await q('select job, enabled, hour_utc, updated_by_uid from cron_config');
   return rows;
+}
+
+// ---- Glossary (Suite roadmap: DB-backed instead of file-loaded) -----------
+export async function getGlossary() {
+  const { rows } = await q(`select content, updated_at from glossary where id = 'trader'`);
+  return rows[0] ? { content: rows[0].content, updatedAt: rows[0].updated_at } : null;
+}
+/** Upserts the single shared glossary row; only writes when content actually changed. */
+export async function putGlossary(content) {
+  await q(
+    `insert into glossary (id, content, updated_at) values ('trader', $1, now())
+     on conflict (id) do update set content = excluded.content, updated_at = now()
+     where glossary.content is distinct from excluded.content`,
+    [content],
+  );
 }

@@ -15,20 +15,6 @@
       return null;
     }
 
-    // Same fallback-path fetch as fetchLocalJson, but for plain text files
-    // (used to load memory/glossary.md into the Glossary sub-tab).
-    async function fetchLocalText(paths) {
-      for (const p of paths) {
-        try {
-          const r = await fetch(p, { cache: "no-store" });
-          if (!r.ok) continue;
-          const t = await r.text();
-          if (t && t.trim()) return t;
-        } catch (e) { /* try next path */ }
-      }
-      return null;
-    }
-
     // ── config.json load (same directory as this HTML, then project root) ─
     async function loadConfigFromFile() {
       // config.json is the source of truth on page load. Falls back to

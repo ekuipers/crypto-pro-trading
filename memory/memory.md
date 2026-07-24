@@ -1,5 +1,48 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-24.13 — 2026-07-24 ~18:10 UTC — Roadmap rescan: Suite item 1 — glossary moved from file to database
+
+**Task:** "rescan suite roadmap." Suite `CLAUDE.md`'s uncommitted hand-draft (flagged read-only in the `.12` entry
+above) had roadmap item 1 as "Add glossary to the database instead of loading it from a file." Item 2 (multi-tenant)
+is already mid-flight with its own dedicated-session plan (Suite workflow rule 26); item 9 (Trader GH-workflow
+removal) is time-gated on the 2026-07-25 ~02:00–06:00 UTC confirmation window. Item 1 was the actionable one this
+session.
+
+**Scope check:** a research pass confirmed only Trader has a *file*-backed glossary (`memory/glossary.md`, fetched
+by `src/js/tabs-glossary.js`). Charts has no glossary feature. Training has its own, wholly independent glossary —
+a hardcoded `GLOSSARY` JS array in `src/js/course.js` — which doesn't match "loading it from a file" and is a
+different feature with different content; left untouched, out of scope for this item.
+
+**Implementation:** new Postgres `glossary` table (`src/db.js`, single-row shape identical to `trader_state`) +
+`getGlossary()`/`putGlossary()`. New `src/glossaryRoutes.js` → `GET /api/glossary`, DB first, falls back to reading
+`memory/glossary.md` off local disk (dev without a DB configured), then 404 (client's own hardcoded snapshot is the
+last resort). `memory/glossary.md` stays the git-tracked, human/AI-edited source — workflow rule 2 still applies to
+it unchanged — `server.js` now upserts its content into the DB row once on every boot (`putGlossary`'s `is distinct
+from` guard makes repeat boots a no-op write). `src/js/tabs-glossary.js`'s `loadGlossary()` now calls
+`fetchLocalJson(["/api/glossary"])` instead of the removed `fetchLocalText()` helper (deleted from `api-config.js`
+as dead code — nothing else used it); rendering logic (`renderGlossaryMarkdown`, search/filter) is unchanged since
+the content shape is identical, just the transport moved.
+
+**Bonus bug found and fixed:** `server.js` never statically served `memory/` (only `/js`, `/css`, `client/dist`,
+`docs`), so in production the Glossary tab's `fetch()` of the file could never have succeeded at all — it had been
+silently stuck on the small ~14-term hardcoded `GLOSSARY_FALLBACK_MD` constant this entire time, not just under
+`file://` as the original 2026-07-18 bugfix assumed. `/api/glossary` is reachable in production, closing this gap
+as a side effect.
+
+**Verified:** `npm test` 305/305 passing, no regressions. `node --check` on all 5 touched/new files. Local
+`node server.js` boot against the real `.env` Postgres credentials logged `[db] connected; tables ready` with no
+sync errors; `curl localhost:3000/api/glossary` returned the live ~700-line content (confirmed *not* the fallback
+snapshot — real end-to-end proof the DB round-trip works). `curl /api/health` still 200. **Not verified — no
+browser tool this session:** an actual click-through of the Glossary sub-tab, search box, and ↻ Refresh in a
+running browser.
+
+**Docs:** `CLAUDE.md` (new roadmap item 4), `README.md`, `docs/dashboard_layout.md`, and this file all updated;
+`memory/glossary.md` itself gained a dated entry documenting this change (consistent with its own established
+pattern of logging dated feature notes). Suite `CLAUDE.md`'s roadmap item 1 marked done and moved to Suite's own
+`memory/memory.md` per Suite workflow rule 15 — see Suite's own memory for that side.
+
+---
+
 ## v2026-07-24.12 — 2026-07-24 ~17:55 UTC — Roadmap rescan: stale-`trader_state` gap from .7–.9 resolved, cutover still clean ~8h23m
 
 **GH Actions:** re-checked run history via raw API (`gh` CLI unavailable in this sandbox) — `trade.yml`/`watchdog.yml`

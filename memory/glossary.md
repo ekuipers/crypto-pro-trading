@@ -4,6 +4,16 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
+## 2026-07-24 — Roadmap rescan (Suite item 1): glossary moved to the database
+
+| Term | Meaning |
+|------|---------|
+| `glossary` table | New single-row Postgres table (`src/db.js`, same `id='trader'` + jsonb-free-text shape as `trader_state`) holding this file's content. This file (`memory/glossary.md`) stays the git-tracked source humans/Claude edit — `server.js` upserts its content into the row on every boot. |
+| `GET /api/glossary` | New route (`src/glossaryRoutes.js`) the Glossary sub-tab now fetches instead of the file directly. Falls back to reading `memory/glossary.md` off local disk (dev without a DB), then to the dashboard's own small hardcoded snapshot if both fail. |
+| Latent production bug fixed | `server.js` never statically served `memory/` at all, so the deployed dashboard's Glossary tab was silently stuck on the ~14-term hardcoded `GLOSSARY_FALLBACK_MD` snapshot forever — it could never actually reach the real ~700-line file over HTTP. The DB row is reachable in production, so this also fixes that. |
+
+---
+
 ## 2026-07-22 — Roadmap rescan: Scheduled Jobs own sub-tab, footer disclaimer + Terms of Service
 
 | Term | Meaning |

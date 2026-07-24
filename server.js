@@ -12,6 +12,7 @@ import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
 import { installAuthRoutes, currentUid } from './src/auth.js';
 import { installCronRoutes } from './src/cronRoutes.js';
+import { installGlossaryRoutes } from './src/glossaryRoutes.js';
 import * as db from './src/db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -53,6 +54,11 @@ installAuthRoutes(app);
 // summary engines instead of GitHub Actions. See src/cronRoutes.js.
 installCronRoutes(app);
 
+// Suite roadmap: glossary served from the database instead of a file — see
+// src/glossaryRoutes.js. memory/glossary.md stays the git-tracked edit
+// source; it's synced into Postgres below, after db.init() succeeds.
+installGlossaryRoutes(app);
+
 // Dashboard settings sync (Suite roadmap: save user state in the database so
 // it follows the account across devices/browsers). One row per account (or
 // the GUEST sentinel when signed out) holding theme/lastTab/watchlist/
@@ -90,6 +96,18 @@ app.get('/', (req, res) => {
 });
 
 db.init()
+  .then(async (ok) => {
+    if (!ok) return;
+    // Sync the git-tracked source file into Postgres on every boot so the DB
+    // row never drifts from whatever was last committed (cheap no-op write
+    // when content is unchanged — see db.putGlossary's `is distinct from` guard).
+    try {
+      const content = readFileSync(join(__dirname, 'memory', 'glossary.md'), 'utf8');
+      await db.putGlossary(content);
+    } catch (e) {
+      console.error('[glossary] startup sync failed:', e?.message || e);
+    }
+  })
   .catch(e => console.error('[db] init failed:', e?.message || e))
   .finally(() => {
     if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {

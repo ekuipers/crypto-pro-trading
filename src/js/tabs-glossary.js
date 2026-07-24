@@ -1,10 +1,16 @@
 
-    // ── 📖 Command › Glossary (roadmap 2026-07-18) ────────────────────────────
-    // Renders memory/glossary.md straight into the dashboard so trading terms,
+    // ── 📖 Command › Glossary (roadmap 2026-07-18; DB-backed 2026-07-24) ──────
+    // Renders the glossary straight into the dashboard so trading terms,
     // acronyms, and dated feature notes are one click away from the tabs that
     // use them, instead of living only in the repo. A tiny markdown subset is
     // supported (headers, tables, `**bold**`, `` `code` ``, `---` rules) since
-    // that's all glossary.md uses. Read-only reference — never places orders.
+    // that's all glossary.md (the underlying content) uses. Read-only
+    // reference — never places orders. Suite roadmap: "Add glossary to the
+    // database instead of loading it from a file" — server.js now syncs
+    // memory/glossary.md into Postgres on boot and GET /api/glossary serves
+    // that row (src/glossaryRoutes.js), fixing a latent production bug where
+    // the file was never statically served at all, so the live dashboard was
+    // silently stuck on the small hardcoded fallback below.
     let _glossaryMd = "";
     let _glossaryFetchedAt = 0;
     let _glossaryLive = false;   // true once a real fetch of memory/glossary.md succeeds
@@ -60,7 +66,7 @@
       "",
       "---",
       "",
-      "Built-in offline snapshot — the full, always-current glossary lives in `memory/glossary.md`. ↻ Refresh retries the live copy."
+      "Built-in offline snapshot — the full, always-current glossary is served from the database via `/api/glossary`. ↻ Refresh retries the live copy."
     ].join("\n");
 
     function mdInline(escaped) {
@@ -120,16 +126,16 @@
       }
       const st = $("glossaryStatus");
       if (st) st.textContent = "Loading…";
-      const md = await fetchLocalText(["../memory/glossary.md", "./memory/glossary.md", "memory/glossary.md"]);
+      const data = await fetchLocalJson(["/api/glossary"]);
+      const md = data && data.content;
       _glossaryLive = !!md;
       _glossaryMd = md || GLOSSARY_FALLBACK_MD;
       _glossaryFetchedAt = Date.now();
       if (st) {
         st.textContent = _glossaryLive
-          ? "Live from memory/glossary.md"
-          : "Showing built-in reference — most browsers block fetching a local sibling file when " +
-            "this page is opened directly (file://); serve docs/ over local HTTP for the full live " +
-            "copy, or hit ↻ Refresh to retry.";
+          ? "Live from database"
+          : "Showing built-in reference — /api/glossary didn't respond (server unreachable, or the " +
+            "database isn't configured yet); hit ↻ Refresh to retry.";
         st.style.color = _glossaryLive ? "var(--muted)" : "var(--yellow)";
       }
       renderGlossary();
