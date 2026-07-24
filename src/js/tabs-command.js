@@ -207,6 +207,26 @@
       return new Date(iso).toLocaleString("en-GB", { timeZone: "Etc/GMT-2", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" }) + " GMT+2";
     }
 
+    // Local "I just clicked this" state, keyed by job id -> start Date.now().
+    // The POST in cronRunNow() doesn't resolve until the job fully finishes
+    // (evaluate takes ~20s for its real Alpaca round-trip), and renderCronJobs()
+    // only learns "running" from the server on its next /api/cron/status poll --
+    // without this, the button just goes disabled with no other feedback and
+    // looks stuck. _cronTicker re-renders every second while anything here is
+    // running so the elapsed-time label actually counts up.
+    let _cronLocalRunning = {};
+    let _cronTicker = null;
+    function cronStartTicker() {
+      if (_cronTicker) return;
+      _cronTicker = setInterval(renderCronJobs, 1000);
+    }
+    function cronStopTickerIfIdle() {
+      if (_cronTicker && !Object.keys(_cronLocalRunning).length) {
+        clearInterval(_cronTicker);
+        _cronTicker = null;
+      }
+    }
+
     function cronHourOptions(selectedHour) {
       let out = "";
       for (let h = 0; h < 24; h++) {
@@ -233,21 +253,26 @@
       const cfgByJob = {};
       (status.jobs || []).forEach(function (c) { cfgByJob[c.job] = c; });
 
+      // Local click state counts as "running" immediately, ahead of the
+      // server confirming it on the next poll -- see _cronLocalRunning's comment.
+      const localRunning = function (id) { return Object.prototype.hasOwnProperty.call(_cronLocalRunning, id); };
+
       // Any state-touching job mid-run blocks "Run now" on the other
       // state-touching job too -- see CRON_JOBS' comment on why.
       const stateJobRunning = CRON_JOBS.some(function (j) {
-        return j.touchesState && runsByJob[j.id] && runsByJob[j.id].status === "running";
+        return j.touchesState && (localRunning(j.id) || (runsByJob[j.id] && runsByJob[j.id].status === "running"));
       });
 
       el.innerHTML = CRON_JOBS.map(function (j) {
         const run = runsByJob[j.id];
         const cfg = cfgByJob[j.id] || { enabled: true, hourUtc: 0 };
-        const statusLabel = !run ? "never run"
-          : run.status === "running" ? "running…"
+        const thisRunning = localRunning(j.id) || (run && run.status === "running");
+        const elapsedSec = localRunning(j.id) ? Math.floor((Date.now() - _cronLocalRunning[j.id]) / 1000) : null;
+        const statusLabel = thisRunning ? "running…" + (elapsedSec !== null ? " (" + elapsedSec + "s)" : "")
+          : !run ? "never run"
           : run.status === "ok" ? "OK · " + cronFmtTime(run.finished_at || run.started_at)
           : "FAILED · " + cronFmtTime(run.finished_at || run.started_at);
-        const statusColor = !run ? "var(--muted)" : run.status === "ok" ? "var(--green)" : run.status === "running" ? "var(--blue)" : "var(--red)";
-        const thisRunning = run && run.status === "running";
+        const statusColor = thisRunning ? "var(--blue)" : !run ? "var(--muted)" : run.status === "ok" ? "var(--green)" : "var(--red)";
         const blocked = j.touchesState && stateJobRunning && !thisRunning;
         const runNowDisabled = thisRunning || blocked;
         const runNowTip = thisRunning ? "Already running."
@@ -256,8 +281,9 @@
         return '<div class="rule-row">' +
           '<div class="rule-dot" style="background:' + statusColor + '"></div>' +
           '<div style="flex:1">' +
-            '<b>' + j.label + '</b> <span class="small" style="color:' + statusColor + '">' + statusLabel + '</span>' +
-            (run && run.triggered_by ? ' <span class="small" style="color:var(--muted)">(' + run.triggered_by + ')</span>' : '') +
+            '<b>' + j.label + '</b> ' + (thisRunning ? '<span class="spinner" style="margin-right:4px"></span>' : '') +
+            '<span class="small" style="color:' + statusColor + '">' + statusLabel + '</span>' +
+            (run && run.triggered_by && !thisRunning ? ' <span class="small" style="color:var(--muted)">(' + run.triggered_by + ')</span>' : '') +
           '</div>' +
           '<label class="small" style="color:var(--muted);margin-right:8px">Daily at ' +
             '<select id="cronHour_' + j.id + '" onchange="cronSaveConfig(\'' + j.id + '\')" style="margin:0 4px">' + cronHourOptions(cfg.hourUtc) + '</select>' +
@@ -285,21 +311,21 @@
     }
 
     async function cronRunNow(job) {
-      // Optimistically disable both state-touching buttons immediately --
-      // renderCronJobs() only reflects "running" after its next poll, and
-      // the point of this guard is to close that exact gap (see CRON_JOBS'
-      // comment) so a second quick click can't race the first job's write.
-      const jobMeta = CRON_JOBS.find(function (j) { return j.id === job; });
-      if (jobMeta && jobMeta.touchesState) {
-        CRON_JOBS.forEach(function (j) {
-          if (!j.touchesState) return;
-          const btn = document.querySelector('#cronJobsList button[onclick="cronRunNow(\'' + j.id + '\')"]');
-          if (btn) btn.disabled = true;
-        });
-      }
+      // Mark it running locally *before* the request goes out -- the POST
+      // doesn't resolve until the job fully finishes (evaluate: ~20s of real
+      // Alpaca calls), so waiting on a server poll to show "running" would
+      // leave the button just sitting there disabled with no feedback.
+      // renderCronJobs() reads _cronLocalRunning to compute both the
+      // spinner/elapsed-time label and the touchesState button-disabling
+      // (see CRON_JOBS' comment on why Evaluate/Watchdog block each other).
+      _cronLocalRunning[job] = Date.now();
+      cronStartTicker();
+      await renderCronJobs();
       try {
         await fetch("/api/cron/" + encodeURIComponent(job), { method: "POST" });
       } catch (e) {}
+      delete _cronLocalRunning[job];
+      cronStopTickerIfIdle();
       renderCronJobs();
     }
 

@@ -1,5 +1,22 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-24.11 — 2026-07-24 — Add progress indicator to Scheduled Jobs "Run now"
+
+**Problem:** user reported clicking "Run now" gave no visible feedback — because it doesn't: the POST doesn't
+resolve until the job fully finishes (`evaluate` takes ~20s for its real Alpaca round-trip), and the panel only
+learns "running" from the server on its next `/api/cron/status` poll, so the button just sat there disabled
+(from the previous race-condition fix) with nothing else changing.
+
+**Fix (`src/js/tabs-command.js`):** `cronRunNow()` now records the click in a local `_cronLocalRunning` map
+*before* the request goes out and starts a 1s ticker (`_cronTicker`) that re-renders while it's outstanding.
+`renderCronJobs()` treats local state the same as a server-confirmed `status:'running'` row, shows the existing
+`.spinner` CSS class (already used elsewhere in the dashboard, reused rather than adding a new one) plus a live
+"running… (Ns)" elapsed-time label, and folds the Evaluate/Watchdog mutual-disable logic into the same
+`thisRunning`/`stateJobRunning` computation so both concerns share one code path instead of two separate ones.
+Full test suite still 380 pass / 0 fail (no backend touched).
+
+---
+
 ## v2026-07-24.10 — 2026-07-24 17:45 UTC — Fix: race condition let overlapping "Run now" clicks lose trader_state writes
 
 **Context:** user fixed the Vercel Alpaca env vars from v2026-07-24.9 and confirmed all 3 cron jobs now run
