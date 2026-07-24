@@ -1,5 +1,30 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-24.6 — 2026-07-24 16:14 UTC — Suite roadmap rescan: no regression, cutover still holding, ~10-14h from confirmation window
+
+**Task:** "rescan suite roadmap" — checked the two open Suite `CLAUDE.md` roadmap items (item 1 multi-tenant,
+item 9 Trader GitHub-workflow removal) against live state.
+
+**Findings:** GitHub Actions run history confirmed **zero** `schedule`-triggered runs on `trade.yml`/`watchdog.yml`
+since the 09:29:46 UTC pause, now clean across ~6h44m. `GET /api/trader-state` unchanged since the last rescan
+(`last_evaluation_iso` still `08:56:35.049Z`, positions ETH/AAVE/LINK) — expected, `evaluate` already fired once
+today. `data/shadow_run_log.jsonl` still 9 entries (`mismatch_count: 0` throughout), newest still `10:28:47 UTC`.
+Full test suite: 368 pass, 8 distinct failing (all the same pre-existing env-dependent `apiClient.js` `buildUrl`
+→ `undefined/...` root cause from missing local Alpaca creds — no new regression). Multi-tenant Phase 2
+(`src/secretsCrypto.js`, `src/credentialsRoutes.js`) confirmed still not started — per Suite workflow rule 26
+("every new roadmap item starts its own session"), Phase 2 wasn't folded into this rescan.
+
+**Doc updates:** Suite `CLAUDE.md` roadmap item 9 updated — the "still open: confirm the redeploy actually
+went live... not verifiable from this sandbox" note was stale (the same-day 03:32 PM UTC rescan had already
+gathered that evidence); replaced with a confirmed-live summary, keeping "awaiting multi-cycle confirmation
+before deleting the paused workflows" as the remaining open item. Trader `CLAUDE.md` roadmap item 3 got a new
+dated rescan line for continuity.
+
+**Next check:** 2026-07-25 ~02:00–06:00 UTC, when `evaluate`/`watchdog`/`daily-summary` next become due —
+watch `/api/trader-state` for a second divergent write and the shadow log for its ~18:28 UTC entry.
+
+---
+
 ## v2026-07-24.5 — 2026-07-24 — Correction: Suite roadmap items 1+2 were misimplemented (logo doubled, not text; footer touched, not skipped)
 
 **Task:** user flagged that the earlier same-day pass (v2026-07-24.4, `76a9e99`) got the Suite roadmap items
