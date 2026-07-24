@@ -1,5 +1,29 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-24.8 — 2026-07-24 — Fix: Scheduled Jobs panel showed no schedules/no "Run now" button (TRADER_OWNER_UID unset)
+
+**Problem:** user reported the Command tab's "☁ Scheduled Jobs" sub-tab showed no schedules and no "Run now"
+button — for anyone, including the actual owner.
+
+**Root cause:** `TRADER_OWNER_UID` was never set (only a commented-out example in `.env.example`), so
+`src/cronRoutes.js`'s `isOwner()` — `if (!OWNER_UID) return false` — unconditionally returns `false`. `GET
+/api/cron/status` 401s for every request, and `src/js/tabs-command.js`'s `renderCronJobs()` renders only the
+"Sign in as the configured owner account..." fallback, never the jobs table or its buttons. Confirmed
+`/api/cron/status` itself is otherwise fine — `jobs` is built from the static `JOBS` array with compiled-in
+default hours, so it renders correctly even with zero `cron_config` rows once auth passes; this was purely an
+auth-gating bug, not a data problem.
+
+**Fix:** the user supplied real credentials in `.env` (Alpaca + Supabase Postgres + `CRON_SECRET`). Queried the
+shared `accounts` table directly (read-only) to find the real owner account rather than guessing — the only
+owner-shaped row is `id='ekuipers'` (test/`dbu...`/`hesticus` are other unrelated accounts). Set
+`TRADER_OWNER_UID=ekuipers` in the local `.env`.
+
+**Still open:** the same var must be added to Vercel's dashboard env vars and the project redeployed (env var
+changes don't apply to an already-built deployment — same caveat documented for `CRON_EXECUTE`). Not done from
+this sandbox — no Vercel deploy access here. Logged in `CLAUDE.md`'s `## Bugs` section.
+
+---
+
 ## v2026-07-24.7 — 2026-07-24 17:00 UTC — Roadmap rescan: manual GH Actions dispatch found; Postgres trader_state now stale vs. real broker flat
 
 **Task:** user reported `trade.yml`/`watchdog.yml` "have run on GitHub" during a roadmap rescan — investigated

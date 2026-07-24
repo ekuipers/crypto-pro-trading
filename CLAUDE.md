@@ -44,6 +44,7 @@ Year: 2026
 
 ## Bugs
 
+- **Fixed 2026-07-24: Scheduled Jobs panel showed no schedules and no "Run now" button for anyone, including the owner.** Root cause: `TRADER_OWNER_UID` was never set in the Vercel production env (only documented as a commented-out example in `.env.example`), so `src/cronRoutes.js`'s `isOwner()` unconditionally returns `false` (`if (!OWNER_UID) return false;`) — even the real owner signing in falls into `GET /api/cron/status`'s 401 branch, and `src/js/tabs-command.js`'s `renderCronJobs()` renders only "Sign in as the configured owner account..." with no table and no buttons. Confirmed the correct value by querying the shared `accounts` table directly (Postgres, via the credentials now in `.env`): the only real owner-shaped account is `id='ekuipers'`. Set `TRADER_OWNER_UID=ekuipers` in the local `.env` for dev/testing. **Still open: this must also be set in Vercel's dashboard env vars and redeployed** (same "env var change needs a redeploy to take effect" caveat as `CRON_EXECUTE`) — not done from this sandbox, no Vercel deploy access here.
 
 ## Hosting & frontend
 - Live trading engine = Python via GitHub Actions cron (`.github/workflows/*.yml`); hosting concerns the dashboard only.
