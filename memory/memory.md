@@ -1,5 +1,31 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-24.7 — 2026-07-24 17:00 UTC — Roadmap rescan: manual GH Actions dispatch found; Postgres trader_state now stale vs. real broker flat
+
+**Task:** user reported `trade.yml`/`watchdog.yml` "have run on GitHub" during a roadmap rescan — investigated
+whether the paused `schedule:` triggers had fired (which would mean a live concurrency conflict with the Node
+engine) or something else.
+
+**Finding:** both fired via **`workflow_dispatch`** (actor `ekuipers`, 16:28–16:29 UTC) — the intentional
+manual-rollback path the cutover plan deliberately left enabled, not the paused `schedule:` trigger (still
+confirmed at zero fires since the 09:29:46 UTC pause). `trade.yml`'s run logged **"No orders submitted"**;
+`watchdog.yml` didn't commit (no stop fired). So the manual run was order-safe — no conflict with Node.
+
+**What it surfaced:** Python's reconciliation against the live Alpaca broker found the account is now flat
+(`positions: {}`, committed `5b9ca6c`) — but `GET /api/trader-state` (Postgres, what Node/dashboard/Autopilot
+read) still shows ETH/AAVE/LINK open as of its `08:56:35Z` write, because `evaluate` already fired once today
+and won't run again until tomorrow. **Postgres is stale relative to the real broker state** until the next
+Node fire or an owner "Run now." Separately, all 3 Node-tracked positions have `stop_order_id: null` — unclear
+whether Node ever placed protective stops for these pre-cutover carried-over positions (entries dated
+2026-07-22); why they closed is unconfirmed from this sandbox (no Alpaca creds here for fill history).
+
+**Action taken:** none beyond documenting — no `CRON_SECRET`/dashboard session available in this sandbox to
+force a resync, and this touches live trading state. Flagged to the user for a decision (trigger "Run now",
+or investigate fills directly). Local repo fast-forwarded to pull the new commit. Full detail in `CLAUDE.md`
+roadmap item 3, rescan 17:00 UTC.
+
+---
+
 ## v2026-07-24.6 — 2026-07-24 16:14 UTC — Suite roadmap rescan: no regression, cutover still holding, ~10-14h from confirmation window
 
 **Task:** "rescan suite roadmap" — checked the two open Suite `CLAUDE.md` roadmap items (item 1 multi-tenant,
