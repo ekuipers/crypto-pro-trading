@@ -213,6 +213,26 @@ export function installCronRoutes(app) {
   }
   app.get("/api/cron/dispatch", handleDispatch);
 
+  // Read-only, unauthenticated -- same trust level as the static
+  // data/positions_state.json fetch this replaces/supplements (roadmap: the
+  // dashboard Autopilot coexists with whichever cron engine is authoritative,
+  // by design -- it only runs while a browser tab is open, the cron engine
+  // covers the gaps like overnight/asleep. Autopilot merges HWM/partial-TP/
+  // entry-time from this endpoint so a closed-then-reopened browser never
+  // regresses bookkeeping the cron engine advanced while it was away. Prefers
+  // the Postgres row (authoritative once the Node/Vercel cron engine is live);
+  // falls back to the git-committed file for as long as Python/GitHub Actions
+  // remains the live engine, or for local dev without a DB configured.
+  app.get("/api/trader-state", async (req, res) => {
+    try {
+      const data = await db.getTraderState();
+      if (data) return res.json(data);
+    } catch (e) {
+      console.error("[trader-state] db read failed, falling back to file:", e?.message || e);
+    }
+    res.json(ps.loadState());
+  });
+
   // Dashboard-only: status/config, owner-only (see isOwner's comment).
   app.get("/api/cron/status", async (req, res) => {
     try {

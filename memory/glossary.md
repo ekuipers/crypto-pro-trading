@@ -696,3 +696,10 @@ Critical implementation details to keep `indicators.py` and `dashboard_professio
 | Term | Meaning |
 |------|---------|
 | `server.js` (Trader) | Minimal Express entrypoint added 2026-07-19 — serves `docs/` statically (`GET /` → `dashboard_professional.html`) + `GET /api/health`, skips `app.listen()` under `VERCEL`/`NODE_ENV=test`. Exists only so a Vercel deployment of this repo has a valid entrypoint; does not carry any trading logic and does not change how the dashboard/engine actually run in production (GitHub Pages + GitHub Actions cron). Mirrors CryptoPro Suite's/Charts' `server.js` layout for consistency across the suite. |
+
+## Autopilot/cron-engine coexistence fix (2026-07-24)
+
+| Term | Meaning |
+|------|---------|
+| `GET /api/trader-state` | New unauthenticated read-only route (`src/cronRoutes.js`) — returns the Postgres `trader_state` row (authoritative once the Node/Vercel cron engine is live) or falls back to `ps.loadState()` (the git-committed file, authoritative while Python/GitHub Actions is the live engine). Lets `src/js/autopilot.js`'s cross-engine HWM/partial-TP/entry-time merge and `src/js/tabs-command.js`'s split-HWM warning keep working across the cutover instead of only ever reading a static file that goes stale once Python is retired. |
+| Autopilot as a third trading loop | The browser-side dashboard Autopilot places real orders independently of both cron engines (own `localStorage` state, `client_order_id` prefix `ap-`) and is *intentionally* meant to coexist, not be replaced by the Node cutover — Autopilot reacts fast while a browser tab is open, the always-on cron engine (Python today, Node/Vercel after cutover) covers gaps like overnight/asleep. Never part of the original 4-gate cutover analysis; surfaced during the gate-4-close investigation 2026-07-24. |

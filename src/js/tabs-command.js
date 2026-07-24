@@ -145,20 +145,21 @@
     }
 
     // ⚠ Split trailing-stop HWM warning (Command tab, roadmap item 10): fires
-    // when data/positions_state.json carries an active Python HWM for a symbol
-    // the dashboard Autopilot is also trailing in localStorage.
+    // when the cron engine (Python file today, or the Node/Vercel engine after
+    // cutover -- see /api/trader-state) carries an active HWM for a symbol the
+    // dashboard Autopilot is also trailing in localStorage.
     async function renderHwmSplitWarning() {
       const el = $("hwmSplitWarning");
       if (!el) return;
       try {
         let local = {};
         try { local = JSON.parse(localStorage.getItem("autopilotHwm") || "{}"); } catch (e) {}
-        const st = await fetchLocalJson(["./data/positions_state.json", "../data/positions_state.json"]);
+        const st = await fetchLocalJson(["/api/trader-state", "./data/positions_state.json", "../data/positions_state.json"]);
         const both = [];
         if (st && st.positions) {
           for (const [sym, ps] of Object.entries(st.positions)) {
             const fileHwm = Number((ps && ps.high_water_mark) || 0);
-            if (fileHwm > 0 && local[sym]) both.push(`${sym} (python $${fmt(fileHwm)} · dashboard $${fmt(local[sym])})`);
+            if (fileHwm > 0 && local[sym]) both.push(`${sym} (cron engine $${fmt(fileHwm)} · dashboard $${fmt(local[sym])})`);
           }
         }
         if (!both.length) { el.style.display = "none"; el.innerHTML = ""; return; }

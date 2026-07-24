@@ -349,10 +349,14 @@
 
         let hwm = {};
         try { hwm = JSON.parse(localStorage.getItem("autopilotHwm") || "{}"); } catch (e) {}
-        // Merge the Python engine's persisted HWMs (data/positions_state.json,
-        // roadmap item 10): when both loops manage a symbol, trail from
-        // max(localStorage, file) so a closed browser can't have missed highs.
-        const pyState = await fetchLocalJson(["./data/positions_state.json", "../data/positions_state.json"]);
+        // Merge the cron engine's persisted HWMs (roadmap item 10, extended for
+        // the Node/Vercel cutover): when both loops manage a symbol, trail from
+        // max(localStorage, engine) so a closed browser can't have missed highs.
+        // /api/trader-state returns whichever engine is authoritative (Postgres
+        // once Node/Vercel cron is live, else the Python-written file) -- tried
+        // first so Autopilot keeps merging correctly across the cutover; the
+        // static file paths remain as a fallback for older/offline deployments.
+        const pyState = await fetchLocalJson(["/api/trader-state", "./data/positions_state.json", "../data/positions_state.json"]);
         if (pyState && pyState.positions) {
           for (const [psym, pst] of Object.entries(pyState.positions)) {
             const fileHwm = Number((pst && pst.high_water_mark) || 0);
