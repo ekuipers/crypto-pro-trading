@@ -1,5 +1,31 @@
 # Project: Alpaca Trading Agent
 
+## v2026-07-24.12 — 2026-07-24 ~17:55 UTC — Roadmap rescan: stale-`trader_state` gap from .7–.9 resolved, cutover still clean ~8h23m
+
+**GH Actions:** re-checked run history via raw API (`gh` CLI unavailable in this sandbox) — `trade.yml`/`watchdog.yml`
+still show **zero** `schedule`-triggered runs since the `928e365` 09:29:46 UTC pause, now clean ~8h23m, longer than
+the `.7` entry's ~7h25m. `node-shadow-run.yml` fired again `17:52:11Z`, `mismatch_count: 0` (7 clean cycles,
+`data/shadow_run_log.jsonl` now 10 entries) — pulled 1 bot-authored commit (`adb77f1`) this checkout was behind on.
+
+**Stale-state gap resolved:** queried `job_runs`/`cron_config` directly via Postgres (local `.env` has working
+credentials) and confirmed the owner ran a clean manual "Run now" pass ~17:50 UTC — `watchdog` (17:50:15) →
+`daily-summary` (17:50:26) → `evaluate` (17:50:35), fully sequential with no overlap, proving the `ec75c11`
+mutual-disable fix holds under a real click sequence. All three `status='ok'`. `GET /api/trader-state` now
+returns `positions: {}`, `last_evaluation_iso: 17:50:49.150Z`, matching Python's committed `positions_state.json`
+(`16:28:53Z`, also flat) — the phantom ETH/AAVE/LINK / `stop_order_id: null` snapshot from the `.7` entry is gone.
+
+**Test suite:** 305/305 passing, 0 failures — the previously-cited env-dependent failures (missing local Alpaca
+creds) are gone, implying this sandbox's `.env` now carries working Alpaca credentials.
+
+**Untouched:** multi-tenant Phase 2 (`src/secretsCrypto.js`/`src/credentialsRoutes.js`) still not started. Suite
+`CLAUDE.md` has an uncommitted hand-drafted roadmap edit (renumbers items, adds a "glossary in DB" item, drops
+item 9's now-past date gate) — not this project's file to commit.
+
+**Next real checkpoint:** 2026-07-25 ~02:00–06:00 UTC, when `evaluate`/`watchdog`/`daily-summary` next become due
+automatically — that's what actually re-tests the hourly dispatcher end-to-end, not another manual trigger.
+
+---
+
 ## v2026-07-24.11 — 2026-07-24 — Add progress indicator to Scheduled Jobs "Run now"
 
 **Problem:** user reported clicking "Run now" gave no visible feedback — because it doesn't: the POST doesn't
