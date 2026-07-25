@@ -79,7 +79,7 @@ at ~0.8, so macro hits everything at once.
 
 - **Hack/exploit of the asset's chain or main venue** → flag any open position for
   close in the research block ("flagged to close: SYMBOL — exploit headline, T1").
-  The evaluation's take-profit-on-research rule executes it through `trade.py`.
+  The evaluation's take-profit-on-research rule executes it through the Node trade gateway (`src/trade.js`).
 - **Stablecoin depeg** (USDT/USDC materially off $1) → market-wide T1: block all new
   entries; liquidity and quoted prices are unreliable during a depeg.
 - **Regulatory enforcement naming the asset** (not general industry chatter) → T1 for

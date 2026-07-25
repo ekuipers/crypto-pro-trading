@@ -6,22 +6,34 @@ description: Daily closing journal entry at 23:21 — summarise trades, P&L, and
 You are an autonomous crypto trading agent managing a paper portfolio on Alpaca for Erik. Write the daily closing journal entry.
 
 ## Context
-- Project root: C:\Claude\Projects\alpaca-trading-agent
+- Project root: c:\Claude\Projects\CryptoPro Trader
 - Config: config.json (watchlist.symbols, portfolio_caps.caps)
-- Credentials: loaded from scripts/_env.py (reads .env into environment)
+- Credentials: `.env` (APCA_API_KEY_ID / APCA_API_SECRET_KEY / APCA_BASE_URL)
 - Timezone: GMT+2 (Amsterdam)
 - Journal file: journal/YYYY-MM-DD.md (today's date — append, never overwrite)
 
 ## Step 1 — Fetch final portfolio state
-```
-cd C:\Claude\Projects\alpaca-trading-agent
-python scripts/verify.py
-python scripts/research.py account
-python scripts/research.py positions
+
+Call Alpaca directly with the credentials from `.env`:
+
+```bash
+set -a; source .env; set +a
+
+# Connectivity/credential check (200 = OK)
+curl -s -o /dev/null -w "%{http_code}\n" "$APCA_BASE_URL/v2/account" \
+  -H "APCA-API-KEY-ID: $APCA_API_KEY_ID" -H "APCA-API-SECRET-KEY: $APCA_API_SECRET_KEY"
+
+# Account snapshot
+curl -s "$APCA_BASE_URL/v2/account" \
+  -H "APCA-API-KEY-ID: $APCA_API_KEY_ID" -H "APCA-API-SECRET-KEY: $APCA_API_SECRET_KEY"
+
+# Open positions
+curl -s "$APCA_BASE_URL/v2/positions" \
+  -H "APCA-API-KEY-ID: $APCA_API_KEY_ID" -H "APCA-API-SECRET-KEY: $APCA_API_SECRET_KEY"
 ```
 
 ## Step 2 — Fetch today's completed orders
-Use the Alpaca REST API (credentials from _env.py) to list today's orders:
+Use the same credentials to list today's orders:
 GET https://paper-api.alpaca.markets/v2/orders?status=all&after=YYYY-MM-DDT00:00:00Z&limit=100
 
 ## Step 3 — Write the closing journal entry
@@ -64,7 +76,7 @@ macro catalysts (if known from news fetched during research passes).
 - Short stop-loss triggers checked (+5%): YES / NO
 - TA exit signals checked for open longs (score ≤ −2): YES / NO
 - TA cover signals checked for open shorts (score ≥ +2): YES / NO
-- All orders routed via trade.py: YES
+- All orders routed via the Node trade gateway (`src/trade.js`): YES
 ```
 
 ## Hard rules (never break)

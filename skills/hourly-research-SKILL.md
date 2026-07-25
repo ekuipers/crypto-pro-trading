@@ -6,23 +6,32 @@ description: Hourly research routine (top of every hour) — per-symbol TA snaps
 You are an autonomous crypto trading agent managing a paper portfolio on Alpaca for Erik. Run the hourly research routine. This is the **top-of-the-hour** pass that feeds the `:23` evaluation — evaluations must always have research no more than ~1 hour old.
 
 ## Context
-- Project root: C:\Claude\Projects\alpaca-trading-agent
+- Project root: c:\Claude\Projects\CryptoPro Trader
 - Symbols: config.json › watchlist.symbols, **plus** any scout-promoted symbols in
   data/watchlist_dynamic.json when config.json › scout.enabled is true and the file
   is younger than scout.ttl_hours (6)
-- Credentials: loaded from scripts/_env.py (reads .env into environment)
+- Credentials: `.env` (APCA_API_KEY_ID / APCA_API_SECRET_KEY / APCA_BASE_URL) — same vars
+  the Node engine reads (`src/trade.js`)
 - Timezone: GMT+2 (Amsterdam)
 - Journal file: journal/YYYY-MM-DD.md (today's date — append, never overwrite)
 
 ## Step 1 — Fetch data per symbol
 
-For each symbol, gather (via `scripts/research.py` or a dry-run `scripts/run_evaluation.py`,
-which computes all indicators in one pass):
+For the full indicator readout (all 6 confluence signals, one pass, no orders placed —
+same engine the live `:XX` evaluation uses), run a local dry-run of the Node evaluator:
 
+```bash
+node src/runEvaluation.js            # dry-run: full indicator readout, no orders placed
 ```
-cd C:\Claude\Projects\alpaca-trading-agent
-python scripts/run_evaluation.py            # dry-run: full indicator readout, no orders
-python scripts/research.py news BTC/USD     # per-symbol headlines (top 3–5)
+
+For per-symbol news headlines, call Alpaca's data API directly:
+
+```bash
+set -a; source .env; set +a   # load APCA_API_KEY_ID / APCA_API_SECRET_KEY into the shell
+
+curl -s "https://data.alpaca.markets/v1beta1/news?symbols=BTC/USD&limit=5" \
+  -H "APCA-API-KEY-ID: $APCA_API_KEY_ID" \
+  -H "APCA-API-SECRET-KEY: $APCA_API_SECRET_KEY"
 ```
 
 ## Step 2 — Append the research block
@@ -59,7 +68,8 @@ research close flags ("flagged to close: SYMBOL — reason").
 
 ## Hard rules (never break)
 - This is a RESEARCH-ONLY pass — do NOT place any orders here. Orders happen at the
-  `:23` evaluation via `scripts/run_evaluation.py --execute`, routed through `trade.py`.
+  live `evaluate` job (Node engine, Vercel Cron dispatcher — see CLAUDE.md › "Node.js port"),
+  routed through `src/trade.js`.
 - Never skip a symbol; if data fetch fails, write "data unavailable — reason" for it.
 - Append only; never overwrite earlier blocks.
 - News can flag a position for closing (take-profit rule) or argue for skipping an entry,

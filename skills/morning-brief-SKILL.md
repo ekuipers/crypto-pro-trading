@@ -11,12 +11,15 @@ Produce a structured morning brief covering portfolio health, risk alerts, and s
 
 ## Step 1 — Fetch portfolio state
 
-Run the following Python script to get the current portfolio snapshot:
+Check connectivity, then run a local dry-run of the Node evaluator to get the full
+signal-confluence readout for every watchlist symbol:
 
-```
-cd C:\Claude\Projects\alpaca-trading-agent
-python scripts/verify.py
-python scripts/run_evaluation.py
+```bash
+set -a; source .env; set +a
+curl -s -o /dev/null -w "%{http_code}\n" "$APCA_BASE_URL/v2/account" \
+  -H "APCA-API-KEY-ID: $APCA_API_KEY_ID" -H "APCA-API-SECRET-KEY: $APCA_API_SECRET_KEY"
+
+node src/runEvaluation.js   # dry-run: full indicator readout, no orders placed
 ```
 
 ## Step 2 — Write the brief to the journal
@@ -42,7 +45,7 @@ Append a `## Morning Brief HH:MM GMT+2` block to today's journal file at `journa
 For each symbol in the watchlist, report:
 - Symbol, score (X/6), 4H regime, daily regime, action (BUY / HALF-BUY / SHORT / HALF-SHORT / COVER / TA EXIT / HOLD / REGIME BLOCK)
 
-Use the output from `run_evaluation.py` (which already computes all of this).
+Use the output from `node src/runEvaluation.js` (which already computes all of this).
 
 Action mapping:
 - score ≥ 4 AND daily not downtrend → **BUY** (full size)
@@ -58,10 +61,9 @@ Two or three sentences on the broad crypto market conditions based on today's pr
 
 ## Step 3 — Open the dashboard
 
-Open the dashboard HTML file so Erik can review it interactively:
-`C:\Claude\Projects\alpaca-trading-agent\docs\dashboard_professional.html`
-
-Tell Erik to click the 🌅 Morning Brief tab for the live signal confluence view.
+Start the dashboard (`npm start` from the project root, or it may already be running/deployed
+on Vercel) and tell Erik to open it in a browser — `http://localhost:3000` locally, or the
+Vercel deployment URL — and click the 🌅 Morning Brief tab for the live signal confluence view.
 
 ## Output format
 
@@ -76,7 +78,7 @@ Keep the tone professional but conversational — like a trading desk morning no
 
 ## Context
 
-- Project root: `C:\Claude\Projects\alpaca-trading-agent`
+- Project root: `c:\Claude\Projects\CryptoPro Trader`
 - Watchlist: config.json › watchlist.symbols (BTC/USD, ETH/USD, SOL/USD, AVAX/USD, LINK/USD, DOT/USD, LTC/USD, DOGE/USD, ADA/USD, AAVE/USD)
 - Hard rules (per CLAUDE.md):
   - Cash reserve ≥ 20% at all times
@@ -85,5 +87,5 @@ Keep the tone professional but conversational — like a trading desk morning no
   - TA exit: long exits when score ≤ −2; short covers when score ≥ +2
   - Long entry: score ≥ 4 (full) or 3–3.9 (half, R:R ≥ 1:3), daily not downtrend
   - Short entry: score ≤ −4 (full) or −3 to −3.9 (half, R:R ≥ 1:3), daily downtrend only
-  - All scores computed by `scripts/run_evaluation.py` using the 6-point confluence table (EMA×, MACD, RSI, BB %b, Volume, 4H regime)
+  - All scores computed by the Node engine (`src/evaluateSymbol.js`/`src/indicators.js`) using the 6-point confluence table (EMA×, MACD, RSI, BB %b, Volume, 4H regime)
 - Timezone: GMT+2 (Amsterdam)

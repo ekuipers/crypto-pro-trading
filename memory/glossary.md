@@ -2,6 +2,18 @@
 
 Full decoder ring. Everything that would clutter `memory.md` lives here.
 
+> **2026-07-25 — all Python deleted from this project.** Every `scripts/*.py` file, all Python tests,
+> `requirements.txt`, and every GitHub Actions workflow were removed (user request — all CryptoPro
+> projects are Node.js+React now, Python/GitHub Actions are no longer needed anywhere). Many entries
+> below reference `.py` files (`run_evaluation.py`, `trade.py`, `risk.py`, `indicators.py`,
+> `position_state.py`, `symbols.py`, `_api.py`, `_env.py`, `metrics.py`, `scout.py`, `research.py`,
+> `verify.py`, `walkforward_evaluate.py`, etc.) as if they still exist — they don't. These are dated
+> historical entries describing code that was true *at the time it was written*, not live pointers;
+> left as-is rather than rewritten wholesale so the decision/incident trail stays intact. Their Node
+> equivalents live under `src/*.js` (see `CLAUDE.md`'s "Node engine modules" / README's module table
+> for the current mapping). Full removal detail: `memory/memory.md` v2026-07-25 (Python + GitHub
+> Actions full removal).
+
 ---
 
 ## 2026-07-24 — Roadmap rescan (Suite item 1): glossary moved to the database
@@ -27,7 +39,7 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 | Term | Meaning |
 |------|---------|
-| `verify_state_roundtrip.py` | Gate 3 script. Redirects the module-level `_STATE_FILE` path in Python's `position_state.py` to temp files so the REAL `load_state()`/`save_state()` round-trip through Node's real `loadState()`/`saveState()` — no logic reimplemented. Passed both directions. |
+| `verify_state_roundtrip.py` | Gate 3 script. Redirects the module-level `_STATE_FILE` path in Python's `position_state.py` to temp files so the REAL `load_state()`/`save_state()` round-trip through Node's real `loadState()`/`saveState()` — no logic reimplemented. Passed both directions. **Deleted 2026-07-25** (Python cleanup, post-cutover) — the gate already passed and had no other caller. |
 | `verify_decision_parity.py` / `.mjs` | Gate 1 scripts. Call `evaluate_symbol()`/`evaluateSymbol()` directly (bypassing `main()`'s state/journal writes entirely) against the same live positions/account, meant to be run concurrently so both see the same closed candles. |
 | Sequential vs concurrent trial | Running the two parity scripts one after another (not at the same instant) let BTC/ETH's live bar roll over between calls, producing a false-looking mismatch — running them concurrently (`node ... & ; python ... ; wait`) eliminated it, 10/10 exact match twice. Lesson: any future parity check MUST run both engines concurrently, not sequentially. |
 | `node-shadow-run.yml` | Gate 2 workflow. Independent of `trade.yml` — own schedule (offset 15 min), own concurrency group, never touches `positions_state.json`/`journal/*.md`/places orders. Appends one diff line per cycle to `data/shadow_run_log.jsonl`. |
@@ -547,8 +559,7 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | `_bars_start(limit, timeframe, buffer=1.6)` | `run_evaluation.py` | Computes start datetime string |
 | `evaluate_symbol(symbol, positions, equity, buying_power)` | `run_evaluation.py` | Full eval + ATR sizing + journal write |
 | `place_order(symbol, side, qty, ask)` | `trade.py` | Limit order; enforces hard rules |
-| `evaluate_rebalance(symbol, pos, equity, caps_data)` | `rebalance.py` | Returns rebalance decision (HOLD/BUY/SELL) with qty, limit_price, reason |
-| `append_rebalance_journal(timestamp, decisions, executed)` | `rebalance.py` | Appends `## Rebalance HH:MM GMT+2` block to daily journal |
+| `evaluate_rebalance(symbol, pos, equity, caps_data)` / `append_rebalance_journal(...)` | `rebalance.py` (**deleted 2026-07-25**, Python cleanup) | Manual portfolio-rebalance-to-caps tool — no scheduler or test ever called it; removed post-cutover along with the file. |
 | `computeFifoStats(activities)` | `dashboard_professional.html` | Shared FIFO realized-P&L engine. Returns `{totalPnl, wins, losses, winPnl, lossPnl, winRate, profitFactor, avgWin, avgLoss, tradeRows}`. Long-only buy→sell matching. Single source of truth for both the P&L tab (`loadPnl`) and Backtest tab (`renderBacktest` via `c.fifoStats`). **Must be fed the full paginated FILL history via `edgeFetchAllFills()` — a single 100-fill page truncates the realized total and mis-books SELLs whose matching BUY predates the window as $0 "wins" (fixed 2026-07-06). All three feeders (`loadContext`, `loadPnl`, `generateDailyJournal`) now use `edgeFetchAllFills()`.** A SELL is only counted as a realized trade when it matched a prior BUY (`matchedQty > 1e-9`); an unmatched SELL (empty FIFO queue) stays in the trade log with `pnl: null` and is excluded from win/loss stats — so it can no longer book a phantom $0 "win" (hardened 2026-07-07, aligns with `edgeFifoTrades`/`insRoundTrips`). |
 | `tradingDaysPerYear` | `dashboard_professional.html` (`DEFAULT_LIMITS`) | Annualization factor for Sharpe/Sortino/Calmar and annualized volatility (`× √tradingDaysPerYear`). **Set to `365`, not 252** — crypto trades 24/7 and the portfolio-history feed returns daily calendar points, so annualization must use 365 (matches `scripts/metrics.py` `annualization_factor("1D") = 365.0`). Was `252` (equity-market convention) until 2026-07-07, which understated all annualized KPIs by √(252/365) ≈ 0.83. |
 
@@ -601,7 +612,7 @@ Critical implementation details to keep `indicators.py` and `dashboard_professio
 | Conviction-scaled sizing | **Implemented, ships OFF** (`strategy.conviction_sizing_enabled`). `risk.conviction_risk_multiplier()`: 0.75× half band / 1.0× full band / 1.5× at score ≥ `conviction_high_score` (5.0) with daily+4H aligned — Druckenmiller. Replaces the legacy ×0.5 half-band halving when on. |
 | Streak throttle | **Implemented, ACTIVE** (`risk.streak_throttle_enabled=true`). `risk.update_streak_throttle()`: 3 consecutive losing round-trips OR 7-day drawdown ≥ 5% → risk ×`streak_throttle_risk_factor` (0.5); releases after 2 straight winners AND drawdown < 2.5% (hysteresis; state = `streak_throttle_active` in positions_state.json) — PTJ. 7-day DD from `/v2/account/portfolio/history`. |
 | Maker-first pricing | **Implemented, ships OFF** (`costs.maker_first_entries`). Entry limits rest at the bid; a 1-cycle repricing timeout cancels unfilled entry BUYs; exits/stops stay taker. `check_limit_band(limit, ask, bid=…)` accepts any limit inside the live spread (maker-safe). |
-| Stop watchdog | **Implemented, ACTIVE.** `scripts/stop_watchdog.py` + `.github/workflows/watchdog.yml` (cron `*/5`): open-long exit levels only (trail from state HWM, max(swing-low, breakeven), −5% fallback), dedup against pending SELLs, orders via trade.py, journals/commits only when a stop fires. |
+| Stop watchdog | **Implemented, ACTIVE — now `src/stopWatchdog.js` on the Vercel Cron dispatcher** (since the 2026-07-25 Node cutover): open-long exit levels only (trail from state HWM, max(swing-low, breakeven), −5% fallback), dedup against pending SELLs, orders via the trade gateway, journals/commits only when a stop fires. `scripts/stop_watchdog.py` + `.github/workflows/watchdog.yml` were the original Python/GH-Actions implementation; both are gone (workflow deleted 2026-07-25 at cutover, script deleted 2026-07-25 in the Python cleanup pass — no remaining caller). |
 | Breadth gate | **Implemented, ships OFF** (`strategy.breadth_gate_enabled`). `risk.breadth_pct()`/`breadth_policy()`: ≤ `breadth_low_pct` (30%) of watchlist in daily uptrend → new entries Tier-1 only + max-positions budget halved — Weinstein at book level. |
 | Measured-move target | **Implemented, ships OFF** (`strategy.measured_move_enabled`). `risk.measured_move_target()`: prior 4H swing high, or entry + 2× the 4H range height after a breakout; feeds the net-R:R reward leg when ADX ≥ `measured_move_adx_min` (25) — PTJ asymmetry. |
 | `walkforward_latest.json` | Stable-named compact summary written by every `walkforward_evaluate.py` run (forward.yml fees corrected 5→25 bps 2026-07-10); the dashboard Backtest tab's `#wfBaseline` banner reads it and turns red past `walkforward.max_baseline_age_days` (45, seeded to `STRAT_CFG.wfMaxAgeDays`). |
@@ -616,7 +627,7 @@ Critical implementation details to keep `indicators.py` and `dashboard_professio
 | Bars page cap (~7 days) | Alpaca caps one `/v1beta3/crypto/us/bars` response at roughly 7 days of bars regardless of `limit`, returning `next_page_token` (4Hour limit=120 → 43 bars, verified live 2026-07-10). `get_crypto_bars` now follows the token (≤10 pages) — the root cause of the "4H bars chronically short / 1H fallback failed" bug. |
 | CADENCE WARNING | Journal warning emitted when `now − state.last_evaluation_iso` > `CADENCE_WARNING_MIN` — self-monitoring for scheduler gaps. Threshold tracks `trade.yml`'s actual (deliberately cost-throttled) cron — currently 25h for the once/day cadence — and must be updated in lockstep (Python + Node) whenever that cron changes, or it false-fires on every intentional run (happened 2026-07-20 → 2026-07-24, see `memory.md` v2026-07-24.1). |
 | `last_evaluation_iso` | New top-level key in `data/positions_state.json` — UTC timestamp of the previous evaluation, drives the CADENCE WARNING. |
-| `scripts/daily_summary.py` | Closing-journal generator run by the 23:21 workflow job: `## Daily Summary` block with equity + day change vs `last_equity`, cash %, open positions, today's fills, FIFO realized P&L for round trips closed today. Replaced the second evaluation the job used to run. |
+| `scripts/daily_summary.py` | Closing-journal generator run by the 23:21 workflow job: `## Daily Summary` block with equity + day change vs `last_equity`, cash %, open positions, today's fills, FIFO realized P&L for round trips closed today. Replaced the second evaluation the job used to run. **Deleted 2026-07-25** (Python cleanup, post-cutover) — superseded by `src/dailySummary.js` on the Node/Vercel Cron dispatcher; had no remaining live caller (its `realized_pnl_today()` unit tests in `tests/test_reconcile.py` were removed alongside it). |
 | DATA GUARD | Journal warning emitted when Alpaca's `avg_entry_price` ≤ 0 is replaced with the FIFO-derived cost basis (the SOL `$-4.4931` corruption). |
 | Budget ceiling 7 | With Tier-1 = {BTC, ETH} and 5 per tier, the reachable book maximum is 2 + 5 = 7 — `risk.max_open_positions` set to 7 (was an unreachable 15); dashboard `DEFAULT_LIMITS` fallback aligned to 7/5. |
 

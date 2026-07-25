@@ -2969,6 +2969,115 @@ sessions per Suite workflow rule 26.
 
 ---
 
+## 2026-07-25 — Python cleanup: 4 orphaned scripts deleted post-cutover
+
+User asked to verify whether any `scripts/*.py` files were still needed and delete the ones that
+weren't. Traced every script's remaining callers rather than assuming "Python is retired" meant
+"delete everything": two GitHub Actions workflows are still Python-based and still active —
+`forward.yml` (walk-forward backtesting) needs `walkforward_evaluate.py` → `indicators.py`,
+`metrics.py`, `_env.py`; `node-shadow-run.yml` (parity monitoring) needs
+`verify_decision_parity.py`/`shadow_run_diff.py` → `run_evaluation.py`, `trade.py`, `risk.py`,
+`_api.py`, `symbols.py`, `position_state.py` — all kept. Also found `research.py` and `verify.py`
+are still actively invoked by `skills/hourly-research-SKILL.md`/`daily-journal-SKILL.md`/
+`morning-brief-SKILL.md`, and `scout.py` is still dynamically imported inside `run_evaluation.py`'s
+`main()` (config `scout.enabled: true`) — a path the `hourly-research`/`morning-brief` skills
+exercise via a dry-run `python scripts/run_evaluation.py` — so all three were kept too.
+
+Deleted outright (zero remaining caller of any kind): `scripts/stop_watchdog.py` (superseded by
+`src/stopWatchdog.js`, only referenced in docs describing the now-deleted `watchdog.yml`) and
+`scripts/verify_state_roundtrip.py` (Node-cutover Gate 3 — a one-time migration check whose gate
+already passed, cutover now complete). Asked the user before touching two more ambiguous files
+since deleting either meant removing something with real remaining signal —
+`scripts/daily_summary.py` had no live caller but its `realized_pnl_today()` FIFO helper was still
+directly unit-tested (`tests/test_reconcile.py::TestDailySummaryFifo`), and `scripts/rebalance.py`
+had no scheduler or tests but was still documented in `CLAUDE.md`'s "Modules" section as an
+available manual tool. User approved deleting both. Removed `TestDailySummaryFifo` and its
+docstring reference from `tests/test_reconcile.py` alongside `daily_summary.py`. Cleaned stale
+references: `.claude/settings.local.json`'s permission allowlist (dropped `rebalance.py` from the
+`py_compile` entry), `.claude/agents/market-researcher.md` (dropped `rebalance.py` from its
+strategy-change trigger list), `CLAUDE.md` (Schedule section rewritten to point at the Node/Vercel
+dispatcher as the live schedule, with the old Python cron bullets struck through; Modules section's
+`rebalance.py` line removed; Gate-3 line annotated as deleted), `README.md` (Scripts table,
+file-tree, and `### Usage` examples all had their `rebalance.py` rows/lines removed; the stop-watchdog
+feature bullet updated to point at `src/stopWatchdog.js`), and `memory/glossary.md` (annotated the
+`stop_watchdog.py`/`daily_summary.py`/`verify_state_roundtrip.py`/`rebalance.py` entries as deleted
+rather than rewriting their historical descriptions). Full Python suite re-verified after every
+change: **171/171 passing, 0 failures.**
+
+---
+
+## 2026-07-25 — Python + GitHub Actions full removal (user request, same day as the partial cleanup above)
+
+User: "remove all python and Github related scripts and workflows. I don't need them anymore as all
+projects have been ported to Node.js+React." This superseded the same-day partial cleanup above, which
+had deliberately kept `research.py`/`verify.py`/`scout.py` and the two remaining Python-based workflows
+(`forward.yml`, `node-shadow-run.yml`) because they still had live callers. This pass removed those too,
+at the user's explicit direction, after flagging (and getting the user's go-ahead on) the two real
+capability losses involved:
+
+- **`research.py`/`verify.py`** had no Node replacement — they were the CLI wrappers the
+  `hourly-research`/`daily-journal`/`morning-brief` skills used for ad-hoc account/position/bars/quote/news
+  lookups and credential checks. Chose "delete, rewrite skills to hit Alpaca directly" over keeping them.
+- **`forward.yml` + `walkforward_evaluate.py` + `metrics.py`** were the only thing regenerating
+  `reports/walkforward_latest.json`, which the dashboard's Backtest-tab staleness banner reads. Walk-forward
+  backtesting has no Node port. Chose "delete — accept the backtest report goes stale" over keeping this
+  one workflow. `reports/*.json`/`*.md` are now a frozen historical snapshot; the staleness banner will
+  eventually read permanently stale with no way to refresh it short of someone writing a Node walk-forward
+  evaluator later.
+
+Also confirmed before deleting anything: no other CryptoPro project (Charts, Training, Suite, Mobile) has
+any Python at all — only Charts has a `.github/workflows/test.yml`, an unrelated Node/CI workflow, left
+untouched since it wasn't part of this request's scope (Trader-only, per this whole conversation).
+
+**Deleted:**
+- `.github/` directory entirely — `workflows/forward.yml`, `workflows/node-shadow-run.yml`, and (as a
+  Node script that only existed to serve the now-deleted workflow) `scripts/verify_decision_parity.mjs`.
+- Every remaining `scripts/*.py` file: `_api.py`, `_env.py`, `indicators.py`, `metrics.py`,
+  `position_state.py`, `research.py`, `risk.py`, `run_evaluation.py`, `scout.py`, `shadow_run_diff.py`,
+  `symbols.py`, `trade.py`, `verify.py`, `verify_decision_parity.py`, `walkforward_evaluate.py` — the
+  `scripts/` directory no longer exists.
+- Every remaining Python test: `tests/conftest.py`, `test_bars_fetch.py`, `test_indicators.py`,
+  `test_reconcile.py`, `test_risk.py`, `test_risk_roadmap.py`, `test_scout.py`, `test_symbols.py`,
+  `test_trade_stop_clamp.py`, plus `scripts/__pycache__`/`tests/__pycache__`. `tests/test_socials_fetch.js`
+  (a Node harness, not Python) was kept — it has nothing to do with the Python engine.
+- `requirements.txt`.
+
+**Verified nothing broke:** `npm test` — 310/310 passing throughout, before and after every deletion.
+
+**Rewrote the 3 research/journal skills to call Alpaca directly instead of the deleted CLI wrappers**
+(`skills/hourly-research-SKILL.md`, `skills/daily-journal-SKILL.md`, `skills/morning-brief-SKILL.md`):
+`research.py account/positions/news/quote/bars` → direct `curl` against Alpaca's REST/data API using
+`.env`'s `APCA_API_KEY_ID`/`APCA_API_SECRET_KEY`/`APCA_BASE_URL` (same var names the Node engine already
+reads, confirmed via `src/trade.js`); `verify.py` → a `curl -o /dev/null -w "%{http_code}"` connectivity
+check; the indicator-readout dry-run (`python scripts/run_evaluation.py`) → `node src/runEvaluation.js`,
+which already exists as a drop-in equivalent (writes to the same local `data/positions_state.json` +
+`journal/*.md` when run locally, confirmed by reading `src/positionState.js`/`src/journal.js` — it does
+**not** touch the Postgres-backed production state, so running it locally for research is safe). Also
+fixed unrelated staleness found while rewriting these files: all three skills still said
+`C:\Claude\Projects\alpaca-trading-agent` (the project's old name/path) instead of the current
+`c:\Claude\Projects\CryptoPro Trader`, and `morning-brief-SKILL.md` told the user to open
+`docs\dashboard_professional.html` directly — a static file that predates the Node/React port entirely;
+replaced with "run `npm start`, open `http://localhost:3000` or the Vercel URL." Also fixed one line each
+in `skills/crypto-catalysts/SKILL.md` (`trade.py` → `src/trade.js`) and `.claude/agents/market-researcher.md`
+(`.py` file references throughout → their `.js` equivalents; the walk-forward-validation recommendation
+now notes there's no Node port to run; `python -m pytest` → `npm test`). Cleaned
+`.claude/settings.local.json`'s permission allowlist further (the `py_compile` entry was already trimmed
+in the prior pass; nothing Python-related was left to remove there this time beyond what that pass did).
+
+**`CLAUDE.md` and `README.md`** got a substantial pass each — not just annotating deleted files (the
+pattern used for the partial cleanup above) but rewriting every section that described current-tense
+Python/GitHub Actions behavior as if it still existed: `CLAUDE.md`'s "Hosting & frontend", "Node.js port",
+"Cron cutover", Hard rules, Method, Modules, and Dashboard-parity sections; `README.md`'s intro, Setup
+(`.env`/credentials/automated-trading subsections), the architecture Mermaid diagram, the Scripts table
+(replaced with a "Node engine modules" table), Usage examples, Tests section, GitHub Actions Automation
+section, file tree, Dependencies section, and Paper vs Live Trading section. Dated historical
+narrative — rescan log entries, dated bug-fix writeups, the "famous-trader package shipped" roadmap
+entry — was deliberately left alone in both files, same policy as the partial-cleanup pass: those are
+accurate records of what was true on the date they were written, not live documentation, and rewriting
+them wholesale would destroy the incident/decision trail for no benefit.
+
+---
+
 ## lessons
 - Any `fetch()`/XHR of a same-origin relative local file (config.json, positions_state.json, glossary.md, etc.) in `docs/dashboard_professional.html` can be silently blocked when the dashboard is opened via `file://` — never rely on it as the *only* source for cross-engine state; prefer deriving the same fact from an HTTPS call (e.g. Alpaca's own API via `apiFetch`) when one is available, and treat the local-file fetch as a best-effort enhancement only.
 - When renaming the project, `grep -ri` the whole repo (not just `CLAUDE.md`) for every prior name variant (e.g. "CryptoPro Dashboard", "Alpaca Crypto Trading Agent") before considering the rename done — `<title>` tags, in-page header labels, footer names, and README H1s are easy to miss and only surface later during an unrelated rules audit.
