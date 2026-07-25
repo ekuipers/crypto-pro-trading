@@ -5,17 +5,14 @@ A fully automated crypto trading agent running on Alpaca. The agent evaluates pr
 when a score threshold is met, and journals every decision. A walk-forward backtester runs
 daily to validate strategy robustness.
 
-**Node.js port — cutover confirmed live (2026-07-24):** the Node engine
-(`src/`, 305-test `node --test` suite via `npm test`) is now the live paper
-engine, running as Vercel Cron-triggered HTTP endpoints (`src/cronRoutes.js` +
-`vercel.json`, `CRON_EXECUTE=true`) instead of `.github/workflows/*.yml`.
-`trade.yml`/`watchdog.yml`'s `schedule:` triggers are paused (commented out,
-not deleted — instant rollback via `workflow_dispatch`) now that Vercel Cron
-is confirmed writing diverging state to Postgres `trader_state`. `forward.yml`
-(walk-forward backtesting, no live orders) is unaffected and keeps running on
-GitHub Actions. See `CLAUDE.md`'s roadmap item 3 for the confirmation evidence
-and remaining stability-watch period before the paused workflows are deleted
-outright.
+**Node.js port — cutover complete (2026-07-25):** the Node engine
+(`src/`, 310-test `node --test` suite via `npm test`) is now the sole live
+paper engine, running as Vercel Cron-triggered HTTP endpoints
+(`src/cronRoutes.js` + `vercel.json`, `CRON_EXECUTE=true`). `trade.yml` and
+`watchdog.yml` have been deleted outright after a confirmed automatic
+multi-cycle track record (see `CLAUDE.md`'s "Node.js port" section for the
+evidence chain). `forward.yml` (walk-forward backtesting, no live orders) is
+unaffected and keeps running on GitHub Actions.
 
 ---
 
@@ -58,10 +55,11 @@ python scripts/trade.py quote BTC/USD # confirms market-data access
 A `401`/`403` response means the key pair doesn't match `APCA_BASE_URL` (e.g. paper keys against the
 live URL, or vice versa) — regenerate or fix the pairing rather than guessing.
 
-### 3. Automated trading (GitHub Actions)
+### 3. Automated trading
 
-The scheduled workflows (`trade.yml`, `watchdog.yml`, `forward.yml`) run headless in GitHub Actions and
-read credentials from **GitHub Environments**, not `.env`:
+Live trading now runs on the Node/Vercel engine — see [§6 Scheduled jobs via Vercel Cron](#6-scheduled-jobs-via-vercel-cron-live-paper-engine).
+The remaining GitHub Actions workflow, `forward.yml` (walk-forward backtesting only, no live orders),
+still runs headless in GitHub Actions and reads credentials from **GitHub Environments**, not `.env`:
 
 1. In the repo, go to **Settings → Environments** and create two environments named `paper` and `live`.
 2. Add the same two secret names to each environment, with that environment's own key pair:
@@ -117,7 +115,7 @@ here automatically — a short-lived, single-use `?sso=` ticket in the URL is re
 and stripped from the address bar. This app only accepts that handoff today; it doesn't yet issue tickets
 for links to the other CryptoPro apps.
 
-### 6. Scheduled jobs via Vercel Cron (live paper engine as of 2026-07-24)
+### 6. Scheduled jobs via Vercel Cron (live paper engine)
 
 `GET /api/cron/dispatch` is a dispatcher that checks each job's dashboard-configured hour (Command tab's
 "☁ Scheduled Jobs" panel) and runs it once per UTC day at that hour — now the **live** engine, having
@@ -362,24 +360,11 @@ Dashboard-only client-side logic (no Python equivalent) gets a standalone Node h
 
 ## GitHub Actions Automation
 
-Two workflows in `.github/workflows/` drive fully autonomous operation.
-
-### `trade.yml` — Trading Bot
-
-This trading bot runs unattended and assures offline trading and prevents to be getiikng off guard during big swings.
-
-| Trigger | Schedule | What runs |
-|---------|----------|-----------|
-| Cron | Every hour at **:00** | `run_evaluation.py --execute` (paper) |
-| Cron | Daily at **23:00 UTC** | Daily journal summary |
-| Manual dispatch | On demand | Configurable: `paper`/`live`, dry-run on/off |
-
-Uses **GitHub Environments** (`paper` / `live`) — each environment holds two secrets:
-- `APCA_API_KEY_ID` — Alpaca API key for that environment
-- `APCA_SECRET_KEY` — Alpaca API secret for that environment
-
-Configure under **Settings → Environments** in the GitHub repo. The `environment:` field on each job controls which set of secrets is injected; without it, environment secrets are never exposed.
-- Journal changes are committed back to `main` after each run.
+Live trading (evaluate/watchdog/daily-summary) now runs on the Node/Vercel engine — see
+[§6 Scheduled jobs via Vercel Cron](#6-scheduled-jobs-via-vercel-cron-live-paper-engine).
+`trade.yml` and `watchdog.yml` (the Python GitHub Actions equivalents) were deleted 2026-07-25
+after a confirmed automatic multi-cycle cutover track record (`CLAUDE.md`'s "Node.js port"
+section has the evidence chain). One workflow remains in `.github/workflows/`:
 
 ### `forward.yml` — Forward Analysis
 
@@ -395,8 +380,9 @@ Configure under **Settings → Environments** in the GitHub repo. The `environme
 
 ## Hosting
 
-The trading engine runs on the GitHub Actions cron above and needs no server. The dashboard **used to**
-be a static file served via GitHub Pages
+The live trading engine runs on Vercel Cron (`/api/cron/dispatch`, see §6 above) and needs no
+separate server — it's serverless functions on the same Vercel deployment as the dashboard. The
+dashboard itself **used to** be a static file served via GitHub Pages
 (`ekuipers.github.io/crypto-pro-trading/dashboard_professional.html`); as of 2026-07-19 it's a React
 (Vite) frontend built to `client/dist/` and served by `server.js` (see `## Dashboard` above), so **that
 GitHub Pages URL no longer works** — GitHub Pages can only serve static files, and there is no longer a
@@ -404,9 +390,8 @@ static HTML file to publish. `server.js` (Express, serves `client/dist/`, `src/j
 `docs/`'s remaining static assets, + `GET /api/health`) was originally added 2026-07-19 just to fix a
 Vercel "No entrypoint found" deploy failure, and now serves the whole dashboard. **Run `npm run build`
 once before `npm start`** (or in dev, `npm run dev` runs the Express server + Vite dev server together);
-listens locally on `PORT` (default 3000); the Vercel deployment is the live URL for the dashboard —
-its build step needs to run `npm run build` too. Still not part of the
-production trading path (that's the GitHub Actions cron).
+listens locally on `PORT` (default 3000); the Vercel deployment is the live URL for both the dashboard
+and the trading engine.
 
 `client/` is its own npm project with its own `package.json`/`package-lock.json` (holds `vite`,
 `@vitejs/plugin-react`, `react`, `react-dom`) — it is **not** an npm workspace of the root project, so a
@@ -651,8 +636,8 @@ alpaca-trading-agent/
 │   ├── routines.json          # Cowork agent routine definitions
 │   └── settings.local.json    # Agent permission grants
 ├── .github/workflows/
-│   ├── trade.yml              # Daily trading (cost-throttled) + daily summary
-│   └── forward.yml            # Daily walk-forward analysis
+│   ├── forward.yml            # Daily walk-forward analysis (no live orders)
+│   └── node-shadow-run.yml    # Node/Python parity monitoring (vestigial post-cutover)
 ├── docs/
 │   ├── favicon.*, apple-touch-icon.png # Static assets (still served directly from here)
 │   └── dashboard_layout.md            # Dashboard layout & changelog (Professional + Portfolio sections)

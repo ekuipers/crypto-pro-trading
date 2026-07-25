@@ -2941,6 +2941,34 @@ Training's chrome + full 67-module content translation) unchanged — tracked in
 
 ---
 
+## 2026-07-25 — Roadmap rescan (19:05 UTC): Node cutover complete, `trade.yml`/`watchdog.yml` deleted
+
+The 2026-07-25 ~02:00–06:00 UTC window every prior rescan had been waiting on finally landed.
+Queried `job_runs` directly (Postgres, credentials in local `.env`) and found a full automatic
+Vercel-dispatcher cycle overnight: `evaluate` (`triggered_by:'cron'`, started 01:01:32 UTC,
+`status='ok'`), `watchdog` (`cron`, 04:01:00 UTC, `ok`), `daily-summary` (`cron`, 06:03:07 UTC,
+`ok`) — none manual, all automatic. `GET /api/trader-state` matched (`last_evaluation_iso:
+2026-07-25T01:01:34.557Z`, day rolled to 07-25, positions still flat `{}`). GitHub Actions run
+history re-checked directly via the API: latest `schedule`-triggered `trade.yml` run still
+`2026-07-24T03:31:52Z`, latest `watchdog.yml` schedule run still `2026-07-24T05:42:22Z` — both
+predate the 09:29:46 UTC pause, zero schedule runs on either paused workflow across ~33h35m,
+spanning this full automatic cycle. `data/shadow_run_log.jsonl` at 12 entries, still
+`mismatch_count: 0` throughout. Full test suite: 310/310 passing.
+
+This satisfied the "stable multi-cycle track record" the standing instruction had gated
+`trade.yml`/`watchdog.yml` deletion on. Asked the user for explicit go-ahead (per the "hard-to-reverse
+CI change" caution already on record) rather than deleting unilaterally on the rescan — user
+approved. Deleted both files outright (`git rm`); `forward.yml` (walk-forward backtesting, no live
+orders) and `node-shadow-run.yml` (parity monitoring — now comparing Node against a Python engine
+that no longer runs live; consider retiring in a future pass) were left alone. Updated both
+`CLAUDE.md` (Trader: "Node.js port" section header + gate summary + Hosting & frontend line; Suite:
+roadmap item 9 marked DONE) to reflect GitHub Actions no longer having any role in live trading —
+Node/Vercel is now the sole live engine. Multi-tenant Phase 2 and the remaining multi-language
+phases (Charts/Training/Mobile ports) confirmed still untouched, correctly deferred to their own
+sessions per Suite workflow rule 26.
+
+---
+
 ## lessons
 - Any `fetch()`/XHR of a same-origin relative local file (config.json, positions_state.json, glossary.md, etc.) in `docs/dashboard_professional.html` can be silently blocked when the dashboard is opened via `file://` — never rely on it as the *only* source for cross-engine state; prefer deriving the same fact from an HTTPS call (e.g. Alpaca's own API via `apiFetch`) when one is available, and treat the local-file fetch as a best-effort enhancement only.
 - When renaming the project, `grep -ri` the whole repo (not just `CLAUDE.md`) for every prior name variant (e.g. "CryptoPro Dashboard", "Alpaca Crypto Trading Agent") before considering the rename done — `<title>` tags, in-page header labels, footer names, and README H1s are easy to miss and only surface later during an unrelated rules audit.
