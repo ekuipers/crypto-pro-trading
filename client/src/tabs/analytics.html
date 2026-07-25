@@ -1,19 +1,19 @@
     <div id="page-analytics" class="page">
       <div class="subnav">
-        <button id="subtab-performance" class="subtab-btn active" onclick="analyticsSubTab('performance')">📈 Performance</button>
-        <button id="subtab-pnl" class="subtab-btn" onclick="analyticsSubTab('pnl')">💰 P&amp;L</button>
-        <button id="subtab-edge" class="subtab-btn" onclick="analyticsSubTab('edge')">🔬 Edge</button>
+        <button id="subtab-performance" class="subtab-btn active" onclick="analyticsSubTab('performance')" data-i18n="app:analytics.subnavPerformance">📈 Performance</button>
+        <button id="subtab-pnl" class="subtab-btn" onclick="analyticsSubTab('pnl')" data-i18n="app:analytics.subnavPnl">💰 P&amp;L</button>
+        <button id="subtab-edge" class="subtab-btn" onclick="analyticsSubTab('edge')" data-i18n="app:analytics.subnavEdge">🔬 Edge</button>
       </div>
 
     <div id="subpage-performance" class="subpage active">
       <section>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
-          <div class="section-title" style="margin-bottom:0">Performance Dashboard</div>
+          <div class="section-title" style="margin-bottom:0" data-i18n="app:analytics.performanceTitle">Performance Dashboard</div>
           <div style="display:flex;gap:6px;margin-left:auto">
-            <button class="btn period-btn active" data-period="1M" onclick="setPeriod('1M',this)">1M</button>
-            <button class="btn period-btn" data-period="3M" onclick="setPeriod('3M',this)">3M</button>
-            <button class="btn period-btn" data-period="6M" onclick="setPeriod('6M',this)">6M</button>
-            <button class="btn period-btn" data-period="1Y" onclick="setPeriod('1Y',this)">1Y</button>
+            <button class="btn period-btn active" data-period="1M" onclick="setPeriod('1M',this)" data-i18n="app:analytics.period1M">1M</button>
+            <button class="btn period-btn" data-period="3M" onclick="setPeriod('3M',this)" data-i18n="app:analytics.period3M">3M</button>
+            <button class="btn period-btn" data-period="6M" onclick="setPeriod('6M',this)" data-i18n="app:analytics.period6M">6M</button>
+            <button class="btn period-btn" data-period="1Y" onclick="setPeriod('1Y',this)" data-i18n="app:analytics.period1Y">1Y</button>
           </div>
         </div>
         <div id="performanceKpis" class="grid-3"></div>
@@ -25,8 +25,8 @@
           <div class="chart-card">
             <div class="chart-header">
               <div>
-                <div class="chart-title">Equity Curve</div>
-                <div class="chart-meta">Portfolio value from Alpaca account history</div>
+                <div class="chart-title" data-i18n="app:analytics.equityChartTitle">Equity Curve</div>
+                <div class="chart-meta" data-i18n="app:analytics.equityChartMeta">Portfolio value from Alpaca account history</div>
               </div>
             </div>
             <div class="chart-wrap">
@@ -37,8 +37,8 @@
           <div class="chart-card">
             <div class="chart-header">
               <div>
-                <div class="chart-title">Return Distribution</div>
-                <div class="chart-meta">Period returns from account equity history</div>
+                <div class="chart-title" data-i18n="app:analytics.returnsChartTitle">Return Distribution</div>
+                <div class="chart-meta" data-i18n="app:analytics.returnsChartMeta">Period returns from account equity history</div>
               </div>
             </div>
             <div class="chart-wrap">
@@ -49,14 +49,14 @@
       </section>
 
       <section>
-        <div class="section-title">Performance Summary</div>
+        <div class="section-title" data-i18n="app:analytics.summaryTitle">Performance Summary</div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th data-tip="Metric name. Click to sort.">Metric <span class="sort">⇅</span></th>
-                <th class="right" data-tip="Current calculated value. Click to sort.">Value <span class="sort">⇅</span></th>
-                <th data-tip="Plain-language explanation of the metric. Click to sort.">Interpretation <span class="sort">⇅</span></th>
+                <th data-tip="Metric name. Click to sort." data-i18n-tip="app:analytics.thMetricTip"><span data-i18n="app:analytics.thMetric">Metric</span> <span class="sort">⇅</span></th>
+                <th class="right" data-tip="Current calculated value. Click to sort." data-i18n-tip="app:analytics.thValueTip"><span data-i18n="app:analytics.thValue">Value</span> <span class="sort">⇅</span></th>
+                <th data-tip="Plain-language explanation of the metric. Click to sort." data-i18n-tip="app:analytics.thInterpretationTip"><span data-i18n="app:analytics.thInterpretation">Interpretation</span> <span class="sort">⇅</span></th>
               </tr>
             </thead>
             <tbody id="performanceSummaryBody"></tbody>
@@ -67,75 +67,75 @@
 
     <div id="subpage-pnl" class="subpage">
       <section>
-        <div class="section-title">Realized P&amp;L &amp; Trade Statistics</div>
+        <div class="section-title" data-i18n="app:analytics.pnlTitle">Realized P&amp;L &amp; Trade Statistics</div>
         <div id="pnlKpis" class="grid-3"></div>
       </section>
 
       <section>
-        <div class="section-title">P&amp;L Calendar</div>
+        <div class="section-title" data-i18n="app:analytics.calendarTitle">P&amp;L Calendar</div>
         <div id="pnlCalendar" class="panel" style="overflow-x:auto">
-          <div class="small">Load account data to see the calendar.</div>
+          <div class="small" data-i18n="app:analytics.calendarPlaceholder">Load account data to see the calendar.</div>
         </div>
       </section>
 
       <section>
-        <div class="section-title">P&amp;L Attribution by Symbol</div>
+        <div class="section-title" data-i18n="app:analytics.attributionTitle">P&amp;L Attribution by Symbol</div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th data-tip="Trading pair.">Symbol</th>
-                <th class="right" data-tip="Total sell-side trades matched for this symbol.">Trades</th>
-                <th class="right" data-tip="Winning vs losing trades.">W/L</th>
-                <th class="right" data-tip="Win rate for this symbol.">Win Rate</th>
-                <th class="right" data-tip="Total realized P&amp;L (FIFO matched).">Realized P&amp;L</th>
-                <th class="right" data-tip="Gross wins / gross losses.">Profit Factor</th>
-                <th class="right" data-tip="Average winning trade.">Avg Win</th>
-                <th class="right" data-tip="Average losing trade.">Avg Loss</th>
+                <th data-tip="Trading pair." data-i18n-tip="app:analytics.thSymbolTip" data-i18n="app:analytics.thSymbol">Symbol</th>
+                <th class="right" data-tip="Total sell-side trades matched for this symbol." data-i18n-tip="app:analytics.thTradesTip" data-i18n="app:analytics.thTrades">Trades</th>
+                <th class="right" data-tip="Winning vs losing trades." data-i18n-tip="app:analytics.thWLTip" data-i18n="app:analytics.thWL">W/L</th>
+                <th class="right" data-tip="Win rate for this symbol." data-i18n-tip="app:analytics.thWinRateTip" data-i18n="app:analytics.thWinRate">Win Rate</th>
+                <th class="right" data-tip="Total realized P&amp;L (FIFO matched)." data-i18n-tip="app:analytics.thRealizedPnlTip" data-i18n="app:analytics.thRealizedPnl">Realized P&amp;L</th>
+                <th class="right" data-tip="Gross wins / gross losses." data-i18n-tip="app:analytics.thProfitFactorTip" data-i18n="app:analytics.thProfitFactor">Profit Factor</th>
+                <th class="right" data-tip="Average winning trade." data-i18n-tip="app:analytics.thAvgWinTip" data-i18n="app:analytics.thAvgWin">Avg Win</th>
+                <th class="right" data-tip="Average losing trade." data-i18n-tip="app:analytics.thAvgLossTip" data-i18n="app:analytics.thAvgLoss">Avg Loss</th>
               </tr>
             </thead>
-            <tbody id="pnlBySymbolBody"><tr><td colspan="8" class="placeholder">Open P&amp;L tab and load data to see attribution.</td></tr></tbody>
+            <tbody id="pnlBySymbolBody"><tr><td colspan="8" class="placeholder" data-i18n="app:analytics.attributionPlaceholder">Open P&amp;L tab and load data to see attribution.</td></tr></tbody>
           </table>
         </div>
       </section>
 
       <section>
-        <div class="section-title">Performance by Day of Week</div>
+        <div class="section-title" data-i18n="app:analytics.dowTitle">Performance by Day of Week</div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th data-tip="Day of week.">Day</th>
-                <th class="right" data-tip="Number of closed trades on this day.">Trades</th>
-                <th class="right" data-tip="Win rate for trades closed on this day.">Win Rate</th>
-                <th class="right" data-tip="Total realized P&amp;L for this day of week.">Realized P&amp;L</th>
-                <th data-tip="Relative P&amp;L bar.">Distribution</th>
+                <th data-tip="Day of week." data-i18n-tip="app:analytics.thDayTip" data-i18n="app:analytics.thDay">Day</th>
+                <th class="right" data-tip="Number of closed trades on this day." data-i18n-tip="app:analytics.thTradesDowTip" data-i18n="app:analytics.thTradesDow">Trades</th>
+                <th class="right" data-tip="Win rate for trades closed on this day." data-i18n-tip="app:analytics.thWinRateDowTip" data-i18n="app:analytics.thWinRateDow">Win Rate</th>
+                <th class="right" data-tip="Total realized P&amp;L for this day of week." data-i18n-tip="app:analytics.thRealizedPnlDowTip" data-i18n="app:analytics.thRealizedPnlDow">Realized P&amp;L</th>
+                <th data-tip="Relative P&amp;L bar." data-i18n-tip="app:analytics.thDistributionTip" data-i18n="app:analytics.thDistribution">Distribution</th>
               </tr>
             </thead>
-            <tbody id="dowBody"><tr><td colspan="5" class="placeholder">Load P&amp;L data to see day-of-week breakdown.</td></tr></tbody>
+            <tbody id="dowBody"><tr><td colspan="5" class="placeholder" data-i18n="app:analytics.dowPlaceholder">Load P&amp;L data to see day-of-week breakdown.</td></tr></tbody>
           </table>
         </div>
       </section>
 
       <section>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
-          <div class="section-title" style="margin-bottom:0">Closed Trade Log</div>
-          <button class="btn" onclick="exportCsv('trades')" style="margin-left:auto">↓ Export CSV</button>
+          <div class="section-title" style="margin-bottom:0" data-i18n="app:analytics.tradeLogTitle">Closed Trade Log</div>
+          <button class="btn" onclick="exportCsv('trades')" style="margin-left:auto" data-i18n="app:analytics.exportCsv">↓ Export CSV</button>
         </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th data-tip="Date of fill.">Date</th>
-                <th data-tip="Symbol.">Symbol</th>
-                <th data-tip="Buy or sell.">Side</th>
-                <th class="right" data-tip="Fill quantity.">Qty</th>
-                <th class="right" data-tip="Average fill price.">Fill Price</th>
-                <th class="right" data-tip="Estimated P&amp;L vs matched entry (FIFO).">Est. P&amp;L</th>
-                <th data-tip="Order status.">Status</th>
+                <th data-tip="Date of fill." data-i18n-tip="app:analytics.thDateTip" data-i18n="app:analytics.thDate">Date</th>
+                <th data-tip="Symbol." data-i18n-tip="app:analytics.thSymbolLogTip" data-i18n="app:analytics.thSymbolLog">Symbol</th>
+                <th data-tip="Buy or sell." data-i18n-tip="app:analytics.thSideTip" data-i18n="app:analytics.thSide">Side</th>
+                <th class="right" data-tip="Fill quantity." data-i18n-tip="app:analytics.thQtyTip" data-i18n="app:analytics.thQty">Qty</th>
+                <th class="right" data-tip="Average fill price." data-i18n-tip="app:analytics.thFillPriceTip" data-i18n="app:analytics.thFillPrice">Fill Price</th>
+                <th class="right" data-tip="Estimated P&amp;L vs matched entry (FIFO)." data-i18n-tip="app:analytics.thEstPnlTip" data-i18n="app:analytics.thEstPnl">Est. P&amp;L</th>
+                <th data-tip="Order status." data-i18n-tip="app:analytics.thStatusTip" data-i18n="app:analytics.thStatus">Status</th>
               </tr>
             </thead>
-            <tbody id="pnlTradeBody"><tr><td colspan="7" class="placeholder">Load data to see trade log.</td></tr></tbody>
+            <tbody id="pnlTradeBody"><tr><td colspan="7" class="placeholder" data-i18n="app:analytics.tradeLogPlaceholder">Load data to see trade log.</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -144,31 +144,31 @@
     <div id="subpage-edge" class="subpage">
       <section>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
-          <div class="section-title" style="margin-bottom:0">🔬 Edge Analysis — Realized Round-Trips</div>
-          <span class="small">All FILL activities · FIFO round-trip matching · expectancy &amp; time attribution (GMT+2)</span>
-          <button class="btn btn-green" onclick="loadEdge()" style="margin-left:auto">▶ Analyze</button>
+          <div class="section-title" style="margin-bottom:0" data-i18n="app:analytics.edgeTitle">🔬 Edge Analysis — Realized Round-Trips</div>
+          <span class="small" data-i18n="app:analytics.edgeSubtitle">All FILL activities · FIFO round-trip matching · expectancy &amp; time attribution (GMT+2)</span>
+          <button class="btn btn-green" onclick="loadEdge()" style="margin-left:auto" data-i18n="app:analytics.analyzeBtn">▶ Analyze</button>
         </div>
         <div id="edgeKpis" class="grid-3" style="margin-bottom:14px"></div>
-        <div id="edgeTakeaway" class="small" style="color:var(--muted);margin-bottom:6px">Click "▶ Analyze" to fetch every FILL activity and compute realized edge statistics.</div>
+        <div id="edgeTakeaway" class="small" style="color:var(--muted);margin-bottom:6px" data-i18n="app:analytics.edgeTakeaway">Click "▶ Analyze" to fetch every FILL activity and compute realized edge statistics.</div>
       </section>
 
       <section>
-        <div class="section-title">Per-Symbol Expectancy</div>
+        <div class="section-title" data-i18n="app:analytics.expectancyTitle">Per-Symbol Expectancy</div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th data-tip="Trading pair.">Symbol</th>
-                <th class="right" data-tip="Completed FIFO round-trips (sell matched against earlier buys).">Round-Trips</th>
-                <th class="right" data-tip="Share of round-trips with P&amp;L ≥ 0.">Win Rate</th>
-                <th class="right" data-tip="Average realized profit of winning round-trips.">Avg Win $</th>
-                <th class="right" data-tip="Average realized loss of losing round-trips.">Avg Loss $</th>
-                <th class="right" data-tip="Gross wins ÷ gross losses. n/a until at least one losing trade.">Profit Factor</th>
-                <th class="right" data-tip="Total realized P&amp;L for this symbol.">Net P&amp;L $</th>
-                <th class="right" data-tip="Average time from first FIFO entry fill to exit fill.">Avg Hold</th>
+                <th data-tip="Trading pair." data-i18n-tip="app:analytics.thSymbolEdgeTip" data-i18n="app:analytics.thSymbolEdge">Symbol</th>
+                <th class="right" data-tip="Completed FIFO round-trips (sell matched against earlier buys)." data-i18n-tip="app:analytics.thRoundTripsTip" data-i18n="app:analytics.thRoundTrips">Round-Trips</th>
+                <th class="right" data-tip="Share of round-trips with P&amp;L ≥ 0." data-i18n-tip="app:analytics.thWinRateEdgeTip" data-i18n="app:analytics.thWinRateEdge">Win Rate</th>
+                <th class="right" data-tip="Average realized profit of winning round-trips." data-i18n-tip="app:analytics.thAvgWinEdgeTip" data-i18n="app:analytics.thAvgWinEdge">Avg Win $</th>
+                <th class="right" data-tip="Average realized loss of losing round-trips." data-i18n-tip="app:analytics.thAvgLossEdgeTip" data-i18n="app:analytics.thAvgLossEdge">Avg Loss $</th>
+                <th class="right" data-tip="Gross wins ÷ gross losses. n/a until at least one losing trade." data-i18n-tip="app:analytics.thProfitFactorEdgeTip" data-i18n="app:analytics.thProfitFactorEdge">Profit Factor</th>
+                <th class="right" data-tip="Total realized P&amp;L for this symbol." data-i18n-tip="app:analytics.thNetPnlTip" data-i18n="app:analytics.thNetPnl">Net P&amp;L $</th>
+                <th class="right" data-tip="Average time from first FIFO entry fill to exit fill." data-i18n-tip="app:analytics.thAvgHoldTip" data-i18n="app:analytics.thAvgHold">Avg Hold</th>
               </tr>
             </thead>
-            <tbody id="edgeSymBody"><tr><td colspan="8" class="placeholder">Run the analysis to populate this table.</td></tr></tbody>
+            <tbody id="edgeSymBody"><tr><td colspan="8" class="placeholder" data-i18n="app:analytics.expectancyPlaceholder">Run the analysis to populate this table.</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -176,12 +176,12 @@
       <section>
         <div class="grid-2">
           <div class="panel">
-            <div class="panel-title">⏰ Realized P&amp;L by Hour of Day (GMT+2)</div>
-            <div id="edgeHourChart" class="small" style="color:var(--muted)">Run the analysis to see the hour-of-day breakdown.</div>
+            <div class="panel-title" data-i18n="app:analytics.hourTitle">⏰ Realized P&amp;L by Hour of Day (GMT+2)</div>
+            <div id="edgeHourChart" class="small" style="color:var(--muted)" data-i18n="app:analytics.hourPlaceholder">Run the analysis to see the hour-of-day breakdown.</div>
           </div>
           <div class="panel">
-            <div class="panel-title">📅 Realized P&amp;L by Day of Week</div>
-            <div id="edgeDowChart" class="small" style="color:var(--muted)">Run the analysis to see the day-of-week breakdown.</div>
+            <div class="panel-title" data-i18n="app:analytics.dowChartTitle">📅 Realized P&amp;L by Day of Week</div>
+            <div id="edgeDowChart" class="small" style="color:var(--muted)" data-i18n="app:analytics.dowChartPlaceholder">Run the analysis to see the day-of-week breakdown.</div>
           </div>
         </div>
       </section>

@@ -1,19 +1,19 @@
     <div id="page-scalp" class="page">
       <section>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:13px;flex-wrap:wrap">
-          <div class="section-title" style="margin-bottom:0">⚡ Scalping — Low-Timeframe Confluence</div>
-          <span class="small">Same 6-point engine as Signals, shifted to lower timeframes for short holds</span>
+          <div class="section-title" style="margin-bottom:0" data-i18n="app:scalp.title">⚡ Scalping — Low-Timeframe Confluence</div>
+          <span class="small" data-i18n="app:scalp.subtitle">Same 6-point engine as Signals, shifted to lower timeframes for short holds</span>
           <label class="small" style="margin-left:auto;display:flex;align-items:center;gap:6px">
-            Timeframe
+            <span data-i18n="app:scalp.timeframeLabel">Timeframe</span>
             <select id="scalpTf" onchange="loadScalp()">
-              <option value="5Min">5 min</option>
-              <option value="15Min" selected>15 min</option>
-              <option value="1Hour">1 hour</option>
+              <option value="5Min" data-i18n="app:scalp.tf5">5 min</option>
+              <option value="15Min" selected data-i18n="app:scalp.tf15">15 min</option>
+              <option value="1Hour" data-i18n="app:scalp.tf1h">1 hour</option>
             </select>
           </label>
-          <button class="btn btn-green" onclick="loadScalp()">▶ Scan</button>
+          <button class="btn btn-green" onclick="loadScalp()" data-i18n="app:scalp.scanBtn">▶ Scan</button>
         </div>
-        <div class="small" style="margin-bottom:14px;color:var(--muted)">
+        <div class="small" style="margin-bottom:14px;color:var(--muted)" data-i18n-html="app:scalp.descHtml">
           Execution / trend / regime timeframes shift down with the selector:
           <b>5 min</b> → 5m·1h·4h, <b>15 min</b> → 15m·1h·4h, <b>1 hour</b> → 1h·4h·1D.
           Entry gate, regime gate and pills match the Signals tab (BUY ≥ 3.5, half ≥ 2.5).
@@ -22,12 +22,12 @@
         <div id="scalpKpis" class="grid-3" style="margin-bottom:14px"></div>
         <div class="grid-2" style="margin-bottom:14px">
           <div class="panel">
-            <div class="panel-title">📊 Score Distribution</div>
+            <div class="panel-title" data-i18n="app:scalp.scoreDistTitle">📊 Score Distribution</div>
             <div id="scalpScoreDist"></div>
           </div>
           <div class="panel">
-            <div class="panel-title">ℹ Scalp notes</div>
-            <div class="small" style="color:var(--muted)">
+            <div class="panel-title" data-i18n="app:scalp.notesTitle">ℹ Scalp notes</div>
+            <div class="small" style="color:var(--muted)" data-i18n="app:scalp.notesDesc">
               Stops on scalps should sit below the recent low on the chosen timeframe.
               The portfolio swing-low stop (4H range low) still governs any position the
               scheduled bot or Autopilot opens — scalps you place here are managed manually.
@@ -38,19 +38,19 @@
           <table>
             <thead>
               <tr>
-                <th>Symbol</th><th class="right">Price</th>
-                <th class="right" data-tip="Live bid-ask spread as % of mid. A scalp pays this on top of 2× the taker fee.">Spread</th>
-                <th>Score</th><th>Signal</th>
-                <th class="right">RSI</th><th class="right">ATR</th>
-                <th class="right" data-tip="ADX(14) trend strength on the exec timeframe — informational only, not scored.">ADX</th>
-                <th data-tip="OBV 20-bar volume-flow trend on the exec timeframe — informational only, not scored.">OBV</th>
-                <th>Regime</th>
-                <th data-tip="Scalp viability gate: distance to the BB-upper target must be ≥ 2× the round-trip cost (2× taker fee + spread), or the move's edge is eaten by costs.">Cost Check</th>
-                <th>Trade</th>
+                <th data-i18n="app:scalp.thSymbol">Symbol</th><th class="right" data-i18n="app:scalp.thPrice">Price</th>
+                <th class="right" data-tip="Live bid-ask spread as % of mid. A scalp pays this on top of 2× the taker fee." data-i18n-tip="app:scalp.thSpreadTip" data-i18n="app:scalp.thSpread">Spread</th>
+                <th data-i18n="app:scalp.thScore">Score</th><th data-i18n="app:scalp.thSignal">Signal</th>
+                <th class="right" data-i18n="app:scalp.thRsi">RSI</th><th class="right" data-i18n="app:scalp.thAtr">ATR</th>
+                <th class="right" data-tip="ADX(14) trend strength on the exec timeframe — informational only, not scored." data-i18n-tip="app:scalp.thAdxTip" data-i18n="app:scalp.thAdx">ADX</th>
+                <th data-tip="OBV 20-bar volume-flow trend on the exec timeframe — informational only, not scored." data-i18n-tip="app:scalp.thObvTip" data-i18n="app:scalp.thObv">OBV</th>
+                <th data-i18n="app:scalp.thRegime">Regime</th>
+                <th data-tip="Scalp viability gate: distance to the BB-upper target must be ≥ 2× the round-trip cost (2× taker fee + spread), or the move's edge is eaten by costs." data-i18n-tip="app:scalp.thCostCheckTip" data-i18n="app:scalp.thCostCheck">Cost Check</th>
+                <th data-i18n="app:scalp.thTrade">Trade</th>
               </tr>
             </thead>
             <tbody id="scalpBody">
-              <tr><td colspan="12" class="placeholder">Pick a timeframe and click “▶ Scan”.</td></tr>
+              <tr><td colspan="12" class="placeholder" data-i18n="app:scalp.tablePlaceholder">Pick a timeframe and click “▶ Scan”.</td></tr>
             </tbody>
           </table>
         </div>

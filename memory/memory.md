@@ -2862,6 +2862,85 @@ passes) haven't started. Full remaining scope and the architecture rationale: `m
 
 ---
 
+## 2026-07-25 — Multi-language support Phase 0b: tab content + auth/manual chrome (EN/NL/FR/ES)
+
+Closes the two gaps the Phase 0 entry above flagged as not-yet-done: the 13 tab HTML fragments
+and `auth.js`/`manual.js`'s dynamic strings. New `app` i18next namespace
+(`client/src/i18n/locales/app/{en,nl,fr,es}.json`) parallel to `common`, following the exact same
+`data-i18n`/`data-i18n-html`/`data-i18n-placeholder`/`data-i18n-title` mechanism already proven in
+Phase 0 — `i18n/index.js`'s `ns` array became `['common', 'app']`, `defaultNS` stayed `'common'`
+(bare keys resolve there; `app` namespace keys need an `app:` prefix, e.g.
+`data-i18n="app:command.sectionTitle"`).
+
+**Scale:** 550 keys per language, verified with a small Node script that all 4 locale files parse
+and share an identical key set before wiring them in (a real risk called out in
+`i18n-suite-plan.md`'s known-risks section — a missing key in one language would silently fall
+back to English via `fallbackLng`, which is fine as a safety net but not something to rely on
+undetected).
+
+**New mechanism — `data-i18n-tip`:** `ui-helpers.js`'s custom tooltip system reads
+`el.dataset.tip` live on hover (`tooltip.textContent = el.dataset.tip`, not cached at parse time),
+so `applyDomI18n()` gained a fourth attribute handler mirroring `data-i18n-title`:
+`data-i18n-tip="key"` sets `el.dataset.tip = i18n.t(key)`. The original English `data-tip` stays
+in the markup untouched as a safety-net fallback. Applied across every `<th data-tip="...">` in
+the 13 tabs — dozens of table-header tooltips (Symbol/Price/Score/RSI/etc. across
+signals/market/analytics/execution/risk/portfolio tables).
+
+**Sort-arrow spans:** several `<th>` elements wrap a `<span class="sort">⇅</span>` after the label
+text (click-to-sort indicator). Translating the whole `<th>` via `data-i18n` would have overwritten
+that span. Fix: wrap just the label text in its own `<span data-i18n="...">Label</span>` sibling to
+the sort-arrow span, so `applyDomI18n`'s `textContent` assignment only touches the label.
+
+**Coverage across the 13 tabs:** subnav tab-switcher buttons, section/panel/chart titles, period
+and filter buttons (1M/3M/6M/1Y, All/⚡ Key only, etc.), every table column header + its tooltip,
+and loading/empty-state placeholders. `auth.js`'s sign-in, register, change-password, 2FA setup/
+disable, and account modals now build their markup with `window.t('app:auth.*')` calls at render
+time (not baked at module load) so they reflect whatever language is active when the modal is
+opened. `manual.js`'s 8 section titles moved from a baked `title: "text"` field to a `titleKey` +
+`manualTitle()` helper called at render time — same reasoning as `auth.js`: a plain string baked
+into the module-level `MANUAL_SECTIONS` array would freeze at whatever language was active when the
+script first ran, since nothing else re-evaluates that array on a later language switch.
+
+**Deliberately deferred (not oversights, called out explicitly in the task and re-confirmed
+during implementation):**
+
+- Long free-form explanatory paragraphs (command.html's Autopilot description; the News/Socials/
+  Glossary explainer paragraphs) — dense multi-sentence prose where translation quality matters
+  more than a mechanical label pass; lower priority per the task's own scope ordering.
+- Two live-DOM-span cases discovered during implementation, not anticipated up front:
+  markov.html's descriptive paragraph embeds `<span id="mkThreshLabel">1.0</span>`, which
+  `tabs-markov.js` updates via `textContent` after load; port-overview.html's "Open Positions (N)"
+  section title embeds `<span id="portPosCount">`, updated the same way by `tabs-portfolio.js`.
+  Wrapping either in `data-i18n-html` would work at first render but a later language switch
+  (`applyDomI18n` re-running) would reset the span back to the template's static placeholder,
+  clobbering the live value — left as English templates instead, noted inline in the HTML.
+- `manual.js`'s actual section body prose (the help documentation content itself) — only the 8
+  section titles were translated, per the task's explicit "titles yes, full body defer" instruction.
+
+**Verified:** `cd client && npm run build` — 84 modules (up from 80, the 4 new JSON files), no
+errors. `npm test` from repo root — 310/310 passing, unchanged (this task touches no
+backend/test-covered code). Playwright (headless Chromium via the cached
+`ms-playwright/chromium-1228` binary — the `playwright` npm package itself was installed into a
+scratch directory, not this repo) against the Vite dev server: confirmed the Command tab renders
+correctly in English (forced explicitly — this sandbox's browser/OS locale defaults to `nl` via
+`navigator.language`, which `detectInitialLanguage()` correctly picks up when no `dashLang` is
+saved yet, so an unmodified fresh load isn't a reliable "English baseline" here), then switching to
+NL correctly re-rendered the Command subnav/section title/jobs panel, followed by clicking through
+Analytics (subnav "📈 Prestaties", title "Prestatiedashboard"), Signals (title translated, first
+table header "Symbool", and its `data-tip` tooltip attribute itself translated to "Cryptopaar." —
+confirming the new `data-i18n-tip` mechanism works end-to-end), and Settings (title, panel title,
+and the watchlist "+ Toevoegen" button all translated). Zero new console errors — the one message
+observed ("Add your Alpaca API key and secret in Settings first.") is a pre-existing app guard for
+missing credentials in the fresh test browser profile, unrelated to i18n and present regardless of
+language.
+
+Suite `CLAUDE.md`'s Phase 0 status line and `memory/i18n-suite-plan.md`'s "Status" section both
+updated to reflect Phase 0b as done. Remaining suite-wide scope (Charts/Suite/Mobile port,
+Training's chrome + full 67-module content translation) unchanged — tracked in
+`memory/i18n-suite-plan.md`.
+
+---
+
 ## lessons
 - Any `fetch()`/XHR of a same-origin relative local file (config.json, positions_state.json, glossary.md, etc.) in `docs/dashboard_professional.html` can be silently blocked when the dashboard is opened via `file://` — never rely on it as the *only* source for cross-engine state; prefer deriving the same fact from an HTTPS call (e.g. Alpaca's own API via `apiFetch`) when one is available, and treat the local-file fetch as a best-effort enhancement only.
 - When renaming the project, `grep -ri` the whole repo (not just `CLAUDE.md`) for every prior name variant (e.g. "CryptoPro Dashboard", "Alpaca Crypto Trading Agent") before considering the rename done — `<title>` tags, in-page header labels, footer names, and README H1s are easy to miss and only surface later during an unrelated rules audit.

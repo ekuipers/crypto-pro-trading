@@ -61,10 +61,10 @@ function renderAccountButton(user) {
   if (user) {
     const name = user.displayName || user.username;
     btn.innerHTML = `<span class="acct-avatar acct-avatar-fallback">${authEsc(name.charAt(0).toUpperCase())}</span><span class="acct-name">${authEsc(name)}</span>`;
-    btn.title = `Signed in as ${name}`;
+    btn.title = window.t('app:auth.signedInAs', { name });
   } else {
-    btn.innerHTML = '👤 Sign in';
-    btn.title = 'Sign in to your CryptoPro Suite account';
+    btn.innerHTML = window.t('header.signIn');
+    btn.title = window.t('app:auth.signInTitleAttr');
   }
 }
 
@@ -73,16 +73,16 @@ function renderAccountButton(user) {
 // button always creates the account (rather than just re-rendering the form).
 function openSignInModal() {
   renderAuthView(
-    'Sign in to CryptoPro Trader',
+    window.t('app:auth.signInTitle'),
     `
-    <p class="small" style="color:var(--muted);margin-bottom:12px">New here? Pick a username and password and choose <b>Create account</b>. The same account signs you into every CryptoPro Suite app.</p>
-    <div style="margin-bottom:10px"><label>Username</label><input id="authUser" autocomplete="username" placeholder="3-32 letters, digits, . _ -"></div>
-    <div style="margin-bottom:10px"><label>Password</label><input id="authPass" type="password" autocomplete="current-password" placeholder="at least 6 characters"></div>
-    <div id="authTotpRow" style="display:none;margin-bottom:10px"><label>2FA code</label><input id="authTotp" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code" maxlength="6"></div>
+    <p class="small" style="color:var(--muted);margin-bottom:12px">${window.t('app:auth.signInIntroHtml')}</p>
+    <div style="margin-bottom:10px"><label>${window.t('app:auth.usernameLabel')}</label><input id="authUser" autocomplete="username" placeholder="${authEsc(window.t('app:auth.usernamePlaceholder'))}"></div>
+    <div style="margin-bottom:10px"><label>${window.t('app:auth.passwordLabel')}</label><input id="authPass" type="password" autocomplete="current-password" placeholder="${authEsc(window.t('app:auth.passwordPlaceholder'))}"></div>
+    <div id="authTotpRow" style="display:none;margin-bottom:10px"><label>${window.t('app:auth.totpLabel')}</label><input id="authTotp" inputmode="numeric" autocomplete="one-time-code" placeholder="${authEsc(window.t('app:auth.totpPlaceholder'))}" maxlength="6"></div>
     <div class="small" id="authErr" style="color:var(--red);min-height:14px"></div>
     `,
-    `<button class="btn" id="authRegisterBtn">Create account</button>
-     <button class="btn btn-green" id="authLoginBtn">Sign in</button>`,
+    `<button class="btn" id="authRegisterBtn">${window.t('app:auth.createAccountBtn')}</button>
+     <button class="btn btn-green" id="authLoginBtn">${window.t('app:auth.signInBtn')}</button>`,
   );
 
   const userEl = $("authUser");
@@ -98,9 +98,9 @@ function openSignInModal() {
     if (busy) return;
     const username = userEl.value.trim();
     const password = passEl.value;
-    if (!username || !password) { errEl.textContent = 'Enter a username and password.'; return; }
+    if (!username || !password) { errEl.textContent = window.t('app:auth.errEnterBoth'); return; }
     busy = true; buttons.forEach(b => (b.disabled = true));
-    errEl.textContent = action === 'register' ? 'Creating account…' : 'Signing in…';
+    errEl.textContent = action === 'register' ? window.t('app:auth.creatingAccount') : window.t('app:auth.signingIn');
     const reset = () => { busy = false; buttons.forEach(b => (b.disabled = false)); };
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 15000);
@@ -118,17 +118,17 @@ function openSignInModal() {
         if (data.requiresTotp) {
           totpRow.style.display = '';
           totpEl.focus();
-          errEl.textContent = data.error || 'Enter your 2FA code.';
+          errEl.textContent = data.error || window.t('app:auth.enter2faCode');
           reset();
           return;
         }
-        errEl.textContent = data.error || (action === 'register' ? 'Could not create account.' : 'Sign-in failed.');
+        errEl.textContent = data.error || (action === 'register' ? window.t('app:auth.couldNotCreateAccount') : window.t('app:auth.signInFailed'));
         reset();
         return;
       }
       window.location.reload();
     } catch (e) {
-      errEl.textContent = e.name === 'AbortError' ? 'Server did not respond — please try again.' : 'Network error — try again.';
+      errEl.textContent = e.name === 'AbortError' ? window.t('app:auth.serverNoResponse') : window.t('app:auth.networkError');
       reset();
     } finally {
       clearTimeout(timer);
@@ -142,55 +142,55 @@ function openSignInModal() {
 
 function openChangePasswordModal() {
   renderAuthView(
-    'Change password',
+    window.t('app:auth.changePasswordTitle'),
     `
-    <div style="margin-bottom:10px"><label>Current password</label><input id="authCpCur" type="password" autocomplete="current-password"></div>
-    <div style="margin-bottom:10px"><label>New password</label><input id="authCpNew" type="password" autocomplete="new-password" placeholder="at least 6 characters"></div>
+    <div style="margin-bottom:10px"><label>${window.t('app:auth.currentPasswordLabel')}</label><input id="authCpCur" type="password" autocomplete="current-password"></div>
+    <div style="margin-bottom:10px"><label>${window.t('app:auth.newPasswordLabel')}</label><input id="authCpNew" type="password" autocomplete="new-password" placeholder="${authEsc(window.t('app:auth.newPasswordPlaceholder'))}"></div>
     <div class="small" id="authCpErr" style="color:var(--red);min-height:14px"></div>
     `,
-    `<button class="btn" onclick="closeAuthModal()">Cancel</button>
-     <button class="btn btn-green" id="authCpSaveBtn">Save</button>`,
+    `<button class="btn" onclick="closeAuthModal()">${window.t('app:auth.cancelBtn')}</button>
+     <button class="btn btn-green" id="authCpSaveBtn">${window.t('app:auth.saveBtn')}</button>`,
   );
   $("authCpSaveBtn").addEventListener('click', async () => {
     const errEl = $("authCpErr");
     const currentPassword = $("authCpCur").value;
     const newPassword = $("authCpNew").value;
-    if (!currentPassword || newPassword.length < 6) { errEl.textContent = 'Enter your current password and a new one (6+ chars).'; return; }
+    if (!currentPassword || newPassword.length < 6) { errEl.textContent = window.t('app:auth.errCurrentAndNew'); return; }
     try {
       const r = await fetch('/api/auth/change-password', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ currentPassword, newPassword }),
       });
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) { errEl.textContent = data.error || 'Could not change password.'; return; }
+      if (!r.ok) { errEl.textContent = data.error || window.t('app:auth.couldNotChangePassword'); return; }
       closeAuthModal();
-    } catch { errEl.textContent = 'Network error — try again.'; }
+    } catch { errEl.textContent = window.t('app:auth.networkError'); }
   });
 }
 
 function openSetupTotpModal() {
-  renderAuthView('Enable 2FA', '<p class="small" style="color:var(--muted)">Loading…</p>', '');
+  renderAuthView(window.t('app:auth.enable2faTitle'), `<p class="small" style="color:var(--muted)">${window.t('app:auth.loadingText')}</p>`, '');
   (async () => {
     let setup;
     try {
       const r = await fetch('/api/auth/2fa/setup', { method: 'POST' });
       setup = await r.json();
-      if (!r.ok) throw new Error(setup.error || 'Setup failed');
+      if (!r.ok) throw new Error(setup.error || window.t('app:auth.setupFailed'));
     } catch (e) {
-      renderAuthView('Enable 2FA', `<p class="small" style="color:var(--red)">${authEsc(e.message)}</p>`, '<button class="btn" onclick="closeAuthModal()">Close</button>');
+      renderAuthView(window.t('app:auth.enable2faTitle'), `<p class="small" style="color:var(--red)">${authEsc(e.message)}</p>`, `<button class="btn" onclick="closeAuthModal()">${window.t('app:auth.closeBtn')}</button>`);
       return;
     }
     renderAuthView(
-      'Enable 2FA',
+      window.t('app:auth.enable2faTitle'),
       `
-      <p class="small" style="color:var(--muted)">Scan this into any TOTP authenticator app (Google Authenticator, Authy, 1Password…), or enter the secret manually.</p>
+      <p class="small" style="color:var(--muted)">${window.t('app:auth.enable2faDescHtml')}</p>
       <div style="display:flex;justify-content:center;background:#fff;border-radius:8px;padding:12px;margin:10px 0">${totpQrTag(setup.otpauthUri)}</div>
       <div style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:15px;letter-spacing:.08em;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;margin:10px 0;word-break:break-all">${authEsc(setup.secret)}</div>
-      <div style="margin-bottom:10px"><label>Enter the 6-digit code from your app to confirm</label><input id="authTfCode" inputmode="numeric" maxlength="6" placeholder="000000"></div>
+      <div style="margin-bottom:10px"><label>${window.t('app:auth.confirmCodeLabel')}</label><input id="authTfCode" inputmode="numeric" maxlength="6" placeholder="${authEsc(window.t('app:auth.confirmCodePlaceholder'))}"></div>
       <div class="small" id="authTfErr" style="color:var(--red);min-height:14px"></div>
       `,
-      `<button class="btn" onclick="closeAuthModal()">Cancel</button>
-       <button class="btn btn-green" id="authTfConfirmBtn">Enable</button>`,
+      `<button class="btn" onclick="closeAuthModal()">${window.t('app:auth.cancelBtn')}</button>
+       <button class="btn btn-green" id="authTfConfirmBtn">${window.t('app:auth.enableBtn')}</button>`,
     );
     $("authTfCode").focus();
     $("authTfConfirmBtn").addEventListener('click', async () => {
@@ -201,22 +201,22 @@ function openSetupTotpModal() {
           body: JSON.stringify({ code: $("authTfCode").value.trim() }),
         });
         const data = await r.json().catch(() => ({}));
-        if (!r.ok) { errEl.textContent = data.error || 'Invalid code.'; return; }
+        if (!r.ok) { errEl.textContent = data.error || window.t('app:auth.invalidCode'); return; }
         window.location.reload();
-      } catch { errEl.textContent = 'Network error — try again.'; }
+      } catch { errEl.textContent = window.t('app:auth.networkError'); }
     });
   })();
 }
 
 function openDisableTotpModal() {
   renderAuthView(
-    'Disable 2FA',
+    window.t('app:auth.disable2faTitle'),
     `
-    <div style="margin-bottom:10px"><label>Confirm your password</label><input id="authDtPass" type="password" autocomplete="current-password"></div>
+    <div style="margin-bottom:10px"><label>${window.t('app:auth.confirmPasswordLabel')}</label><input id="authDtPass" type="password" autocomplete="current-password"></div>
     <div class="small" id="authDtErr" style="color:var(--red);min-height:14px"></div>
     `,
-    `<button class="btn" onclick="closeAuthModal()">Cancel</button>
-     <button class="btn btn-red" id="authDtConfirmBtn">Disable</button>`,
+    `<button class="btn" onclick="closeAuthModal()">${window.t('app:auth.cancelBtn')}</button>
+     <button class="btn btn-red" id="authDtConfirmBtn">${window.t('app:auth.disableBtn')}</button>`,
   );
   $("authDtConfirmBtn").addEventListener('click', async () => {
     const errEl = $("authDtErr");
@@ -226,16 +226,16 @@ function openDisableTotpModal() {
         body: JSON.stringify({ password: $("authDtPass").value }),
       });
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) { errEl.textContent = data.error || 'Could not disable 2FA.'; return; }
+      if (!r.ok) { errEl.textContent = data.error || window.t('app:auth.couldNotDisable2fa'); return; }
       window.location.reload();
-    } catch { errEl.textContent = 'Network error — try again.'; }
+    } catch { errEl.textContent = window.t('app:auth.networkError'); }
   });
 }
 
 function openAccountModal(user) {
   const name = user.displayName || user.username;
   renderAuthView(
-    'Account',
+    window.t('app:auth.accountTitle'),
     `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
       <span class="acct-avatar-fallback" style="width:48px;height:48px;border-radius:50%;font-size:20px">${authEsc(name.charAt(0).toUpperCase())}</span>
@@ -244,20 +244,20 @@ function openAccountModal(user) {
         <div class="small" style="color:var(--muted)">@${authEsc(user.username)}</div>
       </div>
     </div>
-    <p class="small" style="color:var(--muted)">This account is shared across every CryptoPro Suite app.</p>
+    <p class="small" style="color:var(--muted)">${window.t('app:auth.sharedAcrossSuite')}</p>
     <div style="margin-bottom:12px">
-      <label>Notification email</label>
+      <label>${window.t('app:auth.notificationEmailLabel')}</label>
       <div style="display:flex;gap:8px">
-        <input id="authNotifyEmail" type="email" style="flex:1" placeholder="you@example.com" value="${authEsc(user.notificationEmail || '')}">
-        <button class="btn" id="authNotifyEmailSaveBtn">Save</button>
+        <input id="authNotifyEmail" type="email" style="flex:1" placeholder="${authEsc(window.t('app:auth.notificationEmailPlaceholder'))}" value="${authEsc(user.notificationEmail || '')}">
+        <button class="btn" id="authNotifyEmailSaveBtn">${window.t('app:auth.saveBtn')}</button>
       </div>
       <div class="small" id="authNotifyEmailMsg" style="color:var(--muted);min-height:14px"></div>
     </div>
     `,
-    `<button class="btn" id="authChangePwBtn">Change password</button>
-     <button class="btn" id="authTotpBtn">${user.totpEnabled ? 'Disable 2FA' : 'Enable 2FA'}</button>
-     <button class="btn" onclick="closeAuthModal()">Close</button>
-     <button class="btn btn-red" id="authLogoutBtn">Sign out</button>`,
+    `<button class="btn" id="authChangePwBtn">${window.t('app:auth.changePasswordBtn')}</button>
+     <button class="btn" id="authTotpBtn">${user.totpEnabled ? window.t('app:auth.disable2faBtn') : window.t('app:auth.enable2faBtn')}</button>
+     <button class="btn" onclick="closeAuthModal()">${window.t('app:auth.closeBtn')}</button>
+     <button class="btn btn-red" id="authLogoutBtn">${window.t('app:auth.signOutBtn')}</button>`,
   );
   $("authChangePwBtn").addEventListener('click', openChangePasswordModal);
   $("authTotpBtn").addEventListener('click', () => (user.totpEnabled ? openDisableTotpModal() : openSetupTotpModal()));
@@ -265,19 +265,19 @@ function openAccountModal(user) {
     const msgEl = $("authNotifyEmailMsg");
     const email = $("authNotifyEmail").value.trim();
     msgEl.style.color = 'var(--muted)';
-    msgEl.textContent = 'Saving…';
+    msgEl.textContent = window.t('app:auth.savingText');
     try {
       const r = await fetch('/api/auth/notification-email', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) { msgEl.style.color = 'var(--red)'; msgEl.textContent = data.error || 'Could not save email.'; return; }
+      if (!r.ok) { msgEl.style.color = 'var(--red)'; msgEl.textContent = data.error || window.t('app:auth.couldNotSaveEmail'); return; }
       user.notificationEmail = data.notificationEmail;
       if (_authCurrentUser) _authCurrentUser.notificationEmail = data.notificationEmail;
       msgEl.style.color = 'var(--green)';
-      msgEl.textContent = 'Saved.';
-    } catch { msgEl.style.color = 'var(--red)'; msgEl.textContent = 'Network error — try again.'; }
+      msgEl.textContent = window.t('app:auth.savedText');
+    } catch { msgEl.style.color = 'var(--red)'; msgEl.textContent = window.t('app:auth.networkError'); }
   });
   $("authLogoutBtn").addEventListener('click', async () => {
     try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}

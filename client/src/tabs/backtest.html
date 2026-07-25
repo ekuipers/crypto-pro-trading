@@ -1,6 +1,6 @@
     <div id="page-backtest" class="page">
       <section>
-        <div class="section-title">Backtest vs Live</div>
+        <div class="section-title" data-i18n="app:backtest.title">Backtest vs Live</div>
 
         <!-- Walk-forward baseline banner (roadmap 2026-07-10 item 8): reads
              reports/walkforward_latest.json; red when the baseline is older
@@ -8,44 +8,44 @@
         <div id="wfBaseline" class="small" style="display:none;margin-bottom:12px;padding:8px 12px;border:1px solid var(--border);border-radius:8px"></div>
 
         <div class="panel">
-          <div class="panel-title">🧪 Expected Strategy Metrics</div>
-          <div class="small" style="margin-bottom:12px">
+          <div class="panel-title" data-i18n="app:backtest.metricsTitle">🧪 Expected Strategy Metrics</div>
+          <div class="small" style="margin-bottom:12px" data-i18n="app:backtest.metricsDesc">
             These values are stored locally in your browser and compared against your live account history.
           </div>
 
           <div class="form-grid">
             <div>
-              <label>Expected Sharpe</label>
+              <label data-i18n="app:backtest.labelSharpe">Expected Sharpe</label>
               <input id="btSharpe" type="number" step="0.01">
             </div>
 
             <div>
-              <label>Expected Max Drawdown %</label>
+              <label data-i18n="app:backtest.labelMaxDD">Expected Max Drawdown %</label>
               <input id="btMaxDD" type="number" step="0.1">
             </div>
 
             <div>
-              <label>Expected Win Rate %</label>
+              <label data-i18n="app:backtest.labelWinRate">Expected Win Rate %</label>
               <input id="btWinRate" type="number" step="0.1">
             </div>
 
             <div>
-              <label>Expected Profit Factor</label>
+              <label data-i18n="app:backtest.labelProfitFactor">Expected Profit Factor</label>
               <input id="btProfitFactor" type="number" step="0.01">
             </div>
 
             <div>
-              <label>Expected Avg Daily Return %</label>
+              <label data-i18n="app:backtest.labelAvgDaily">Expected Avg Daily Return %</label>
               <input id="btAvgDaily" type="number" step="0.001">
             </div>
           </div>
 
-          <button class="btn btn-green" onclick="saveBacktestDefaults()">Save Expected Metrics</button>
+          <button class="btn btn-green" onclick="saveBacktestDefaults()" data-i18n="app:backtest.saveBtn">Save Expected Metrics</button>
         </div>
       </section>
 
       <section>
-        <div class="section-title">Live Strategy Health</div>
+        <div class="section-title" data-i18n="app:backtest.healthTitle">Live Strategy Health</div>
         <div id="backtestKpis" class="grid-3"></div>
       </section>
 
@@ -54,10 +54,10 @@
           <table>
             <thead>
               <tr>
-                <th data-tip="Metric being compared. Click to sort.">Metric <span class="sort">⇅</span></th>
-                <th class="right" data-tip="Live metric from account history. Click to sort.">Live <span class="sort">⇅</span></th>
-                <th class="right" data-tip="Expected metric saved by you. Click to sort.">Expected <span class="sort">⇅</span></th>
-                <th data-tip="Whether live performance is within expectation. Click to sort.">Status <span class="sort">⇅</span></th>
+                <th data-tip="Metric being compared. Click to sort." data-i18n-tip="app:backtest.thMetricTip"><span data-i18n="app:backtest.thMetric">Metric</span> <span class="sort">⇅</span></th>
+                <th class="right" data-tip="Live metric from account history. Click to sort." data-i18n-tip="app:backtest.thLiveTip"><span data-i18n="app:backtest.thLive">Live</span> <span class="sort">⇅</span></th>
+                <th class="right" data-tip="Expected metric saved by you. Click to sort." data-i18n-tip="app:backtest.thExpectedTip"><span data-i18n="app:backtest.thExpected">Expected</span> <span class="sort">⇅</span></th>
+                <th data-tip="Whether live performance is within expectation. Click to sort." data-i18n-tip="app:backtest.thStatusTip"><span data-i18n="app:backtest.thStatus">Status</span> <span class="sort">⇅</span></th>
               </tr>
             </thead>
             <tbody id="backtestCompareBody"></tbody>

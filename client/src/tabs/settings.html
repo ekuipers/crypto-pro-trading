@@ -1,92 +1,92 @@
     <div id="page-settings" class="page">
       <section>
-        <div class="section-title">Settings</div>
+        <div class="section-title" data-i18n="app:settings.title">Settings</div>
 
         <div class="panel">
-          <div class="panel-title">⚙ Alpaca Connection</div>
+          <div class="panel-title" data-i18n="app:settings.connectionTitle">⚙ Alpaca Connection</div>
 
-          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">📄 Paper Spot Trading</div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px" data-i18n="app:settings.paperHeader">📄 Paper Spot Trading</div>
           <div class="form-grid" style="margin-bottom:20px">
             <div>
-              <label>Paper API Key</label>
+              <label data-i18n="app:settings.labelPaperKey">Paper API Key</label>
               <input id="setPaperApiKey" placeholder="PK...">
             </div>
             <div>
-              <label>Paper API Secret</label>
+              <label data-i18n="app:settings.labelPaperSecret">Paper API Secret</label>
               <input id="setPaperApiSecret" type="password" placeholder="Secret">
             </div>
           </div>
 
-          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">🔴 Live Trading</div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px" data-i18n="app:settings.liveHeader">🔴 Live Trading</div>
           <div class="form-grid" style="margin-bottom:20px">
             <div>
-              <label>Live API Key</label>
+              <label data-i18n="app:settings.labelLiveKey">Live API Key</label>
               <input id="setLiveApiKey" placeholder="PK...">
             </div>
             <div>
-              <label>Live API Secret</label>
+              <label data-i18n="app:settings.labelLiveSecret">Live API Secret</label>
               <input id="setLiveApiSecret" type="password" placeholder="Secret">
             </div>
           </div>
 
-          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">🛡 Risk Limits</div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px" data-i18n="app:settings.riskHeader">🛡 Risk Limits</div>
           <div class="form-grid" style="margin-bottom:20px">
             <div>
-              <label>Assumed Stop Loss %</label>
+              <label data-i18n="app:settings.labelStopLoss">Assumed Stop Loss %</label>
               <input id="setStopLoss" type="number" step="0.1">
             </div>
 
             <div>
-              <label>Max Daily Loss %</label>
+              <label data-i18n="app:settings.labelMaxDailyLoss">Max Daily Loss %</label>
               <input id="setMaxDailyLoss" type="number" step="0.1">
             </div>
 
             <div>
-              <label>Max Open Risk %</label>
+              <label data-i18n="app:settings.labelMaxOpenRisk">Max Open Risk %</label>
               <input id="setMaxOpenRisk" type="number" step="0.1">
             </div>
           </div>
 
-          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">🔭 Signals Analysis</div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px" data-i18n="app:settings.signalsHeader">🔭 Signals Analysis</div>
           <div class="form-grid" style="margin-bottom:20px">
             <div>
-              <label>Max Symbols in Market Signals scan</label>
+              <label data-i18n="app:settings.labelMaxSymbols">Max Symbols in Market Signals scan</label>
               <input id="setMaxSignalSymbols" type="number" step="1">
             </div>
           </div>
 
-          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">🔗 Correlation Budget (Autopilot)</div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px" data-i18n="app:settings.corrHeader">🔗 Correlation Budget (Autopilot)</div>
           <div class="form-grid" style="margin-bottom:20px">
             <div>
-              <label>Max Open Positions (total)</label>
+              <label data-i18n="app:settings.labelMaxOpenPositions">Max Open Positions (total)</label>
               <input id="setMaxOpenPositions" type="number" step="1" min="1">
             </div>
             <div>
-              <label>Max Positions Per Tier (BTC/ETH vs alts)</label>
+              <label data-i18n="app:settings.labelMaxPerTier">Max Positions Per Tier (BTC/ETH vs alts)</label>
               <input id="setMaxPositionsPerTier" type="number" step="1" min="1">
             </div>
           </div>
 
-          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">📋 Active Watchlist (up to 20 symbols)</div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px" data-i18n="app:settings.watchlistHeader">📋 Active Watchlist (up to 20 symbols)</div>
           <div class="wl-tag-editor" id="watchlistTagsEl"></div>
           <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
-            <input id="watchlistAddInput" list="watchlistSymbolOptions" placeholder="Select or type a symbol — e.g. BTC/USD" style="flex:1;max-width:260px" onkeydown="if(event.key==='Enter')addWatchlistSymbol()">
+            <input id="watchlistAddInput" list="watchlistSymbolOptions" placeholder="Select or type a symbol — e.g. BTC/USD" data-i18n-placeholder="app:settings.watchlistAddPlaceholder" style="flex:1;max-width:260px" onkeydown="if(event.key==='Enter')addWatchlistSymbol()">
             <datalist id="watchlistSymbolOptions"></datalist>
-            <button class="btn btn-green" onclick="addWatchlistSymbol()">+ Add</button>
-            <button class="btn" onclick="resetWatchlist()">↩ Reset defaults</button>
-            <label class="small" style="display:flex;align-items:center;gap:4px;color:var(--muted);white-space:nowrap;cursor:pointer" title="Include stablecoin pairs (USDT/USD, USDC/USD, …) in the symbol dropdown">
-              <input type="checkbox" id="watchlistShowStable" onchange="populateWatchlistOptions()"> Show stablecoins
+            <button class="btn btn-green" onclick="addWatchlistSymbol()" data-i18n="app:settings.addBtn">+ Add</button>
+            <button class="btn" onclick="resetWatchlist()" data-i18n="app:settings.resetBtn">↩ Reset defaults</button>
+            <label class="small" style="display:flex;align-items:center;gap:4px;color:var(--muted);white-space:nowrap;cursor:pointer" title="Include stablecoin pairs (USDT/USD, USDC/USD, …) in the symbol dropdown" data-i18n-title="app:settings.showStableTitleAttr">
+              <input type="checkbox" id="watchlistShowStable" onchange="populateWatchlistOptions()"> <span data-i18n="app:settings.showStableLabel">Show stablecoins</span>
             </label>
             <span class="small" style="color:var(--muted)"><span id="watchlistCountEl">0</span>/20</span>
           </div>
-          <div class="small" style="margin-top:6px;color:var(--muted)">Used by Autopilot, Daily Journal, Signals tab, and Portfolio tabs. Changes take effect immediately after saving.</div>
+          <div class="small" style="margin-top:6px;color:var(--muted)" data-i18n="app:settings.watchlistNote">Used by Autopilot, Daily Journal, Signals tab, and Portfolio tabs. Changes take effect immediately after saving.</div>
 
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
-            <button class="btn btn-green" onclick="saveSettings()">Save Settings</button>
-            <button class="btn btn-red" onclick="clearSettings()">Clear Settings</button>
+            <button class="btn btn-green" onclick="saveSettings()" data-i18n="app:settings.saveBtn">Save Settings</button>
+            <button class="btn btn-red" onclick="clearSettings()" data-i18n="app:settings.clearBtn">Clear Settings</button>
           </div>
 
-          <div class="small" style="margin-top:14px">
+          <div class="small" style="margin-top:14px" data-i18n="app:settings.prodNote">
             For a production setup, avoid calling Alpaca directly from browser-side HTML.
             Use a backend/proxy so your API secret is not exposed in the browser.
           </div>

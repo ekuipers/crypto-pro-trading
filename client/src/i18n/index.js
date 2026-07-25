@@ -5,6 +5,10 @@ import commonEn from './locales/common/en.json';
 import commonNl from './locales/common/nl.json';
 import commonFr from './locales/common/fr.json';
 import commonEs from './locales/common/es.json';
+import appEn from './locales/app/en.json';
+import appNl from './locales/app/nl.json';
+import appFr from './locales/app/fr.json';
+import appEs from './locales/app/es.json';
 
 export const SUPPORTED_LANGUAGES = ['en', 'nl', 'fr', 'es'];
 const STORAGE_KEY = 'dashLang';
@@ -20,15 +24,15 @@ function detectInitialLanguage() {
 
 i18n.use(initReactI18next).init({
   resources: {
-    en: { common: commonEn },
-    nl: { common: commonNl },
-    fr: { common: commonFr },
-    es: { common: commonEs },
+    en: { common: commonEn, app: appEn },
+    nl: { common: commonNl, app: appNl },
+    fr: { common: commonFr, app: appFr },
+    es: { common: commonEs, app: appEs },
   },
   lng: detectInitialLanguage(),
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common'],
+  ns: ['common', 'app'],
   interpolation: { escapeValue: false },
   returnEmptyString: false,
 });
@@ -52,6 +56,13 @@ export function applyDomI18n(root = document) {
   });
   root.querySelectorAll('[data-i18n-title]').forEach((el) => {
     el.title = i18n.t(el.getAttribute('data-i18n-title'));
+  });
+  // Custom tooltip system (src/js/ui-helpers.js reads el.dataset.tip live on
+  // hover, not at parse time) — a separate attribute from data-tip itself so
+  // the original English data-tip stays as a safe fallback if translation
+  // ever fails to load, mirroring the data-i18n-title convention above.
+  root.querySelectorAll('[data-i18n-tip]').forEach((el) => {
+    el.dataset.tip = i18n.t(el.getAttribute('data-i18n-tip'));
   });
 }
 window.applyDomI18n = applyDomI18n;

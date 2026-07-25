@@ -4,10 +4,17 @@
 // off-canvas #manualPanel + TOC/content/search), ported as a classic global script
 // since this project's src/js/*.js files share one scope instead of ES modules.
 
+// Section titles come from the "app" i18n namespace via titleKey + manualTitle()
+// (a function call, not a baked string) so they re-translate whenever the
+// manual panel is opened/re-rendered after a language switch — unlike a plain
+// `title: "Overview"` field, which would freeze at whatever language was
+// active when this module-level array was first evaluated. The section
+// bodies (`html`) stay English-only this pass — see CLAUDE.md/memory.md for
+// why (large prose, lower priority than chrome labels).
 const MANUAL_SECTIONS = [
   {
     id: "overview",
-    title: "Overview",
+    titleKey: "app:manual.sectionOverview",
     html: `
       <p>CryptoPro Trader is a paper-crypto trading cockpit built around Alpaca's crypto API. The left sidebar groups every tab by job-to-be-done: <b>🧭 Command</b> to act, <b>⚡ Trade</b> / <b>💼 Portfolio</b> to hold, <b>📊 Analysis</b> to review.</p>
       <p>Each tab keeps its own state in the URL hash, so you can bookmark or share a direct link to any tab — a browser refresh reopens the last tab you had open instead of resetting to Command.</p>
@@ -16,7 +23,7 @@ const MANUAL_SECTIONS = [
   },
   {
     id: "command",
-    title: "🧭 Command",
+    titleKey: "app:manual.sectionCommand",
     html: `
       <p>The trading-permission cockpit. The <b>Overview</b> sub-tab shows whether you're currently allowed to trade: live hard-rules checks, cash-reserve gate, equity/cash/open-risk/drawdown KPIs, and the last two fill activities.</p>
       <p>The <b>🤖 Autopilot</b> panel runs an automatic entry/exit loop in your browser tab — it stays off by default on every page load, tags its own orders <code>ap-</code>, and has a red ⛔ kill switch that cancels every open order and stops the loop immediately. Autopilot only works while this browser tab stays open.</p>
@@ -26,7 +33,7 @@ const MANUAL_SECTIONS = [
   },
   {
     id: "trade",
-    title: "⚡ Trade",
+    titleKey: "app:manual.sectionTrade",
     html: `
       <p><b>Signals</b> runs the 6-point Signal Confluence scanner across your watchlist: EMA cross, MACD histogram, RSI, Bollinger %b, volume ratio, and 4H regime, each summed into one score. Use the ⚡ button for a quick pre-filled buy, or ▶ to open the full trade ticket.</p>
       <p><b>⚡ Scalping</b> is a faster, lower-timeframe (5m/15m/1h) confluence scanner for shorter holding periods, with the same manual Buy/Sell controls.</p>
@@ -37,7 +44,7 @@ const MANUAL_SECTIONS = [
   },
   {
     id: "portfolio",
-    title: "💼 Portfolio",
+    titleKey: "app:manual.sectionPortfolio",
     html: `
       <p><b>Overview</b> shows account equity, cash, buying power, and P&amp;L cards, the equity curve, and your open positions table.</p>
       <p><b>Allocation</b> is a donut chart of how your equity is split across positions and cash, plus a cap-utilisation table for every watchlist symbol — Over Cap / Near Cap / OK badges tell you at a glance which symbols are close to their per-symbol portfolio cap.</p>
@@ -45,7 +52,7 @@ const MANUAL_SECTIONS = [
   },
   {
     id: "analysis",
-    title: "📊 Analysis",
+    titleKey: "app:manual.sectionAnalysis",
     html: `
       <p><b>🔬 Analytics</b> nests three sub-tabs: <i>📈 Performance</i> (equity curve, return/volatility KPIs, rolling metrics), <i>💰 P&amp;L</i> (FIFO realized profit/loss, calendar heatmap, per-symbol attribution), and <i>🔬 Edge</i> (expectancy by symbol and by hour-of-day/day-of-week).</p>
       <p><b>⚠️ Risk</b> shows per-symbol cap usage, a 10×10 correlation heatmap, and drawdown/Sharpe/Sortino/Calmar/VaR figures.</p>
@@ -56,7 +63,7 @@ const MANUAL_SECTIONS = [
   },
   {
     id: "settings",
-    title: "⚙ Settings",
+    titleKey: "app:manual.sectionSettings",
     html: `
       <p>Enter your Alpaca paper and/or live API credentials here first — most of the dashboard has nothing to show without them.</p>
       <p>Risk Limits controls position caps and Signals Analysis controls how many symbols get scanned. <b>🔗 Correlation Budget</b> sets how many open Autopilot positions are allowed in total and per tier (Tier-1 = BTC/ETH).</p>
@@ -66,7 +73,7 @@ const MANUAL_SECTIONS = [
   },
   {
     id: "account",
-    title: "Account &amp; sign-in",
+    titleKey: "app:manual.sectionAccount",
     html: `
       <p>The <b>👤 Sign in</b> button in the header is a single sign-on account shared across the whole CryptoPro suite (Trader, Charts, Training) — one account, one password, optional TOTP two-factor authentication.</p>
       <p>Signing in lets your theme, last-open tab, watchlist, and non-secret settings follow you between devices and browsers. It does not sync your Alpaca API keys or Autopilot's live position bookkeeping — those are deliberately kept local to the browser you're trading from.</p>
@@ -74,24 +81,28 @@ const MANUAL_SECTIONS = [
   },
   {
     id: "shortcuts",
-    title: "Keyboard shortcuts",
+    titleKey: "app:manual.sectionShortcuts",
     html: `
       <p><code>1</code>–<code>9</code> jump straight to the first nine sidebar tabs, in the order they're listed (Command…Settings). <code>R</code> refreshes whichever tab is currently open.</p>
     `,
   },
 ];
 
+function manualTitle(section) {
+  return window.t(section.titleKey);
+}
+
 function manualTocHtml(filter) {
   const q = (filter || "").trim().toLowerCase();
   return MANUAL_SECTIONS
-    .filter((s) => !q || s.title.toLowerCase().includes(q) || s.html.toLowerCase().includes(q))
-    .map((s) => `<button type="button" class="manual-toc-btn" data-id="${s.id}">${s.title}</button>`)
+    .filter((s) => !q || manualTitle(s).toLowerCase().includes(q) || s.html.toLowerCase().includes(q))
+    .map((s) => `<button type="button" class="manual-toc-btn" data-id="${s.id}">${manualTitle(s)}</button>`)
     .join("");
 }
 
 function manualContentHtml(id) {
   const section = MANUAL_SECTIONS.find((s) => s.id === id) || MANUAL_SECTIONS[0];
-  return `<h3>${section.title}</h3>${section.html}`;
+  return `<h3>${manualTitle(section)}</h3>${section.html}`;
 }
 
 function manualSelectSection(id) {

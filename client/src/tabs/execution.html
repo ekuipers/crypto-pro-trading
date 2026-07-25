@@ -1,52 +1,52 @@
     <div id="page-execution" class="page">
       <section>
-        <div class="section-title">Execution Quality</div>
+        <div class="section-title" data-i18n="app:execution.title">Execution Quality</div>
         <div id="executionKpis" class="grid-3"></div>
       </section>
 
       <section>
         <div class="panel">
-          <div class="panel-title">🎯 Recent Orders</div>
+          <div class="panel-title" data-i18n="app:execution.recentOrdersTitle">🎯 Recent Orders</div>
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-            <label class="small" style="color:var(--muted)">Symbol
+            <label class="small" style="color:var(--muted)"><span data-i18n="app:execution.filterSymbolLabel">Symbol</span>
               <select id="execFilterSymbol" onchange="applyExecutionFilters()" style="margin-left:4px">
-                <option value="">All</option>
+                <option value="" data-i18n="app:execution.optAll">All</option>
               </select>
             </label>
-            <label class="small" style="color:var(--muted)">Type
+            <label class="small" style="color:var(--muted)"><span data-i18n="app:execution.filterTypeLabel">Type</span>
               <select id="execFilterType" onchange="applyExecutionFilters()" style="margin-left:4px">
-                <option value="">All</option>
+                <option value="" data-i18n="app:execution.optAll">All</option>
               </select>
             </label>
-            <label class="small" style="color:var(--muted)">Side
+            <label class="small" style="color:var(--muted)"><span data-i18n="app:execution.filterSideLabel">Side</span>
               <select id="execFilterSide" onchange="applyExecutionFilters()" style="margin-left:4px">
-                <option value="">All</option>
-                <option value="buy">Buy</option>
-                <option value="sell">Sell</option>
+                <option value="" data-i18n="app:execution.optAll">All</option>
+                <option value="buy" data-i18n="app:execution.optBuy">Buy</option>
+                <option value="sell" data-i18n="app:execution.optSell">Sell</option>
               </select>
             </label>
-            <label class="small" style="color:var(--muted)">Status
+            <label class="small" style="color:var(--muted)"><span data-i18n="app:execution.filterStatusLabel">Status</span>
               <select id="execFilterStatus" onchange="applyExecutionFilters()" style="margin-left:4px">
-                <option value="">All</option>
+                <option value="" data-i18n="app:execution.optAll">All</option>
               </select>
             </label>
-            <button class="btn" onclick="resetExecutionFilters()">Reset</button>
+            <button class="btn" onclick="resetExecutionFilters()" data-i18n="app:execution.resetBtn">Reset</button>
             <span id="execFilterCount" class="small" style="color:var(--muted);margin-left:auto"></span>
           </div>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th data-tip="Asset or trading pair. Click to sort.">Symbol <span class="sort">⇅</span></th>
-                  <th data-tip="Buy or sell side. Click to sort.">Side <span class="sort">⇅</span></th>
-                  <th data-tip="Order type. Click to sort.">Type <span class="sort">⇅</span></th>
-                  <th class="right" data-tip="Order quantity. Click to sort.">Qty <span class="sort">⇅</span></th>
-                  <th class="right" data-tip="Submitted limit price. Click to sort.">Limit <span class="sort">⇅</span></th>
-                  <th class="right" data-tip="Average fill price. Click to sort.">Avg Fill <span class="sort">⇅</span></th>
-                  <th class="right" data-tip="Total order value in USD — filled qty × avg fill for (partially) filled orders, otherwise qty × limit price. Click to sort.">Total <span class="sort">⇅</span></th>
-                  <th class="right" data-tip="Approximate execution drag using limit price versus fill price. Click to sort.">Slippage Proxy <span class="sort">⇅</span></th>
-                  <th data-tip="Order status. Click to sort.">Status <span class="sort">⇅</span></th>
-                  <th data-tip="Order creation time. Click to sort.">Time <span class="sort">⇅</span></th>
+                  <th data-tip="Asset or trading pair. Click to sort." data-i18n-tip="app:execution.thSymbolTip"><span data-i18n="app:execution.thSymbol">Symbol</span> <span class="sort">⇅</span></th>
+                  <th data-tip="Buy or sell side. Click to sort." data-i18n-tip="app:execution.thSideTip"><span data-i18n="app:execution.thSide">Side</span> <span class="sort">⇅</span></th>
+                  <th data-tip="Order type. Click to sort." data-i18n-tip="app:execution.thTypeTip"><span data-i18n="app:execution.thType">Type</span> <span class="sort">⇅</span></th>
+                  <th class="right" data-tip="Order quantity. Click to sort." data-i18n-tip="app:execution.thQtyTip"><span data-i18n="app:execution.thQty">Qty</span> <span class="sort">⇅</span></th>
+                  <th class="right" data-tip="Submitted limit price. Click to sort." data-i18n-tip="app:execution.thLimitTip"><span data-i18n="app:execution.thLimit">Limit</span> <span class="sort">⇅</span></th>
+                  <th class="right" data-tip="Average fill price. Click to sort." data-i18n-tip="app:execution.thAvgFillTip"><span data-i18n="app:execution.thAvgFill">Avg Fill</span> <span class="sort">⇅</span></th>
+                  <th class="right" data-tip="Total order value in USD — filled qty × avg fill for (partially) filled orders, otherwise qty × limit price. Click to sort." data-i18n-tip="app:execution.thTotalTip"><span data-i18n="app:execution.thTotal">Total</span> <span class="sort">⇅</span></th>
+                  <th class="right" data-tip="Approximate execution drag using limit price versus fill price. Click to sort." data-i18n-tip="app:execution.thSlippageTip"><span data-i18n="app:execution.thSlippage">Slippage Proxy</span> <span class="sort">⇅</span></th>
+                  <th data-tip="Order status. Click to sort." data-i18n-tip="app:execution.thStatusTip"><span data-i18n="app:execution.thStatus">Status</span> <span class="sort">⇅</span></th>
+                  <th data-tip="Order creation time. Click to sort." data-i18n-tip="app:execution.thTimeTip"><span data-i18n="app:execution.thTime">Time</span> <span class="sort">⇅</span></th>
                 </tr>
               </thead>
               <tbody id="executionOrdersBody"></tbody>

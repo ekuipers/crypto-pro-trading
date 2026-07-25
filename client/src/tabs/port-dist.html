@@ -3,13 +3,13 @@
 
       <!-- Summary cards -->
       <section>
-        <div class="section-title">Portfolio Allocation</div>
+        <div class="section-title" data-i18n="app:portDist.allocTitle">Portfolio Allocation</div>
         <div class="cards">
-          <div class="card"><div class="card-label">Total Equity</div><div class="card-value" id="portDistEquity"><span class="spinner"></span></div></div>
-          <div class="card"><div class="card-label">Invested</div><div class="card-value" id="portDistInvested"></div><div class="card-sub" id="portDistInvestedPct"></div></div>
-          <div class="card"><div class="card-label">Cash</div><div class="card-value" id="portDistCash"></div><div class="card-sub" id="portDistCashPct"></div></div>
-          <div class="card"><div class="card-label">Positions</div><div class="card-value" id="portDistPosCount"></div></div>
-          <div class="card"><div class="card-label">Largest Position</div><div class="card-value" id="portDistLargest"></div><div class="card-sub" id="portDistLargestPct"></div></div>
+          <div class="card"><div class="card-label" data-i18n="app:portDist.cardTotalEquity">Total Equity</div><div class="card-value" id="portDistEquity"><span class="spinner"></span></div></div>
+          <div class="card"><div class="card-label" data-i18n="app:portDist.cardInvested">Invested</div><div class="card-value" id="portDistInvested"></div><div class="card-sub" id="portDistInvestedPct"></div></div>
+          <div class="card"><div class="card-label" data-i18n="app:portDist.cardCash">Cash</div><div class="card-value" id="portDistCash"></div><div class="card-sub" id="portDistCashPct"></div></div>
+          <div class="card"><div class="card-label" data-i18n="app:portDist.cardPositions">Positions</div><div class="card-value" id="portDistPosCount"></div></div>
+          <div class="card"><div class="card-label" data-i18n="app:portDist.cardLargest">Largest Position</div><div class="card-value" id="portDistLargest"></div><div class="card-sub" id="portDistLargestPct"></div></div>
         </div>
       </section>
 
@@ -19,11 +19,11 @@
 
           <!-- Donut chart -->
           <div class="chart-card" style="padding:20px;">
-            <div class="chart-title" style="margin-bottom:16px;">Allocation Breakdown</div>
+            <div class="chart-title" style="margin-bottom:16px;" data-i18n="app:portDist.allocBreakdownTitle">Allocation Breakdown</div>
             <div style="position:relative;height:300px;display:flex;align-items:center;justify-content:center;">
               <canvas id="portDistChart"></canvas>
               <div id="portDistChartCenter" style="position:absolute;text-align:center;pointer-events:none;">
-                <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Equity</div>
+                <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;" data-i18n="app:portDist.equityLabel">Equity</div>
                 <div id="portDistCenterVal" style="font-size:20px;font-weight:700;margin-top:4px;">—</div>
               </div>
             </div>
@@ -35,17 +35,17 @@
           <div class="table-wrap">
             <table>
               <thead id="portDistTableHead"><tr>
-                <th class="port-sortable"       data-key="symbol"         data-tip="Asset symbol" onclick="portSortDistTable('symbol')">Symbol <span class="sort-icon">⇅</span></th>
-                <th class="port-sortable right" data-key="market_value"   data-tip="Current market value (qty × price)" onclick="portSortDistTable('market_value')">Market Value <span class="sort-icon">⇅</span></th>
-                <th class="port-sortable right" data-key="pct"            data-tip="Position value as % of total portfolio equity" onclick="portSortDistTable('pct')">% of Portfolio <span class="sort-icon">⇅</span></th>
-                <th class="port-sortable right" data-key="qty"            data-tip="Number of units held" onclick="portSortDistTable('qty')">Qty <span class="sort-icon">⇅</span></th>
-                <th class="port-sortable right" data-key="avg_entry_price" data-tip="Average cost per unit" onclick="portSortDistTable('avg_entry_price')">Avg Entry <span class="sort-icon">⇅</span></th>
-                <th class="port-sortable right" data-key="current_price"  data-tip="Latest market price per unit" onclick="portSortDistTable('current_price')">Current Price <span class="sort-icon">⇅</span></th>
-                <th class="port-sortable right" data-key="unrealized_pl"  data-tip="Unrealized profit/loss in dollars" onclick="portSortDistTable('unrealized_pl')">Unrealized P&amp;L <span class="sort-icon">⇅</span></th>
-                <th class="port-sortable right" data-key="unrealized_plpc" data-tip="Unrealized P&L as % of cost basis" onclick="portSortDistTable('unrealized_plpc')">P&amp;L % <span class="sort-icon">⇅</span></th>
+                <th class="port-sortable"       data-key="symbol"         data-tip="Asset symbol" data-i18n-tip="app:portDist.thSymbolTip" onclick="portSortDistTable('symbol')"><span data-i18n="app:portDist.thSymbol">Symbol</span> <span class="sort-icon">⇅</span></th>
+                <th class="port-sortable right" data-key="market_value"   data-tip="Current market value (qty × price)" data-i18n-tip="app:portDist.thMarketValueTip" onclick="portSortDistTable('market_value')"><span data-i18n="app:portDist.thMarketValue">Market Value</span> <span class="sort-icon">⇅</span></th>
+                <th class="port-sortable right" data-key="pct"            data-tip="Position value as % of total portfolio equity" data-i18n-tip="app:portDist.thPctPortfolioTip" onclick="portSortDistTable('pct')"><span data-i18n="app:portDist.thPctPortfolio">% of Portfolio</span> <span class="sort-icon">⇅</span></th>
+                <th class="port-sortable right" data-key="qty"            data-tip="Number of units held" data-i18n-tip="app:portDist.thQtyTip" onclick="portSortDistTable('qty')"><span data-i18n="app:portDist.thQty">Qty</span> <span class="sort-icon">⇅</span></th>
+                <th class="port-sortable right" data-key="avg_entry_price" data-tip="Average cost per unit" data-i18n-tip="app:portDist.thAvgEntryTip" onclick="portSortDistTable('avg_entry_price')"><span data-i18n="app:portDist.thAvgEntry">Avg Entry</span> <span class="sort-icon">⇅</span></th>
+                <th class="port-sortable right" data-key="current_price"  data-tip="Latest market price per unit" data-i18n-tip="app:portDist.thCurrentPriceTip" onclick="portSortDistTable('current_price')"><span data-i18n="app:portDist.thCurrentPrice">Current Price</span> <span class="sort-icon">⇅</span></th>
+                <th class="port-sortable right" data-key="unrealized_pl"  data-tip="Unrealized profit/loss in dollars" data-i18n-tip="app:portDist.thUnrealizedPnlTip" onclick="portSortDistTable('unrealized_pl')"><span data-i18n="app:portDist.thUnrealizedPnl">Unrealized P&amp;L</span> <span class="sort-icon">⇅</span></th>
+                <th class="port-sortable right" data-key="unrealized_plpc" data-tip="Unrealized P&L as % of cost basis" data-i18n-tip="app:portDist.thUnrealizedPctTip" onclick="portSortDistTable('unrealized_plpc')"><span data-i18n="app:portDist.thUnrealizedPct">P&amp;L %</span> <span class="sort-icon">⇅</span></th>
               </tr></thead>
               <tbody id="portDistTableBody">
-                <tr><td colspan="8" class="placeholder"><span class="spinner"></span> Loading…</td></tr>
+                <tr><td colspan="8" class="placeholder"><span class="spinner"></span> <span data-i18n="app:portDist.loadingText">Loading…</span></td></tr>
               </tbody>
             </table>
           </div>
@@ -55,19 +55,19 @@
 
       <!-- Cap utilisation -->
       <section>
-        <div class="section-title">Cap Utilisation vs. Strategy Limits</div>
+        <div class="section-title" data-i18n="app:portDist.capTitle">Cap Utilisation vs. Strategy Limits</div>
         <div class="table-wrap">
           <table>
             <thead id="portDistCapHead"><tr>
-              <th class="port-sortable"       data-key="sym"      data-tip="Asset symbol (all watchlist symbols shown)" onclick="portSortDistCap('sym')">Symbol <span class="sort-icon">⇅</span></th>
-              <th class="port-sortable right" data-key="curPct"   data-tip="Current position as % of portfolio equity (– if no position)" onclick="portSortDistCap('curPct')">Current % <span class="sort-icon">⇅</span></th>
-              <th class="port-sortable right" data-key="capPct"   data-tip="Maximum allowed % of equity per portfolio_caps.json" onclick="portSortDistCap('capPct')">Cap Limit <span class="sort-icon">⇅</span></th>
-              <th class="port-sortable right" data-key="headroom" data-tip="Remaining room before hitting cap (Cap − Current%)" onclick="portSortDistCap('headroom')">Headroom <span class="sort-icon">⇅</span></th>
-              <th style="width:220px" data-tip="Bar showing % of cap used — green = OK, yellow = ≥80%, red = over cap">Utilisation</th>
-              <th data-tip="Cap compliance status for this position">Status</th>
+              <th class="port-sortable"       data-key="sym"      data-tip="Asset symbol (all watchlist symbols shown)" data-i18n-tip="app:portDist.capThSymbolTip" onclick="portSortDistCap('sym')"><span data-i18n="app:portDist.capThSymbol">Symbol</span> <span class="sort-icon">⇅</span></th>
+              <th class="port-sortable right" data-key="curPct"   data-tip="Current position as % of portfolio equity (– if no position)" data-i18n-tip="app:portDist.capThCurrentPctTip" onclick="portSortDistCap('curPct')"><span data-i18n="app:portDist.capThCurrentPct">Current %</span> <span class="sort-icon">⇅</span></th>
+              <th class="port-sortable right" data-key="capPct"   data-tip="Maximum allowed % of equity per portfolio_caps.json" data-i18n-tip="app:portDist.capThCapLimitTip" onclick="portSortDistCap('capPct')"><span data-i18n="app:portDist.capThCapLimit">Cap Limit</span> <span class="sort-icon">⇅</span></th>
+              <th class="port-sortable right" data-key="headroom" data-tip="Remaining room before hitting cap (Cap − Current%)" data-i18n-tip="app:portDist.capThHeadroomTip" onclick="portSortDistCap('headroom')"><span data-i18n="app:portDist.capThHeadroom">Headroom</span> <span class="sort-icon">⇅</span></th>
+              <th style="width:220px" data-tip="Bar showing % of cap used — green = OK, yellow = ≥80%, red = over cap" data-i18n-tip="app:portDist.capThUtilisationTip" data-i18n="app:portDist.capThUtilisation">Utilisation</th>
+              <th data-tip="Cap compliance status for this position" data-i18n-tip="app:portDist.capThStatusTip" data-i18n="app:portDist.capThStatus">Status</th>
             </tr></thead>
             <tbody id="portDistCapBody">
-              <tr><td colspan="6" class="placeholder"><span class="spinner"></span> Loading…</td></tr>
+              <tr><td colspan="6" class="placeholder"><span class="spinner"></span> <span data-i18n="app:portDist.loadingText">Loading…</span></td></tr>
             </tbody>
           </table>
         </div>

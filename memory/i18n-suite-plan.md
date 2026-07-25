@@ -119,9 +119,22 @@ just the one array entry.
 
 ## Status
 
-- **Phase 0 (Trader) — in progress, 2026-07-24.** `i18n/index.js` + `common` namespace (header,
+- **Phase 0 (Trader) — done, 2026-07-24.** `i18n/index.js` + `common` namespace (header,
   footer, nav, trade/journal/manual/terms modals) shipped and Playwright-verified (NL switch
-  confirmed working, no console errors). Not yet done: the 13 tab HTML fragments' static labels,
-  `auth.js`/`manual.js` dynamic content, and an `app` namespace. See Trader `CLAUDE.md`'s
-  Dashboard section for the exact file list.
+  confirmed working, no console errors).
+- **Phase 0b (Trader) — done, 2026-07-25.** New `app` namespace
+  (`client/src/i18n/locales/app/{en,nl,fr,es}.json`, 550 keys/language, verified identical key
+  sets across all 4) covers the 13 tab HTML fragments' subnav/section/panel/chart titles, period
+  and filter buttons, every table column header + tooltip, and loading/empty-state placeholders,
+  plus `auth.js`'s modals and `manual.js`'s 8 section titles (both converted to call `window.t()`
+  at render time rather than baking translated strings at module-load time, so they reflect the
+  currently active language). `applyDomI18n()` gained a `data-i18n-tip` handler for the custom
+  tooltip system (`ui-helpers.js` reads `el.dataset.tip` live on hover). Deliberately deferred:
+  long free-form explanatory paragraphs (lower priority than mechanical UI labels), two spots with
+  a live-updated DOM span (`markov.html`'s `#mkThreshLabel`, `port-overview.html`'s
+  `#portPosCount`) where translating the surrounding template would clobber the JS-set value on a
+  language switch, and `manual.js`'s section body prose (titles only, per scope). Verified: client
+  build (84 modules), full backend test suite (310/310), and a Playwright pass confirming NL
+  renders correctly across Command/Analytics/Signals/Settings including the new tooltip mechanism.
+  Full detail: Trader `CLAUDE.md`'s Dashboard section and `memory/memory.md`'s 2026-07-25 entry.
 - Phases 1-3 (Charts/Suite/Mobile port, Training chrome + content): not started.
