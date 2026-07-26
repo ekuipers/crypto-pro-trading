@@ -26,6 +26,12 @@ export default function Header() {
           </select>
         </span>
 
+        {/* Shown by renderMode() only while Live is selected — live Alpaca
+            access is insight-only, no orders and no portfolio management. */}
+        <span id="modeReadOnly" className="read-only-badge" style={{ display: 'none' }}>
+          {t('header.readOnly')}
+        </span>
+
         <span id="lastUpdated" className="last-updated">{t('header.notLoaded')}</span>
 
         <button

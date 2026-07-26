@@ -1,9 +1,9 @@
 {
   "header": {
-    "modeBadgeTip": "Mode de trading actif — basculez entre paper et live. Le mode paper est sans risque pour tester.",
+    "modeBadgeTip": "Mode de trading actif. Paper passe des ordres et gère le portefeuille ; Live est en lecture seule et affiche uniquement des analyses.",
     "modeSwitchTitle": "Changer le mode de trading actif",
     "modePaper": "Paper Spot Trading",
-    "modeLive": "Live Trading",
+    "modeLive": "Live (lecture seule)",
     "notLoaded": "Non chargé",
     "dailyJournal": "📓 Journal quotidien",
     "dailyJournalTip": "Générer le journal de clôture du jour sous forme de document Markdown téléchargeable",
@@ -14,7 +14,8 @@
     "themeTitle": "Basculer thème clair / sombre",
     "signIn": "👤 Connexion",
     "settings": "⚙ Paramètres",
-    "languageTitle": "Changer de langue"
+    "languageTitle": "Changer de langue",
+    "readOnly": "🔒 Lecture seule"
   },
   "footer": {
     "tagline": "Cockpit autonome de trading spot crypto en paper — confluence de signaux, dimensionnement ATR, ordres à cours limité uniquement, API Alpaca",
@@ -22,7 +23,7 @@
     "studio": "Studio de développement :",
     "lastModified": "Dernière modification :",
     "version": "Version :",
-    "disclaimer": "⚠ Trading spot en paper par défaut. Le trading en live peut entraîner de réelles pertes — vous en assumez seul l'entière responsabilité.",
+    "disclaimer": "⚠ Paper trading spot uniquement — aucun ordre réel n'est passé. Les clés réelles sont en lecture seule, à titre informatif.",
     "terms": "Conditions d'utilisation",
     "donate": "♥ Soutenir"
   },
@@ -78,10 +79,10 @@
       "title": "Conditions d'utilisation",
       "close": "Fermer",
       "p1": "<b>CryptoPro Trader est un cockpit de trading spot crypto en paper, éducatif et autonome.</b> Il fonctionne par défaut en <b>mode paper spot trading</b> et se connecte à l'API paper trading d'Alpaca, qui simule l'exécution des ordres sans risquer de fonds réels.",
-      "p2": "<b>Risque du trading en live.</b> Basculer le mode de trading sur « Live » achemine les ordres vers un compte de courtage réel à l'aide de vos propres clés API. Le trading en live comporte un risque substantiel de perte, y compris la perte de la totalité de votre capital déposé, et ne convient pas à tous les investisseurs. Vous êtes seul responsable de tout ordre passé en votre nom par ce logiciel en mode live, et de l'examen de chaque signal, score et paramètre de risque avant de l'activer.",
+      "p2": "<b>Pas de trading réel.</b> Cette application ne passe jamais d'ordre sur un compte de courtage réel. Régler le mode de trading sur « Live » le rend <b>en lecture seule</b> : soldes, positions, ordres et prix issus de vos propres clés Alpaca réelles peuvent être affichés à titre informatif, mais le passage d'ordres et la gestion de portefeuille sont réservés au mode paper.",
       "p3": "<b>Aucun conseil financier.</b> Rien dans cette application — y compris les scores de signaux, les entrées de journal, les notes de recherche ou l'agrégation d'actualités/réseaux sociaux — ne constitue un conseil en investissement, financier, juridique ou fiscal. Les performances historiques ou simulées affichées dans cette application ne préjugent pas des résultats futurs.",
       "p4": "<b>Aucune garantie.</b> Ce logiciel est fourni « en l'état », sans garantie d'aucune sorte, expresse ou implicite, y compris, sans s'y limiter, l'adéquation à un usage particulier, l'exactitude ou le fonctionnement ininterrompu. Le créateur n'est pas responsable des pertes, directes ou indirectes, résultant de l'utilisation de cette application.",
-      "p5": "<b>Votre responsabilité.</b> En activant le trading en live, en ajustant les limites de risque ou en connectant de véritables identifiants de courtage, vous reconnaissez et acceptez ces risques et convenez que vous négociez à votre seule discrétion et à vos propres risques."
+      "p5": "<b>Votre responsabilité.</b> En exécutant l'agent, en ajustant les limites de risque ou en connectant des identifiants de courtage, vous reconnaissez et acceptez ces risques et convenez que vous tradez à votre seule discrétion et à vos risques."
     }
   }
 }

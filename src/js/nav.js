@@ -36,6 +36,11 @@
       const sel   = $("setMode");
       if (sel) sel.value = s.mode;
       badge.className = "badge " + (s.mode === "live" ? "live" : "paper");
+      // Live credentials are read-only (Suite workflow rule 30 / EU MiCA):
+      // insights load, but nothing can be traded or managed. Surface that in
+      // the header so the disabled trade paths aren't a surprise.
+      const ro = $("modeReadOnly");
+      if (ro) ro.style.display = s.mode === "live" ? "" : "none";
     }
     function onModeChange() {
       const saved = JSON.parse(localStorage.getItem("proDashboardSettings") || "{}");

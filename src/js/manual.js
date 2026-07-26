@@ -18,7 +18,8 @@ const MANUAL_SECTIONS = [
     html: `
       <p>CryptoPro Trader is a paper-crypto trading cockpit built around Alpaca's crypto API. The left sidebar groups every tab by job-to-be-done: <b>🧭 Command</b> to act, <b>⚡ Trade</b> / <b>💼 Portfolio</b> to hold, <b>📊 Analysis</b> to review.</p>
       <p>Each tab keeps its own state in the URL hash, so you can bookmark or share a direct link to any tab — a browser refresh reopens the last tab you had open instead of resetting to Command.</p>
-      <p>Before trading, open <b>⚙ Settings</b> and enter your Alpaca paper (or live) API key and secret. Nothing is sent anywhere except Alpaca's own API — credentials stay in your browser's local storage unless you're signed in (see <b>Account &amp; sign-in</b> below).</p>
+      <p>Before trading, open <b>⚙ Settings</b> and enter your Alpaca paper API key and secret. Nothing is sent anywhere except Alpaca's own API — credentials stay in your browser's local storage unless you're signed in (see <b>Account &amp; sign-in</b> below).</p>
+      <p><b>Live mode is read-only.</b> You may connect live Alpaca keys to see balances, positions and prices, but this dashboard never places an order or manages a portfolio on a live account — order placement and position management work in paper mode only.</p>
     `,
   },
   {
@@ -65,7 +66,7 @@ const MANUAL_SECTIONS = [
     id: "settings",
     titleKey: "app:manual.sectionSettings",
     html: `
-      <p>Enter your Alpaca paper and/or live API credentials here first — most of the dashboard has nothing to show without them.</p>
+      <p>Enter your Alpaca paper API credentials here first — most of the dashboard has nothing to show without them. Live credentials are optional and read-only (insights only, no orders).</p>
       <p>Risk Limits controls position caps and Signals Analysis controls how many symbols get scanned. <b>🔗 Correlation Budget</b> sets how many open Autopilot positions are allowed in total and per tier (Tier-1 = BTC/ETH).</p>
       <p><b>📋 Active Watchlist</b> is the up-to-20-symbol list every scanner, the Daily Journal, and Autopilot use — add or remove symbols from the dropdown, or reset to the default set.</p>
       <p>If you're signed in (see below), most of these settings sync automatically across your devices. Alpaca API keys and Autopilot's live runtime state never sync — they stay local to this browser only.</p>

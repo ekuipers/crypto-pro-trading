@@ -31,7 +31,7 @@
 
       if (settings.mode === "live") {
         warning.className = "trade-danger";
-        warning.textContent = "Live mode is selected. This dashboard blocks live order execution. Switch to paper mode to submit a test order.";
+        warning.textContent = "Live mode is read-only — it only shows insights. Switch to paper mode to place orders or manage a portfolio.";
       } else {
         warning.className = "trade-warning";
         warning.textContent = "Paper mode is active. This will submit a paper limit order to Alpaca.";
@@ -46,7 +46,7 @@
       const settings = getSettings();
 
       if (settings.mode === "live") {
-        alert("Live order execution is blocked by this dashboard. Switch to Paper Spot Trading mode to submit a test order.");
+        alert("Live Alpaca mode is read-only — it only shows insights. Switch to Paper Spot Trading mode to place orders or manage a portfolio.");
         return;
       }
 
@@ -174,7 +174,7 @@
       const settings = getSettings();
 
       if (settings.mode === "live") {
-        alert("Live order execution is blocked by this dashboard. Switch to Paper Spot Trading mode to submit a test order.");
+        alert("Live Alpaca mode is read-only — it only shows insights. Switch to Paper Spot Trading mode to place orders or manage a portfolio.");
         return;
       }
 

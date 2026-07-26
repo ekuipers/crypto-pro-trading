@@ -21,6 +21,7 @@ architecture and hard rules live in `CLAUDE.md`.
 | LH | Lower High | Bearish structure |
 | LL | Lower Low | Bearish structure |
 | MACD | Moving Average Convergence Divergence | 12/26 EMA diff; 9-period signal line |
+| MiCA | Markets in Crypto-Assets Regulation | EU crypto regulation; reason this project is paper-trading only |
 | POC | Point of Control | Volume profile: price level with highest traded volume |
 | R:R | Risk-to-Reward ratio | Stop distance vs take-profit distance (need ≥1:2, prefer 1:3) |
 | RSI | Relative Strength Index | Wilder method, 14-period; overbought >70, oversold <30 |
@@ -58,6 +59,7 @@ architecture and hard rules live in `CLAUDE.md`.
 | ATR sizing | 1% risk rule: qty = (equity×1%) / (ATR×1.5), capped at 5% equity |
 | Limit order | Only order type used; price ≤ ask + 0.2% |
 | Paper spot trading | Simulated spot trades only; Alpaca paper environment (no futures support yet) |
+| Read-only mode | Live Alpaca credentials show account/positions/quotes but can never place or cancel an order |
 | Morning brief | Scheduled 7 AM task: eval + journal block + dashboard summary |
 | Daily regime | Computed from 90-day daily bars: SMA-20 vs SMA-50 vs last close |
 | Vol ratio | Current bar volume / 20-bar average volume |

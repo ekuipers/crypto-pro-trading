@@ -168,7 +168,7 @@
       if (_apRunning) { apStop("toggled off by user"); return; }
       const s = getSettings();
       if (!s.apiKey || !s.apiSecret) { alert("Add your Alpaca API key and secret in Settings first."); return; }
-      if (s.mode === "live") { alert("Autopilot is paper-mode only. Live order execution is blocked by this dashboard."); return; }
+      if (s.mode === "live") { alert("Autopilot is paper-mode only. Live Alpaca mode is read-only — insights only, no orders and no portfolio management."); return; }
       _apRunning = true;
       try { localStorage.setItem("autopilotEnabled", "1"); } catch (e) {}
       const btn = $("apToggleBtn");
@@ -183,7 +183,7 @@
       apStop("kill switch");
       try { localStorage.removeItem("autopilotOrderAge"); } catch (e) {}   // stale-order tracker reset
       try {
-        const r = await fetch(getBaseUrl() + "/v2/orders", { method: "DELETE", headers: getHeaders() });
+        const r = await apiDelete("/v2/orders");
         if (!r.ok) throw new Error(r.status + " " + r.statusText);
         let n = 0;
         try { const d = await r.json(); n = Array.isArray(d) ? d.length : 0; } catch (e) {}
@@ -199,7 +199,7 @@
     // Cancel a single order (stale-order lifecycle, roadmap item 3).
     // 404 = already filled/cancelled — treated as success.
     async function apCancelOrder(id) {
-      const r = await fetch(getBaseUrl() + "/v2/orders/" + id, { method: "DELETE", headers: getHeaders() });
+      const r = await apiDelete("/v2/orders/" + id);
       if (!r.ok && r.status !== 404) throw new Error(r.status + " " + r.statusText);
     }
 
@@ -226,7 +226,7 @@
       _apBusy = true;
       try {
         const s = getSettings();
-        if (s.mode === "live") { apLog("error", "Live mode detected — autopilot refuses to run."); apStop("live mode"); return; }
+        if (s.mode === "live") { apLog("error", "Live mode detected — read-only, autopilot refuses to run."); apStop("live mode (read-only)"); return; }
         const L = s.limits;
         const fallbackStopPct = Number(L.assumedStopLossPct || 5);   // fallback hard stop when 4H data missing
         // Strategy params — seeded from config.json › strategy/risk (roadmap item 4)

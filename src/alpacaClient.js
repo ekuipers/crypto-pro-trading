@@ -30,6 +30,23 @@ export function isCrypto(symbol) {
 }
 
 /**
+ * True only for Alpaca's paper-trading API host.
+ *
+ * Suite workflow rule 30 (EU MiCA): this project may never place real orders
+ * on a live exchange. Live credentials are read-only -- they may fetch an
+ * account, positions and quotes for insight, but never mutate anything.
+ * Anything that is not unambiguously the paper host (including an unset or
+ * malformed URL) is treated as live, so a misconfiguration fails closed.
+ */
+export function isPaperTradingUrl(url) {
+  try {
+    return new URL(String(url)).hostname.toLowerCase() === "paper-api.alpaca.markets";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Build an Alpaca API client bound to one credential set.
  *
  * `symbolCap(symbol) -> fraction` resolves the per-symbol position cap used
@@ -54,6 +71,23 @@ export function createAlpacaClient({
     };
     if (jsonBody) h["Content-Type"] = "application/json";
     return h;
+  }
+
+  /**
+   * Gate every state-changing Alpaca call on the paper endpoint.
+   *
+   * Read paths (account, positions, quotes, order listing) stay open on live
+   * credentials so the dashboard can still show insights; only order
+   * placement and cancellation -- i.e. actually trading and managing a
+   * portfolio -- are blocked. Fails closed on an unknown base URL.
+   */
+  function assertPaperTrading(action) {
+    if (!isPaperTradingUrl(baseUrl)) {
+      throw new TradeRejected(
+        `${action} is blocked: live Alpaca access is read-only (paper trading only). ` +
+          `base_url=${baseUrl || "(unset)"}`
+      );
+    }
   }
 
   /** Return the /v2/clock payload. Only relevant for US equities. */
@@ -109,6 +143,7 @@ export function createAlpacaClient({
    * code paths, not one shared one.
    */
   async function placeOrder(symbol, qty, side, limitPrice, isStopLoss = false) {
+    assertPaperTrading("order placement");
     if (!limitPrice || Number(limitPrice) <= 0) {
       throw new TradeRejected("limit_price is required -- market orders are forbidden by CLAUDE.md");
     }
@@ -223,9 +258,12 @@ export function createAlpacaClient({
   /**
    * Cancel a single order by ID. Returns true if the cancellation was
    * accepted (204 or 200), false otherwise. Does not throw on 404 (already
-   * filled/gone) or any other error.
+   * filled/gone) or any other transport error -- the one exception is a
+   * live (non-paper) base URL, which throws TradeRejected so a
+   * misconfiguration is loud rather than looking like a failed cancel.
    */
   async function cancelOrder(orderId) {
+    assertPaperTrading("order cancellation");
     try {
       const r = await apiDelete(baseUrl + "/v2/orders/" + orderId, { headers: headers(), timeout: 15 });
       return r.status === 200 || r.status === 204;
@@ -235,6 +273,7 @@ export function createAlpacaClient({
   }
 
   async function cancelAllOrders() {
+    assertPaperTrading("bulk order cancellation");
     const r = await apiDelete(baseUrl + "/v2/orders", { headers: headers(), timeout: 15 });
     return r.status;
   }
@@ -242,6 +281,8 @@ export function createAlpacaClient({
   return {
     baseUrl,
     dataUrl,
+    /** False when this client's credentials are live -- read-only, no trading. */
+    tradingEnabled: isPaperTradingUrl(baseUrl),
     headers,
     getMarketStatus,
     getAccount,

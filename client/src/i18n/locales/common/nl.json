@@ -1,9 +1,9 @@
 {
   "header": {
-    "modeBadgeTip": "Actieve handelsmodus — wissel tussen paper en live. Paper is veilig om te testen.",
+    "modeBadgeTip": "Actieve handelsmodus. Paper plaatst orders en beheert de portefeuille; Live is alleen-lezen en toont alleen inzichten.",
     "modeSwitchTitle": "Wissel actieve handelsmodus",
     "modePaper": "Paper Spot Trading",
-    "modeLive": "Live Trading",
+    "modeLive": "Live (alleen lezen)",
     "notLoaded": "Niet geladen",
     "dailyJournal": "📓 Dagjournaal",
     "dailyJournalTip": "Genereer het afsluitende journaal van vandaag als downloadbaar Markdown-document",
@@ -14,7 +14,8 @@
     "themeTitle": "Wissel licht / donker thema",
     "signIn": "👤 Aanmelden",
     "settings": "⚙ Instellingen",
-    "languageTitle": "Taal wijzigen"
+    "languageTitle": "Taal wijzigen",
+    "readOnly": "🔒 Alleen lezen"
   },
   "footer": {
     "tagline": "Autonome crypto paper-spot-handelscockpit — signaalconfluentie, ATR-positiegrootte, alleen limietorders, Alpaca API",
@@ -22,7 +23,7 @@
     "studio": "Ontwikkelstudio:",
     "lastModified": "Laatst gewijzigd:",
     "version": "Versie:",
-    "disclaimer": "⚠ Standaard paper spot trading. Live handelen kan tot echte verliezen leiden — u bent zelf volledig verantwoordelijk voor dat risico.",
+    "disclaimer": "⚠ Alleen paper spot trading — er worden geen live orders geplaatst. Live sleutels zijn alleen-lezen, voor inzichten.",
     "terms": "Gebruiksvoorwaarden",
     "donate": "♥ Steun ons"
   },
@@ -78,10 +79,10 @@
       "title": "Gebruiksvoorwaarden",
       "close": "Sluiten",
       "p1": "<b>CryptoPro Trader is een educatieve, autonome paper-crypto spot-handelscockpit.</b> Het draait standaard in <b>paper spot trading-modus</b> en maakt verbinding met Alpaca's paper trading-API, die orderuitvoering simuleert zonder dat er echt geld op het spel staat.",
-      "p2": "<b>Risico van live handelen.</b> Door de handelsmodus op \"Live\" te zetten, worden orders via uw eigen API-sleutels naar een echte brokerrekening geleid. Live handelen brengt aanzienlijk risico op verlies met zich mee, inclusief het verlies van uw volledige ingelegde kapitaal, en is niet voor elke belegger geschikt. U bent zelf volledig verantwoordelijk voor elke order die deze software in live-modus namens u plaatst, en voor het beoordelen van elk signaal, elke score en elke risicoparameter voordat u dit inschakelt.",
+      "p2": "<b>Geen live trading.</b> Deze applicatie plaatst nooit een order op een echte brokerrekening. De handelsmodus op \"Live\" zetten maakt hem <b>alleen-lezen</b>: saldi, posities, orders en prijzen van je eigen live Alpaca-sleutels kunnen worden getoond voor inzicht, maar orders plaatsen en een portefeuille beheren kan uitsluitend in paper-modus.",
       "p3": "<b>Geen financieel advies.</b> Niets in deze applicatie — inclusief signaalscores, journaalinvoer, onderzoeksnotities of nieuws-/social media-aggregatie — vormt beleggings-, financieel, juridisch of fiscaal advies. Historische of gesimuleerde prestaties getoond in deze app zijn geen indicatie voor toekomstige resultaten.",
       "p4": "<b>Geen garantie.</b> Deze software wordt geleverd \"zoals ze is\", zonder enige vorm van garantie, expliciet of impliciet, inclusief maar niet beperkt tot geschiktheid voor een bepaald doel, nauwkeurigheid of ononderbroken werking. De maker is niet aansprakelijk voor enig verlies, direct of indirect, voortvloeiend uit het gebruik van deze applicatie.",
-      "p5": "<b>Uw verantwoordelijkheid.</b> Door live handelen in te schakelen, risicolimieten aan te passen of echte brokergegevens te koppelen, erkent en aanvaardt u deze risico's en gaat u ermee akkoord dat u handelt naar eigen inzicht en risico."
+      "p5": "<b>Jouw verantwoordelijkheid.</b> Door de agent te draaien, risicolimieten aan te passen of brokergegevens te koppelen, erken en accepteer je deze risico's en ga je ermee akkoord dat je op eigen inzicht en risico handelt."
     }
   }
 }

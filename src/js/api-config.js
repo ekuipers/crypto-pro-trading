@@ -168,6 +168,24 @@
         : "https://paper-api.alpaca.markets";
     }
 
+    // ── Live mode is read-only (Suite workflow rule 30 / EU MiCA) ──────────
+    // Live Alpaca credentials may only ever be READ from: account, positions,
+    // orders and quotes still load so the dashboard keeps giving insight.
+    // Everything that changes state — placing an order, cancelling one,
+    // managing a portfolio — is paper-mode only. Enforced centrally in
+    // apiPost/apiDelete below so a new call site can't quietly bypass it.
+    function isReadOnlyMode() {
+      return getSettings().mode === "live";
+    }
+
+    const READ_ONLY_MSG =
+      "Live Alpaca mode is read-only — it only shows insights. " +
+      "Switch to Paper Spot Trading mode to place orders or manage a portfolio.";
+
+    function assertPaperTrading() {
+      if (isReadOnlyMode()) throw new Error(READ_ONLY_MSG);
+    }
+
     function getHeaders() {
       const s = getSettings();
       return {
@@ -196,6 +214,7 @@
 
     async function apiPost(path, payload) {
       const s = getSettings();
+      assertPaperTrading();
 
       if (!s.apiKey || !s.apiSecret) {
         throw new Error("Add your Alpaca API key and secret in Settings first.");
@@ -223,4 +242,18 @@
       }
 
       return data;
+    }
+
+    // Order cancellation is portfolio management, so it goes through the same
+    // paper-only gate as apiPost. Returns the raw Response — callers only care
+    // about `ok`/status.
+    async function apiDelete(path) {
+      const s = getSettings();
+      assertPaperTrading();
+
+      if (!s.apiKey || !s.apiSecret) {
+        throw new Error("Add your Alpaca API key and secret in Settings first.");
+      }
+
+      return fetch(getBaseUrl() + path, { method: "DELETE", headers: getHeaders() });
     }

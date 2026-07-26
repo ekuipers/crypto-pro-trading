@@ -17,8 +17,14 @@ banner will always read as stale.
 
 CryptoPro Trader trades through the [Alpaca Trading API](https://docs.alpaca.markets/). One Alpaca
 account gives you two independent environments — **paper** (simulated money, unlimited) and **live**
-(real money) — each with its own API key pair and base URL. Get paper trading working end-to-end first;
-only wire up live keys once you trust the strategy.
+(real money) — each with its own API key pair and base URL.
+
+> **Paper trading only.** This project never places an order on a live account. Live credentials are
+> accepted but **read-only**: account, positions, orders and quotes load so the dashboard can still
+> show insights, while order placement and cancellation are blocked in both the Node engine
+> (`src/alpacaClient.js`) and the dashboard (`src/js/api-config.js`). Both guards fail closed — an
+> unset or unrecognised base URL is treated as live. This is a hard rule (Suite workflow rule 30,
+> EU MiCA) and stays in force until MiCA clearance is given.
 
 ### 1. Create an Alpaca account and API keys
 
@@ -26,7 +32,7 @@ only wire up live keys once you trust the strategy.
 2. In the Alpaca dashboard, use the account switcher to select **Paper Trading**.
 3. Go to **API Keys** and generate a paper key pair — copy the **Key ID** and **Secret Key** immediately
    (the secret is shown once and can't be retrieved again, only regenerated).
-4. Repeat later for **Live Trading** when you're ready to go live — live keys require identity
+4. Live keys are optional and only ever used read-only (see the note above) — they require identity
    verification and a funded account.
 
 ### 2. Local development (`.env`)
@@ -37,7 +43,7 @@ Create a `.env` file at the project root (already covered by `.gitignore` — ne
 ```env
 APCA_API_KEY_ID=<your paper key id>
 APCA_API_SECRET_KEY=<your paper secret key>
-APCA_BASE_URL=https://paper-api.alpaca.markets   # https://api.alpaca.markets for live
+APCA_BASE_URL=https://paper-api.alpaca.markets   # the only URL that can place orders; defaults to this when unset
 ```
 
 Install dependencies and verify the connection:
@@ -69,16 +75,18 @@ Vercel environment variables (Production/Preview/Development), not GitHub Enviro
 
 The dashboard's **⚙ Settings** tab has its own **Paper Spot Trading** and **Live Trading** API Key/Secret
 fields, persisted to browser `localStorage` and sent only to Alpaca directly from the browser — these never
-sync to the database and stay in this browser only, even when signed in. These are independent of `.env`/
-GitHub secrets — set them only if you want to place trades or pull live account data from the dashboard UI
-itself. Other Settings fields (trading mode, position limits) and preferences elsewhere in the dashboard
+sync to the database and stay in this browser only, even when signed in. These are independent of `.env`
+— set them only if you want to place paper trades or pull account data from the dashboard UI itself.
+Selecting **Live Trading** puts the dashboard in read-only mode (a 🔒 badge appears in the header):
+insights load, but the trade ticket, Autopilot and every cancel action are disabled. Other Settings fields (trading mode, position limits) and preferences elsewhere in the dashboard
 (theme, last tab, watchlist, backtest-form defaults) do sync to the signed-in account's row in the shared
 Postgres database (`src/js/settings-sync.js`), so they follow you across devices/browsers.
 
-> **Safety:** confirm the connectivity check above and a paper order round-trip work end-to-end on
-> paper (e.g. `node src/runEvaluation.js` dry-run, or a manual order from the dashboard's trade
-> ticket) before ever pointing `APCA_BASE_URL`, a Vercel `live`-environment credential, or the
-> dashboard's Live Trading fields at `https://api.alpaca.markets`.
+> **Safety:** pointing `APCA_BASE_URL` (or the dashboard's mode selector) at live does not enable live
+> trading — it makes the connection read-only. Orders can only be placed against
+> `https://paper-api.alpaca.markets`. Confirm the connectivity check above and a paper order round-trip
+> end-to-end (e.g. `node src/runEvaluation.js` dry-run, or a manual order from the dashboard's trade
+> ticket) before trusting the strategy.
 
 ### 4b. User manual
 
@@ -309,8 +317,7 @@ Dashboard-only client-side logic gets a standalone Node harness in `tests/`. `te
 
 The live trading engine runs on Vercel Cron (`/api/cron/dispatch`, see §6 above) and needs no
 separate server — it's serverless functions on the same Vercel deployment as the dashboard. The
-dashboard itself **used to** be a static file served via GitHub Pages
-(`ekuipers.github.io/crypto-pro-trading/dashboard_professional.html`); as of 2026-07-19 it's a React
+dashboard itself **used to** be a static file served via GitHub Pages; as of 2026-07-19 it's a React
 (Vite) frontend built to `client/dist/` and served by `server.js` (see `## Dashboard` above), so **that
 GitHub Pages URL no longer works** — GitHub Pages can only serve static files, and there is no longer a
 static HTML file to publish. `server.js` (Express, serves `client/dist/`, `src/js/`, `src/css/`,
@@ -343,9 +350,9 @@ switching, sub-tabs) are the exact same unmodified `src/css/*.css` + `src/js/*.j
 `dangerouslySetInnerHTML` and loaded dynamically after React's first render (see `CLAUDE.md › Dashboard`
 for the full architecture, the script-loading timing fix, and why tabs weren't rewritten as JSX yet — no
 browser tool was available to verify a blind rewrite of ~200 render functions). **This also means the old
-GitHub Pages URL (`ekuipers.github.io/crypto-pro-trading/dashboard_professional.html`) no longer works**
-— there is no static file left to publish; the Vercel deployment (already Node-capable) is the live URL
-now, and it needs its build step to run `npm run build` before starting.
+GitHub Pages URL no longer works** — there is no static file left to publish; the Vercel deployment
+(already Node-capable) is the live URL now, and it needs its build step to run `npm run build` before
+starting.
 
 ### Professional dashboard *(primary — `client/src/App.jsx` + `src/js/`)*
 
@@ -514,7 +521,7 @@ alpaca-trading-agent/
 │   ├── favicon.*, apple-touch-icon.png # Static assets (still served directly from here)
 │   └── dashboard_layout.md            # Dashboard layout & changelog (Professional + Portfolio sections)
 ├── client/                    # React (Vite) dashboard shell — replaced views/ (EJS) on 2026-07-19,
-│   │                          # which had itself replaced docs/dashboard_professional.html the same day
+│   │                          # which had itself replaced a static HTML dashboard the same day
 │   ├── index.html              # Vite entry — head content + CSS <link> tags + <div id="root">
 │   └── src/
 │       ├── main.jsx             # ReactDOM.createRoot(...).render(<App/>)

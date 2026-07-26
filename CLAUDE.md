@@ -10,7 +10,7 @@ Year: 2026
 # Workflow rules
 > Master rules shared across all CryptoPro sub-projects: [CryptoPro Suite CLAUDE.md](https://github.com/[username]/crypto-pro-suite/blob/main/CLAUDE.md)
 
-1. **Standing rule:** after every change (code, dashboard, config) update `CLAUDE.md`, `README.md`, `memory/memory.md`, `memory/glossary.md`, and — for dashboard changes — `docs/dashboard_layout.md`. No exceptions.
+1. **Standing rule:** after every change (code, dashboard, config) update `CLAUDE.md`, `README.md`, `memory/memory.md`, `memory/glossary.md` (terms and acronyms), and — for dashboard changes — `docs/dashboard_layout.md`. No exceptions.
 2. Backend cron jobs should be user bound. Resulting reports should be stored related to the user in the database. Every user can then manage their own schedules set via the front end in Command center/Scheduled Jobs.
 3. Always scan the Suite roadmap first.
 
@@ -55,6 +55,7 @@ Autonomous paper-crypto agent on Alpaca. Crypto trades 24/7 — no weekday/marke
 Live schedule is the Vercel Pro hourly dispatcher (see "Cron cutover" above) — `cron_config`'s per-job `hour_utc`, dashboard-adjustable via the Scheduled Jobs panel.
 
 ## Hard rules — never break (full table + config keys: archive › Hard Rules)
+- **Paper trading only — live Alpaca access is read-only** (Suite workflow rule 30, EU MiCA). Reads (account, positions, orders, quotes) stay open on live credentials so the dashboard keeps showing insights; order placement and cancellation are paper-only. Enforced in two places, both fail closed on an unknown/unset base URL: `src/alpacaClient.js`'s `assertPaperTrading()` (guards `placeOrder`/`cancelOrder`/`cancelAllOrders`, keyed on `isPaperTradingUrl(baseUrl)` — hostname must be exactly `paper-api.alpaca.markets`; `trade.js`'s `BASE_URL` defaults to that host when `APCA_BASE_URL` is unset) and the dashboard's `api-config.js` `assertPaperTrading()` (guards `apiPost`/`apiDelete`, keyed on `getSettings().mode === "live"`). Autopilot already refused live mode. Header shows a 🔒 read-only badge (`#modeReadOnly`) while Live is selected.
 - Preserve ≥20% cash. Per-symbol caps (`config.json › portfolio_caps.caps`, % of equity): BTC 30, ETH 15, ADA/SOL 10, DOGE 8, LTC/DOT 6, LINK/AVAX/AAVE 5, default 5.
 - **Limit orders only** (≤0.2% from ask; 0.5% for stops, clamped to band edge, never self-rejected). **All orders via `src/trade.js`** — direct API calls forbidden. Stop dedup: check `getOpenOrders`, cancel-replace wider after 2 cycles.
 - Long stop = previous 4H swing low (20 bars, ≤8% below entry; fallback −5%). Short stop = +5% adverse. Trailing stop arms at +2.5% profit, trails 3% below HWM (persisted in `data/positions_state.json`). Never move a stop away from entry.

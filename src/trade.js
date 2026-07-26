@@ -17,14 +17,23 @@ import "./env.js"; // side effect: load .env into process.env
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { createAlpacaClient, TradeRejected as _TradeRejected, isCrypto as _isCrypto } from "./alpacaClient.js";
+import {
+  createAlpacaClient,
+  TradeRejected as _TradeRejected,
+  isCrypto as _isCrypto,
+  isPaperTradingUrl as _isPaperTradingUrl,
+} from "./alpacaClient.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.join(__dirname, "..");
 
 export const ALPACA_KEY = process.env.APCA_API_KEY_ID;
 export const ALPACA_SECRET = process.env.APCA_API_SECRET_KEY;
-export const BASE_URL = process.env.APCA_BASE_URL;
+// Defaults to the paper endpoint when unset: Suite workflow rule 30 (EU MiCA)
+// forbids real orders, so an unconfigured deployment must land on paper rather
+// than on nothing (or, worse, on a live host).
+export const PAPER_BASE_URL = "https://paper-api.alpaca.markets";
+export const BASE_URL = process.env.APCA_BASE_URL || PAPER_BASE_URL;
 export const DATA_URL = "https://data.alpaca.markets";
 
 // ---------------------------------------------------------------------------
@@ -76,3 +85,7 @@ export const {
 
 export const isCrypto = _isCrypto;
 export const TradeRejected = _TradeRejected;
+export const isPaperTradingUrl = _isPaperTradingUrl;
+
+/** True when the env-var credentials point at Alpaca's paper endpoint. */
+export const TRADING_ENABLED = defaultClient.tradingEnabled;

@@ -8,6 +8,7 @@ import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { stubFetch } from "./testUtils/fetchStub.js";
 import * as trade from "./trade.js";
+import { createAlpacaClient, isPaperTradingUrl } from "./alpacaClient.js";
 import { STOP_LOSS_LIMIT_BAND_PCT } from "./risk.js";
 
 let stub;
@@ -180,5 +181,64 @@ describe("cancelOrder", () => {
     stub = stubFetch([{ status: 404, body: { message: "order not found" } }]);
     const result = await trade.cancelOrder("order-1");
     assert.equal(result, false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Live Alpaca access is read-only (Suite workflow rule 30 / EU MiCA).
+// Reads stay open so the dashboard keeps showing insights; anything that
+// places an order or manages a portfolio is paper-only and fails closed.
+// ---------------------------------------------------------------------------
+describe("live mode is read-only", () => {
+  const liveClient = () =>
+    createAlpacaClient({
+      keyId: "k",
+      secret: "s",
+      baseUrl: "https://api.alpaca.markets",
+      symbolCap: () => 1,
+    });
+
+  test("isPaperTradingUrl recognises only the paper host", () => {
+    assert.equal(isPaperTradingUrl("https://paper-api.alpaca.markets"), true);
+    assert.equal(isPaperTradingUrl("https://PAPER-API.alpaca.markets/v2"), true);
+    assert.equal(isPaperTradingUrl("https://api.alpaca.markets"), false);
+  });
+
+  test("an unset or malformed base URL fails closed (treated as live)", () => {
+    assert.equal(isPaperTradingUrl(undefined), false);
+    assert.equal(isPaperTradingUrl(""), false);
+    assert.equal(isPaperTradingUrl("paper-api.alpaca.markets"), false);
+    // Not the paper host despite containing its name.
+    assert.equal(isPaperTradingUrl("https://api.alpaca.markets/paper-api.alpaca.markets"), false);
+  });
+
+  test("placeOrder is blocked on live credentials, before any network call", async () => {
+    stub = stubFetch([orderAcceptedResponse()]);
+    await assert.rejects(
+      () => liveClient().placeOrder("BTC/USD", 1, "buy", 100),
+      (e) => e instanceof trade.TradeRejected && /read-only/.test(e.message)
+    );
+    assert.equal(stub.calls.length, 0);
+  });
+
+  test("cancelOrder and cancelAllOrders are blocked on live credentials", async () => {
+    stub = stubFetch([{ status: 200, body: {} }]);
+    const c = liveClient();
+    await assert.rejects(() => c.cancelOrder("order-1"), (e) => e instanceof trade.TradeRejected);
+    await assert.rejects(() => c.cancelAllOrders(), (e) => e instanceof trade.TradeRejected);
+    assert.equal(stub.calls.length, 0);
+  });
+
+  test("read-only endpoints still work on live credentials (insights stay available)", async () => {
+    stub = stubFetch([accountResponse(50_000), { status: 200, body: [{ symbol: "BTC/USD" }] }]);
+    const c = liveClient();
+    assert.equal((await c.getAccount()).equity, "50000");
+    assert.equal((await c.getPositions()).length, 1);
+    assert.equal(c.tradingEnabled, false);
+  });
+
+  test("the default env-bound client is paper and keeps trading enabled", () => {
+    assert.equal(trade.BASE_URL, trade.PAPER_BASE_URL);
+    assert.equal(trade.TRADING_ENABLED, true);
   });
 });
