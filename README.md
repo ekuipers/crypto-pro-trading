@@ -4,18 +4,12 @@
 A fully automated crypto trading agent running on Alpaca. The agent evaluates pre-selected crypto symbols every hour using a 6-point Signal Confluence strategy, places limit orders
 when a score threshold is met, and journals every decision.
 
-**Node.js + React, no Python, no GitHub Actions (2026-07-25):** the Node engine
-(`src/`, 310-test `node --test` suite via `npm test`) is the sole trading
-engine, running as Vercel Cron-triggered HTTP endpoints
-(`src/cronRoutes.js` + `vercel.json`, `CRON_EXECUTE=true`). The original Python
-engine and every GitHub Actions workflow (`trade.yml`, `watchdog.yml`,
-`forward.yml`, `node-shadow-run.yml`) have been deleted outright — this
-project has no `.github/` directory and no `.py` files at all. See
-`CLAUDE.md`'s "Node.js port" section for the cutover evidence chain. One
-capability was retired along with Python and not re-implemented: the daily
-walk-forward backtest (`forward.yml` + `scripts/walkforward_evaluate.py`) has
-no Node port, so `reports/walkforward_latest.json` is now frozen and the
-dashboard's Backtest-tab staleness banner will read as permanently stale.
+**Node.js + React, deployed on Vercel with a Supabase (Postgres) database.** The Node engine
+(`src/`, 310-test `node --test` suite via `npm test`) is the sole trading engine, running as
+Vercel Cron-triggered HTTP endpoints (`src/cronRoutes.js` + `vercel.json`, `CRON_EXECUTE=true`).
+There is no Python and no CI/CD workflow anywhere in this project. One capability doesn't exist
+here: walk-forward backtesting has no implementation, so the dashboard's Backtest-tab staleness
+banner will always read as stale.
 
 ---
 
@@ -117,12 +111,9 @@ for links to the other CryptoPro apps.
 ### 6. Scheduled jobs via Vercel Cron (live paper engine)
 
 `GET /api/cron/dispatch` is a dispatcher that checks each job's dashboard-configured hour (Command tab's
-"☁ Scheduled Jobs" panel) and runs it once per UTC day at that hour — now the **live** engine, having
-replaced the GitHub Actions workflows (`CLAUDE.md` roadmap item 3 has the cutover-confirmation evidence).
-This project is on **Vercel Pro**, so `vercel.json`'s own cron entry drives the dispatcher directly, hourly
-(`0 * * * *`) — no GitHub Actions involved in triggering it. (The project briefly ran a GitHub Actions
-hourly pinger as a Hobby-plan workaround; removed once the plan was upgraded.) Three env vars control it,
-all optional:
+"☁ Scheduled Jobs" panel) and runs it once per UTC day at that hour — this is the live trading engine.
+This project is on **Vercel Pro**, so `vercel.json`'s own cron entry drives the dispatcher directly,
+hourly (`0 * * * *`). Three env vars control it, all optional:
 
 - `CRON_SECRET` — Vercel sends `Authorization: Bearer $CRON_SECRET` with every scheduled call; without
   it, scheduled runs 401 (the endpoints still work for a manual trigger via `TRADER_OWNER_UID`).
@@ -130,9 +121,8 @@ all optional:
   "☁ Scheduled Jobs" panel (Command tab) to view/adjust status, schedule, or use "Run now". Unset means
   that panel is disabled for everyone — accounts are shared Suite-wide, so this isn't opened to "any
   signed-in account".
-- `CRON_EXECUTE` — **`true` in production.** These routes place real paper orders now that the parity
-  checkpoint in `CLAUDE.md` passed and the cutover is confirmed live. Leave unset in any environment
-  where real order placement isn't wanted (local dev, a fork, etc.).
+- `CRON_EXECUTE` — **`true` in production.** These routes place real paper orders when set. Leave unset
+  in any environment where real order placement isn't wanted (local dev, a fork, etc.).
 
 ---
 
@@ -150,14 +140,13 @@ flowchart LR
     B --> F{Action? BUY/SHORT/SELL/COVER/HOLD}
     F -->|BUY/SHORT/COVER + --execute| G["src/trade.js\nplace_order + rule enforcement"]
     G --> C
-    F -->|HOLD or dry-run| H["journal/*.md (local CLI) or\nPostgres trader_journal (Vercel)"]
+    F -->|HOLD or dry-run| H["Postgres trader_journal"]
     G --> H
   end
 ```
 
-Note: the walk-forward research/validation loop (`walkforward_evaluate.py`, `forward.yml`) that used to
-run alongside this was deleted 2026-07-25 along with the rest of the Python engine and has no Node port —
-`reports/*.json`/`*.md` are a frozen historical snapshot, not a live-updating pipeline.
+Note: there is no walk-forward backtesting pipeline in this project — it has no Node port and was removed
+along with the rest of the Python engine.
 
 ---
 
@@ -205,16 +194,12 @@ The agent uses a **6-point Signal Confluence** scoring system applied to 15-min 
 filtered by 4H trend and daily regime. Full strategy detail lives in
 `skills/crypto-trader/SKILL.md`.
 
-The agent's operating knowledge is split across five skills in `skills/` (2 knowledge
-playbooks + 3 scheduled-routine procedures; the last two skills were added 2026-07-07):
+The agent's operating knowledge lives in two skills in `skills/`:
 
 | Skill | Role |
 |-------|------|
 | `crypto-trader/SKILL.md` | Execution playbook — scoring, Wyckoff, entries/exits, sizing |
 | `crypto-catalysts/SKILL.md` | News & event interpretation — T1/T2/T3 catalyst severity ladder (hacks, depegs, unlocks, ETF flows, funding extremes, macro windows). Defensive only: news can veto/downsize entries or flag positions for close, never justify an entry below the score gates |
-| `hourly-research-SKILL.md` | Top-of-hour research routine — per-symbol TA + news block appended to the daily journal (research-only, no orders) |
-| `morning-brief-SKILL.md` | Daily 07:00 portfolio brief |
-| `daily-journal-SKILL.md` | Daily 23:21 closing journal |
 
 ### Signal Confluence Table
 
@@ -227,7 +212,7 @@ playbooks + 3 scheduled-routine procedures; the last two skills were added 2026-
 | 5 | Volume | ≥1.2× 20-bar avg +1 | <0.7× avg −0.5 |
 | 6 | 4H trend | 20 EMA > 50 EMA on 4H +1 | 20 EMA < 50 EMA on 4H −1 |
 
-**Long entry rules (loosened 2026-06-19):**
+**Long entry rules:**
 - uptrend/mixed, score ≥ 3.5 → BUY full size
 - uptrend/mixed, score ≥ 2.5 (and < 3.5) → BUY half-size
 - confirmed downtrend, score ≥ 4.0 → BUY half-size (counter-trend; `downtrend_long_score_threshold`)
@@ -248,7 +233,7 @@ All thresholds are configured in `config.json` — edit there, not in source fil
 
 - **Limit orders only** — market orders are rejected by `src/trade.js`.
 - **Limit band** — limit price must be within 0.2% of current ask for normal orders, 0.5% for stop-loss orders (`config.json > risk.limit_band_pct` / `stop_loss_limit_band_pct`).
-- **Long stop-loss (4H swing low)** — TA-driven (set 2026-06-19): close immediately when price falls to/through the previous 4H range low — the lowest low of the last `risk.swing_low_lookback_bars` (20) completed 4H bars, less a small buffer, clamped to at most `risk.swing_low_max_stop_pct` (8%) below entry (`risk.stop_loss_mode = "swing_low_4h"`). Falls back to the fixed −5% (`risk.stop_loss_pct`) only when 4H history is unavailable.
+- **Long stop-loss (4H swing low)** — TA-driven: close immediately when price falls to/through the previous 4H range low — the lowest low of the last `risk.swing_low_lookback_bars` (20) completed 4H bars, less a small buffer, clamped to at most `risk.swing_low_max_stop_pct` (8%) below entry (`risk.stop_loss_mode = "swing_low_4h"`). Falls back to the fixed −5% (`risk.stop_loss_pct`) only when 4H history is unavailable.
 - **Trailing stop** — activates at +2.5% profit, then trails 3% below the high-water mark (HWM). HWM is persisted in `data/positions_state.json` and survives evaluation cycles. Once active, the trailing stop supersedes the swing-low stop.
 - **Stop-loss deduplication** — before placing any SELL/COVER stop order, `get_open_orders(symbol)` is called. If a pending order exists, re-sending is skipped. After `stop_loss_escalation_cycles` (2) unfilled cycles, the stale order is cancelled and replaced with a slightly wider limit (time-escalation via `stop_loss_limit_price(ask, cycles_open)`).
 - **Short stop-loss** — cover immediately if a short position rises 5% from entry. Enforced by `risk.should_cover_short()`.
@@ -256,11 +241,11 @@ All thresholds are configured in `config.json` — edit there, not in source fil
 - **TA cover (short)** — COVER when Signal Confluence score rises to ≥ +2 (bullish flip).
 - **Regime gate (long)** — in uptrend/mixed, BUY entries allowed at score ≥ 2.5 (half) / ≥ 3.5 (full). In a confirmed daily downtrend (last close < 50-day SMA and 20-day SMA < 50-day SMA), only a **half-size counter-trend long** at score ≥ 4.0 is allowed; otherwise longs are blocked.
 - **Regime gate (short)** — SHORT entries only in a confirmed daily downtrend. No shorts in uptrend or mixed regime.
-- **Correlation budget** — max open positions total and max per tier are **user-configurable** (defaults loosened 2026-06-19 to 4 total, 3 per tier; Tier-1: BTC/USD + ETH/USD; Tier-2: all other alts). New entries are blocked when either limit is hit. The Node engine reads the caps from `config.json › risk.max_open_positions` / `max_positions_per_tier` (enforced by `src/risk.js`'s `correlationBudgetAllows()`); the dashboard Autopilot reads them from **Settings › 🔗 Correlation Budget**.
+- **Correlation budget** — max open positions total and max per tier are **user-configurable** (defaults: 4 total, 3 per tier; Tier-1: BTC/USD + ETH/USD; Tier-2: all other alts). New entries are blocked when either limit is hit. The Node engine reads the caps from `config.json › risk.max_open_positions` / `max_positions_per_tier` (enforced by `src/risk.js`'s `correlationBudgetAllows()`); the dashboard Autopilot reads them from **Settings › 🔗 Correlation Budget**.
 - **Daily drawdown gate** — if equity drops ≥ 3% vs. day-open equity, capital preservation mode activates: all new entries are blocked and existing stops tighten to 3%. State persists in `data/positions_state.json` and resets at midnight UTC.
 - **ATR-based sizing** — `qty = (equity × 1%) / (ATR × 1.5)`, hard-capped by per-symbol cap in `config.json > portfolio_caps.caps`. Applied identically for long and short entries.
-- **Manual trade-ticket cap check** *(bugfix, 2026-07-18)* — the dashboard's manual Execute Paper Trade dialog (`submitPaperTrade()`) previously only validated qty/price were positive; it never checked the per-symbol portfolio cap, so a BUY could be entered and submitted well past its cap, tripping the Command tab's "STOP" trading-permission indicator only after the fact. `tradeCapProjection()` now projects the position's post-order notional against `portCapFor(symbol)` × equity — shown live in the ticket as you type, and a BUY that would breach the cap is blocked before submission with the max additional qty allowed at that price. Mirrors the cap enforcement `scripts/trade.py` already applies to automated orders.
-- **Partial take-profit + break-even ladder** *(2026-07-09)* — at +1R (R = entry − swing-low stop) sell `risk.partial_tp_fraction` (50%) and raise the remaining stop to breakeven; the remainder rides the trailing stop. Fires once per position (`partial_tp_done`/`breakeven_stop` in `data/positions_state.json`). **Bug #6 fix (2026-07-18):** the fill-history reconciliation that restores this flag after a lost state file (`reconcile_positions_from_fills()`) was misreading fee-rounded full-position closes (Alpaca SELL fills land ~0.1–0.25% short of the matching BUY qty) as partial scale-outs, so brand-new positions were pinning the stop to breakeven on their very first evaluation — causing fast, mostly-losing round trips. Fixed by comparing leftover lot qty to a tolerance relative to the lot's original size instead of a fixed epsilon; see `memory/memory.md`. **Bug #7 fix (2026-07-18):** a full close via any stop-loss-type exit (swing-low stop, trailing stop, breakeven-after-partial-TP) never called `ps.clear_position()` — only a non-stop-loss TA exit did — so the stale `partial_tp_done`/`breakeven_stop`/`stop_order_id` from a closed position survived indefinitely and got misapplied to the next, unrelated position opened for that symbol. The dashboard Autopilot already pruned this correctly every cycle (`if (!heldSyms.includes(k)) delete hwm[k]/partialTp[k]/entryTime[k]`); Python gained the equivalent `prune_stale_position_state()` pass in `run_evaluation.py`, run once per evaluation right after the live positions fetch. **Bug #8 fix (2026-07-18):** the Autopilot's cross-engine `partial_tp_done`/`entry_time_iso` merge (so it agrees with the Python cron on "has the +1R scale-out already fired for this position") depended on `fetch()`-ing `data/positions_state.json` as a relative same-origin file — the same class of bug just fixed for the Glossary tab, silently blocked when the dashboard is opened via `file://`. When the merge silently no-opped, neither engine's local flag was set, so the Autopilot re-fired its own 50%-of-remainder partial-TP sell every cycle it ran — a halving cascade visible in fill history (e.g. AAVE: 6.54 → 0.82 → 0.41 → 0.20 → 0.10 → 0.05 → 0.01; LINK saw 24+ partial sells on one position) — pinning the stop to breakeven on a sliver of the original position long before a real trailing stop could ever arm, which is what produced fast, no-profit exits on positions the Autopilot itself had opened. Fixed by adding `apReconcileFromFills()` to `docs/dashboard_professional.html`: the same FIFO walk as Python's `reconcile_positions_from_fills()`, run against Alpaca's own FILL activity ledger via the existing `apiFetch()`/`edgeFetchAllFills()` (a normal cross-origin HTTPS call, unaffected by `file://`) instead of the fragile state-file merge.
+- **Manual trade-ticket cap check** *(bugfix, 2026-07-18)* — the dashboard's manual Execute Paper Trade dialog (`submitPaperTrade()`) previously only validated qty/price were positive; it never checked the per-symbol portfolio cap, so a BUY could be entered and submitted well past its cap, tripping the Command tab's "STOP" trading-permission indicator only after the fact. `tradeCapProjection()` now projects the position's post-order notional against `portCapFor(symbol)` × equity — shown live in the ticket as you type, and a BUY that would breach the cap is blocked before submission with the max additional qty allowed at that price. Mirrors the cap enforcement the Node engine already applies to automated orders.
+- **Partial take-profit + break-even ladder** *(2026-07-09)* — at +1R (R = entry − swing-low stop) sell `risk.partial_tp_fraction` (50%) and raise the remaining stop to breakeven; the remainder rides the trailing stop. Fires once per position (`partial_tp_done`/`breakeven_stop` in `data/positions_state.json`). **Bug #6 fix (2026-07-18):** the fill-history reconciliation that restores this flag after a lost state file (`reconcile_positions_from_fills()`) was misreading fee-rounded full-position closes (Alpaca SELL fills land ~0.1–0.25% short of the matching BUY qty) as partial scale-outs, so brand-new positions were pinning the stop to breakeven on their very first evaluation — causing fast, mostly-losing round trips. Fixed by comparing leftover lot qty to a tolerance relative to the lot's original size instead of a fixed epsilon; see `memory/memory.md`. **Bug #7 fix (2026-07-18):** a full close via any stop-loss-type exit (swing-low stop, trailing stop, breakeven-after-partial-TP) never called `ps.clear_position()` — only a non-stop-loss TA exit did — so the stale `partial_tp_done`/`breakeven_stop`/`stop_order_id` from a closed position survived indefinitely and got misapplied to the next, unrelated position opened for that symbol. The dashboard Autopilot already pruned this correctly every cycle (`if (!heldSyms.includes(k)) delete hwm[k]/partialTp[k]/entryTime[k]`); the cron engine gained the equivalent `pruneStaleState()` pass, run once per evaluation right after the live positions fetch. **Bug #8 fix (2026-07-18):** the Autopilot's cross-engine `partial_tp_done`/`entry_time_iso` merge (so it agrees with the cron engine on "has the +1R scale-out already fired for this position") depended on `fetch()`-ing `data/positions_state.json` as a relative same-origin file — the same class of bug just fixed for the Glossary tab, silently blocked when the dashboard is opened via `file://`. When the merge silently no-opped, neither engine's local flag was set, so the Autopilot re-fired its own 50%-of-remainder partial-TP sell every cycle it ran — a halving cascade visible in fill history (e.g. AAVE: 6.54 → 0.82 → 0.41 → 0.20 → 0.10 → 0.05 → 0.01; LINK saw 24+ partial sells on one position) — pinning the stop to breakeven on a sliver of the original position long before a real trailing stop could ever arm, which is what produced fast, no-profit exits on positions the Autopilot itself had opened. Fixed by adding `apReconcileFromFills()` to `src/js/edge-insights.js`: the same FIFO walk as the cron engine's `reconcilePositionsFromFills()`, run against Alpaca's own FILL activity ledger via the existing `apiFetch()`/`edgeFetchAllFills()` (a normal cross-origin HTTPS call, unaffected by `file://`) instead of the fragile state-file merge.
 - **Stale-position exit** *(2026-07-09)* — positions older than `risk.max_hold_hours` (48) with an unarmed trailing stop and a live score below the half-size gate are sold at the normal limit band (winners exempt). Entry time tracked as `entry_time_iso`.
 - **Position rotation** *(2026-07-09)* — at a full correlation budget, a blocked candidate scoring ≥ `strategy.rotation_min_score` (4.0) and ≥ `rotation_score_margin` (2.0) above the weakest open holding (which must score ≤ 0) replaces it in the same cycle. Config-flagged `strategy.rotation_enabled`; exits execute before entries.
 - **Over-budget reconciliation** *(2026-07-09)* — a `BUDGET EXCEEDED n/m` journal warning fires whenever open positions exceed the budget; optional trim via `risk.enforce_budget_on_open_positions` (default false) sells the weakest overflow position. The dashboard Command tab mirrors this with a red chip.
@@ -274,7 +259,7 @@ All thresholds are configured in `config.json` — edit there, not in source fil
 
 | Module | Purpose |
 |--------|---------|
-| `src/runEvaluation.js` | Core evaluation loop — fetches bars, scores signals, decides BUY/SELL/HOLD, applies trailing stop + dedup + correlation budget + drawdown gate, places orders, writes journal. Bar fetch passes explicit `start`, `end = now − 1 period` (exclude in-progress bar) and `sort=desc` then reverses to chronological — without `sort=desc` Alpaca returns the *oldest* N bars of the window (daily bars were 54 d stale until 2026-06-11). |
+| `src/runEvaluation.js` | Core evaluation loop — fetches bars, scores signals, decides BUY/SELL/HOLD, applies trailing stop + dedup + correlation budget + drawdown gate, places orders, writes journal. Bar fetch passes explicit `start`, `end = now − 1 period` (exclude in-progress bar) and `sort=desc` then reverses to chronological — without `sort=desc` Alpaca returns the *oldest* N bars of the window, causing chronic stale-bar regressions. |
 | `src/trade.js` | Single gateway for all orders — enforces limit-only, limit-band (wider for stop-loss), position-cap, and crypto 24/7 rules. Exposes `getOpenOrders()`, `cancelOrder()`, `getOrder()`. |
 | `src/indicators.js` | Pure-function TA library — EMA, SMA, RSI, MACD, Bollinger Bands, ATR, signal_score, plus informational ADX (trend strength) and OBV trend (volume flow) — journal-only, not scored |
 | `src/risk.js` | Pure-function risk checks — position-cap, limit-band, stop-loss, trailing stop, correlation budget, daily drawdown gate, stop-loss limit-price helpers, plus (2026-07-09) trade economics (`spreadPct`, `roundTripCostPct`, `netRr`), partial-TP (`shouldPartialTp`), stale exit (`isStalePosition`), and rotation (`rotationAllows`) — all loaded from `config.json` |
@@ -284,12 +269,10 @@ All thresholds are configured in `config.json` — edit there, not in source fil
 | `src/symbols.js` | Canonical symbol notation — single `toSlash()` converter (`BTCUSD → BTC/USD`, USDT/USDC/USD quotes, longest match first). The project-wide notation is the slash pair `BASE/QUOTE`; Alpaca's no-slash form exists only at the API boundary. Mirrors the dashboard's `toSlash()`. |
 | `src/env.js` | Loads `.env` into `process.env` (`loadEnv()`) |
 
-**No Python, no GitHub Actions (2026-07-25):** this table replaces what used to be a `scripts/*.py` table. There is no `scripts/` directory, no `requirements.txt`, and no `.github/` directory in this project anymore — the Node engine above is the only trading engine, and `npm test` is the only test suite.
-
 ### Usage
 
 ```bash
-# Dry-run (no orders placed, writes to local data/positions_state.json + journal/*.md)
+# Dry-run (no orders placed; writes to local data/positions_state.json — production state lives in Postgres)
 node src/runEvaluation.js
 
 # Execute mode (orders submitted to Alpaca)
@@ -322,21 +305,6 @@ Dashboard-only client-side logic gets a standalone Node harness in `tests/`. `te
 
 ---
 
-## GitHub Actions Automation
-
-**None. This project has no `.github/` directory.** Live trading (evaluate/watchdog/daily-summary)
-runs entirely on the Node/Vercel engine — see
-[§6 Scheduled jobs via Vercel Cron](#6-scheduled-jobs-via-vercel-cron-live-paper-engine).
-`trade.yml`/`watchdog.yml` (the original Python live-trading workflows) were deleted 2026-07-25 after
-a confirmed automatic multi-cycle cutover track record (`CLAUDE.md`'s "Node.js port" section has the
-evidence chain); `forward.yml` (walk-forward backtesting) and `node-shadow-run.yml` (Python/Node parity
-monitoring, only useful during the cutover) were deleted the same day once the user confirmed every
-CryptoPro project had moved to Node.js+React and Python/GitHub Actions were no longer needed anywhere.
-Walk-forward backtesting has no Node replacement — `reports/walkforward_latest.json` is a frozen
-historical snapshot from the last run before deletion.
-
----
-
 ## Hosting
 
 The live trading engine runs on Vercel Cron (`/api/cron/dispatch`, see §6 above) and needs no
@@ -358,58 +326,6 @@ hosting platform's default `npm install` (root only) never installs `client/node
 `npm run build` therefore runs `npm --prefix client install && npm --prefix client run build`, not just
 `npm --prefix client run build`, so `vite` is guaranteed to be present before it's invoked (fixed
 2026-07-19 — see `memory/memory.md` for the "vite: command not found" Vercel failure this caused).
-
----
-
-## Journal
-
-One Markdown file per calendar day in `journal/YYYY-MM-DD.md`, following `journal/_template.md`.
-
-The bot appends three types of block:
-
-1. **`## Evaluation HH:MM GMT+2`** — written once per `trade.yml` run (currently once/day at 12:02 UTC, cost-throttled — see `CLAUDE.md` "Schedule"). Contains a one-line decision per symbol plus the full indicator breakdown for each.
-2. **`## Research HH:MM GMT+2`** — market research block written on the hour.
-3. **`## Daily Summary`** — written once at end of day (23:21 GMT+2).
-
-Example journal block structure:
-```
-## Evaluation 14:23 GMT+2
-
-- BTC/USD HOLD score=+2.0 ask=$97340.0000 (HOLD 0.0312 @ $95100.0000 (2.36%), score=2.0)
-    score   : +2.0
-    ema_x   : golden
-    rsi     : 54.32
-    macd    : line=120.4 sig=98.2 hist=22.2 (BULLISH FLIP)
-    bb      : lower=96000 mid=97200 upper=98400 bw=0.0240 pb=0.56 trend=widening
-    atr     : 320.0000  stop_1.5x=480.0000
-    4h      : golden
-    daily   : ma20=95000 ma50=90000 last=97340 regime=uptrend
-    signals :
-      ema_cross:    GOLDEN (20>50, +1)
-      ...
-
-### No orders submitted
-```
-
----
-
-## Walk-Forward Reports
-
-Stored in `reports/` as paired `*.json` + `*.md` files, timestamped in UTC.
-
-The backtester uses the same score thresholds as live trading (≥ 4 full size, = 3 half size),
-loaded from `config.json`, so backtest results reflect actual strategy behaviour.
-
-Latest report (`walkforward_20260514T103155Z`) summary — 23 windows, 2024-01-01 → 2026-05-01:
-
-| Timeframe | Symbol    | Avg Sharpe | Median MDD |
-|-----------|-----------|-----------|-----------|
-| 1H        | BTC/USD   | +0.38     | −0.53%    |
-| 1H        | ETH/USD   | −0.30     | −0.74%    |
-| 4H        | BTC/USD   | −0.00     | −0.42%    |
-| 4H        | ETH/USD   | −1.22     | −0.60%    |
-| 1D        | BTC/USD   | +0.27     | −0.36%    |
-| 1D        | ETH/USD   | −0.97     | −0.58%    |
 
 ---
 
@@ -456,7 +372,7 @@ Key features:
 - **🐦 Socials sub-tab (Command)** *(roadmap 2026-07-09, v2026-07-09.6; sources fixed 2026-07-10, v2026-07-10.1)* — crypto posts + stats from **14 curated accounts with > 0.5M followers** (Elon Musk, Binance, CZ, Coinbase, Vitalik Buterin, Michael Saylor, Justin Sun, Watcher.Guru, Whale Alert, Bitcoin Magazine, Cointelegraph, Pompliano, Voorhees, Novogratz). X/Twitter has no keyless API and blocks CORS, so the tab splits the job: **account stats are live** via the keyless **fxtwitter API** (`api.fxtwitter.com`, CORS-open — real follower and total-tweet counts; a `*` marks the static fallback snapshot when the call fails), while **post text** is fetched per account in reliability order through the keyless `rss2json.com` bridge: **the account's official Telegram mirror first** (via the public RSS-Bridge TelegramBridge on `t.me/s/<channel>` — Binance, Watcher.Guru, Whale Alert, and Cointelegraph have one; their posts are marked **TG** and link to Telegram), then **Nitter-mirror RSS as best-effort** (every public Nitter instance now bot-walls or user-agent-whitelists its RSS — the 2026-07-10 bugfix also rejects the fake *"RSS reader not yet whitelisted!"* error feed xcancel serves with HTTP 200, which previously rendered as tweets). Accounts with no reachable source show a red ✕ chip, stats stay live, and the tab never blanks. **Retweets and media-only Telegram posts are skipped**; generalist accounts (e.g. @elonmusk) are filtered to crypto-keyword posts only. Posts get the same **T1/T2 catalyst badges**, coin chips, and **⚡ Key only** filter as News; per-account stat chips show handle, live follower count, and posts fetched (with a tg/tw source suffix), and the status line totals reachable timelines, live-stat coverage, and combined reach in millions of followers. 10-min cache, ↻ Refresh forces. X links open the original post on x.com. Social flow is a defensive input only — it never justifies an entry below the score gates. **Bug investigation, 2026-07-13:** re-verified every public Nitter mirror (8 hosts from the status.d420.de tracker, plus X's own syndication API) — all are dead or CORS-locked to `platform.twitter.com`, confirming this is a platform limitation with no keyless client-side workaround, not a code bug. The 4 Telegram-mirrored accounts (Binance, Watcher.Guru, Whale Alert, Cointelegraph) remain the only sources that reliably deliver real posts; the dead-mirror fallback and feed-title guard are covered by a new offline unit test (`tests/test_socials_fetch.js`, run via `node tests/test_socials_fetch.js`) that exercises the exact production fetch/parse logic against mocked responses.
 - **📖 Glossary sub-tab (Command)** *(roadmap 2026-07-18; DB-backed 2026-07-24, scope corrected to Acronyms + Trading Terms only same day)* — renders the trading-term/acronym reference directly in the dashboard, one click away instead of living only in the repo. Fetches `GET /api/glossary` (`src/glossaryRoutes.js`), backed by a new Postgres `glossary` table (`src/db.js`) that `server.js` syncs on every boot from `memory/glossary.md`'s **"Acronyms & Abbreviations" and "Trading Terms" sections only** (`src/glossaryExtract.js`) — the rest of that file is a dated implementation changelog (bug fixes, feature notes), not glossary content, and is deliberately excluded from what's served. `memory/glossary.md` stays the full edit source; only the DB row (and what it's synced from) changed. Renders the small markdown subset the content uses — headers, tables, `**bold**`, `` `code` ``, `---` rules — with a search box that filters table rows/paragraphs by substring match (section headers stay visible). 5-min cache, ↻ Refresh forces a re-read. **Superseded fallback (bugfix 2026-07-18 → DB-backed 2026-07-24):** the original bugfix targeted browsers blocking `fetch()` of a local sibling file under `file://`, but `server.js` never statically served `memory/` at all — so in production the tab was silently stuck on the small built-in fallback permanently, `file://` or not. `/api/glossary` is reachable in production; the same small built-in reference (curated acronyms + core trading terms — already scoped identically to the two sections above) still covers the case where the API call itself fails, with a status line explaining why and inviting a retry.
 - **🤖 Autopilot controls always in sight** *(roadmap 2026-07-10 item 11 v2, v2026-07-10.3)* — the Autopilot controls (toggle, interval selector, ⛔ kill switch, status line) sit at the very top of the Command tab, **above the trading-permission indicator**; the Autopilot panel at the bottom of the page keeps the description and activity log.
-- **🛑 Stop watchdog** *(roadmap 2026-07-10 item 7)* — checks only open-long exit levels (trailing stop from the persisted HWM, max(4H swing low, breakeven), fixed −5% fallback), firing the stop path. Skips symbols with a pending SELL; commits only when a stop fires. Originally `scripts/stop_watchdog.py` via GitHub Actions (every 5 min, later throttled to once/day); since the 2026-07-25 Node cutover this is `src/stopWatchdog.js` on the Vercel Cron dispatcher — the Python script was deleted as dead code in the same cleanup pass.
+- **🛑 Stop watchdog** — `src/stopWatchdog.js` on the Vercel Cron dispatcher checks only open-long exit levels (trailing stop from the persisted HWM, max(4H swing low, breakeven), fixed −5% fallback), firing the stop path. Skips symbols with a pending SELL; commits only when a stop fires.
 - **🧪 Walk-forward baseline banner** *(roadmap 2026-07-10 item 8)* — the Backtest vs Live tab reads `reports/walkforward_latest.json` (stable pointer written by every walk-forward run, fees now 25 bps/side) and shows the baseline date + avg Sharpe per timeframe, turning red when the baseline is older than `walkforward.max_baseline_age_days` (45).
 - **🎯 Execution tab — order Total column** *(roadmap 2026-07-09, v2026-07-09.4)* — the Recent Orders table shows each order's **total value in USD** (sortable, after Avg Fill): filled qty × avg fill price for (partially) filled orders, otherwise qty × limit price, falling back to the order's notional; "–" when no price is available.
 - **🎯 Execution tab — order filters** *(roadmap, 2026-07-13)* — Symbol / Type / Side / Status filters above the Recent Orders table. Symbol, Type, and Status options populate dynamically from the orders actually loaded (`populateExecutionFilters()`); Side is a static Buy/Sell picker. Filtering is client-side against the cached order set (`applyExecutionFilters()` — no refetch) and shows a live "Showing X of Y orders" count; a Reset button clears all four filters back to "All".
@@ -472,7 +388,7 @@ Key features:
 - **🧪 Backtest vs Live tab** — compares live strategy metrics against your saved expected/backtest metrics (Sharpe, max drawdown, win rate, profit factor, avg daily return). Win Rate and Profit Factor are computed from **realized FIFO-matched fills** via the shared `computeFifoStats()` engine — the same numbers the P&L tab shows, so the two tabs can't diverge. (Previously these two metrics were broken: Win Rate compared fill vs limit price — always ~100% for limit orders — and Profit Factor was hardcoded `n/a`.) "Strategy Health" rolls all five metrics into a GREEN/ORANGE/RED status. **Sharpe and every other annualized KPI use a 365-day factor (crypto trades 24/7) — corrected from the equity-market 252 on 2026-07-07.** An unmatched SELL (no prior BUY in the fill history) is no longer counted as a $0 "win" — it's excluded from win/loss stats and shown as "–" in the trade log (hardened 2026-07-07).
 - **🌐 Market tab** — Market Overview, the confluence **Scanner**, and the Breakout Scanner are merged into one nav tab with a sub-tab bar. (The full-universe scanner sub-tab is labelled **🔭 Scanner**, renamed from "Signals" so that "Signals" names only the watchlist tab — the two are distinct: Signals is watchlist/execute, Scanner is the full-universe confluence scan.) Overview auto-loads (contextual/diagnostic); Scanner and Breakout stay manual (action-oriented — click ▶). The active sub-tab is mirrored to the URL hash + `localStorage.lastTab` so the legacy deep links `#market-overview` / `#market-signals` / `#gapgo` keep working and a refresh restores the exact sub-tab. Cross-links connect the sub-tabs ("View scanner →" on Overview, "← Back to market context" on Scanner and Breakout), and selection state persists when you switch because all sub-pages keep their rendered tables.
   - **🌍 Market Overview sub-tab** — live price, 24h%, 7d%, USD volume, trend direction, and market cap tier per crypto symbol. The symbol set is the shared tradable-crypto universe (`getCryptoUniverse()`) **filtered to `/USD` pairs** (`usdPairsOnly()`, bugfix 2026-07-09 v2 — Alpaca trades against USD, and the mixed USDT/USDC quotes duplicated each base up to 3×) and sliced by the same **Settings → Signals Analysis → Max Symbols** value as Market Signals, so it is no longer hardcoded to 30 — raise Max Symbols to show more rows. The symbol cell shows the full pair (e.g. `BTC/USD`). Every symbol gets a real, contiguous rank number — the known top-30 use their market-cap rank, and the rest are numbered by their position in the universe (via the `symbolInfo()` helper) instead of showing `?`. Symbols beyond the top-30 still show tier `?`. Sortable by rank, 24h%, 7d%, or signal score. Includes a color-coded momentum heatmap. The Score column auto-fills from the most recent Market Signals scan. Snapshots are fetched in batches via `fetchSnapshotsInBatches` so one unsupported symbol can never blank out the whole table. `1INCH/USD` (invalid Alpaca symbol — starts with a digit) replaced with `MATIC/USD`. The symbol/name cell is wrapped in its own `<td>` (a previously missing opening tag let the symbol overflow onto the next row, away from the Rank column). Each row has a **Trade** column with **Buy / Sell** buttons (`moTradeButtons()`) that open the shared paper-trade ticket pre-filled with the symbol, side, and live price (quantity left blank for you to size); they show `–` when no live price is available.
-  - **🔭 Scanner sub-tab** — on-demand full 6-point confluence scanner across the full tradable-crypto universe (formerly labelled "Market Signals"). A per-symbol **Watchlist** column lets you act on a scan result directly: a **+ Watch** button appears when the score is at or above the buy gate (≥ 4) and the symbol is not already on your watchlist, and a **– Unwatch** button appears when the signal is a sell (score ≤ −2) and there is no open position for that symbol. The buttons update the shared Settings watchlist (and the Settings tag editor) and re-render in place without re-running the scan; open positions are read from `/v2/positions` to gate the remove button. The number of symbols scanned is set by the **Settings → Signals Analysis → Max Symbols** value (`maxSignalSymbols`, default 30, **no upper limit**); the scanner takes the top-N from `getCryptoUniverse()` **filtered to `/USD` pairs** (`usdPairsOnly(universe).slice(0, n)`, bugfix 2026-07-09 v2 — Alpaca trades against USD, and the USDT/USDC-quoted duplicates made the same base appear up to 3× per scan; those pairs now live only in the Settings watchlist selector). The universe itself is the full list of tradable crypto pairs quoted in USD, USDT, or USDC from Alpaca's assets endpoint (shared with the Market Overview tab; robust to both `BTC/USD` and bare `BTCUSD` symbol formats; stablecoin *base* pairs such as `USDT/USD` and `USDC/USD` are still excluded). Symbol cells show the full pair (e.g. `BTC/USD`) — the market-cap-ranked top 30 first, then every other accepted pair alphabetically (falls back to the static 30 if the assets call fails — but this fallback is **not** cached, so a failed first call retries instead of leaving the universe stuck at 30; fixed 2026-06-18). Entering a value above 30 now genuinely scans more than 30 symbols, capped only by how many pairs your account can trade. The universe is still finite, so a Max Symbols value above the number of tradable `/USD` pairs can't be reached — when it exceeds the available universe, the scan button shows `▶ Scan Top <N> (all available)` and the scan status notes that the setting exceeds the tradable-pair count (Market Overview shows the same note). The scan button label is otherwise dynamic (`▶ Scan Top N`) so the active count is always visible and updates the moment you save the setting. Reuses the same `calcSignalScore` / `fetchBars` logic as the watchlist Signals tab. The **📊 Score Distribution** tile uses the shared `renderScoreDist()` helper, so it renders identically to the Signals tab (bucketed BUY / HALF / HOLD / BEAR horizontal bars) instead of a per-integer inline list. Also shows a Top Opportunities panel listing current BUY setups outside the watchlist. Scores are cached and displayed in the Market Overview tab's Score column.
+  - **🔭 Scanner sub-tab** — on-demand full 6-point confluence scanner across the full tradable-crypto universe (formerly labelled "Market Signals"). A per-symbol **Watchlist** column lets you act on a scan result directly: a **+ Watch** button appears when the score is at or above the buy gate (≥ 4) and the symbol is not already on your watchlist, and a **– Unwatch** button appears when the signal is a sell (score ≤ −2) and there is no open position for that symbol. The buttons update the shared Settings watchlist (and the Settings tag editor) and re-render in place without re-running the scan; open positions are read from `/v2/positions` to gate the remove button. The number of symbols scanned is set by the **Settings → Signals Analysis → Max Symbols** value (`maxSignalSymbols`, default 30, **no upper limit**); the scanner takes the top-N from `getCryptoUniverse()` **filtered to `/USD` pairs** (`usdPairsOnly(universe).slice(0, n)`, bugfix 2026-07-09 v2 — Alpaca trades against USD, and the USDT/USDC-quoted duplicates made the same base appear up to 3× per scan; those pairs now live only in the Settings watchlist selector). The universe itself is the full list of tradable crypto pairs quoted in USD, USDT, or USDC from Alpaca's assets endpoint (shared with the Market Overview tab; robust to both `BTC/USD` and bare `BTCUSD` symbol formats; stablecoin *base* pairs such as `USDT/USD` and `USDC/USD` are still excluded). Symbol cells show the full pair (e.g. `BTC/USD`) — the market-cap-ranked top 30 first, then every other accepted pair alphabetically (falls back to the static 30 if the assets call fails — but this fallback is **not** cached, so a failed first call retries instead of leaving the universe stuck at 30). Entering a value above 30 now genuinely scans more than 30 symbols, capped only by how many pairs your account can trade. The universe is still finite, so a Max Symbols value above the number of tradable `/USD` pairs can't be reached — when it exceeds the available universe, the scan button shows `▶ Scan Top <N> (all available)` and the scan status notes that the setting exceeds the tradable-pair count (Market Overview shows the same note). The scan button label is otherwise dynamic (`▶ Scan Top N`) so the active count is always visible and updates the moment you save the setting. Reuses the same `calcSignalScore` / `fetchBars` logic as the watchlist Signals tab. The **📊 Score Distribution** tile uses the shared `renderScoreDist()` helper, so it renders identically to the Signals tab (bucketed BUY / HALF / HOLD / BEAR horizontal bars) instead of a per-integer inline list. Also shows a Top Opportunities panel listing current BUY setups outside the watchlist. Scores are cached and displayed in the Market Overview tab's Score column.
   - **📊 Breakout sub-tab** — on-demand pre-session breakout/gap analysis for all 10 watchlist symbols (formerly a standalone tab, folded into Market): catalyst rating, market cap / supply risk, gap-and-go likelihood, 6-month range position, key S/R levels (swing highs/lows are date-stamped — e.g. "Swing Low · 21 Jun" — so multiple swing levels are distinguishable; bug fix 2026-07-11), historical gap behaviour, trade plan (strategy, entry, stop, T1, T2), and risk rating. Computed client-side from 6 months of daily bars + 8 days of hourly bars. Symbols ranked by conviction score. Each card header shows two scores: **Conviction** (gap/breakout-specific, max ±7) and **Signal** (the standard 6-point `calcSignalScore()` score — identical to the Signals and Market Signals tabs). Manual run (▶ Run Analysis); deep link `#gapgo` preserved.
 - **🔗 Markov tab** — on-demand first-order Markov chain analysis for `BTC/USD` and `ETH/USD` over 30/60/90/180/365-day lookback windows. Each daily close-to-close return is classified into one of three states using a ±1% band (Up / Flat / Down). For each symbol × interval it renders a 3×3 transition matrix (heatmap-shaded `P(next | current)`), the stationary distribution (power iteration), a one-step-ahead next-day forecast from the current state, and the mean daily return. KPI tiles surface each symbol's 90-day next-day-up probability. One daily-bar fetch per symbol (`fetchBars(..., "1Day", 370)`) covers all five windows; windows with < 3 transitions show "Insufficient data". User-triggered via **▶ Run Markov Analysis**. Matrix tables use a dedicated `.mk-matrix` class (`min-width:0; table-layout:fixed`) so they fit inside the narrow grid panels instead of inheriting the global 760px table min-width (which made the matrices overflow and overlap).
 - **🧠 Insights tab** — on-demand (▶ Analyze) **behavioral / trading-psychology** analysis built from your realized FIFO round-trips (`insRoundTrips()` over the full paginated FILL history). Four plain-language cards answer "am I trading *well*", not just "how much did I make": **🗓 Day-of-Week Edge** (per-weekday win rate + net P&L in GMT+2, flags your worst losing weekday), **📉 After Losing Streaks** (win rate after 1 loss and after 2+ consecutive losses vs your baseline — flags whether you tilt after losses), **🔁 Cadence After Outcome** (median time to your next trade after a win vs after a loss — flags overtrading after wins), and **⚠ Rule Discipline** (best-effort rule-break detection from trade history: −5% hard-stop breaches and per-symbol cap breaches). Three KPI tiles summarise rule breaches, after-2-loss win rate, and worst weekday. Analysis-only — places no orders. Rule-break detection is approximate (it uses *current* equity for cap checks since historical equity isn't in the fills feed).
@@ -481,7 +397,7 @@ Key features:
 
 ### Portfolio tabs (integrated — `client/src/tabs/port-overview.html` + `port-dist.html`, logic in `src/js/tabs-portfolio.js`)
 
-As of 2026-06-15, the portfolio dashboard pages were merged into the Professional Dashboard as new nav tabs under a **"💼 Portfolio"** section label in the sidebar. The legacy `docs/portfolio-dashboard.html` file was deleted on 2026-06-17 — the Professional Dashboard is the sole entry point.
+Portfolio pages are merged into the Professional Dashboard as nav tabs under a **"💼 Portfolio"** section label in the sidebar (merged 2026-06-15; the legacy standalone `docs/portfolio-dashboard.html` file was deleted 2026-06-17) — the Professional Dashboard is the sole entry point.
 
 - **📊 Portfolio Overview** (`port-overview`) — Account equity/cash/buying-power/P&L cards (tiles laid out horizontally in a responsive `.cards` grid that wraps), equity curve (Chart.js, period selector: 1D/1W/1M/3M/1Y), sortable open positions table (short-aware; column-header sorting powered by `applySort()`/`numOrStr()` helpers).
 - **🥧 Allocation** (`port-dist`) — Donut allocation chart with legend, breakdown table, cap utilisation table (all watchlist symbols vs. `PORTFOLIO_CAPS` limits, Over Cap / Near Cap / OK status badges). The "⚠ Over Cap" badge fires only when the rounded utilisation actually exceeds 100%, so it always matches the displayed "% of cap used" (a position exactly at cap reads "100% of cap used" / Near Cap, never a false Over Cap); the progress bar is clamped to 100%.
@@ -614,15 +530,10 @@ alpaca-trading-agent/
 │   │                           #  full list + load order — they intentionally are not ES modules)
 │   └── *.js, *.test.js         # The trading engine (sole engine since 2026-07-25; see CLAUDE.md)
 ├── server.js                   # Express app: serves client/dist/ (built), src/js + src/css + docs/
-├── journal/
-│   ├── _template.md           # Journal entry template
-│   └── YYYY-MM-DD.md          # One file per calendar day
 ├── memory/
 │   ├── glossary.md            # Domain glossary
 │   └── projects/
 │       └── alpaca-trading-agent.md
-├── reports/
-│   └── walkforward_*.json/md  # Walk-forward backtest results — FROZEN 2026-07-25 (no Node port)
 ├── data/
 │   ├── market_research/       # Timestamped market-researcher agent reports
 │   ├── watchlist_dynamic.json # Scout-promoted symbols (auto-generated, TTL-refreshed)
@@ -630,11 +541,8 @@ alpaca-trading-agent/
 ├── skills/
 │   ├── crypto-trader/
 │   │   └── SKILL.md           # Full trading strategy playbook
-│   ├── crypto-catalysts/
-│   │   └── SKILL.md           # News & event interpretation (T1/T2/T3 catalyst ladder)
-│   ├── hourly-research-SKILL.md # Top-of-hour research routine (research-only)
-│   ├── morning-brief-SKILL.md   # Daily 07:00 brief routine
-│   └── daily-journal-SKILL.md   # Daily 23:21 closing journal routine
+│   └── crypto-catalysts/
+│       └── SKILL.md           # News & event interpretation (T1/T2/T3 catalyst ladder)
 ├── tests/
 │   └── test_socials_fetch.js  # Node harness — Socials tab tweet-fetch logic (outside npm test's glob)
 ├── .env                       # API credentials (git-ignored)
@@ -649,17 +557,7 @@ alpaca-trading-agent/
 
 ## Roadmap
 
-**Roadmap empty — the famous-trader package shipped (2026-07-10, v2026-07-10.3).** All 10 audit items are implemented: **pyramiding into winners** in strong 4H trends (Livermore/Turtle 2N adds — +1R/+2R tranches at half risk, stop to breakeven after each add, mutually exclusive per position with the partial-TP ladder by ADX 25), a **Chandelier ATR-adaptive trailing stop** (`risk.trail_mode`), **conviction-scaled sizing** (0.75×/1.0×/1.5× risk by score band), a **losing-streak/drawdown throttle** (PTJ — 3 straight losses or a 5% 7-day drawdown halve risk-per-trade until 2 winners + recovery below 2.5%; state persists), a **measured-move trend target** feeding the net-R:R gate, **maker-first entry pricing** (rest entries at the bid, 1-cycle repricing timeout, taker exits; `check_limit_band` now accepts limits inside the live spread), a **5-minute stop-loss watchdog** (`scripts/stop_watchdog.py` + `watchdog.yml` — exits only, dedup against pending SELLs, commits only when a stop fires), the **walk-forward re-baseline machinery** (workflow fees corrected 5→25 bps/side; `reports/walkforward_latest.json` stable pointer; dashboard Backtest-tab staleness banner at 45 days), the **session-edge filter enabled** (self-guarding on its 20-round-trip minimum sample per bucket), and a **portfolio breadth/regime gate** (Weinstein — ≤30% uptrend breadth restricts new entries to Tier-1 with a halved budget). Entry-affecting features ship **config-flagged OFF** pending walk-forward validation (`pyramid_enabled`, `trail_mode`, `conviction_sizing_enabled`, `measured_move_enabled`, `breadth_gate_enabled`, `maker_first_entries`); the throttle, watchdog, session filter, and baseline machinery are active. 27 new tests (168 total). See `memory/memory.md`.
-
-**All 5 audit bugs fixed (2026-07-10, v2026-07-10.2):** (1 — P0) `data/positions_state.json` is now committed by the trading workflow on every run, and the +1R partial-take-profit flag, breakeven stop, and entry clock are **reconciled from Alpaca's own fill history** (`reconcile_positions_from_fills()` in `run_evaluation.py`), so a lost state file can never re-fire the partial TP again (the AAVE 6×-re-fire failure mode); (2) `get_crypto_bars` now follows `next_page_token` — Alpaca caps a single response at ~7 days of bars (verified live: 4Hour `limit=120` returned 43), which had zeroed Signal 6 and degraded swing-low stops to the fixed −5%; after the fix 4H fetches return the full 120 bars; (3) a non-positive `avg_entry_price` from the API (the `SOL/USD @ $-4.4931` corruption) is replaced with the FIFO-derived cost basis of the still-open lots; (4) the evaluation cron is **hourly at :23** (was every 4 hours), each run journals a `CADENCE WARNING` if the previous evaluation is > 90 minutes old, and the 23:21 job now writes a real closing summary via the new `scripts/daily_summary.py` (equity, day change, positions, fills, FIFO realized P&L for the day) instead of a second evaluation; (5) the correlation budget is aligned at **7 total / 5 per tier** (15 was unreachable with only 2 Tier-1 symbols) across `config.json`, the dashboard `DEFAULT_LIMITS`, and the CLAUDE.md hard-rules table. Roadmap item 11 (Autopilot controls above the permission panel) shipped in the same version. 11 new regression tests (141 total). See `memory/memory.md`.
-
-Latest shipped fix before that (2026-07-10, v2026-07-10.1): the **Socials sub-tab RSS bug** ("RSS reader not yet whitelisted!") — xcancel serves that error as a fake HTTP-200 feed which rendered as tweets, and every public Nitter mirror now blocks keyless RSS readers. `socFetchAccount()` now validates the feed title against the account handle and fetches each account's **official Telegram mirror first** (RSS-Bridge TelegramBridge → rss2json; Binance, Watcher.Guru, Whale Alert, Cointelegraph), keeping Nitter as best-effort fallback. See `memory/memory.md`.
-
-Earlier: the **Command › 🐦 Socials sub-tab** was implemented on 2026-07-09 (v2026-07-09.6): crypto tweets + stats from 14 curated >0.5M-follower accounts via Nitter-mirror RSS through rss2json, with T1/T2 catalyst badges, per-account stat chips, and an ⚡ Key-only filter. (The Command › 📰 News sub-tab shipped earlier the same day in v2026-07-09.5.) See the dashboard feature list above and `memory/memory.md`.
-
-Earlier: the **symbol-notation consistency item** was implemented on 2026-07-09 (v2026-07-09.3): the canonical project-wide notation is the slash pair `BASE/QUOTE` (e.g. `BTC/USD`), with Alpaca's no-slash form confined to the API boundary. New shared converter `scripts/symbols.py › to_slash()` replaced four duplicated local implementations; the dashboard's remaining bare-base display labels (scout chip, ticker strip, Market Overview KPIs/heatmap/tooltips) now show the full pair. See CLAUDE.md › "Symbol notation (canonical)" and `memory/memory.md`.
-
-Earlier: all eight candidates from the **2026-07-09 trader-effectiveness analysis** were implemented on 2026-07-09 (v2026-07-09.1): fee- & spread-aware trade economics (Spread columns, net-of-cost R:R, scalp viability gate, walk-forward fee default 25 bps/side), position rotation at the correlation budget, over-budget reconciliation + Command-tab chip, partial take-profit at +1R with a break-even ladder, time-based stale-position exit, a 4H data fallback via 1H-bar aggregation, a net-R:R soft entry gate, and a session-edge feedback filter (ships OFF). Implementation notes are in `memory/memory.md` (2026-07-09 entry).
+See `CLAUDE.md`'s Roadmap section for current items. Full shipped-feature history lives in `memory/memory.md`.
 
 ---
 

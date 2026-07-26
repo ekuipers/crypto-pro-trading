@@ -2,18 +2,6 @@
 
 Full decoder ring. Everything that would clutter `memory.md` lives here.
 
-> **2026-07-25 — all Python deleted from this project.** Every `scripts/*.py` file, all Python tests,
-> `requirements.txt`, and every GitHub Actions workflow were removed (user request — all CryptoPro
-> projects are Node.js+React now, Python/GitHub Actions are no longer needed anywhere). Many entries
-> below reference `.py` files (`run_evaluation.py`, `trade.py`, `risk.py`, `indicators.py`,
-> `position_state.py`, `symbols.py`, `_api.py`, `_env.py`, `metrics.py`, `scout.py`, `research.py`,
-> `verify.py`, `walkforward_evaluate.py`, etc.) as if they still exist — they don't. These are dated
-> historical entries describing code that was true *at the time it was written*, not live pointers;
-> left as-is rather than rewritten wholesale so the decision/incident trail stays intact. Their Node
-> equivalents live under `src/*.js` (see `CLAUDE.md`'s "Node engine modules" / README's module table
-> for the current mapping). Full removal detail: `memory/memory.md` v2026-07-25 (Python + GitHub
-> Actions full removal).
-
 ---
 
 ## 2026-07-24 — Roadmap rescan (Suite item 1): glossary moved to the database
@@ -35,51 +23,18 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
-## 2026-07-21 — Node port cutover: 4-gate checkpoint worked, 3 pass, gate 2 blocked on real time
+## 2026-07-21 — Cron cutover (Vercel Cron + dashboard-orchestrated jobs) + adjustable schedule
 
 | Term | Meaning |
 |------|---------|
-| `verify_state_roundtrip.py` | Gate 3 script. Redirects the module-level `_STATE_FILE` path in Python's `position_state.py` to temp files so the REAL `load_state()`/`save_state()` round-trip through Node's real `loadState()`/`saveState()` — no logic reimplemented. Passed both directions. **Deleted 2026-07-25** (Python cleanup, post-cutover) — the gate already passed and had no other caller. |
-| `verify_decision_parity.py` / `.mjs` | Gate 1 scripts. Call `evaluate_symbol()`/`evaluateSymbol()` directly (bypassing `main()`'s state/journal writes entirely) against the same live positions/account, meant to be run concurrently so both see the same closed candles. |
-| Sequential vs concurrent trial | Running the two parity scripts one after another (not at the same instant) let BTC/ETH's live bar roll over between calls, producing a false-looking mismatch — running them concurrently (`node ... & ; python ... ; wait`) eliminated it, 10/10 exact match twice. Lesson: any future parity check MUST run both engines concurrently, not sequentially. |
-| `node-shadow-run.yml` | Gate 2 workflow. Independent of `trade.yml` — own schedule (offset 15 min), own concurrency group, never touches `positions_state.json`/`journal/*.md`/places orders. Appends one diff line per cycle to `data/shadow_run_log.jsonl`. |
-| `data/shadow_run_log.jsonl` | The Gate 2 audit trail. `"source": "session-seed"` entries were captured manually within one session (not independent hourly cycles) to avoid starting from an empty log — the real ≥24h requirement is only satisfied once the scheduled workflow has accumulated that much real elapsed time on its own. |
-| Dispatch timing risk (Gate 4) | `handleDispatch` awaits all due jobs sequentially in a loop — an hour where evaluate/watchdog/daily-summary are all due could sum to ~40s. No `maxDuration` was configured anywhere, so Vercel's low default timeout would likely have 504'd this. Fixed with `vercel.json`'s `functions."server.js".maxDuration: 120`. **Verified live 2026-07-24**: direct `GET` requests against the deployed `/api/cron/evaluate`/`watchdog`/`daily-summary` routes returned `200` in 5.7s/1.4s/1.1s — gate 4 now PASSES, all 4 cutover gates closed (actual cutover execution still pending the user's go-ahead). |
-
----
-
-## 2026-07-21 — Roadmap rescan: Vercel Pro upgrade, GitHub Actions pinger retired
-
-| Term | Meaning |
-|------|---------|
-| Roadmap conflict | Suite roadmap item #1 ("no GitHub scheduling, Vercel executes autonomously") was flatly contradicted by the previous day's own fix, which had just added a GitHub Actions pinger because Vercel Hobby can't run hourly cron. Flagged to the user as a cost decision rather than silently picking a side. |
-| Resolution | Upgraded to **Vercel Pro** (supports sub-daily cron). `vercel.json` now drives `/api/cron/dispatch` hourly natively; `cron-dispatch-ping.yml` deleted. |
-| Still open | `trade.yml` / `watchdog.yml` / `forward.yml` still run the live Python engine via GitHub Actions — not the dispatcher, the actual trading logic — and stay until the Node port's 4-gate parity check passes. |
-
----
-
-## 2026-07-21 — Vercel Hobby cron limit broke deployment; fixed with a GitHub Actions pinger
-
-| Term | Meaning |
-|------|---------|
-| The bug | An hourly `vercel.json` cron entry (shipped to make the adjustable schedule below actually take effect) silently blocked the next Vercel deployment from triggering — Vercel Hobby only allows once-daily cron schedules and rejects `vercel.json` at deploy time otherwise. Confirmed by asking rather than guessing which plan tier this project is on. |
-| `cron-dispatch-ping.yml` | New GitHub Actions workflow (`.github/workflows/`) that does nothing but `curl /api/cron/dispatch` hourly with the `CRON_SECRET` bearer token — no Python, no checkout, no git commit. This is what actually gives the adjustable schedule its hourly granularity on a Hobby-tier Vercel project; `vercel.json`'s own cron is back to once daily, a safety net rather than the driver. |
-| Two places for one secret | `CRON_SECRET` must now be set in **two** places with the same value: Vercel's env vars (for the dispatcher route itself to validate incoming calls) and as a GitHub repository secret (`gh secret set CRON_SECRET`, for the new pinger workflow to authenticate *outbound* calls). Easy to set one and forget the other — the pinger just 401s harmlessly (no state touched) until both are set. |
-
----
-
-## 2026-07-21 — Cron cutover (Vercel Cron + dashboard-orchestrated jobs, dry-run only) + adjustable schedule
-
-| Term | Meaning |
-|------|---------|
-| Cron cutover | Suite roadmap item ("For Trader only"): replace the GitHub Actions Python cron workflows with the Node engine, triggered by Vercel Cron and monitored/controlled from the dashboard instead of `.yml` files. Implemented 2026-07-21 as new infrastructure (`src/cronRoutes.js`, `vercel.json`, new Postgres tables); ran dry-run-only until the 4-gate parity checkpoint (`CLAUDE.md` › Node.js port) passed 2026-07-24, then `CRON_EXECUTE=true` was flipped and confirmed live the same day (`CLAUDE.md` roadmap item 3, `memory/memory.md` v2026-07-24.3) — GitHub Actions' `trade.yml`/`watchdog.yml` are now paused (not deleted). See `memory/memory.md` v2026-07-21.3/.4/.5 for the original build. |
+| Cron cutover | Suite roadmap item ("For Trader only"): the Node engine, triggered by Vercel Cron and monitored/controlled from the dashboard. Implemented 2026-07-21 (`src/cronRoutes.js`, `vercel.json`, Postgres tables); `CRON_EXECUTE=true` is live in production. |
 | Adjustable schedule (same-day follow-up) | The roadmap item was refined mid-day to "add the option to adjust the schedules... save the schedule configuration for each user account." Vercel Cron's own schedule (`vercel.json`) is static, compiled-in config — it can't be rewritten at runtime, so the *actual* schedule the dashboard adjusts lives in Postgres (`cron_config.hour_utc`) instead. `vercel.json` was changed from 3 fixed-time crons to one hourly dispatcher (`/api/cron/dispatch`) that checks each job's configured hour against the current UTC hour (`src/cronSchedule.js`'s `isJobDue()`, pure + unit-tested) and only runs it once, per UTC day. |
 | `cron_config.updated_by_uid` | "Save the schedule configuration for each user account", applied honestly to a single-tenant trading engine: there's one real Alpaca account and one real schedule per job, not a separate schedule per Suite account — so this column records *which* account last changed a job's config (attribution) rather than storing one row per uid. Only `TRADER_OWNER_UID` can write it anyway, so in practice it's always that account. |
 | `CRON_EXECUTE` | Env var gating real order placement from the cron routes — same role as the CLI's `--execute` flag. Was a deliberate decision gate (unset/false) to avoid two engines placing orders against the same account at once; flipped to `true` in production 2026-07-24 after the 4-gate parity checkpoint passed and `trade.yml`/`watchdog.yml`'s schedules were paused first to remove the double-engine risk. |
 | `CRON_SECRET` | The bearer token Vercel Cron sends (`Authorization: Bearer $CRON_SECRET`) with every scheduled `GET` call, including the hourly dispatcher. Compared with `crypto.timingSafeEqual`, not `===` — a security-review fix, not the original implementation (see below). |
 | `TRADER_OWNER_UID` | Restricts the dashboard's manual "Run now" trigger and per-job enable/disable/schedule-hour config to one specific account. Accounts are shared Suite-wide (any CryptoPro Charts/Training/Suite account can sign into Trader too), but these routes control one shared trading engine, not caller-owned data — "any signed-in account" would have let any Suite account trigger paper orders or disable the stop watchdog. Unset = those routes are disabled for everyone (fail closed). |
 | `job_runs` / concurrency lock | Postgres table doubling as both the audit trail (what git commits used to be) and the concurrency lock — a partial unique index (`job_runs_running_uidx`, `where status = 'running'`) makes "only one running row per job" a database-enforced invariant, so `startJobRun`'s insert is atomic instead of a check-then-insert two near-simultaneous requests could both pass. The hourly dispatcher reuses the same lock (via the shared `executeJob()` helper), so it can't double-run a job either. |
-| Why state moved to Postgres | A Vercel serverless function has no persistent local disk across invocations — `positions_state.json`/`journal/*.md` (git-committed by GitHub Actions) can't work there. `trader_state`/`trader_journal` tables replace them; `runEvaluation.js`/`stopWatchdog.js`/`dailySummary.js`'s existing test-oriented `deps` injection point is reused to swap the storage backend without touching their decision logic. |
+| Why state moved to Postgres | A Vercel serverless function has no persistent local disk across invocations, so a git-committed file can't work as the state store there. `trader_state`/`trader_journal` tables replace `positions_state.json`/`journal/*.md`; `runEvaluation.js`/`stopWatchdog.js`/`dailySummary.js`'s existing test-oriented `deps` injection point is reused to swap the storage backend without touching their decision logic. |
 | Security-review fixes (2026-07-21, both passes) | **First pass** (initial build) found 3 HIGH findings, all fixed before commit: (1) the cron `GET` routes originally also accepted a signed-in session, not just the bearer secret — since session cookies are `SameSite=Lax` and still sent on a top-level cross-site GET navigation, a hostile link could have triggered a run; GET is now bearer-only, POST is the session path. (2) the manual-trigger/config routes originally accepted *any* signed-in Suite account, not just the owner — now gated by `TRADER_OWNER_UID`. (3) the concurrency lock was check-then-insert (race-able) — now an atomic insert backed by the partial unique index above. **Second pass** (adjustable-schedule follow-up) found no CRITICAL/HIGH — the new `/api/cron/dispatch` route reuses the same bearer-only auth and concurrency lock, and `hourUtc` input validation was confirmed sufficient; two LOW nits were fixed opportunistically (`enabled` now checked with strict `=== true` instead of `Boolean(...)`, avoiding a truthy-string coercion edge case). |
 
 ---
@@ -98,7 +53,7 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 | Term | Meaning |
 |------|---------|
-| Bug #9 (reconciliation) | The 2026-07-18 Bug #6 fix compared each SELL's leftover against *that lot's own* size to decide "fully closed." Fine for a single-tranche position, but if the aggregate fee-rounding shortfall landed inside a small trailing lot (e.g. a partial-TP remainder), that lot's own tight tolerance never popped — so the walk never saw the position go flat again, and every later SELL for that symbol was miscounted as "still open" forever. Fixed by tracking flatness with one running net-quantity scalar compared against the whole episode's *peak* size instead of each lot's own size. **Exists in 3 places** — `scripts/run_evaluation.py` (Python live engine), `src/js/edge-insights.js`'s `apReconcileFromFills` (browser Autopilot), `src/reconcile.js` (Node port). All three must be fixed together — the 2026-07-20 first pass only fixed the Python copy, and the browser Autopilot kept round-tripping real orders for another day before the other two were found and fixed (v2026-07-20.2). |
+| Bug #9 (reconciliation) | The 2026-07-18 Bug #6 fix compared each SELL's leftover against *that lot's own* size to decide "fully closed." Fine for a single-tranche position, but if the aggregate fee-rounding shortfall landed inside a small trailing lot (e.g. a partial-TP remainder), that lot's own tight tolerance never popped — so the walk never saw the position go flat again, and every later SELL for that symbol was miscounted as "still open" forever. Fixed by tracking flatness with one running net-quantity scalar compared against the whole episode's *peak* size instead of each lot's own size. **Exists in 2 places** — `src/js/edge-insights.js`'s `apReconcileFromFills` (browser Autopilot) and `src/reconcile.js` (cron/dispatch engine). Both must be fixed together. |
 | SSO ticket (handoff) | Different from the Bug #6/#9 sessions above — a *second*, short-lived (60s) mechanism layered on top: a signed-in app mints a single-use token (`sso_tickets` table) and hands it to a sibling CryptoPro app via `?sso=<token>` in the URL, since the four apps live on different Vercel subdomains and can't share a session cookie directly (no common apex domain). The receiving app's server consumes the token once, mints its own normal session, and redirects to a clean URL. |
 | `exchange=alpaca` (Charts deep link) | `tvLink()` now pins the chart link's exchange explicitly. Charts' router otherwise applies the URL's symbol to its own *default* exchange (binance/bybit), which quotes most alts in USDT — but every symbol Trader trades is USD-quoted (Alpaca is USD-only), so the link 404'd for anything without a native USD pair on Binance. Alpaca is both the venue Trader actually trades on and genuinely USD-quoted, so pinning it makes the link resolve regardless of Charts' own settings. |
 
@@ -148,17 +103,16 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
-## 2026-07-19 — Node.js port Phase 2: order execution + evaluation loop
+## Engine conventions: order execution + evaluation loop
 
 | Term | Meaning |
 |------|---------|
 | `deps` injection pattern | Convention used throughout `src/evaluateSymbol.js`, `src/scout.js`, `src/rotation.js`, `src/runEvaluation.js`: every network-calling or otherwise side-effecting function accepts an optional `deps`/options object whose fields default to the real implementation (e.g. `deps.getLatestQuote` falling back to the real `getLatestQuote`). Lets tests swap in plain async functions returning canned data instead of stubbing HTTP, so the full decision ladder is unit-tested with zero network mocking. `evaluateSymbol.js` extends this to indicator functions too (`deps.ind`), letting tests force a specific score or Bollinger target without a realistic price series. |
-| `assertNotShipped(flagName, flagValue, missingFn)` | `src/strategyConfig.js`. Throws a clear "not yet ported" error if a ships-OFF config flag (`pyramid_enabled`, `conviction_sizing_enabled`, `measured_move_enabled`, `breadth_gate_enabled`, `risk.trail_mode === "chandelier"`) is ever switched on before its risk.js counterpart (`shouldPyramid`, `convictionRiskMultiplier`, `measuredMoveTarget`, `breadthPct`/`breadthPolicy`, `chandelierTrailPct`) is ported. Called once at module-load time in `evaluateSymbol.js`/`runEvaluation.js` rather than left to fail with a confusing `ReferenceError` deep inside a rarely-hit branch. |
-| `src/marketData.js` | New shared module with no Python equivalent as a standalone file — extracted from `run_evaluation.py`'s module-level bar-fetch/fill-history functions specifically to break the circular coupling where `scout.py`/`rebalance.py` reach into `run_evaluation.py` for them (Python tolerates this via late-binding function calls inside `main()`; ESM static imports would deadlock on it). |
-| `src/strategyConfig.js` | Holds the strategy-level score thresholds and sizing constants that live as bare module-level constants in `run_evaluation.py` (not in `risk.py`) — `BUY_SCORE_THRESHOLD`, `SESSION_FILTER_ENABLED`, etc. — plus the five ships-OFF flag constants and `assertNotShipped()`. |
-| `fifoRoundTrips` vs `reconcilePositionsFromFills`'s dust tolerance (two different epsilons) | `src/marketData.js`'s `fifoRoundTrips()` (session-edge filter, streak throttle P&L) closes a FIFO lot at an **absolute** `1e-6` epsilon — this is a different, unrelated function from `src/reconcile.js`'s `reconcilePositionsFromFills()`, which uses the **relative** `RECONCILE_DUST_REL_TOL = 0.005` (the Bug #6 fix below). Don't conflate the two when porting or reviewing — they intentionally use different tolerance strategies for different purposes. |
-| Camel-case decision objects | `evaluateSymbol.js`/`rotation.js`/`journal.js` use camelCase keys (`limitPrice`, `dailyRegime`, `netRr`) for the internal decision object, matching this port's existing convention (`indicators.js`'s `signalScore()` breakdown already made this shift from Python's snake_case). Only the literal journal **text** (labels like `score`, `ema_x`, `4h`) has to match Python's output — the JS variable names don't need to. |
-| Node port "parity checkpoint" | Defined in `CLAUDE.md`'s Node.js port section: deterministic-input parity (frozen fixtures, both engines), live shadow-run parity (≥24 hourly cycles against the same paper account, diffed), and a state-file round-trip check — the gate before `.github/workflows/*.yml` changes or `--execute` is ever pointed at the Node engine. |
+| `assertNotShipped(flagName, flagValue, missingFn)` | `src/strategyConfig.js`. Throws a clear "not yet implemented" error if a ships-OFF config flag (`pyramid_enabled`, `conviction_sizing_enabled`, `measured_move_enabled`, `breadth_gate_enabled`, `risk.trail_mode === "chandelier"`) is ever switched on before its `risk.js` counterpart (`shouldPyramid`, `convictionRiskMultiplier`, `measuredMoveTarget`, `breadthPct`/`breadthPolicy`, `chandelierTrailPct`) exists. Called once at module-load time in `evaluateSymbol.js`/`runEvaluation.js` rather than left to fail with a confusing `ReferenceError` deep inside a rarely-hit branch. |
+| `src/marketData.js` | Shared module holding bar-fetch/fill-history functions, kept separate from `runEvaluation.js` to avoid a circular-import deadlock (`scout.js`/`reconcile.js` both need these functions, and `runEvaluation.js` needs `scout.js`/`reconcile.js`). |
+| `src/strategyConfig.js` | Holds the strategy-level score thresholds and sizing constants (`BUY_SCORE_THRESHOLD`, `SESSION_FILTER_ENABLED`, etc.) plus the five ships-OFF flag constants and `assertNotShipped()`. |
+| `fifoRoundTrips` vs `reconcilePositionsFromFills`'s dust tolerance (two different epsilons) | `src/marketData.js`'s `fifoRoundTrips()` (session-edge filter, streak throttle P&L) closes a FIFO lot at an **absolute** `1e-6` epsilon — this is a different, unrelated function from `src/reconcile.js`'s `reconcilePositionsFromFills()`, which uses the **relative** `RECONCILE_DUST_REL_TOL = 0.005` (the Bug #6 fix above). Don't conflate the two when reviewing — they intentionally use different tolerance strategies for different purposes. |
+| Camel-case decision objects | `evaluateSymbol.js`/`rotation.js`/`journal.js` use camelCase keys (`limitPrice`, `dailyRegime`, `netRr`) for the internal decision object. Only the literal journal **text** (labels like `score`, `ema_x`, `4h`) is fixed by convention — the JS variable names don't need to match it. |
 
 ---
 
@@ -203,21 +157,13 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
-## 2026-07-18 — Bug #7: stale per-symbol state prune (Python/dashboard consistency)
+## Reconciliation: stale-state prune + dust-tolerance (Bugs #6 and #7)
 
 | Term | Meaning |
 |------|---------|
-| `prune_stale_position_state(state, open_symbols)` | Function in `scripts/run_evaluation.py`. Calls `ps.clear_position()` for every symbol in `state["positions"]` not present in the current cycle's live `open_symbols`. Called once in `main()` right after the positions fetch. Added 2026-07-18 to mirror the dashboard Autopilot's existing `heldSyms` prune — Python previously only cleared per-symbol state reactively (inside the "still held" branch, or after a non-stop-loss TA exit), so a full close via any stop-loss-type exit left `partial_tp_done`/`breakeven_stop`/`stop_order_id` stale forever (Bug #7). |
-| `heldSyms` prune (dashboard) | `docs/dashboard_professional.html`'s Autopilot: every cycle, `Object.keys(hwm).forEach(k => { if (!heldSyms.includes(k)) delete hwm[k]; })` (mirrored for `partialTp` and `entryTime`). This was already correct before the Python-side fix — it was the reference implementation `prune_stale_position_state()` was modeled on. |
-
----
-
-## 2026-07-18 — Bug #6: reconciliation dust-tolerance fix
-
-| Term | Meaning |
-|------|---------|
-| `_RECONCILE_DUST_REL_TOL` | Constant in `scripts/run_evaluation.py` (0.005 = 0.5%). Used by `reconcile_positions_from_fills()`'s FIFO walk to decide a lot has fully closed: leftover qty must be below `original_qty * _RECONCILE_DUST_REL_TOL`, not a fixed `1e-6`. Replaces the old absolute epsilon, which was smaller than Alpaca's typical ~0.1–0.25% fee/precision short-fill on SELLs and so never fired — every full close was misread as a partial sell, permanently inflating `sells_since_start` and fabricating "breakeven after partial TP" stops on brand-new positions (Bug #6). |
-| `sells_since_start` | Per-symbol counter inside `reconcile_positions_from_fills()`'s FIFO walk — counts SELL fills that left the lot queue non-empty (i.e. a genuine scale-out) since the last flat→long transition. Must reset to 0 when a lot queue truly empties; the dust-tolerance bug (fixed 2026-07-18) meant it never reset for symbols whose SELL fills always left fee-residue dust behind. |
+| `pruneStaleState(state, openSymbols)` | `src/reconcile.js`. Clears per-symbol state for every symbol in `state.positions` not present in the current cycle's live `openSymbols` — HWM/partial-TP/breakeven/stop-order tracking can't survive a full close it never directly observed (e.g. a stop-loss-type exit), so this catches it regardless of which exit path fired. Called once per evaluation cycle right after the positions fetch. Mirrors the dashboard Autopilot's own `heldSyms` prune (`Object.keys(hwm).forEach(k => { if (!heldSyms.includes(k)) delete hwm[k]; })`, mirrored for `partialTp`/`entryTime`). |
+| `RECONCILE_DUST_REL_TOL` | Constant in `src/reconcile.js` (0.005 = 0.5%). Used by `reconcilePositionsFromFills()`'s FIFO walk to decide a lot has fully closed: leftover qty must be below `originalQty * RECONCILE_DUST_REL_TOL`, not a fixed absolute epsilon — a fixed `1e-6` is smaller than Alpaca's typical ~0.1–0.25% fee/precision short-fill on SELLs, so it never fires; every full close would be misread as a partial sell, permanently inflating `sellsSinceStart` and fabricating "breakeven after partial TP" stops on brand-new positions. |
+| `sellsSinceStart` | Per-symbol counter inside `reconcilePositionsFromFills()`'s FIFO walk — counts SELL fills that left the lot queue non-empty (i.e. a genuine scale-out) since the last flat→long transition. Must reset to 0 when a lot queue truly empties. |
 | fee-residue short-fill | Alpaca paper-account SELL fills return a quantity ~0.1–0.25% smaller than the matching BUY quantity for the same qty ordered — a fee/precision rounding artifact, confirmed across 15 traded symbols (e.g. LTC 0.99791, AAVE 0.99856, LINK 0.99858 of the original qty). Any FIFO reconciliation logic comparing "remaining lot qty" to an absolute near-zero epsilon must account for this. |
 
 ---
@@ -295,7 +241,7 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | Term | Meaning |
 |------|---------|
 | Canonical symbol notation | The one symbol format used project-wide: the slash pair `BASE/QUOTE` (`BTC/USD`, `BTC/USDT`) — config, journals, logs, state files, and every dashboard label. Alpaca's no-slash form (`BTCUSD`) lives only at the API boundary (positions/orders/activities responses, order payloads, bars/snapshot map keys). Rule documented in CLAUDE.md › "Symbol notation (canonical)". |
-| `scripts/symbols.py` / `to_slash()` | Single Python converter `'BTCUSD' → 'BTC/USD'` (quotes USDT/USDC/USD, longest match first, so `BTCUSDT → BTC/USDT`). Replaced four duplicated local `_to_slash`/`_slash` implementations in `rebalance.py`, `run_evaluation.py`, `trade.py`, `scout.py`. Mirrors the dashboard's `toSlash()` — keep the two in sync. Tested in `tests/test_symbols.py`. |
+| `src/symbols.js` / `toSlash()` | Single converter `'BTCUSD' → 'BTC/USD'` (quotes USDT/USDC/USD, longest match first, so `BTCUSDT → BTC/USDT`). Shared by every engine module that needs it. Mirrors the dashboard's own `toSlash()` — keep the two in sync. |
 | `baseTicker()` exemptions | The dashboard helper is no longer used for symbol labels. Remaining functional uses: news-site URL slugs in Breakout cards (CryptoPanic/CoinGecko want the bare base), the space-capped 4-char correlation-matrix axis ticks, and the `symbolInfo()` asset-*name* fallback. Each site carries a comment referencing the notation rule. |
 
 ## 2026-07-09 — All 8 trader-effectiveness items implemented (v2026-07-09.1)
@@ -312,7 +258,7 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | Stale-position exit | `risk.max_hold_hours` (48): exit positions older than the limit that never armed their trailing stop and score below the half-size gate (2.5). Pure gate: `risk.is_stale_position()`; entry clock: `entry_time_iso` in the state file / `localStorage.autopilotEntryTime`. Winners (armed trail) exempt. |
 | 4H aggregation fallback / synthetic 4H | When the native 4H fetch returns < 51 bars, both engines aggregate 1H bars into synthetic 4H bars on 4-hour UTC boundaries, complete buckets only (`aggregate_bars_to_4h()` / `aggregate1hTo4h()` + `fill4hFallback()`). Failure → explicit `DATA-QUALITY WARNING` journal line / red ⚠ in the Signals 4H cell (yellow ⚠ = synthetic in use). |
 | Session-edge filter | OFF by default (`strategy.session_filter_enabled`): half-size entries during GMT+2 exit-hour/weekday buckets with ≥ `session_min_sample` (20) realized FIFO round trips and negative net P&L. Python `_session_penalty_active()` (run_evaluation); JS `apSessionPenaltyActive()` (6h cache over `edgeFetchAllFills`). |
-| `entry_time_iso` / `partial_tp_done` / `breakeven_stop` | New per-position fields in `data/positions_state.json` (position_state.py `_EMPTY_POSITION`): when the position opened, whether the +1R scale-out already fired, and the breakeven stop level for the remainder. |
+| `entry_time_iso` / `partial_tp_done` / `breakeven_stop` | Per-position fields in `data/positions_state.json` (`src/positionState.js`'s empty-position shape): when the position opened, whether the +1R scale-out already fired, and the breakeven stop level for the remainder. |
 | `localStorage.autopilotPartialTp` / `autopilotEntryTime` | Autopilot mirrors of the above (sym → breakeven price; sym → entry epoch-ms). Pruned to held symbols each cycle; merged from the Python state file so both engines run the same ladder on a shared position. |
 
 ## 2026-07-08 — Roadmap sweep: Autopilot hardening + dashboard parity (v2026-07-08.1)
@@ -337,66 +283,11 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
-## 2026-06-19 — Loosened gates, 4H swing-low stop, Scalping tab
+## 2026-06-15 to 2026-06-19 — Portfolio merge, layout sweep, gate loosening (compacted)
 
-| Term | Meaning |
-|------|---------|
-| Swing-low stop (4H) | TA-driven long stop that replaced the fixed −5% hard stop. Sits just below the previous 4H range low — lowest low of the last `swing_low_lookback_bars` (20) completed 4H bars, ×(1−`swing_low_buffer_pct`), clamped so it is never more than `swing_low_max_stop_pct` (8%) below entry. `risk.stop_loss_mode = "swing_low_4h"`. |
-| `swing_low_stop_price(entry, lows_4h, …)` | `risk.py` helper returning the swing-low stop price, or `None` when <5 bars or the level isn't below entry (caller then falls back to the fixed `stop_loss_pct`). |
-| `should_stop_out(entry, current, stop_price=None)` | `risk.py` — now takes an explicit `stop_price` (the swing-low level); falls back to the fixed `stop_loss_pct` drawdown when `stop_price` is None. |
-| `swingLowStop4h(lows4h, entry)` | Dashboard JS mirror of `swing_low_stop_price` (used by Autopilot exits). |
-| `downtrend_long_score_threshold` | `config.json › strategy` (= 4.0). Minimum confluence score for a **half-size counter-trend long** in a confirmed daily downtrend. Dashboard const: `SIGNAL_DOWNTREND_LONG_SCORE`. |
-| `SIGNAL_BUY_SCORE` / `SIGNAL_HALF_SCORE` | Dashboard consts (3.5 / 2.5) mirroring `strategy.buy_score_threshold` / `buy_score_half_size_threshold`; used by every signal-score display + Autopilot. |
-| ⚡ Scalping tab | Low-timeframe confluence scanner (`page-scalp`, `loadScalp()`). TF selector maps the (exec, trend, regime) stack down via `SCALP_TF_MAP` (5m→5m·1h·4h, 15m→15m·1h·4h, 1h→1h·4h·1D) and runs the same `calcSignalScore`. Scanner + manual Buy/Sell (`openTradeModal`); no auto-loop. |
-| `SCALP_TF_MAP` | Dashboard map from a scalp timeframe to its `{exec, trend, regime}` bar timeframes. |
-
----
-
-## 2026-06-17 — Shared Score Distribution tile
-
-| Term | Meaning |
-|------|---------|
-| `renderScoreDist(elId, scores)` | Shared helper (defined just above `loadSignals`) that renders the 6-point **Score Distribution** tile into the given element id. Buckets an array of scores into ≥4 BUY / 3–3.9 HALF / 0.5–2.9 HOLD / −2.9–0 HOLD / ≤−3 BEAR (handles fractional scores) and draws colour-coded horizontal bars. Used by both the Signals tab (`#scoreDist`) and the Market → Scanner sub-tab (`#msScoreDist`) so they render identically. Replaced the Scanner's old per-integer inline list. |
-
----
-
-## 2026-06-17 — Behavioral Insights tab
-
-| Term | Meaning |
-|------|---------|
-| `c.activities` | Context field added by `loadContext()` (the newest-first FILL feed it already fetches for `computeFifoStats`). `renderCommand()` uses `c.activities.slice(0,2)` to render the **Latest Activity** block (`#recentActivities`) in the top-left of the 🚦 Trading Permission Rules panel. |
-| `apRenderStatusLog()` | Renders the last 3 Autopilot log entries (`apGetLog().slice(-3).reverse()`) into `#tradingStatusLog`, the readout under the big trading-status word in the Command Center. Called by `apRenderLog()` so it stays in sync with the full `#apLog` on every push and on init. |
-| `loadInsights()` | Entry point for the 🧠 Insights tab (top-level `page-insights`, id `insights`). On-demand (▶ Analyze). Fetches all FILL history (`edgeFetchAllFills()`), builds round-trips (`insRoundTrips()`), renders 3 KPI tiles + 4 behavioral cards. Analysis-only. |
-| `insRoundTrips(activities)` | Dedicated FIFO round-trip matcher for Insights (separate from `computeFifoStats`/`edgeFifoTrades` so the shared engines stay untouched). Returns `{sym, pnl, cost, pnlPct, entryT, exitT}` sorted chronologically by exit time. `cost` = matched entry cost; `pnlPct` = pnl ÷ cost × 100. |
-| `insStmt(text, cls)` / `insGap(h)` | Insights render helpers: a coloured headline statement line (`neg`/`pos`/else yellow), and an hour-gap formatter (`m`/`h`/`d`). |
-| After-2-Loss Win Rate | Win rate of round-trips that follow ≥2 consecutive losing round-trips (chronological), vs the all-trades baseline. Drives the "win rate drops after losses" insight. |
-| Cadence after outcome | Median hours from a round-trip's exit to the next round-trip's entry, split by whether the prior trip won or lost. Shorter gap after wins ⇒ "overtrade after wins". |
-| Rule breach (best-effort) | Insights heuristic: **stop-loss breach** = realized `pnlPct < −5` (the −5% hard stop wasn't honored); **cap breach** = entry `cost` > `portCapFor(sym)`% × *current* equity (approximate — historical equity unknown). |
-
----
-
-## 2026-06-17 — Layout/style consistency sweep
-
-| Term | Meaning |
-|------|---------|
-| `--hover` | Theme-aware CSS token for control hover backgrounds (`#222b3a` dark / `#e2e7ed` light). Used by `.btn:hover`, `th:hover`, `th.port-sortable:hover`. Replaced hardcoded `#222b3a`/`#21262d` greys that didn't adapt to the light theme. |
-| `.spinner` + `@keyframes spin` | Small spinning ring (13px, blue top border) shown inline before portfolio "Loading…" text. Previously referenced by markup but never defined (invisible). |
-| `.error` (vs `.error-box`) | The one defined red error-box class. The portfolio error containers (`#portErrorBox`, `#portDistErrorBox`) previously used the undefined `.error-box`; now reuse `.error`. |
-
----
-
-## 2026-06-15 — Portfolio Dashboard Merge
-
-| Term | Meaning |
-|------|---------|
-| `port-overview` / `port-hot` / `port-dist` / `port-brief` | Tab IDs for the four portfolio tabs integrated into `dashboard_professional.html` under the "💼 Portfolio" nav section. |
-| `portCapFor(sym)` | Returns the symbol's cap percentage from `PORTFOLIO_CAPS` (e.g. 30 for BTC/USD). Uses `PORTFOLIO_CAPS[sym] \|\| 5`. |
-| `portConfluenceScore()` | Standalone TA confluence scorer in the Professional Dashboard (same logic as `calcSignalScore`/`signal_score`). Prefixed `port*` to avoid namespace collision. |
-| `portLoadBrief()` | Loads the Morning Brief tab: fetches account + positions, computes alerts, runs `portConfluenceScore` for all 10 watchlist symbols. |
-| `generateMorningBrief()` | Header-button function that produces a downloadable `.md` morning brief from live Alpaca data. Opens `#briefDocBackdrop` modal. |
-| `port-filter-btn` | CSS class for the order-filter buttons (All/Filled/Open/Canceled) in the Portfolio Overview tab. Renamed from `filter-btn` to avoid collision. |
-| `port-period-btn` | CSS class for chart period selector buttons in Portfolio Overview. Renamed from `period-btn`. |
-| `port-sortable` / `port-sorted` | CSS classes for sortable column headers in portfolio tables. Renamed from `sortable` / `sorted`. |
+- **2026-06-19:** Replaced the fixed −5% stop with a 4H swing-low stop (`risk.stop_loss_mode="swing_low_4h"`, clamped ≤8% below entry, fixed-% fallback); loosened buy gates to 3.5 full / 2.5 half plus a 4.0 counter-trend downtrend gate (`downtrend_long_score_threshold`); added the ⚡ Scalping tab (5m/15m/1h confluence scanner + manual Buy/Sell, no auto-loop).
+- **2026-06-17:** Unified the Signals and Scanner tabs' score-distribution chart into one shared helper; added the 🧠 Behavioral Insights tab (Day-of-Week Edge, After-Losing-Streaks win rate, Cadence-After-Outcome, best-effort Rule Discipline cards) plus a Latest-Activity block on Command; fixed several undefined/non-theme-aware CSS references found in a layout audit.
+- **2026-06-15:** Merged the standalone `portfolio-dashboard.html` into the Professional Dashboard as `port*`-prefixed "💼 Portfolio" nav tabs (Overview, Hot Symbols, Allocation, Morning Brief) — Hot Symbols and Morning Brief were later removed the same week once other tabs superseded them.
 
 ---
 
@@ -427,16 +318,14 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ## 2026-07-07 — Informational indicators ADX + OBV
 
-- `indicators.py` gained `adx()`, `adx_label()`, `obv_series()`, `obv_trend()` — journal-only, not in `signal_score()`, exempt from dashboard parity.
+- `src/indicators.js` has `adx()`, `adxLabel()`, `obvSeries()`, `obvTrend()` — journal-only, not in `signalScore()`, exempt from dashboard parity.
 - Journal indicator block now has `adx :` and `obv :` lines between `atr` and `4h`.
 
-## 2026-07-07 — New skills: hourly-research + crypto-catalysts
+## 2026-07-07 — New skill: crypto-catalysts
 
-- `skills/hourly-research-SKILL.md` — procedure for the top-of-hour research pass (per-symbol TA + news block `Research HH:MM GMT+2`); research-only, no orders. Symbol set = watchlist + fresh scout promotions.
 - `skills/crypto-catalysts/SKILL.md` — knowledge guide for weighing crypto news/events; defensive only (veto/downsize/flag-to-close, never entries below score gates).
-- **Catalyst severity ladder (T1/T2/T3)** — T1 structural (hack, stablecoin depeg, delisting, enforcement naming the asset, chain halt → flag position close + block entries), T2 flow (large token unlock, ETF flow streak, funding > +0.1%/8h, listing, OI extreme → downsize/skip borderline entries), T3 noise (record only). Cited in the research block's `Read:` line, e.g. `flagged to close: SOL/USD — T1 venue exploit headline`.
+- **Catalyst severity ladder (T1/T2/T3)** — T1 structural (hack, stablecoin depeg, delisting, enforcement naming the asset, chain halt → flag position close + block entries), T2 flow (large token unlock, ETF flow streak, funding > +0.1%/8h, listing, OI extreme → downsize/skip borderline entries), T3 noise (record only). Cited in the research `Read:` line, e.g. `flagged to close: SOL/USD — T1 venue exploit headline`.
 - **Unlock veto** — skip new entries in an alt with a large (>2–3% supply) token-unlock cliff inside ~7 days, even at full-size score.
-- **Skill split convention** — knowledge playbooks live in directories (`skills/<name>/SKILL.md`: crypto-trader, crypto-catalysts); scheduled-routine procedures are flat files (`skills/<name>-SKILL.md`: hourly-research, morning-brief, daily-journal).
 
 ## Trading Terms
 
@@ -460,7 +349,7 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | Accumulation | Wyckoff buy zone: range after downtrend, look for SoS |
 | Distribution | Wyckoff exit zone: range after uptrend, do not add positions |
 | Regime (daily) | last_close > 50-day SMA AND 20-day SMA > 50-day SMA = uptrend |
-| Hard cap | Position capped at 5% of total equity; enforced in trade.py |
+| Hard cap | Position capped at 5% of total equity; enforced in `src/trade.js` |
 | ATR sizing | 1% risk rule: qty = (equity×1%) / (ATR×1.5), capped at 5% equity |
 | Limit order | Only order type used; price ≤ ask + 0.2% |
 | Paper spot trading | Simulated spot trades only; Alpaca paper environment (no futures support yet) |
@@ -487,10 +376,10 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | Term | Meaning | Context |
 |------|---------|---------|
 | market-researcher | Analysis-only subagent in `.claude/agents/market-researcher.md` | Pro spot-trader persona; verifies strategy/risk/profitability and reviews the project after strategy changes; logs timestamped reports to `data/market_research/`; never trades |
-| Universe Scout | `scripts/scout.py` — auto-promotes uptrending score-≥4 non-watchlist `*/USD` pairs | Writes `data/watchlist_dynamic.json` (TTL 6 h); merged by `run_evaluation` when `scout.enabled`; all gates + 5% default cap apply |
+| Universe Scout | `src/scout.js` — auto-promotes uptrending score-≥4 non-watchlist `*/USD` pairs | Writes `data/watchlist_dynamic.json` (TTL 6 h); merged when `scout.enabled`; all gates + 5% default cap apply |
 | Autopilot | Dashboard Command-tab autonomous trading loop | OFF on every page load; kill switch cancels all orders; gates mirror the Python agent; HWM + log in localStorage |
 | `shorts_enabled` | `config.json › strategy` flag, default **false** | Alpaca spot crypto cannot be shorted — short entries gated off in `run_evaluation`; cover logic retained |
-| Stop-loss clamp | `trade.py` clamps stale stop limits to the fresh ask's 0.5% band edge | Replaces self-rejection that left positions exposed a full cycle (fixed 2026-06-11) |
+| Stop-loss clamp | `src/trade.js` clamps stale stop limits to the fresh ask's 0.5% band edge | Replaces self-rejection that left positions exposed a full cycle (fixed 2026-06-11) |
 | `data/market_research/` | Historical research log folder | `YYYY-MM-DD-HHMM-market.md` and `…-project-verification.md`, GMT+2 timestamps |
 
 ## API & Environment
@@ -511,7 +400,7 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 | Multi-symbol pagination | Bars API paginates by *total bars*, not per-symbol. Must follow `next_page_token` until `null`. |
 | Dashboard Settings inputs | `#page-settings` field IDs: `setPaperApiKey` / `setPaperApiSecret` (📄 Paper), `setLiveApiKey` / `setLiveApiSecret` (🔴 Live), `setStopLoss` / `setMaxDailyLoss` / `setMaxOpenRisk` (🛡 Risk Limits), `setMaxSignalSymbols` (🔭 Signals Analysis), `watchlistAddInput` + `watchlistTagsEl` + `watchlistCountEl` (📋 Active Watchlist). Persisted to `localStorage` key `proDashboardSettings` (main settings) and `proDashboardWatchlist` (watchlist). |
 | `maxSignalSymbols` | `getSettings().limits.maxSignalSymbols` — sets how many symbols the Market Signals scanner analyses. Default 30, minimum 1, **no upper clamp**. `loadMarketSignals()` uses `SCAN_SYMBOLS = universe.slice(0, n)` where `universe = usdPairsOnly(getCryptoUniverse())` (full tradable Alpaca crypto list filtered to `/USD` pairs since the 2026-07-09 v2 bugfix, no longer the 30-symbol `TOP30_SYMBOLS`), so values above 30 genuinely scan more symbols. Also caps Market Overview's row count (same setting, same filtered universe); does not affect the watchlist Signals tab. |
-| `maxOpenPositions` / `maxPositionsPerTier` | `getSettings().limits.*` — user-configurable Autopilot correlation-budget caps (Settings › 🔗 Correlation Budget; inputs `setMaxOpenPositions` / `setMaxPositionsPerTier`, defaults 4 / 3, min 1). Read live each cycle by `apMaxPositions()` / `apMaxPerTier()`; replaced the old hardcoded `AP_MAX_POSITIONS` / `AP_MAX_PER_TIER` consts. Dashboard-Autopilot only — the Python eval loop uses `config.json › risk.max_open_positions` / `max_positions_per_tier`. |
+| `maxOpenPositions` / `maxPositionsPerTier` | `getSettings().limits.*` — user-configurable Autopilot correlation-budget caps (Settings › 🔗 Correlation Budget; inputs `setMaxOpenPositions` / `setMaxPositionsPerTier`, defaults 4 / 3, min 1). Read live each cycle by `apMaxPositions()` / `apMaxPerTier()`; replaced the old hardcoded `AP_MAX_POSITIONS` / `AP_MAX_PER_TIER` consts. Dashboard-Autopilot only — the cron/eval engine uses `config.json › risk.max_open_positions` / `max_positions_per_tier`. |
 | `updateScanBtnLabel()` | Sets the Market Signals scan button (`#msScanBtn`) text from `maxSignalSymbols`. Called on page init, after `saveSettings()`, and at the start of `loadMarketSignals()`. **Clamps to the real universe size** when `_cryptoUniverse` is loaded — `usdPairsOnly(_cryptoUniverse).length` since the 2026-07-09 v2 bugfix: `▶ Scan Top <universe> (all available)` when Max Symbols exceeds the tradable `/USD` pairs Alpaca offers, else `▶ Scan Top <min(n, universe)>`. Honest indicator of the active cap (2026-06-18) — the universe, not the setting, is the true ceiling. |
 | USD-pair universe ceiling | Alpaca lists only ~20–33 tradable `*/USD` crypto pairs (its ~56 total pairs include USDT/USDC/BTC quotes — USDT/USDC stay in the universe for the watchlist selector but are filtered off the scan surfaces by `usdPairsOnly()` since 2026-07-09 v2; other quotes are dropped outright). So Max Symbols > ~33 can't be satisfied; the Scanner button and the Scanner + Market Overview status lines say so explicitly rather than implying more symbols exist. This is the resolution of the "only 33 scanned while setting is 60" bug — a real exchange limit, not a defect. |
 | `config.json` (dashboard) | Settings store for `docs/dashboard_professional.html`, kept in the same folder. Holds `mode`, the four API key/secret fields, and a `limits` object (incl. `maxSignalSymbols`). Loaded on page open by `loadConfigFromFile()` (fetch `./config.json`), written by `saveSettings()` via `saveConfigToFile()`. Separate from the agent's top-level `config.json` (strategy/watchlist/caps). |
@@ -531,55 +420,6 @@ Full decoder ring. Everything that would clutter `memory.md` lives here.
 
 ---
 
-## Script Signatures
-
-| Function | File | Purpose |
-|----------|------|---------|
-| `signal_score(closes, volumes, highs, lows, closes_4h)` | `indicators.py` | Returns `(score, breakdown_dict)` |
-| `ema_cross_state(closes, fast=20, slow=50)` | `indicators.py` | "golden" / "death" / "neutral" |
-| `atr(highs, lows, closes, period=14)` | `indicators.py` | Wilder ATR |
-| `volume_ratio(volumes, period=20)` | `indicators.py` | Current / 20-bar avg |
-| `should_trail_stop_out(entry, hwm, cur)` | `risk.py` | True when trailing stop fires (HWM gain ≥2.5%, current ≤ HWM×0.97) |
-| `correlation_budget_allows(symbol, open_symbols)` | `risk.py` | Returns `(bool, reason)` — checks total + per-tier limits |
-| `daily_drawdown_gate_triggered(day_open, current)` | `risk.py` | True if today's drawdown ≥ 3% |
-| `stop_loss_limit_price(ask, cycles_open)` | `risk.py` | Limit price for stop-loss SELL; widens after 2 unfilled cycles |
-| `cover_limit_price(ask, cycles_open)` | `risk.py` | Limit price for stop-loss COVER; mirrors above, price above ask |
-| `get_open_orders(symbol)` | `trade.py` | Fetch pending orders for a symbol; normalises BTCUSD→BTC/USD |
-| `cancel_order(order_id)` | `trade.py` | Cancel single order by ID; returns True on 200/204, no-raises on 404 |
-| `place_order(..., is_stop_loss=False)` | `trade.py` | Place limit order; `is_stop_loss=True` uses wider 0.5% band |
-| `load_state()` / `save_state(state)` | `position_state.py` | Load/atomically-write `data/positions_state.json` |
-| `check_and_refresh_day_open(state, equity)` | `position_state.py` | Reset daily snapshot if new day; clears capital preservation mode |
-| `update_high_water_mark(state, symbol, price)` | `position_state.py` | Ratchet HWM up, never down |
-| `set_stop_order(state, symbol, order_id, price)` | `position_state.py` | Record a placed stop-loss order ID + limit price in state |
-| `increment_stop_order_cycles(state, symbol)` | `position_state.py` | Increment + return the cycle counter for the pending stop order |
-| `clear_stop_order(state, symbol)` | `position_state.py` | Null out stop_order_id + related fields (order filled or cancelled) |
-| `init_position(state, symbol, entry_price)` | `position_state.py` | Called on new BUY/SHORT fill; sets entry_price, HWM, clears stop fields |
-| `clear_position(state, symbol)` | `position_state.py` | Remove symbol from state (SELL/COVER fully filled) |
-| `get_crypto_bars(symbol, limit, timeframe)` | `run_evaluation.py` | Fetches bars with correct start date |
-| `_bars_start(limit, timeframe, buffer=1.6)` | `run_evaluation.py` | Computes start datetime string |
-| `evaluate_symbol(symbol, positions, equity, buying_power)` | `run_evaluation.py` | Full eval + ATR sizing + journal write |
-| `place_order(symbol, side, qty, ask)` | `trade.py` | Limit order; enforces hard rules |
-| `evaluate_rebalance(symbol, pos, equity, caps_data)` / `append_rebalance_journal(...)` | `rebalance.py` (**deleted 2026-07-25**, Python cleanup) | Manual portfolio-rebalance-to-caps tool — no scheduler or test ever called it; removed post-cutover along with the file. |
-| `computeFifoStats(activities)` | `dashboard_professional.html` | Shared FIFO realized-P&L engine. Returns `{totalPnl, wins, losses, winPnl, lossPnl, winRate, profitFactor, avgWin, avgLoss, tradeRows}`. Long-only buy→sell matching. Single source of truth for both the P&L tab (`loadPnl`) and Backtest tab (`renderBacktest` via `c.fifoStats`). **Must be fed the full paginated FILL history via `edgeFetchAllFills()` — a single 100-fill page truncates the realized total and mis-books SELLs whose matching BUY predates the window as $0 "wins" (fixed 2026-07-06). All three feeders (`loadContext`, `loadPnl`, `generateDailyJournal`) now use `edgeFetchAllFills()`.** A SELL is only counted as a realized trade when it matched a prior BUY (`matchedQty > 1e-9`); an unmatched SELL (empty FIFO queue) stays in the trade log with `pnl: null` and is excluded from win/loss stats — so it can no longer book a phantom $0 "win" (hardened 2026-07-07, aligns with `edgeFifoTrades`/`insRoundTrips`). |
-| `tradingDaysPerYear` | `dashboard_professional.html` (`DEFAULT_LIMITS`) | Annualization factor for Sharpe/Sortino/Calmar and annualized volatility (`× √tradingDaysPerYear`). **Set to `365`, not 252** — crypto trades 24/7 and the portfolio-history feed returns daily calendar points, so annualization must use 365 (matches `scripts/metrics.py` `annualization_factor("1D") = 365.0`). Was `252` (equity-market convention) until 2026-07-07, which understated all annualized KPIs by √(252/365) ≈ 0.83. |
-
----
-
-## Python ↔ Dashboard Parity Notes
-
-Critical implementation details to keep `indicators.py` and `dashboard_professional.html` in sync:
-
-| Concern | Detail |
-|---------|--------|
-| MACD NaN prefix | `macdLine` has NaN for indices 0–24 (ema26 only valid from index 25). Must strip NaN before calling `emaArr` for signal EMA, then re-pad to original length. Otherwise signal line = NaN always (MACD always 0). |
-| Buy/half thresholds | Loosened 2026-06-19. Python: `score >= 3.5` full, `>= 2.5` (`< 3.5`) half — `strategy.buy_score_threshold` / `buy_score_half_size_threshold`. Dashboard: consts `SIGNAL_BUY_SCORE` (3.5) / `SIGNAL_HALF_SCORE` (2.5). Keep in sync. |
-| EMA seeding | Both sides seed with SMA of first `period` values (not first raw value). |
-| EMA dead zone | Both sides use ±0.05% band: `ema20 > ema50 * 1.0005` = golden; `< 0.9995` = death; else neutral. Applies to 15-min (Signal 1) and 4H (Signal 6). |
-| Volume average | `current / avg(prev-20 bars)` — prev-20 excludes current bar: Python `volumes[-21:-1]`; JS `volumes.slice(-21,-1)`. |
-| Daily regime | SMA (not EMA) for both sides. `last > SMA50 && SMA20 > SMA50` = uptrend. |
-
----
-
 ## Hard Rules Quick Reference
 
 | # | Rule | Value |
@@ -595,8 +435,7 @@ Critical implementation details to keep `indicators.py` and `dashboard_professio
 | 6 | Long regime gate | Uptrend/mixed: buy ≥2.5/≥3.5. Downtrend: half-size counter-trend long only at score ≥4.0 |
 | 6b | Short regime gate | Shorts ONLY in confirmed daily downtrend; blocked in uptrend/mixed |
 | 7 | Sizing | ATR: qty=(equity×1%)/(ATR×1.5), cap at 5% equity |
-| 8 | Order routing | All via `scripts/trade.py`; direct API calls forbidden |
-| 9 | Journal | Every day, even quiet ones |
+| 8 | Order routing | All via `src/trade.js`; direct API calls forbidden |
 | 10 | Partial TP (2026-07-09) | +1R → sell 50%, remaining stop → breakeven (fires once per position) |
 | 11 | Stale exit (2026-07-09) | Held > 48h + trail unarmed + score < 2.5 → SELL at normal band |
 | 12 | Rotation (2026-07-09) | Budget full: candidate ≥ 4.0 scoring ≥ +2.0 above a weakest holding ≤ 0 → swap same cycle |
@@ -612,10 +451,10 @@ Critical implementation details to keep `indicators.py` and `dashboard_professio
 | Conviction-scaled sizing | **Implemented, ships OFF** (`strategy.conviction_sizing_enabled`). `risk.conviction_risk_multiplier()`: 0.75× half band / 1.0× full band / 1.5× at score ≥ `conviction_high_score` (5.0) with daily+4H aligned — Druckenmiller. Replaces the legacy ×0.5 half-band halving when on. |
 | Streak throttle | **Implemented, ACTIVE** (`risk.streak_throttle_enabled=true`). `risk.update_streak_throttle()`: 3 consecutive losing round-trips OR 7-day drawdown ≥ 5% → risk ×`streak_throttle_risk_factor` (0.5); releases after 2 straight winners AND drawdown < 2.5% (hysteresis; state = `streak_throttle_active` in positions_state.json) — PTJ. 7-day DD from `/v2/account/portfolio/history`. |
 | Maker-first pricing | **Implemented, ships OFF** (`costs.maker_first_entries`). Entry limits rest at the bid; a 1-cycle repricing timeout cancels unfilled entry BUYs; exits/stops stay taker. `check_limit_band(limit, ask, bid=…)` accepts any limit inside the live spread (maker-safe). |
-| Stop watchdog | **Implemented, ACTIVE — now `src/stopWatchdog.js` on the Vercel Cron dispatcher** (since the 2026-07-25 Node cutover): open-long exit levels only (trail from state HWM, max(swing-low, breakeven), −5% fallback), dedup against pending SELLs, orders via the trade gateway, journals/commits only when a stop fires. `scripts/stop_watchdog.py` + `.github/workflows/watchdog.yml` were the original Python/GH-Actions implementation; both are gone (workflow deleted 2026-07-25 at cutover, script deleted 2026-07-25 in the Python cleanup pass — no remaining caller). |
+| Stop watchdog | **Implemented, ACTIVE** — `src/stopWatchdog.js` on the Vercel Cron dispatcher: open-long exit levels only (trail from state HWM, max(swing-low, breakeven), −5% fallback), dedup against pending SELLs, orders via the trade gateway, journals/commits only when a stop fires. |
 | Breadth gate | **Implemented, ships OFF** (`strategy.breadth_gate_enabled`). `risk.breadth_pct()`/`breadth_policy()`: ≤ `breadth_low_pct` (30%) of watchlist in daily uptrend → new entries Tier-1 only + max-positions budget halved — Weinstein at book level. |
 | Measured-move target | **Implemented, ships OFF** (`strategy.measured_move_enabled`). `risk.measured_move_target()`: prior 4H swing high, or entry + 2× the 4H range height after a breakout; feeds the net-R:R reward leg when ADX ≥ `measured_move_adx_min` (25) — PTJ asymmetry. |
-| `walkforward_latest.json` | Stable-named compact summary written by every `walkforward_evaluate.py` run (forward.yml fees corrected 5→25 bps 2026-07-10); the dashboard Backtest tab's `#wfBaseline` banner reads it and turns red past `walkforward.max_baseline_age_days` (45, seeded to `STRAT_CFG.wfMaxAgeDays`). |
+| `walkforward_latest.json` | Stable-named compact summary the dashboard Backtest tab's `#wfBaseline` banner reads, turning red past `walkforward.max_baseline_age_days` (45, seeded to `STRAT_CFG.wfMaxAgeDays`). Nothing generates new reports — walk-forward backtesting has no implementation in this project. |
 | Session-edge filter (ON) | `strategy.session_filter_enabled=true` since 2026-07-10 (item 9) — self-guarding: penalizes only GMT+2 hour/weekday buckets with ≥ `session_min_sample` (20) round trips and negative net P&L. |
 | State-persistence bug (P0) | **FIXED 2026-07-10 (v2026-07-10.2).** `data/positions_state.json` reset between runs because the workflow only committed `journal/` — every fresh Actions checkout restored the 2026-06-18 copy. Now committed every run + fill-history reconciliation (below). |
 
@@ -623,11 +462,11 @@ Critical implementation details to keep `indicators.py` and `dashboard_professio
 
 | Term | Meaning |
 |------|---------|
-| Fill-history reconciliation | `reconcile_positions_from_fills()` (`run_evaluation.py`): FIFO walk over the full FILL activity history that rebuilds `partial_tp_done` + breakeven stop (any SELL since the last flat→long transition), backfills `entry_time_iso`, and replaces a non-positive API `avg_entry_price` with the open lots' weighted average. Makes the partial TP idempotent — a lost state file can never re-fire it. |
-| Bars page cap (~7 days) | Alpaca caps one `/v1beta3/crypto/us/bars` response at roughly 7 days of bars regardless of `limit`, returning `next_page_token` (4Hour limit=120 → 43 bars, verified live 2026-07-10). `get_crypto_bars` now follows the token (≤10 pages) — the root cause of the "4H bars chronically short / 1H fallback failed" bug. |
-| CADENCE WARNING | Journal warning emitted when `now − state.last_evaluation_iso` > `CADENCE_WARNING_MIN` — self-monitoring for scheduler gaps. Threshold tracks `trade.yml`'s actual (deliberately cost-throttled) cron — currently 25h for the once/day cadence — and must be updated in lockstep (Python + Node) whenever that cron changes, or it false-fires on every intentional run (happened 2026-07-20 → 2026-07-24, see `memory.md` v2026-07-24.1). |
+| Fill-history reconciliation | `reconcilePositionsFromFills()`: FIFO walk over the full FILL activity history that rebuilds `partial_tp_done` + breakeven stop (any SELL since the last flat→long transition), backfills `entry_time_iso`, and replaces a non-positive API `avg_entry_price` with the open lots' weighted average. Makes the partial TP idempotent — a lost state file can never re-fire it. |
+| Bars page cap (~7 days) | Alpaca caps one `/v1beta3/crypto/us/bars` response at roughly 7 days of bars regardless of `limit`, returning `next_page_token` (4Hour limit=120 → 43 bars, verified live 2026-07-10). The bar fetcher now follows the token (≤10 pages) — the root cause of the "4H bars chronically short / 1H fallback failed" bug. |
+| CADENCE WARNING | Journal warning emitted when `now − state.last_evaluation_iso` > `CADENCE_WARNING_MIN` — self-monitoring for scheduler gaps. Threshold must track the actual cron cadence and be updated whenever that cadence changes, or it false-fires on every intentional run. |
 | `last_evaluation_iso` | New top-level key in `data/positions_state.json` — UTC timestamp of the previous evaluation, drives the CADENCE WARNING. |
-| `scripts/daily_summary.py` | Closing-journal generator run by the 23:21 workflow job: `## Daily Summary` block with equity + day change vs `last_equity`, cash %, open positions, today's fills, FIFO realized P&L for round trips closed today. Replaced the second evaluation the job used to run. **Deleted 2026-07-25** (Python cleanup, post-cutover) — superseded by `src/dailySummary.js` on the Node/Vercel Cron dispatcher; had no remaining live caller (its `realized_pnl_today()` unit tests in `tests/test_reconcile.py` were removed alongside it). |
+| `src/dailySummary.js` | Closing-journal generator run by the `daily-summary` cron job: `## Daily Summary` block with equity + day change vs `last_equity`, cash %, open positions, today's fills, FIFO realized P&L for round trips closed today. |
 | DATA GUARD | Journal warning emitted when Alpaca's `avg_entry_price` ≤ 0 is replaced with the FIFO-derived cost basis (the SOL `$-4.4931` corruption). |
 | Budget ceiling 7 | With Tier-1 = {BTC, ETH} and 5 per tier, the reachable book maximum is 2 + 5 = 7 — `risk.max_open_positions` set to 7 (was an unreachable 15); dashboard `DEFAULT_LIMITS` fallback aligned to 7/5. |
 
@@ -637,15 +476,9 @@ Critical implementation details to keep `indicators.py` and `dashboard_professio
 |------|---------|
 | `ggLevelDate(t)` | Breakout-scanner helper (dashboard): formats a daily bar's timestamp as ` · d MMM` (GMT+2, en-GB). Used by `ggKeyLevels()` to date-stamp every 5-bar swing high/low so the 🎯 Daily Chart Key Levels panel never shows indistinguishable same-label rows ("Swing Low" ×3 — Bug #1 fixed 2026-07-11). Price-dedup (0.5%) and the 5-level cap are unchanged. |
 
-## Hosting Fix (2026-07-19)
+## Autopilot/cron-engine coexistence
 
 | Term | Meaning |
 |------|---------|
-| `server.js` (Trader) | Minimal Express entrypoint added 2026-07-19 — serves `docs/` statically (`GET /` → `dashboard_professional.html`) + `GET /api/health`, skips `app.listen()` under `VERCEL`/`NODE_ENV=test`. Exists only so a Vercel deployment of this repo has a valid entrypoint; does not carry any trading logic and does not change how the dashboard/engine actually run in production (GitHub Pages + GitHub Actions cron). Mirrors CryptoPro Suite's/Charts' `server.js` layout for consistency across the suite. |
-
-## Autopilot/cron-engine coexistence fix (2026-07-24)
-
-| Term | Meaning |
-|------|---------|
-| `GET /api/trader-state` | New unauthenticated read-only route (`src/cronRoutes.js`) — returns the Postgres `trader_state` row (authoritative once the Node/Vercel cron engine is live) or falls back to `ps.loadState()` (the git-committed file, authoritative while Python/GitHub Actions is the live engine). Lets `src/js/autopilot.js`'s cross-engine HWM/partial-TP/entry-time merge and `src/js/tabs-command.js`'s split-HWM warning keep working across the cutover instead of only ever reading a static file that goes stale once Python is retired. |
-| Autopilot as a third trading loop | The browser-side dashboard Autopilot places real orders independently of both cron engines (own `localStorage` state, `client_order_id` prefix `ap-`) and is *intentionally* meant to coexist, not be replaced by the Node cutover — Autopilot reacts fast while a browser tab is open, the always-on cron engine (Python today, Node/Vercel after cutover) covers gaps like overnight/asleep. Never part of the original 4-gate cutover analysis; surfaced during the gate-4-close investigation 2026-07-24. |
+| `GET /api/trader-state` | Unauthenticated read-only route (`src/cronRoutes.js`) returning the Postgres `trader_state` row. Lets `src/js/autopilot.js`'s cross-engine HWM/partial-TP/entry-time merge and `src/js/tabs-command.js`'s split-HWM warning always see the cron engine's latest state. |
+| Autopilot as a third trading loop | The browser-side dashboard Autopilot places real orders independently of the cron engine (own `localStorage` state, `client_order_id` prefix `ap-`) and is *intentionally* meant to coexist — Autopilot reacts fast while a browser tab is open, the always-on cron engine covers gaps like overnight/asleep. |
