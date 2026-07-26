@@ -5,7 +5,7 @@ Verification of the 2026-06-11 strategy change set:
 1. `scripts/trade.py` — stop-loss limit clamping to the 0.5% band edge (was: self-rejection).
 2. `scripts/scout.py` (new) + `config.json › scout` + merge in `run_evaluation.main()` — universe scout / dynamic watchlist.
 3. `config.json › strategy.shorts_enabled = false` + venue gate in `run_evaluation.py`.
-4. `docs/dashboard_professional.html` — shorts UI removed (BEAR pills informational), 🤖 Autopilot panel, 🔬 Edge tab.
+4. The dashboard's static HTML file — shorts UI removed (BEAR pills informational), 🤖 Autopilot panel, 🔬 Edge tab.
 5. Documentation updates (CLAUDE.md, README.md, docs/dashboard_layout.md, memory/*).
 
 Method: code read (trade.py, scout.py, run_evaluation.py, risk.py, dashboard apCycle), full test suite + py_compile in an isolated copy (/tmp/verify2), live read-only dry-run of `run_evaluation.py` and `scout.py --force` on fresh Alpaca data, journal evidence grep. No orders placed; no project files modified (dry-run journal written only inside /tmp/verify2).
@@ -27,9 +27,9 @@ Method: code read (trade.py, scout.py, run_evaluation.py, risk.py, dashboard apC
 ### 3. shorts_enabled = false (config.json:13, run_evaluation.py:611–646) — SOUND, EVIDENCE-SUPPORTED
 - Gate sits ahead of the SHORT branch; cover logic untouched (legacy-short safety net retained). Dry-run HOLD reasons are honest: "downtrend, longs blocked; shorts disabled (venue unsupported)".
 - Journal evidence: **6/6 SHORT orders ever attempted were rejected, 0 fills** (LTC/USD ×5, DOGE/USD ×1, 2026-06-04…08), all self-rejected on the 0.2% band before reaching Alpaca. Independently, Alpaca spot crypto is non-marginable/non-shortable, so the short half of the strategy was structurally dead code generating rejection noise. Disabling is correct.
-- Consistency: CLAUDE.md:91 documents the disable inside the short score-gate rule; README.md and memory files match; dashboard BEAR pills are informational only (dashboard_professional.html:4216, 5916 — "shorts unsupported on Alpaca spot").
+- Consistency: CLAUDE.md:91 documents the disable inside the short score-gate rule; README.md and memory files match; dashboard BEAR pills are informational only (dashboard's static HTML file, lines 4216, 5916 — "shorts unsupported on Alpaca spot").
 
-### 4. Dashboard Autopilot (apCycle, dashboard_professional.html:6016–6300) — GATES MATCH, TWO WARNINGS
+### 4. Dashboard Autopilot (apCycle, dashboard's static HTML file, lines 6016–6300) — GATES MATCH, TWO WARNINGS
 Gate-by-gate vs CLAUDE.md: entry score ≥ 4 (AP_ENTRY_SCORE=4, :6024), max 3 positions (:6028), 2 per tier with Tier-1={BTC,ETH} (:6022/:6029), 20% post-order cash reserve (:6023, :6279–6281), per-symbol caps with 5% default (`PORTFOLIO_CAPS[sym] || 5`, :6272 — values at :1868 match config.json), ATR sizing equity×1%/(1.5×ATR) (:6273), hard stop −5% (settings default, :6187/6229), trailing arms +2.5% / trails 3% below HWM (:6026–6027, persisted in localStorage), TA exit ≤ −2 (:6025), downtrend regime block (:6264), long-only (qty>0 filter :6217), limit-only GTC orders (:6166–6173), paper-mode-only with live-mode refusal (:6138, :6185), OFF on load / never auto-resumes (:6088–6101). All consistent with the hard-rules table.
 - **WARNING (MEDIUM): double-execution with the hourly Python loop.** Autopilot (browser, 15/30/60-min cycles) and `run_evaluation.py --execute` (:23 hourly) trade the same 10 symbols on the same account. Exits are reasonably deduplicated both ways (autopilot skips when `qty_available` is locked by a pending order, :6235–6236; Python's stop dedup checks `get_open_orders`, run_evaluation.py:414/481). **Entries are not**: neither side checks pending open BUY orders — both check positions only (:6265; Python entry path has no `get_open_orders` call). Two near-simultaneous limit BUYs on the same symbol can fill → up to 2× the per-symbol cap and 2× the 1%-risk intent; each side's cash-reserve check also won't see the other's unfilled order. Mitigation today: Autopilot is OFF on every load and opt-in. Do not run both concurrently until an open-order entry check exists.
 - **WARNING (LOW): order routing + limit-band fidelity.** Autopilot posts directly to `/v2/orders` (:6166), bypassing `scripts/trade.py` — the "Route all orders" hard rule as written. It reimplements the gates, but its limit price is `lastClose×1.001` from the last complete 15-min bar (:6276), not validated against a **live** ask; if price moved >0.2% since that bar closed, the order violates the 0.2%-band rule (harmless when above ask — limit fills at better price; rests if below). Python-side trade.py validation would have caught it.
@@ -60,7 +60,7 @@ CLAUDE.md:82 (clamp), :91 (shorts), :281–298 (scout), :356–357 (Autopilot/Ed
 5. **(LOW)** Have Autopilot validate its limit against a live quote (`/v1beta3/crypto/us/latest/quotes`) instead of lastClose to honour the 0.2% band exactly.
 
 ## Data sources
-- Code: scripts/trade.py (:181–202 clamp), scripts/scout.py (full), scripts/run_evaluation.py (:607–646 short gate, :761–880 main/merge), scripts/risk.py, docs/dashboard_professional.html (:1868, :4185–4216, :5896–5916, :6016–6300), config.json.
+- Code: scripts/trade.py (:181–202 clamp), scripts/scout.py (full), scripts/run_evaluation.py (:607–646 short gate, :761–880 main/merge), scripts/risk.py, the dashboard's static HTML file (:1868, :4185–4216, :5896–5916, :6016–6300), config.json.
 - Docs: CLAUDE.md, README.md, docs/dashboard_layout.md, memory/projects/alpaca-trading-agent.md.
 - Tests: `python3 -m pytest tests/ -q` → 84 passed; `py_compile` ×3 OK (isolated copy /tmp/verify2).
 - Live (read-only): dry-run `run_evaluation.py` 18:43 GMT+2 (10 HOLDs, fresh quotes); `scout.py --force` (universe 26 non-watchlist USD pairs, promoted 0); `/v2/assets` count.

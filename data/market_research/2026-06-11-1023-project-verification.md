@@ -18,7 +18,7 @@ Note: `pytest` is not in `requirements.txt`; it had to be installed ad hoc.
 
 | # | Check | Result | Evidence |
 |---|---|---|---|
-| 1 | EMA seeding (SMA of first `period`) | PASS | dashboard_professional.html:3422-3442 `emaArr`; indicators.py `ema_series` |
+| 1 | EMA seeding (SMA of first `period`) | PASS | dashboard's static HTML file, lines 3422-3442 `emaArr`; indicators.py `ema_series` |
 | 2 | MACD signal on NaN-stripped series | PASS | dashboard:3494-3495 `validMacd` filter + re-pad |
 | 3 | RSI formula / zero-loss edge case | **WARN** | Python `indicators.py:114-115` returns 50.0 when avg_gain==0 and avg_loss==0; dashboard `calcRSI` (line 3464) returns 100 whenever `avgLoss === 0`, including the all-flat case. CLAUDE.md item 3 mandates a match. Practically negligible (requires a perfectly flat series) but a documented-rule divergence. |
 | 4 | Score thresholds (≥4 full, ≥3&&<4 half; ≤−4 / ≤−3&&>−4; ±2 exits) | PASS | dashboard:4133-4139, 5837-5840; config.json `strategy.*`; run_evaluation decision tree |
@@ -116,7 +116,7 @@ walk-forward used BTC/USDC & ETH/USDC pairs, not the traded /USD watchlist.
 - Files: CLAUDE.md, README.md, config.json, scripts/run_evaluation.py,
   scripts/indicators.py, scripts/risk.py, scripts/trade.py,
   scripts/rebalance.py, scripts/research.py,
-  docs/dashboard_professional.html (lines 3422-3700, 3816, 4133-4220),
+  the dashboard's static HTML file (lines 3422-3700, 3816, 4133-4220),
   data/positions_state.json, journal/2026-06-11.md,
   reports/walkforward_20260607T080037Z.md, requirements.txt.
 - Read-only Alpaca probes via project modules to verify bar-window

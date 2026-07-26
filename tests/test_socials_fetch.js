@@ -10,7 +10,7 @@
 //
 // Run: node tests/test_socials_fetch.js
 //
-// (Until 2026-07-19 this logic lived inline in docs/dashboard_professional.html;
+// (Until 2026-07-19 this logic lived inline in the dashboard's static HTML file;
 // the dashboard was converted to a Node.js-rendered frontend and the file this
 // test extracts from moved to src/js/tabs-socials.js — see CLAUDE.md › Dashboard
 // frontend architecture.)

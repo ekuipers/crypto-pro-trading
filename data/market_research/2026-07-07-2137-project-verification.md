@@ -7,7 +7,7 @@ Commit `939ded7` ("feat: add ADX + OBV as informational indicators (roadmap)"), 
 
 ### 1. Rule consistency — PASS
 - `git diff 0f25f2f..939ded7 -- scripts/indicators.py`: 112 insertions, 0 deletions. Hunks at lines ~92–201 (new ADX/OBV section between `atr()` and RSI) and ~556–580 (`__main__` self-test). `signal_score()` (scripts/indicators.py:395) has no hunk — scoring behavior byte-for-byte unchanged. Grep confirms `adx`/`obv` never referenced inside `signal_score()`.
-- `git diff 0f25f2f..939ded7 -- docs/dashboard_professional.html` = 0 lines. `calcSignalScore()` untouched, as documented.
+- `git diff 0f25f2f..939ded7` against the dashboard's (then-)static HTML file = 0 lines. `calcSignalScore()` untouched, as documented.
 - `config.json` not in diff — all thresholds/gates unchanged.
 - Docs consistent: CLAUDE.md adds the "Note on informational indicators (ADX, OBV)" parity exemption + `adx`/`obv` lines in the journal output template; README.md updates indicators.py description and test counts (41 → 52); memory/memory.md session entry, memory/glossary.md terms, docs/dashboard_layout.md changelog ("no dashboard change") all match the code.
 

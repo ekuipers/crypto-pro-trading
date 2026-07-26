@@ -9,7 +9,7 @@
 // activities responses, so conversion to canonical form happens at that API
 // boundary and nowhere else.
 //
-// Mirrors the dashboard's toSlash() helper in docs/dashboard_professional.html
+// Mirrors the dashboard's toSlash() helper in src/js/utils.js
 // (same quote list, longest match first) -- keep the two in sync.
 
 // Longest first so BTCUSDT -> BTC/USDT, not BTCUS/DT or BTCU/SDT.

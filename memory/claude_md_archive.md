@@ -554,7 +554,7 @@ python scripts/rebalance.py --execute # submit orders
 ## Dashboard (`client/` React shell + `src/js/` + `src/css/`)
 
 **Frontend architecture — two conversions in one day, 2026-07-19.** (1) CryptoPro Suite roadmap item:
-"convert `dashboard_professional.html` to a Node.js frontend and remove the static HTML" — the dashboard
+"convert the dashboard's static HTML file to a Node.js frontend and remove the static HTML" — the dashboard
 was a single 10,088-line static HTML file through 2026-07-18; converted first to a Node.js-rendered EJS
 frontend (`res.render`). (2) While updating the Suite roadmap afterward, CryptoPro Suite's CLAUDE.md was
 found to have gained a new standing rule mid-session — **"Use React as Front-end framework for all
@@ -653,7 +653,7 @@ platform that runs Node, e.g. Vercel) — **not** openable via `file://` or a pl
   equivalence the way the EJS/JS file split had. **Before relying on this for live trading:** run `npm run
   dev`, open the dashboard, and manually exercise the Autopilot toggle, Settings save, and every top-level
   tab (plus a couple of sub-tabs) in a real browser.
-- **Consequence for the GitHub Pages URL:** `[username].github.io/crypto-pro-trading/dashboard_professional.html`
+- **Consequence for the GitHub Pages URL:** the old `[username].github.io/crypto-pro-trading/` dashboard URL
   can no longer be served — GitHub Pages only serves static files and there is no longer a static HTML
   file to publish. The Vercel deployment (`server.js`, already Node-capable) is unaffected and becomes the
   only working hosted URL for this dashboard; local use requires `npm run build` once, then
