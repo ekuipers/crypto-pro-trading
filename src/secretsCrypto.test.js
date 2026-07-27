@@ -8,8 +8,10 @@ import {
   decryptSecret,
   credentialAad,
   cryptoEnabled,
+  keyFingerprint,
   CryptoNotConfigured,
   DecryptFailed,
+  KeyMismatch,
   ENC_VERSION,
 } from "./secretsCrypto.js";
 
@@ -151,5 +153,83 @@ describe("AAD binds a ciphertext to its own row", () => {
     assert.throws(() => encryptSecret(PAYLOAD), TypeError);
     assert.throws(() => encryptSecret(PAYLOAD, ""), TypeError);
     assert.throws(() => decryptSecret(encryptSecret(PAYLOAD, AAD)), TypeError);
+  });
+});
+
+// Production/Preview/Development hold different keys but share one Supabase
+// database, so a row written from one environment is unreadable in another.
+// key_fp exists to make that specific failure legible instead of silent.
+describe("key fingerprint (cross-environment diagnosis)", () => {
+  test("is stable for a key and differs between keys", () => {
+    const fpA = keyFingerprint();
+    process.env[KEY_ENV] = KEY_A;
+    assert.equal(keyFingerprint(), fpA, "same key -> same fingerprint");
+    process.env[KEY_ENV] = KEY_B;
+    assert.notEqual(keyFingerprint(), fpA, "different key -> different fingerprint");
+  });
+
+  test("is a short hex digest that leaks no key material", () => {
+    const fp = keyFingerprint();
+    assert.match(fp, /^[0-9a-f]{8}$/);
+    assert.equal(KEY_A.includes(fp), false);
+    assert.equal(Buffer.from(KEY_A, "base64").toString("hex").includes(fp), false);
+  });
+
+  test("throws CryptoNotConfigured when no key is set", () => {
+    delete process.env[KEY_ENV];
+    assert.throws(() => keyFingerprint(), CryptoNotConfigured);
+  });
+
+  test("a mismatched fingerprint is reported as KeyMismatch, before decrypting", () => {
+    const blob = encryptSecret(PAYLOAD, AAD);
+    const fpA = keyFingerprint();
+    process.env[KEY_ENV] = KEY_B; // as if read from another environment
+    assert.throws(() => decryptSecret(blob, AAD, fpA), KeyMismatch);
+  });
+
+  test("KeyMismatch is a DecryptFailed, so existing callers still refuse to trade", () => {
+    const blob = encryptSecret(PAYLOAD, AAD);
+    const fpA = keyFingerprint();
+    process.env[KEY_ENV] = KEY_B;
+    assert.throws(() => decryptSecret(blob, AAD, fpA), DecryptFailed);
+  });
+
+  test("the message names both fingerprints and the cause, but no key material", () => {
+    const blob = encryptSecret(PAYLOAD, AAD);
+    const fpA = keyFingerprint();
+    process.env[KEY_ENV] = KEY_B;
+    const fpB = keyFingerprint();
+    try {
+      decryptSecret(blob, AAD, fpA);
+      assert.fail("should have thrown");
+    } catch (e) {
+      assert.ok(e.message.includes(fpA) && e.message.includes(fpB));
+      assert.match(e.message, /another environment/);
+      assert.equal(e.message.includes(KEY_A) || e.message.includes(KEY_B), false);
+      assert.equal(e.message.includes(PAYLOAD.secret), false);
+    }
+  });
+
+  test("a matching fingerprint decrypts normally", () => {
+    const blob = encryptSecret(PAYLOAD, AAD);
+    assert.deepEqual(decryptSecret(blob, AAD, keyFingerprint()), PAYLOAD);
+  });
+
+  test("a null fingerprint skips the check — rows predating the column still read", () => {
+    const blob = encryptSecret(PAYLOAD, AAD);
+    assert.deepEqual(decryptSecret(blob, AAD, null), PAYLOAD);
+    assert.deepEqual(decryptSecret(blob, AAD), PAYLOAD);
+  });
+
+  test("a wrong key with no stored fingerprint still fails, just less specifically", () => {
+    const blob = encryptSecret(PAYLOAD, AAD);
+    process.env[KEY_ENV] = KEY_B;
+    assert.throws(() => decryptSecret(blob, AAD, null), DecryptFailed);
+    // Not the subclass: without a fingerprint we cannot prove *why*.
+    try {
+      decryptSecret(blob, AAD, null);
+    } catch (e) {
+      assert.equal(e instanceof KeyMismatch, false);
+    }
   });
 });

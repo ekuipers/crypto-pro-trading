@@ -30,7 +30,7 @@
 // ============================================================
 import * as db from './db.js';
 import { currentUid } from './auth.js';
-import { cryptoEnabled, CryptoNotConfigured, DecryptFailed } from './secretsCrypto.js';
+import { cryptoEnabled, CryptoNotConfigured, DecryptFailed, KeyMismatch } from './secretsCrypto.js';
 import { ALPACA_HOSTS } from './alpacaClient.js';
 import { rateLimited } from './rateLimit.js';
 
@@ -83,6 +83,21 @@ export function buildCredentialPayload(mode, body) {
 export function errorResponse(e) {
   if (e instanceof CryptoNotConfigured) {
     return { status: 503, body: { error: 'Server-side credential storage is not configured on this deployment.' } };
+  }
+  // Must precede the DecryptFailed arm — KeyMismatch extends it. The message
+  // is deliberately more specific: this one is an operator/deployment
+  // problem (the row was written from another environment against the shared
+  // database), and "reconnect it" alone would send the user in circles.
+  // Safe to state plainly: it names no key material, only that they differ.
+  if (e instanceof KeyMismatch) {
+    return {
+      status: 409,
+      body: {
+        error:
+          'This credential was saved from a different environment and cannot be read here. ' +
+          'Reconnect it from this environment, or use the environment that saved it.',
+      },
+    };
   }
   if (e instanceof DecryptFailed) {
     return { status: 500, body: { error: 'Stored credential could not be read — please reconnect it.' } };

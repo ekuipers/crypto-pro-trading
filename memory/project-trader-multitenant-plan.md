@@ -107,9 +107,23 @@ review — see `memory.md` v2026-07-27.1):
 - Deleting the active credential leaves the user with nothing active and no promotion/warning.
   Phase 6 should surface an active-count.
 
-**Ops note:** `TRADER_CREDENTIALS_ENC_KEY` must differ per Vercel environment. Preview deployments
-inherit Production env vars by default; same key + same Supabase database means any preview build of
-any branch could decrypt every stored production credential.
+**Ops note:** `TRADER_CREDENTIALS_ENC_KEY` must differ per Vercel environment — add the variable
+three times, each scoped to exactly one environment (Vercel's form pre-ticks all three, which is how
+a shared key happens). One key + the shared Supabase database means any preview build of any branch
+could decrypt every stored production credential.
+
+**Follow-up shipped 2026-07-27 (`memory.md` v2026-07-27.3):** because all environments share one
+database, per-environment keys make the isolation boundary the `(uid, mode)` ROW, not the
+environment. `putAlpacaCredential` upserts, so writing the same row from two environments replaces
+the ciphertext and the other environment reads it as a generic `DecryptFailed` — which Phase 5 treats
+as "disconnected", silently stopping that user's engine. `vercel dev` runs against the production
+database, so this is live, not theoretical. Mitigations now in place: a nullable `key_fp` column
+records which key wrote each row, `decryptSecret` raises `KeyMismatch` (a `DecryptFailed` subclass,
+so refuse-to-trade is unchanged) naming both fingerprints, and `listAlpacaCredentials` returns
+`readableHere` for the Phase 6 UI. **This diagnoses, it does not prevent** — the operational rule is
+"outside Production, never sign in as your real account; use a test uid". Phase 6's UI should surface
+`readableHere: false` prominently, and Phase 5's dispatcher should log `KeyMismatch` distinctly from
+an ordinary missing credential.
 
 Original design, as implemented:
 

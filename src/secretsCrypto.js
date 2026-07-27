@@ -49,6 +49,25 @@ export class DecryptFailed extends Error {
 }
 
 /**
+ * The row was encrypted under a *different* TRADER_CREDENTIALS_ENC_KEY than
+ * this deployment holds — i.e. it was written from another environment.
+ *
+ * Deliberately a subclass of DecryptFailed: every existing caller already
+ * treats DecryptFailed as "credential unreadable, do not trade", and that is
+ * still the correct action. The subclass only changes the *diagnosis*.
+ *
+ * This exists because Production/Preview/Development share one Supabase
+ * database while (correctly) holding different keys. Isolation is therefore
+ * per-row, not per-environment: writing the same (uid, mode) from two
+ * environments replaces the ciphertext, and the other environment's next read
+ * would otherwise report a generic "credential disconnected" — silently
+ * stopping a user's engine with no indication of why.
+ */
+export class KeyMismatch extends DecryptFailed {
+  constructor(message) { super(message); this.name = 'KeyMismatch'; }
+}
+
+/**
  * Reads + validates the 32-byte base64 key on every call (see header note).
  * Buffer.from(..., 'base64') silently drops invalid characters rather than
  * throwing, so the byte-length check is the real validation.
@@ -70,6 +89,21 @@ function readKey() {
 /** True when a valid key is configured — for capability probes/health output. */
 export function cryptoEnabled() {
   try { readKey(); return true; } catch { return false; }
+}
+
+/**
+ * Short, non-secret identifier for the configured key: first 4 bytes of
+ * SHA-256 over the key material, hex.
+ *
+ * Safe to store next to the ciphertext and to log. It is a one-way digest of
+ * a 256-bit random key, so it reveals nothing usable — and 8 hex chars is
+ * ample to tell two environments' keys apart, which is all it is for. It is
+ * NOT a security control: an attacker who can rewrite `ciphertext` can
+ * rewrite `key_fp` too. Its whole job is turning a silent failure into a
+ * legible one.
+ */
+export function keyFingerprint() {
+  return crypto.createHash('sha256').update(readKey()).digest('hex').slice(0, 8);
 }
 
 /**
@@ -112,13 +146,29 @@ export function encryptSecret(obj, aad) {
  * @param {string} b64 envelope produced by encryptSecret
  * @param {string} aad must equal the value used at encrypt time — a mismatch
  *   (i.e. the row was moved to another uid/mode) fails as DecryptFailed.
+ * @param {string|null} [expectedFp] the row's stored key_fp, when it has one.
+ *   Checked before decrypting so an environment mismatch reports itself as
+ *   KeyMismatch instead of an indistinguishable "failed authentication".
+ *   Null/undefined (a row written before key_fp existed) skips the check and
+ *   falls back to the old behaviour — never treat a missing fingerprint as a
+ *   mismatch, or every pre-existing row would read as broken.
  * @returns {object} the original payload
- * @throws {CryptoNotConfigured|DecryptFailed}
+ * @throws {CryptoNotConfigured|DecryptFailed|KeyMismatch}
  */
-export function decryptSecret(b64, aad) {
+export function decryptSecret(b64, aad, expectedFp = null) {
   const key = readKey();
   if (typeof aad !== 'string' || !aad) {
     throw new TypeError('decryptSecret requires an aad string — use credentialAad(uid, mode)');
+  }
+  if (expectedFp) {
+    const actualFp = keyFingerprint();
+    if (expectedFp !== actualFp) {
+      throw new KeyMismatch(
+        `stored credential was encrypted with a different ${KEY_ENV} (row key ${expectedFp}, this deployment ${actualFp}) — ` +
+          'it was written from another environment (production/preview/development share one database but hold different keys). ' +
+          'Reconnect it from this environment, or use the environment that wrote it.',
+      );
+    }
   }
   const buf = Buffer.from(String(b64 || ''), 'base64');
   if (buf.length <= IV_BYTES + TAG_BYTES) {

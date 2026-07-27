@@ -8,7 +8,7 @@
 // journal, etc.) is unaffected — this module only owns accounts/sessions.
 // ============================================================
 import pg from 'pg';
-import { encryptSecret, decryptSecret, credentialAad, ENC_VERSION } from './secretsCrypto.js';
+import { encryptSecret, decryptSecret, credentialAad, keyFingerprint, ENC_VERSION } from './secretsCrypto.js';
 import { ALPACA_HOSTS } from './alpacaClient.js';
 
 const { Pool } = pg;
@@ -262,6 +262,14 @@ export async function init() {
   )`);
   await q(`create unique index if not exists trader_alpaca_credentials_active_uidx
            on trader_alpaca_credentials (uid) where active`);
+  // Which TRADER_CREDENTIALS_ENC_KEY encrypted this row (non-secret digest —
+  // see secretsCrypto.js's keyFingerprint). Production/Preview/Development
+  // share one database but hold different keys, so a row written from one
+  // environment is unreadable in another; without this the reader could only
+  // report a generic "credential disconnected" and a user's engine would stop
+  // for no visible reason. Nullable on purpose: rows predating this column
+  // skip the check rather than reading as broken.
+  await q(`alter table trader_alpaca_credentials add column if not exists key_fp text`);
 
   // Multi-tenant conversion Phase 3: per-user strategy/risk overrides. Same
   // generic uid→jsonb shape as `layouts`. The row holds only the keys the
@@ -487,12 +495,19 @@ export async function putGlossary(content) {
 // works with the metadata shape below, which has no ciphertext and no secret.
 
 /** Metadata for one row; deliberately has no ciphertext/secret field so it is always safe to serialize. */
-function toCredentialMeta(r) {
+function toCredentialMeta(r, currentKeyFp = null) {
   return {
     mode: r.mode,
     active: !!r.active,
     keyPreview: r.key_preview,
     encVersion: r.enc_version,
+    // False only when we can positively prove this row was encrypted under a
+    // different key (i.e. written from another environment against the shared
+    // database). Unknown cases — no stored fingerprint, or no key configured
+    // here — report true, because "we cannot tell" must not render as "your
+    // credential is broken". The fingerprint itself is never returned; the
+    // client only needs the verdict.
+    readableHere: !r.key_fp || !currentKeyFp || r.key_fp === currentKeyFp,
     // One authoritative field for "may this credential place orders", so the
     // Phase 5 dispatcher and the Phase 6 UI key on it instead of each
     // re-deriving the paper-only hard rule a third time. alpacaClient.js's
@@ -510,11 +525,17 @@ const lockUidRows = (client, uid) =>
 /** All of one user's stored credentials, metadata only — safe to send to that user's client. */
 export async function listAlpacaCredentials(uid) {
   const { rows } = await q(
-    `select mode, active, key_preview, enc_version, created_at, updated_at
+    `select mode, active, key_preview, enc_version, key_fp, created_at, updated_at
      from trader_alpaca_credentials where uid = $1 order by mode`,
     [uid],
   );
-  return rows.map(toCredentialMeta);
+  // An unconfigured/invalid key here must not make the listing throw — this
+  // is the read-only metadata route, and it should still say what is
+  // connected. keyFingerprint() throws CryptoNotConfigured in that case, and
+  // a null fingerprint makes readableHere fall back to "assume readable".
+  let currentKeyFp = null;
+  try { currentKeyFp = keyFingerprint(); } catch { /* no key configured here */ }
+  return rows.map((r) => toCredentialMeta(r, currentKeyFp));
 }
 
 /**
@@ -529,15 +550,17 @@ export async function listAlpacaCredentials(uid) {
  */
 export async function getActiveAlpacaCredential(uid) {
   const { rows } = await q(
-    `select mode, ciphertext from trader_alpaca_credentials where uid = $1 and active`,
+    `select mode, ciphertext, key_fp from trader_alpaca_credentials where uid = $1 and active`,
     [uid],
   );
   if (!rows[0]) return null;
   const { mode } = rows[0];
   // AAD is recomputed from this row's own uid/mode: a ciphertext copied out
   // of another user's row (or another mode) fails authentication here rather
-  // than handing back working credentials for the wrong account.
-  const payload = decryptSecret(rows[0].ciphertext, credentialAad(uid, mode));
+  // than handing back working credentials for the wrong account. key_fp turns
+  // the specific case of "written by another environment" into KeyMismatch
+  // (a DecryptFailed subclass, so the refuse-to-trade behaviour is unchanged).
+  const payload = decryptSecret(rows[0].ciphertext, credentialAad(uid, mode), rows[0].key_fp);
   return {
     ...payload,
     mode,
@@ -570,6 +593,9 @@ export async function putAlpacaCredential(uid, mode, payload, makeActive) {
   // Encrypt before opening a transaction so a missing/invalid encryption key
   // fails without holding a pooled client.
   const ciphertext = encryptSecret(payload, credentialAad(uid, mode));
+  // Recorded alongside the blob so a later read from a different environment
+  // can name the cause instead of failing opaquely.
+  const keyFp = keyFingerprint();
   const keyPreview = String(payload?.keyId || '').slice(-4);
   const activate = makeActive === true;
   await tx(async (client) => {
@@ -587,15 +613,16 @@ export async function putAlpacaCredential(uid, mode, payload, makeActive) {
       );
     }
     await client.query(
-      `insert into trader_alpaca_credentials (uid, mode, active, key_preview, ciphertext, enc_version)
-       values ($1, $2, $3, $4, $5, $6)
+      `insert into trader_alpaca_credentials (uid, mode, active, key_preview, ciphertext, enc_version, key_fp)
+       values ($1, $2, $3, $4, $5, $6, $7)
        on conflict (uid, mode) do update set
          active      = case when $3 then true else trader_alpaca_credentials.active end,
          key_preview = excluded.key_preview,
          ciphertext  = excluded.ciphertext,
          enc_version = excluded.enc_version,
+         key_fp      = excluded.key_fp,
          updated_at  = now()`,
-      [uid, mode, activate, keyPreview, ciphertext, ENC_VERSION],
+      [uid, mode, activate, keyPreview, ciphertext, ENC_VERSION, keyFp],
     );
   });
 }

@@ -1,5 +1,37 @@
 # Project: CryptoPro Trader
 
+## v2026-07-27.3 — 2026-07-27 — Credential key fingerprint (cross-environment diagnosis)
+
+Follow-up to Phase 2's ops guidance. Production/Preview/Development are to hold **different**
+`TRADER_CREDENTIALS_ENC_KEY` values but share **one** Supabase database, so the isolation boundary is
+the `(uid, mode)` row, not the environment. `putAlpacaCredential` upserts on that key, so writing the
+same row from two environments replaces the ciphertext and the other environment's next read failed
+as a generic `DecryptFailed` — which Phase 5 treats as "credential disconnected", silently stopping a
+user's engine with no indication of why. `vercel dev` runs against the production database, so this
+was a live hazard, not a theoretical one.
+
+- `src/secretsCrypto.js`: `keyFingerprint()` (first 4 bytes of SHA-256 over the key, hex — non-secret,
+  safe to store and log) and a new `KeyMismatch` error. `decryptSecret(b64, aad, expectedFp)` checks
+  the fingerprint before attempting decryption. **`KeyMismatch extends DecryptFailed`** so every
+  existing caller keeps refusing to trade — only the diagnosis changes, not the behaviour.
+- `src/db.js`: new nullable `key_fp` column (`alter table ... add column if not exists`; nullable on
+  purpose — a row without a fingerprint skips the check rather than reading as broken). Written by
+  `putAlpacaCredential`, checked by `getActiveAlpacaCredential`. `listAlpacaCredentials` gained a
+  `readableHere` boolean for the Phase 6 UI; it returns the verdict, never the fingerprint, and
+  reports `true` whenever it cannot prove otherwise (no stored fp, or no key configured here).
+- `src/credentialsRoutes.js`: `KeyMismatch` maps to 409 with a message naming the real cause. Ordered
+  before the `DecryptFailed` arm, since it is a subclass.
+
+**Verified:** `npm test` 410/410 (9 new). Plus 18 end-to-end checks against the real database
+(`debug/keyfp_e2e.mjs`, gitignored) simulating the actual scenario — write under a "production" key,
+read under a "dev" key, then the clobber case where dev overwrites the row and production reads it.
+Confirms `KeyMismatch` is raised, is still a `DecryptFailed`, names both fingerprints, leaks no key
+material or secret, and that legacy null-`key_fp` rows behave exactly as before. Rows cleaned up.
+
+**Not a security control** — an attacker who can rewrite `ciphertext` can rewrite `key_fp` too. Its
+only job is turning a silent failure into a legible one.
+
+
 ## v2026-07-27.2 — 2026-07-27 — Multi-tenant Phase 3: per-user strategy/risk config
 
 Suite roadmap item 1 (multi-tenant). Resolution layer + engine plumbing only — nothing writes a

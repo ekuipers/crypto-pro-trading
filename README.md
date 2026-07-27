@@ -153,9 +153,19 @@ before they reach the database, so a database dump alone yields no usable keys.
 
 - `TRADER_CREDENTIALS_ENC_KEY` — 32 random bytes, base64 (`openssl rand -base64 32`). Unset means these
   routes fail closed with 503 and nothing is ever stored in plaintext. **Use a different value per Vercel
-  environment** — Preview inherits Production variables by default, and with the same key and database a
-  preview build could decrypt production credentials. There is no key-rotation path yet: changing it makes
-  already-stored credentials unreadable and users must reconnect.
+  environment** — add the variable three times, each scoped to exactly one environment (the Vercel form
+  pre-ticks all three, which is how a shared key happens). With one key and the shared database, any
+  preview build of any branch could decrypt production credentials. There is no key-rotation path yet:
+  changing it makes already-stored credentials unreadable and users must reconnect.
+
+  **All environments share one Supabase database, so isolation is per-row, not per-environment.**
+  `trader_alpaca_credentials` is keyed `(uid, mode)` and the write is an upsert, so connecting the same
+  account from two environments replaces the ciphertext and the other environment can no longer read it —
+  which the engine sees as "credential disconnected". The rule that keeps this safe: **outside Production,
+  never sign in as your real account** — use a throwaway test account (`vercel dev` hits the shared
+  database too). Each row records a `key_fp` (a non-secret SHA-256 prefix of the key that wrote it), so a
+  violation surfaces as `KeyMismatch` — a 409 naming the real cause, and `readableHere: false` in the
+  credential listing — instead of a silent stop. It diagnoses the mistake; it does not prevent it.
 
 **Per-user strategy config (Phase 3).** Alongside credentials, each account can have its own copy of the
 strategy/risk tunables, stored in `trader_strategy_config` as just the keys it overrides.

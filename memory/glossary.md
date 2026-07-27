@@ -14,6 +14,7 @@ architecture and hard rules live in `CLAUDE.md`.
 | AAD | Additional Authenticated Data | AES-GCM input that is authenticated but not encrypted; binds a stored credential to its own `(uid, mode)` row so a copied ciphertext fails to decrypt |
 | AES-256-GCM | Advanced Encryption Standard, 256-bit key, Galois/Counter Mode | Authenticated encryption used for per-user Alpaca credentials at rest (`src/secretsCrypto.js`) |
 | ATR | Average True Range | Volatility measure; used for stop distance & position sizing |
+| Key fingerprint | Short non-secret digest of an encryption key | First 4 bytes of SHA-256 over `TRADER_CREDENTIALS_ENC_KEY`, stored per credential row (`key_fp`) so a credential saved from another environment reports itself instead of failing silently |
 | BB | Bollinger Bands | 20-period, 2σ envelope around SMA |
 | BoS | Break of Structure | Trend change signal (lower-high broken = bearish BoS) |
 | BW | Bandwidth | Bollinger Band width: (upper−lower)/mid |
