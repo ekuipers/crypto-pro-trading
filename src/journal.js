@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { adxLabel } from "./indicators.js";
 import { amsterdamParts } from "./tz.js";
-import { ATR_MULTIPLIER } from "./strategyConfig.js";
+import { DEFAULT_CFG } from "./userConfig.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.join(__dirname, "..");
@@ -51,7 +51,8 @@ export function formatDecisionLine(d) {
 }
 
 /** Multi-line indicator readout for the journal. */
-export function formatIndicatorBlock(d) {
+export function formatIndicatorBlock(d, cfg = DEFAULT_CFG) {
+  const ATR_MULTIPLIER = cfg.ATR_MULTIPLIER;
   const out = [];
   const scoreStr = d.score !== null && d.score !== undefined ? signedFixed(d.score, 1) : "n/a";
   out.push(`    score   : ${scoreStr}`);
@@ -92,7 +93,7 @@ export function formatIndicatorBlock(d) {
  * the Postgres-backed cron routes, where a Vercel serverless function has no
  * persistent local disk) can reuse the exact same formatting as the CLI path.
  */
-export function buildJournalBlockText({ decisions, executed, warnings = [], now = new Date() } = {}) {
+export function buildJournalBlockText({ decisions, executed, warnings = [], now = new Date(), cfg = DEFAULT_CFG } = {}) {
   const { timeStr } = amsterdamParts(now);
   const lines = ["", `## Evaluation ${timeStr} GMT+2`, ""];
   for (const w of warnings) lines.push(`**WARNING: ${w}**`);
@@ -101,7 +102,7 @@ export function buildJournalBlockText({ decisions, executed, warnings = [], now 
   for (const d of decisions) {
     lines.push("- " + formatDecisionLine(d));
     if (d.dataQualityWarning) lines.push("    DATA-QUALITY WARNING: " + d.dataQualityWarning);
-    if (d.score !== null && d.score !== undefined) lines.push(formatIndicatorBlock(d));
+    if (d.score !== null && d.score !== undefined) lines.push(formatIndicatorBlock(d, cfg));
   }
 
   if (executed.length) {
@@ -122,10 +123,10 @@ export function buildJournalBlockText({ decisions, executed, warnings = [], now 
  * (Amsterdam wall-clock date/time -- see tz.js). Writes even on a dry run
  * (empty `executed`).
  */
-export function appendJournalBlock({ decisions, executed, warnings = [], now = new Date(), journalDir = JOURNAL_DIR } = {}) {
+export function appendJournalBlock({ decisions, executed, warnings = [], now = new Date(), journalDir = JOURNAL_DIR, cfg = DEFAULT_CFG } = {}) {
   mkdirSync(journalDir, { recursive: true });
   const { dateStr } = amsterdamParts(now);
   const filePath = path.join(journalDir, dateStr + ".md");
-  appendFileSync(filePath, buildJournalBlockText({ decisions, executed, warnings, now }), "utf-8");
+  appendFileSync(filePath, buildJournalBlockText({ decisions, executed, warnings, now, cfg }), "utf-8");
   return filePath;
 }

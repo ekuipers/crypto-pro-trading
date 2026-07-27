@@ -14,7 +14,8 @@
 
 import { apiGet, apiPost, apiDelete } from "./apiClient.js";
 import { toSlash } from "./symbols.js";
-import { STOP_LOSS_LIMIT_BAND_PCT, checkLimitBand, checkPositionSize } from "./risk.js";
+import { checkLimitBand, checkPositionSize } from "./risk.js";
+import { DEFAULT_CFG } from "./userConfig.js";
 
 /** Raised when a trade violates a CLAUDE.md rule. Fail closed. */
 export class TradeRejected extends Error {
@@ -64,9 +65,14 @@ export const ALPACA_HOSTS = Object.freeze({
  * `symbolCap(symbol) -> fraction` resolves the per-symbol position cap used
  * by `placeOrder`'s buy-side sizing check -- injected rather than read from
  * config.json directly here, since credential scope and config scope are
- * deliberately kept separate (per-user strategy config is a later, separate
- * phase of the multi-tenant conversion; this factory only ever needs a
- * resolver function, not an opinion on where it comes from).
+ * deliberately kept separate: this factory only ever needs a resolver
+ * function, not an opinion on where it comes from.
+ *
+ * Multi-tenant Phase 3 adds `cfg`, the resolved per-user config, for the two
+ * order-band rules `placeOrder` enforces. It defaults to DEFAULT_CFG, so an
+ * un-opted-in caller gets exactly today's compiled config.json values. Note
+ * that both bands are bounded by CONFIG_SPEC (0.2% entries / 0.5% stops), so
+ * a per-user cfg can tighten them but never widen them past the hard rule.
  */
 export function createAlpacaClient({
   keyId,
@@ -74,7 +80,9 @@ export function createAlpacaClient({
   baseUrl,
   dataUrl = "https://data.alpaca.markets",
   symbolCap = () => 0.05,
+  cfg = DEFAULT_CFG,
 } = {}) {
+  const STOP_LOSS_LIMIT_BAND_PCT = cfg.STOP_LOSS_LIMIT_BAND_PCT;
   /** Alpaca auth headers. */
   function headers(jsonBody = false) {
     const h = {
@@ -204,7 +212,7 @@ export function createAlpacaClient({
       bandCheck = { ok: true, reason: "ok" };
     } else {
       // bid enables the maker-safe inside-the-spread acceptance.
-      bandCheck = checkLimitBand(limitPrice, ask, bid);
+      bandCheck = checkLimitBand(limitPrice, ask, bid, cfg.LIMIT_BAND_PCT);
     }
     if (!bandCheck.ok) {
       throw new TradeRejected(`${symbol}: ${bandCheck.reason}`);

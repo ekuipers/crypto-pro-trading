@@ -13,24 +13,28 @@
 // rotation per cycle.
 
 import {
-  ROTATION_ENABLED,
-  ROTATION_MIN_SCORE,
-  ROTATION_SCORE_MARGIN,
-  MIN_RR_FULL,
-  MIN_RR_HALF,
-  LIMIT_BAND_PCT,
-  TAKER_FEE_BPS_PER_SIDE,
   rotationAllows,
   correlationBudgetAllows,
   roundTripCostPct,
   netRr,
   swingLowStopPrice,
 } from "./risk.js";
-import { BUY_SCORE_THRESHOLD, DOWNTREND_LONG_SCORE } from "./strategyConfig.js";
+import { DEFAULT_CFG } from "./userConfig.js";
 import { computeEntryQty } from "./entrySizing.js";
 import { getAccount as defaultGetAccount } from "./trade.js";
 
-export async function applyRotation(decisions, posBySymbol, openSymbols, { getAccount = defaultGetAccount } = {}) {
+export async function applyRotation(decisions, posBySymbol, openSymbols, { getAccount = defaultGetAccount, cfg = DEFAULT_CFG } = {}) {
+  const {
+    ROTATION_ENABLED,
+    ROTATION_MIN_SCORE,
+    ROTATION_SCORE_MARGIN,
+    MIN_RR_FULL,
+    MIN_RR_HALF,
+    LIMIT_BAND_PCT,
+    TAKER_FEE_BPS_PER_SIDE,
+    BUY_SCORE_THRESHOLD,
+    DOWNTREND_LONG_SCORE,
+  } = cfg;
   if (!ROTATION_ENABLED) return null;
 
   const cands = decisions.filter(
@@ -51,14 +55,26 @@ export async function applyRotation(decisions, posBySymbol, openSymbols, { getAc
     if (cand.dailyRegime === "downtrend" && cand.score < DOWNTREND_LONG_SCORE) continue;
     // Budget must actually clear once the weakest is gone (tier check).
     const remaining = openSymbols.filter((s) => s !== weakest.symbol);
-    const { allowed } = correlationBudgetAllows(cand.symbol, remaining);
+    const { allowed } = correlationBudgetAllows(
+      cand.symbol,
+      remaining,
+      cfg.MAX_OPEN_POSITIONS,
+      cfg.MAX_POSITIONS_PER_TIER,
+      cfg.TIER1_SYMBOLS
+    );
     if (!allowed) continue;
     // R:R soft gate still applies to the rotation entry.
     const cAsk = cand.ask || 0;
     const cBid = cand.bid || 0;
     if (cAsk <= 0) continue;
     const costPct = roundTripCostPct(cBid, cAsk, TAKER_FEE_BPS_PER_SIDE);
-    const entryStop = swingLowStopPrice(cAsk, cand.lows4h);
+    const entryStop = swingLowStopPrice(
+      cAsk,
+      cand.lows4h,
+      cfg.SWING_LOW_LOOKBACK_BARS,
+      cfg.SWING_LOW_BUFFER_PCT,
+      cfg.SWING_LOW_MAX_STOP_PCT
+    );
     const bb = cand.bb;
     const bbTarget = bb && bb[2] && bb[2] > cAsk ? bb[2] : null;
     const rr = netRr(cAsk, entryStop, bbTarget, costPct);
@@ -74,7 +90,7 @@ export async function applyRotation(decisions, posBySymbol, openSymbols, { getAc
     } catch {
       return null;
     }
-    const baseQty = computeEntryQty(equity, cand.symbol, cAsk, cand.atr);
+    const baseQty = computeEntryQty(equity, cand.symbol, cAsk, cand.atr, 1.0, cfg);
     const half = cand.dailyRegime === "downtrend" || cand.score < BUY_SCORE_THRESHOLD || (rr !== null && rr < MIN_RR_FULL);
     const qty = Math.round(baseQty * (half ? 0.5 : 1.0) * 1e4) / 1e4;
     if (qty <= 0) return null;

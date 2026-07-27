@@ -44,35 +44,15 @@ import {
   sessionPenaltyActive as defaultSessionPenaltyActive,
 } from "./reconcile.js";
 import { promotedSymbols as defaultPromotedSymbols } from "./scout.js";
-import {
-  STOP_LOSS_MODE,
-  STOP_LOSS_PCT,
-  MAX_OPEN_POSITIONS,
-  ENFORCE_BUDGET_ON_OPEN_POSITIONS,
-  LIMIT_BAND_PCT,
-  STREAK_THROTTLE_ENABLED,
-  STREAK_THROTTLE_RISK_FACTOR,
-  updateStreakThrottle,
-  dailyDrawdownGateTriggered,
-} from "./risk.js";
-import {
-  CFG,
-  BUY_SCORE_THRESHOLD,
-  BUY_SCORE_HALF_SIZE,
-  DOWNTREND_LONG_SCORE,
-  SELL_SCORE_THRESHOLD,
-  SHORT_SCORE_THRESHOLD,
-  SHORT_SCORE_HALF_SIZE,
-  COVER_SCORE_THRESHOLD,
-  SESSION_FILTER_ENABLED,
-  MAKER_FIRST_ENTRIES,
-  BREADTH_GATE_ENABLED,
-  assertNotShipped,
-} from "./strategyConfig.js";
+import { updateStreakThrottle, dailyDrawdownGateTriggered } from "./risk.js";
+import { CFG, BREADTH_GATE_ENABLED, assertNotShipped } from "./strategyConfig.js";
+import { DEFAULT_CFG } from "./userConfig.js";
 
 // Portfolio-level breadth gate ships OFF in the live config and needs
 // breadthPct()/breadthPolicy(), not yet ported to risk.js -- fail loudly if
-// it's ever flipped on rather than silently skipping it.
+// it's ever flipped on rather than silently skipping it. Checked against the
+// compiled config only: the flag is locked in userConfig.js's CONFIG_SPEC,
+// so no per-user config can reach the unported path.
 assertNotShipped("strategy.breadth_gate_enabled", BREADTH_GATE_ENABLED, "breadthPct/breadthPolicy");
 
 // trade.yml's evaluate cron (2026-07-24: once/day, cost-throttled pending
@@ -103,6 +83,29 @@ export async function main({ execute = false, deps = {} } = {}) {
   const loadState = deps.loadState || ps.loadState;
   const saveState = deps.saveState || ps.saveState;
   const now = deps.now || (() => new Date());
+  // Multi-tenant Phase 3: the resolved per-user strategy/risk config,
+  // defaulting to the compiled config.json values. Threaded into
+  // evaluateSymbol/applyRotation/reconcile/journal below alongside `client`
+  // (Phase 1's credential seam) so one cycle is fully bound to one user.
+  const cfg = deps.cfg || DEFAULT_CFG;
+  const {
+    STOP_LOSS_MODE,
+    STOP_LOSS_PCT,
+    MAX_OPEN_POSITIONS,
+    ENFORCE_BUDGET_ON_OPEN_POSITIONS,
+    LIMIT_BAND_PCT,
+    STREAK_THROTTLE_ENABLED,
+    STREAK_THROTTLE_RISK_FACTOR,
+    BUY_SCORE_THRESHOLD,
+    BUY_SCORE_HALF_SIZE,
+    DOWNTREND_LONG_SCORE,
+    SELL_SCORE_THRESHOLD,
+    SHORT_SCORE_THRESHOLD,
+    SHORT_SCORE_HALF_SIZE,
+    COVER_SCORE_THRESHOLD,
+    SESSION_FILTER_ENABLED,
+    MAKER_FIRST_ENTRIES,
+  } = cfg;
   // evaluateSymbol()/applyRotation() make their own internal HTTP calls
   // (quote/bars/open-orders/account) and, unlike every other dependency in
   // this function, previously had no override seam at all from main() --
@@ -173,7 +176,7 @@ export async function main({ execute = false, deps = {} } = {}) {
   // ── Daily drawdown gate ────────────────────────────────────────────────
   ps.checkAndRefreshDayOpen(state, equity);
   const dayEquity = state.day_open_equity || equity;
-  if (dailyDrawdownGateTriggered(dayEquity, equity)) {
+  if (dailyDrawdownGateTriggered(dayEquity, equity, cfg.DAILY_DRAWDOWN_GATE_PCT)) {
     ps.activateCapitalPreservation(state);
     console.log(`WARNING: daily drawdown gate triggered (day_open=$${dayEquity.toFixed(2)} current=$${equity.toFixed(2)}) — capital preservation mode ON`);
   } else if (ps.isCapitalPreservationMode(state)) {
@@ -227,7 +230,7 @@ export async function main({ execute = false, deps = {} } = {}) {
   }
 
   // Rebuild lost/corrupt per-position facts from fill history.
-  for (const w of await reconcilePositionsFromFills(state, positions, { fills })) {
+  for (const w of await reconcilePositionsFromFills(state, positions, { fills, client, cfg })) {
     console.log("WARNING: " + w);
     journalWarnings.push(w);
   }
@@ -238,11 +241,15 @@ export async function main({ execute = false, deps = {} } = {}) {
   const roundTrips = fills ? fifoRoundTrips(fills) : [];
   if (STREAK_THROTTLE_ENABLED) {
     const wasActive = Boolean(state.streak_throttle_active);
-    const dd7d = await sevenDayDrawdown();
+    const dd7d = await sevenDayDrawdown({ client });
     throttleActive = updateStreakThrottle(
       wasActive,
       roundTrips.map((rt) => rt.pnl),
-      dd7d
+      dd7d,
+      cfg.STREAK_THROTTLE_LOSSES,
+      cfg.STREAK_THROTTLE_DD_PCT,
+      cfg.STREAK_THROTTLE_RECOVER_DD_PCT,
+      cfg.STREAK_THROTTLE_WINNERS
     );
     state.streak_throttle_active = throttleActive;
     if (throttleActive) {
@@ -254,7 +261,7 @@ export async function main({ execute = false, deps = {} } = {}) {
   // Pre-compute the session penalty from the shared round trips (the
   // filter self-guards on minimum sample size).
   if (SESSION_FILTER_ENABLED && fills !== null) {
-    await sessionPenaltyActive({ roundTrips });
+    await sessionPenaltyActive({ roundTrips, client, cfg, cacheKey: deps.cacheKey });
   }
 
   // Maker-first repricing timeout: cancel last cycle's unfilled entry BUY
@@ -285,11 +292,11 @@ export async function main({ execute = false, deps = {} } = {}) {
   // ── Evaluate all symbols ────────────────────────────────────────────────
   const decisions = [];
   for (const sym of symbols) {
-    decisions.push(await evaluateSymbol(sym, posBySymbol, state, openSymbols, { throttleActive, deps: symbolDeps }));
+    decisions.push(await evaluateSymbol(sym, posBySymbol, state, openSymbols, { throttleActive, deps: { ...symbolDeps, cfg } }));
   }
 
   // Position rotation at the correlation budget.
-  const rotationNote = await applyRotation(decisions, posBySymbol, openSymbols, { getAccount: () => client.getAccount() });
+  const rotationNote = await applyRotation(decisions, posBySymbol, openSymbols, { getAccount: () => client.getAccount(), cfg });
   if (rotationNote) {
     console.log("INFO: " + rotationNote);
     journalWarnings.push(rotationNote);
@@ -388,7 +395,7 @@ export async function main({ execute = false, deps = {} } = {}) {
   // ── Persist state ──────────────────────────────────────────────────────
   saveState(state);
 
-  const journalPath = appendJournalBlock({ decisions, executed, warnings: journalWarnings, now: now() });
+  const journalPath = appendJournalBlock({ decisions, executed, warnings: journalWarnings, now: now(), cfg });
   console.log("\nWrote: " + journalPath);
   return 0;
 }

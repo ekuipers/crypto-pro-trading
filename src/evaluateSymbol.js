@@ -31,21 +31,7 @@ import {
   MIN_BARS,
 } from "./marketData.js";
 import {
-  STOP_LOSS_PCT,
-  STOP_LOSS_MODE,
-  STOP_LOSS_ESCALATION_CYCLES,
-  TRAILING_STOP_ACTIVATION_PCT,
-  TRAILING_STOP_TRAIL_PCT,
   TRAIL_MODE,
-  PARTIAL_TP_ENABLED,
-  PARTIAL_TP_R_MULTIPLE,
-  PARTIAL_TP_FRACTION,
-  MAX_HOLD_HOURS,
-  TAKER_FEE_BPS_PER_SIDE,
-  MIN_RR_FULL,
-  MIN_RR_HALF,
-  LIMIT_BAND_PCT,
-  STREAK_THROTTLE_RISK_FACTOR,
   shouldCoverShort,
   shouldTrailStopOut,
   swingLowStopPrice,
@@ -59,28 +45,23 @@ import {
   coverLimitPrice,
 } from "./risk.js";
 import {
-  BUY_SCORE_THRESHOLD,
-  BUY_SCORE_HALF_SIZE,
-  SELL_SCORE_THRESHOLD,
-  SHORT_SCORE_THRESHOLD,
-  SHORT_SCORE_HALF_SIZE,
-  COVER_SCORE_THRESHOLD,
-  DOWNTREND_LONG_SCORE,
-  SESSION_FILTER_ENABLED,
-  SHORTS_ENABLED,
-  MAKER_FIRST_ENTRIES,
   PYRAMID_ENABLED,
-  PYRAMID_ADX_MIN,
   CONVICTION_SIZING_ENABLED,
   MEASURED_MOVE_ENABLED,
   assertNotShipped,
 } from "./strategyConfig.js";
+import { DEFAULT_CFG } from "./userConfig.js";
 import { computeEntryQty } from "./entrySizing.js";
 import { sessionPenaltyActive as defaultSessionPenaltyActive } from "./reconcile.js";
 
 // Ships-OFF extras this port doesn't implement yet -- fail loudly at import
 // time if config.json ever flips one on before its risk.js counterpart
 // exists, rather than misbehaving deep inside a rarely-hit branch.
+//
+// Multi-tenant Phase 3: these are checked against the compiled config.json
+// only, which is correct -- every flag below is locked in userConfig.js's
+// CONFIG_SPEC, so a per-user config is rejected at validation time and can
+// never reach an unported code path.
 assertNotShipped("strategy.pyramid_enabled", PYRAMID_ENABLED, "shouldPyramid");
 assertNotShipped("strategy.conviction_sizing_enabled", CONVICTION_SIZING_ENABLED, "convictionRiskMultiplier");
 assertNotShipped("strategy.measured_move_enabled", MEASURED_MOVE_ENABLED, "measuredMoveTarget");
@@ -142,6 +123,10 @@ export async function evaluateSymbol(symbol, positionBySymbol, state, openSymbol
   const cancelOrder = deps.cancelOrder || defaultCancelOrder;
   const getAccount = deps.getAccount || defaultGetAccount;
   const sessionPenaltyActive = deps.sessionPenaltyActive || defaultSessionPenaltyActive;
+  // Multi-tenant Phase 3: the resolved per-user config. Defaults to the
+  // compiled config.json values, so the CLI/legacy path is unchanged.
+  const cfg = deps.cfg || DEFAULT_CFG;
+  const { STOP_LOSS_PCT } = cfg;
   // Indicator functions default to the real indicators.js implementations;
   // tests override individual ones (typically signalScore/bollinger) to get
   // a controlled score/target without needing a realistic bar series.
@@ -275,7 +260,7 @@ export async function evaluateSymbol(symbol, positionBySymbol, state, openSymbol
     const psPos = ps.getPosition(state, symbol);
 
     if (isShort) {
-      return await evaluateHeldShort({ decision, symbol, entry, cur, qtyHeld, score, ask, state, psPos, getOpenOrders, cancelOrder });
+      return await evaluateHeldShort({ decision, symbol, entry, cur, qtyHeld, score, ask, state, psPos, getOpenOrders, cancelOrder, cfg });
     }
     return await evaluateHeldLong({
       decision,
@@ -291,13 +276,15 @@ export async function evaluateSymbol(symbol, positionBySymbol, state, openSymbol
       getOpenOrders,
       cancelOrder,
       getAccount,
+      cfg,
     });
   }
 
-  return await evaluateFlatEntry({ decision, symbol, score, ask, bid, state, openSymbols, throttleActive, getAccount, sessionPenaltyActive });
+  return await evaluateFlatEntry({ decision, symbol, score, ask, bid, state, openSymbols, throttleActive, getAccount, sessionPenaltyActive, cfg });
 }
 
-async function evaluateHeldShort({ decision, symbol, entry, cur, qtyHeld, score, ask, state, psPos, getOpenOrders, cancelOrder }) {
+async function evaluateHeldShort({ decision, symbol, entry, cur, qtyHeld, score, ask, state, psPos, getOpenOrders, cancelOrder, cfg = DEFAULT_CFG }) {
+  const { STOP_LOSS_PCT, STOP_LOSS_ESCALATION_CYCLES, COVER_SCORE_THRESHOLD, LIMIT_BAND_PCT } = cfg;
   // Deduplication: check for an existing pending cover order.
   const existingCoverId = psPos.stop_order_id;
   if (existingCoverId) {
@@ -327,9 +314,15 @@ async function evaluateHeldShort({ decision, symbol, entry, cur, qtyHeld, score,
   }
 
   // Hard stop: cover if price rose >= stop_loss_pct above entry.
-  if (shouldCoverShort(entry, cur)) {
+  if (shouldCoverShort(entry, cur, STOP_LOSS_PCT)) {
     const cyclesOpen = psPos.stop_order_cycles || 0;
-    const lim = coverLimitPrice(ask, cyclesOpen);
+    const lim = coverLimitPrice(
+      ask,
+      cyclesOpen,
+      cfg.STOP_LOSS_LIMIT_BAND_PCT,
+      STOP_LOSS_ESCALATION_CYCLES,
+      cfg.STOP_LOSS_ESCALATION_EXTRA_PCT
+    );
     decision.action = "COVER";
     decision.qty = Math.abs(qtyHeld);
     decision.limitPrice = lim;
@@ -352,7 +345,25 @@ async function evaluateHeldShort({ decision, symbol, entry, cur, qtyHeld, score,
   return decision;
 }
 
-async function evaluateHeldLong({ decision, symbol, entry, cur, qtyHeld, score, ask, state, psPos, throttleActive, getOpenOrders, cancelOrder, getAccount }) {
+async function evaluateHeldLong({ decision, symbol, entry, cur, qtyHeld, score, ask, state, psPos, throttleActive, getOpenOrders, cancelOrder, getAccount, cfg = DEFAULT_CFG }) {
+  const {
+    STOP_LOSS_PCT,
+    STOP_LOSS_MODE,
+    STOP_LOSS_ESCALATION_CYCLES,
+    TRAILING_STOP_ACTIVATION_PCT,
+    TRAILING_STOP_TRAIL_PCT,
+    PARTIAL_TP_ENABLED,
+    PARTIAL_TP_R_MULTIPLE,
+    PARTIAL_TP_FRACTION,
+    MAX_HOLD_HOURS,
+    LIMIT_BAND_PCT,
+    SELL_SCORE_THRESHOLD,
+    BUY_SCORE_HALF_SIZE,
+    PYRAMID_ENABLED,
+    PYRAMID_ADX_MIN,
+  } = cfg;
+  const stopLim = (cyclesOpen) =>
+    stopLossLimitPrice(ask, cyclesOpen, cfg.STOP_LOSS_LIMIT_BAND_PCT, STOP_LOSS_ESCALATION_CYCLES, cfg.STOP_LOSS_ESCALATION_EXTRA_PCT);
   const hwm = psPos.high_water_mark || entry;
   const existingStopId = psPos.stop_order_id;
 
@@ -389,7 +400,7 @@ async function evaluateHeldLong({ decision, symbol, entry, cur, qtyHeld, score, 
   const trailPct = TRAILING_STOP_TRAIL_PCT;
   if (shouldTrailStopOut(entry, hwm, cur, TRAILING_STOP_ACTIVATION_PCT, trailPct)) {
     const cyclesOpen = psPos.stop_order_cycles || 0;
-    const lim = stopLossLimitPrice(ask, cyclesOpen);
+    const lim = stopLim(cyclesOpen);
     decision.action = "SELL";
     decision.qty = qtyHeld;
     decision.limitPrice = lim;
@@ -402,7 +413,13 @@ async function evaluateHeldLong({ decision, symbol, entry, cur, qtyHeld, score, 
   // STOP_LOSS_PCT only as a fallback when 4H history is unavailable).
   let swingStop = null;
   if (STOP_LOSS_MODE === "swing_low_4h") {
-    swingStop = swingLowStopPrice(entry, decision.lows4h);
+    swingStop = swingLowStopPrice(
+      entry,
+      decision.lows4h,
+      cfg.SWING_LOW_LOOKBACK_BARS,
+      cfg.SWING_LOW_BUFFER_PCT,
+      cfg.SWING_LOW_MAX_STOP_PCT
+    );
   }
 
   // Trend/chop mode split: pyramiding (trend mode) ships OFF and is
@@ -439,9 +456,9 @@ async function evaluateHeldLong({ decision, symbol, entry, cur, qtyHeld, score, 
   const breakeven = psPos.breakeven_stop;
   const stopCandidates = [swingStop, breakeven].filter((s) => s);
   const effStop = stopCandidates.length ? Math.max(...stopCandidates) : null;
-  if (shouldStopOut(entry, cur, effStop)) {
+  if (shouldStopOut(entry, cur, effStop, STOP_LOSS_PCT)) {
     const cyclesOpen = psPos.stop_order_cycles || 0;
-    const lim = stopLossLimitPrice(ask, cyclesOpen);
+    const lim = stopLim(cyclesOpen);
     decision.action = "SELL";
     decision.qty = qtyHeld;
     decision.limitPrice = lim;
@@ -485,7 +502,21 @@ async function evaluateHeldLong({ decision, symbol, entry, cur, qtyHeld, score, 
   return decision;
 }
 
-async function evaluateFlatEntry({ decision, symbol, score, ask, bid, state, openSymbols, throttleActive, getAccount, sessionPenaltyActive }) {
+async function evaluateFlatEntry({ decision, symbol, score, ask, bid, state, openSymbols, throttleActive, getAccount, sessionPenaltyActive, cfg = DEFAULT_CFG }) {
+  const {
+    TAKER_FEE_BPS_PER_SIDE,
+    MIN_RR_FULL,
+    MIN_RR_HALF,
+    STREAK_THROTTLE_RISK_FACTOR,
+    BUY_SCORE_THRESHOLD,
+    BUY_SCORE_HALF_SIZE,
+    SHORT_SCORE_THRESHOLD,
+    SHORT_SCORE_HALF_SIZE,
+    DOWNTREND_LONG_SCORE,
+    SESSION_FILTER_ENABLED,
+    SHORTS_ENABLED,
+    MAKER_FIRST_ENTRIES,
+  } = cfg;
   // Gate 1: capital preservation mode (daily drawdown gate fired).
   if (ps.isCapitalPreservationMode(state)) {
     decision.reason = "BLOCKED: capital preservation mode active (daily drawdown gate)";
@@ -493,7 +524,13 @@ async function evaluateFlatEntry({ decision, symbol, score, ask, bid, state, ope
   }
 
   // Gate 2: correlation budget -- max open positions and per-tier limits.
-  const { allowed, reason: budgetReason } = correlationBudgetAllows(symbol, openSymbols);
+  const { allowed, reason: budgetReason } = correlationBudgetAllows(
+    symbol,
+    openSymbols,
+    cfg.MAX_OPEN_POSITIONS,
+    cfg.MAX_POSITIONS_PER_TIER,
+    cfg.TIER1_SYMBOLS
+  );
   if (!allowed) {
     decision.reason = "BLOCKED: " + budgetReason;
     return decision;
@@ -530,7 +567,13 @@ async function evaluateFlatEntry({ decision, symbol, score, ask, bid, state, ope
     // unreachable at module load; the BB-upper target is used unconditionally.)
     let rrHalfNote = "";
     const costPct = roundTripCostPct(bid, ask, TAKER_FEE_BPS_PER_SIDE);
-    const entryStop = swingLowStopPrice(ask, decision.lows4h);
+    const entryStop = swingLowStopPrice(
+      ask,
+      decision.lows4h,
+      cfg.SWING_LOW_LOOKBACK_BARS,
+      cfg.SWING_LOW_BUFFER_PCT,
+      cfg.SWING_LOW_MAX_STOP_PCT
+    );
     const bb = decision.bb;
     const bbTarget = bb && bb[2] && bb[2] > ask ? bb[2] : null;
     const target = bbTarget;
@@ -549,7 +592,7 @@ async function evaluateFlatEntry({ decision, symbol, score, ask, bid, state, ope
     // Session-edge filter: half-size entries during hour/weekday buckets
     // whose realized expectancy is materially negative.
     let sessionNote = "";
-    if (SESSION_FILTER_ENABLED && (await sessionPenaltyActive())) {
+    if (SESSION_FILTER_ENABLED && (await sessionPenaltyActive({ cfg }))) {
       sessionNote = ", half-size on negative session expectancy";
     }
 
@@ -562,7 +605,7 @@ async function evaluateFlatEntry({ decision, symbol, score, ask, bid, state, ope
       conviction_note += `, streak-throttle ${STREAK_THROTTLE_RISK_FACTOR.toFixed(1)}x`;
     }
 
-    const baseQty = computeEntryQty(equity, symbol, ask, atrVal, riskMult);
+    const baseQty = computeEntryQty(equity, symbol, ask, atrVal, riskMult, cfg);
     let qty, sizeNote;
     if (inDowntrend) {
       qty = Math.round(baseQty * 0.5 * 1e4) / 1e4;
@@ -600,7 +643,7 @@ async function evaluateFlatEntry({ decision, symbol, score, ask, bid, state, ope
   // by default (strategy.shorts_enabled: false). Cover logic stays active
   // as a safety net for any legacy short position.
   if (SHORTS_ENABLED && decision.dailyRegime === "downtrend" && score <= SHORT_SCORE_HALF_SIZE) {
-    const baseQty = computeEntryQty(equity, symbol, bid, atrVal);
+    const baseQty = computeEntryQty(equity, symbol, bid, atrVal, 1.0, cfg);
     let qty, sizeNote;
     if (score > SHORT_SCORE_THRESHOLD) {
       qty = Math.round(baseQty * 0.5 * 1e4) / 1e4;

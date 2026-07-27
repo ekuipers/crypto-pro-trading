@@ -11,8 +11,8 @@ import { defaultClient } from "./trade.js";
 import { apiGet } from "./apiClient.js";
 import { fetchAllFills, fifoRoundTrips } from "./marketData.js";
 import { getPosition, markPartialTp, clearPosition } from "./positionState.js";
-import { PARTIAL_TP_ENABLED, rollingDrawdownPct } from "./risk.js";
-import { SESSION_MIN_SAMPLE } from "./strategyConfig.js";
+import { rollingDrawdownPct } from "./risk.js";
+import { DEFAULT_CFG } from "./userConfig.js";
 
 // Bug #6 (2026-07-18): Alpaca paper-fill SELL quantities come back
 // ~0.1-0.25% smaller than the matching BUY (fee/precision rounding), so a
@@ -66,7 +66,8 @@ export function pruneStaleState(state, openSymbols) {
  * mutation and tests/test_reconcile.py's assertions against that mutation.
  * Returns journal warnings.
  */
-export async function reconcilePositionsFromFills(state, positions, { fills = null, client = defaultClient } = {}) {
+export async function reconcilePositionsFromFills(state, positions, { fills = null, client = defaultClient, cfg = DEFAULT_CFG } = {}) {
+  const PARTIAL_TP_ENABLED = cfg.PARTIAL_TP_ENABLED;
   const warnings = [];
   const needs = [];
   for (const p of positions) {
@@ -193,7 +194,8 @@ function gmt2Parts(date) {
 }
 
 /** Return the negative-expectancy hour/weekday buckets from round trips (GMT+2). */
-export function computeSessionPenalty(roundTrips) {
+export function computeSessionPenalty(roundTrips, cfg = DEFAULT_CFG) {
+  const SESSION_MIN_SAMPLE = cfg.SESSION_MIN_SAMPLE;
   const penalty = { hours: new Set(), dows: new Set() };
   const hourPnl = {};
   const dowPnl = {};
@@ -217,32 +219,47 @@ export function computeSessionPenalty(roundTrips) {
   return penalty;
 }
 
-// Module-level cache, mirroring Python's global _SESSION_PENALTY -- computed
-// once per process run (this port's one-shot-CLI-per-cycle model matches
-// Python's, so a module-level cache is correct here, not a smell).
-let _sessionPenaltyCache = null;
+// Process-lifetime cache, mirroring Python's global _SESSION_PENALTY. The
+// Python engine ran one process per cycle for one account, so a bare
+// module-level value was correct there.
+//
+// Multi-tenant Phase 3: it is keyed by `cacheKey` now. Phase 5's dispatcher
+// loops over every user inside ONE serverless invocation, so an unkeyed cache
+// would hand user B the buckets computed from user A's fill history and user
+// A's SESSION_MIN_SAMPLE -- a silent cross-tenant leak into a sizing
+// decision. The default key preserves the single-tenant CLI behaviour.
+const LEGACY_CACHE_KEY = "__default__";
+const _sessionPenaltyCache = new Map();
 
 /** Reset the session-penalty cache. Test-only (production is one process per cycle). */
 export function resetSessionPenaltyCache() {
-  _sessionPenaltyCache = null;
+  _sessionPenaltyCache.clear();
 }
 
 /** True when the current GMT+2 hour or weekday is a penalized bucket. */
-export async function sessionPenaltyActive({ now = new Date(), roundTrips = null, client = defaultClient } = {}) {
-  if (_sessionPenaltyCache === null) {
+export async function sessionPenaltyActive({
+  now = new Date(),
+  roundTrips = null,
+  client = defaultClient,
+  cfg = DEFAULT_CFG,
+  cacheKey = LEGACY_CACHE_KEY,
+} = {}) {
+  let entry = _sessionPenaltyCache.get(cacheKey);
+  if (!entry) {
     try {
       const trips = roundTrips !== null ? roundTrips : fifoRoundTrips(await fetchAllFills({ client }));
-      _sessionPenaltyCache = computeSessionPenalty(trips);
+      entry = computeSessionPenalty(trips, cfg);
     } catch (e) {
       console.log(`session-edge filter skipped: ${e}`);
-      _sessionPenaltyCache = { hours: new Set(), dows: new Set() };
+      entry = { hours: new Set(), dows: new Set() };
     }
-    if (_sessionPenaltyCache.hours.size || _sessionPenaltyCache.dows.size) {
+    _sessionPenaltyCache.set(cacheKey, entry);
+    if (entry.hours.size || entry.dows.size) {
       console.log(
-        `session-edge filter: half-size hours=${[...(_sessionPenaltyCache?.hours ?? [])].sort((a, b) => a - b)} dows=${[...(_sessionPenaltyCache?.dows ?? [])].sort()}`
+        `session-edge filter: half-size hours=${[...entry.hours].sort((a, b) => a - b)} dows=${[...entry.dows].sort()}`
       );
     }
   }
   const { hour, dow } = gmt2Parts(now);
-  return _sessionPenaltyCache.hours.has(hour) || _sessionPenaltyCache.dows.has(dow);
+  return entry.hours.has(hour) || entry.dows.has(dow);
 }

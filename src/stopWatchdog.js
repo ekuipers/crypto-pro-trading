@@ -31,13 +31,16 @@ import {
   TradeRejected,
 } from "./trade.js";
 import { getCryptoBars4h as defaultGetCryptoBars4h } from "./marketData.js";
-import { STOP_LOSS_MODE, STOP_LOSS_PCT, TRAIL_MODE, shouldStopOut, shouldTrailStopOut, stopLossLimitPrice, swingLowStopPrice } from "./risk.js";
+import { TRAIL_MODE, shouldStopOut, shouldTrailStopOut, stopLossLimitPrice, swingLowStopPrice } from "./risk.js";
 import { assertNotShipped } from "./strategyConfig.js";
+import { DEFAULT_CFG } from "./userConfig.js";
 import { JOURNAL_DIR } from "./journal.js";
 
 // Chandelier trailing is not ported to risk.js (see risk.js's scope note) —
 // fail loudly rather than silently falling back to the fixed trail if it's
-// ever switched on before that lands.
+// ever switched on before that lands. Checked against the compiled default
+// only: TRAIL_MODE is locked in userConfig.js's CONFIG_SPEC, so a per-user
+// config can never introduce it.
 assertNotShipped("risk.trail_mode", TRAIL_MODE === "chandelier", "chandelierTrailPct");
 
 /** Check one open long position. Returns a journal line when it acted, else null. */
@@ -46,6 +49,7 @@ export async function checkPosition(pos, state, execute, deps = {}) {
   const getLatestQuote = deps.getLatestQuote || defaultGetLatestQuote;
   const getCryptoBars4h = deps.getCryptoBars4h || defaultGetCryptoBars4h;
   const placeOrder = deps.placeOrder || defaultPlaceOrder;
+  const cfg = deps.cfg || DEFAULT_CFG;
 
   const sym = toSlash(pos.symbol || "");
   const qty = Number(pos.qty || 0);
@@ -76,11 +80,11 @@ export async function checkPosition(pos, state, execute, deps = {}) {
 
   // 4H bars for the swing-low stop.
   let swingStop = null;
-  if (STOP_LOSS_MODE === "swing_low_4h") {
+  if (cfg.STOP_LOSS_MODE === "swing_low_4h") {
     try {
       const bars4h = await getCryptoBars4h(sym);
       const lows = bars4h.filter((b) => b.c).map((b) => Number(b.l || 0));
-      swingStop = swingLowStopPrice(entry, lows);
+      swingStop = swingLowStopPrice(entry, lows, cfg.SWING_LOW_LOOKBACK_BARS, cfg.SWING_LOW_BUFFER_PCT, cfg.SWING_LOW_MAX_STOP_PCT);
     } catch {
       // fixed -5% fallback below
     }
@@ -88,11 +92,11 @@ export async function checkPosition(pos, state, execute, deps = {}) {
 
   // Trailing stop first (supersedes the hard stop once armed).
   const hwm = psPos.high_water_mark || entry;
-  const trailHit = shouldTrailStopOut(entry, hwm, cur);
+  const trailHit = shouldTrailStopOut(entry, hwm, cur, cfg.TRAILING_STOP_ACTIVATION_PCT, cfg.TRAILING_STOP_TRAIL_PCT);
 
   const breakeven = psPos.breakeven_stop;
   const effStop = [swingStop, breakeven].filter((s) => s).length ? Math.max(...[swingStop, breakeven].filter((s) => s)) : null;
-  const hardHit = shouldStopOut(entry, cur, effStop);
+  const hardHit = shouldStopOut(entry, cur, effStop, cfg.STOP_LOSS_PCT);
 
   if (!trailHit && !hardHit) return null;
 
@@ -102,8 +106,14 @@ export async function checkPosition(pos, state, execute, deps = {}) {
       ? "STOP (breakeven)"
       : effStop
         ? "STOP (4H swing low)"
-        : `STOP (fixed -${Math.round(STOP_LOSS_PCT * 100)}%)`;
-  const lim = stopLossLimitPrice(ask, psPos.stop_order_cycles || 0);
+        : `STOP (fixed -${Math.round(cfg.STOP_LOSS_PCT * 100)}%)`;
+  const lim = stopLossLimitPrice(
+    ask,
+    psPos.stop_order_cycles || 0,
+    cfg.STOP_LOSS_LIMIT_BAND_PCT,
+    cfg.STOP_LOSS_ESCALATION_CYCLES,
+    cfg.STOP_LOSS_ESCALATION_EXTRA_PCT
+  );
   const line = `${sym} ${kind}: entry $${entry.toFixed(4)} current $${cur.toFixed(4)} -> SELL ${qty.toFixed(4)} @ $${lim.toFixed(4)}`;
 
   if (!execute) return line + " (dry-run)";

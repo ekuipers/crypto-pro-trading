@@ -9,9 +9,9 @@ User-confirmed scope (2026-07-24): Node engine only (Python/GitHub Actions is be
 a separate in-progress cutover, untouched here); full per-user Alpaca credentials, not a shared
 account; per-user strategy/risk config too, not just credentials.
 
-Staged into 6 phases so each is independently shippable/testable/reviewable. Phase 1 shipped
-2026-07-24 (see `memory.md`'s dated entry for the summary); phases 2-6 are designed below but not
-yet implemented.
+Staged into 6 phases so each is independently shippable/testable/reviewable. Phases 1-3 have shipped
+(1 on 2026-07-24, 2 and 3 on 2026-07-27 — see `memory.md`'s dated entries); phases 4-6 are designed
+below but not yet implemented.
 
 ---
 
@@ -152,22 +152,61 @@ security rules) — focus on IV uniqueness per encryption call, authTag-failure 
 disconnected," never crash/ignore), and an explicit audit that every route projects through the
 metadata-only shape, never the decrypted one.
 
-## Phase 3 — per-user strategy/risk config (not yet implemented)
+## Phase 3 — DONE (2026-07-27): per-user strategy/risk config
 
-New table `trader_strategy_config(uid primary key, data jsonb, updated_at)`, mirroring `layouts`'
-shape. New `resolveConfigForUser(uid)` merges a per-uid override row over the compiled-in
-`config.json` defaults — `strategyConfig.js`/`risk.js` stay untouched as the "default layer."
-`risk.js`'s ~20 pure functions already accept overrides as optional trailing parameters (e.g.
-`checkLimitBand(limitPrice, ask, bid, limitBandPctOverride)`), so multi-tenant call sites just
-pass the resolved values explicitly instead of relying on module defaults. `evaluateSymbol.js`/
-`rotation.js`/`entrySizing.js` each need a mechanical change: accept one merged `cfg` object
-(via their existing `deps`/options parameter) instead of reading `strategyConfig.js`'s bare
-imports directly — a rename-in-place, not a structural rewrite. Legacy/CLI path (no uid) keeps
-resolving to today's compiled constants — zero behavior change for anyone not opted in.
+Shipped as designed, with the merged-`cfg`-object approach (the open judgment call below) confirmed
+by the user at phase start. Two premises in the original text were wrong and are corrected here:
 
-**Open judgment call:** threading ~20-30 distinct constants individually through function
-signatures would be noisy — recommend one merged `cfg` object as a single new parameter/deps
-field instead. Flag for confirmation when this phase starts.
+1. **`risk.js`'s functions did NOT already accept overrides.** The plan cited
+   `checkLimitBand(limitPrice, ask, bid, limitBandPctOverride)` as evidence; the real signature was
+   `checkLimitBand(limitPrice, ask, bid = null)` reading the module-level `LIMIT_BAND_PCT`. Eight
+   functions needed new trailing override params: `checkLimitBand`, `shouldStopOut`,
+   `shouldCoverShort`, `stopLossPrice`, `shortStopPrice`, `effectiveStopPct`, `tierCount`,
+   `correlationBudgetAllows` (the last two had no way to override `TIER1_SYMBOLS` at all).
+2. **The blast radius was 8 modules, not 3.** Beyond `evaluateSymbol`/`rotation`/`entrySizing`, the
+   conversion also had to cover `runEvaluation`, `stopWatchdog`, `reconcile`, `journal`, and
+   `alpacaClient` — 179 bare constant reads in total.
+
+**What shipped:** new `src/userConfig.js` — `DEFAULT_CFG` (compiled `config.json` flattened, keeping
+the old UPPER_SNAKE names so each conversion is a mechanical `X` → `cfg.X` rename and stays greppable),
+`CONFIG_SPEC`, `EDITABLE_KEYS`, `validateOverrides`, `mergeConfig`, `cfgSymbolCap`,
+`resolveConfigForUser`. New table `trader_strategy_config(uid pk, data jsonb, updated_at)` +
+`get/put/deleteStrategyConfig` in `db.js`. Consumers take `cfg` through their existing `deps`/options
+parameter, defaulting to `DEFAULT_CFG`.
+
+**Design decision worth keeping:** the resolver re-validates on **every read**, not just on write.
+`putStrategyConfig` is storage-only and deliberately unvalidated, so the guarantee "an out-of-range or
+locked value cannot reach a trading decision" holds even against a row edited directly in the database
+— verified end-to-end. An invalid key degrades to its default and is reported rather than failing the
+resolve, because a bad config row must not be able to stop a user's engine (including the stop
+watchdog).
+
+**Hard rules are enforced as CONFIG_SPEC bounds** — 0.2% limit band, 0.5% stop band, ≤30% symbol cap,
+≤2% risk/trade, 7 total / 5 per-tier, ≤8% swing-low stop; a user may tighten, never loosen. Shorts,
+the streak throttle, and every unported ships-OFF flag are **locked** (rejected outright), which is
+what lets the existing module-load `assertNotShipped()` guards keep checking only the compiled config.
+
+**Latent multi-tenant bugs found and fixed in passing** (both would have surfaced in Phase 5):
+`reconcile.js`'s session-penalty cache was an unkeyed module-level singleton — the dispatcher loops
+every user inside one serverless invocation, so user B would have inherited the buckets computed from
+user A's fill history; it is now keyed by `cacheKey`. And `runEvaluation.js` called
+`sevenDayDrawdown()` without `client`, so one user's drawdown would have driven another's streak
+throttle.
+
+**Self-review findings, fixed before commit:** `Number(value)` coercion accepted a quoted `"4.0"` and
+coerced `true` → 1 (now a strict `typeof` check); cross-field conflicts were reported but still
+applied, since `mergeConfig` applies `clean` regardless of `ok` (conflicting pairs are now deleted
+from `clean`); `CONFIG_SPEC[key]` resolved inherited members so `__proto__`/`constructor` bypassed the
+unknown-key error (now `Object.hasOwn`, same in `cfgSymbolCap`).
+
+**Not done, carry into Phase 6:** no HTTP route writes a config row. The Phase 6 editor route must
+call `validateOverrides` and reject on `!ok` rather than relying on the resolver's degrade-to-default
+behaviour, and should get the agent-based security-reviewer pass that Phase 2 had (this phase's review
+was done inline; agent use was disabled in the session that shipped it).
+
+Original open judgment call, resolved: threading ~20-30 distinct constants individually through
+function signatures would be noisy — one merged `cfg` object as a single deps field was recommended
+and chosen.
 
 ## Phase 4 — schema migration + one-time data backfill (not yet implemented)
 
@@ -193,6 +232,14 @@ per-user `createAlpacaClient(...)` into `deps` (via Phase 1's seam) plus uid-sco
 `getTraderState`/`putTraderState`/`appendTraderJournal`. **If a user has no active credential,
 skip with a clear reason — never fall back to the legacy env-var client** (would silently trade
 one user's schedule against another's account).
+
+Phase 3 added the config half of the same seam: each per-user run must also pass
+`deps.cfg = (await resolveConfigForUser(uid)).cfg` and `deps.cacheKey = uid`. **Both matter.**
+Omitting `cfg` silently runs that user on the compiled defaults instead of their own strategy;
+omitting `cacheKey` hands them the session-penalty buckets of whichever user the loop processed
+first. Log the `errors` array `resolveConfigForUser` returns — it is how a user learns their stored
+config had a key rejected. Note `createAlpacaClient` takes `cfg` too (its two order-band rules), so
+the per-user client must be built from the resolved config, not `DEFAULT_CFG`.
 
 `isOwner`/`TRADER_OWNER_UID` gating on the manual-trigger/config routes is replaced by
 `requireSelf` (any signed-in user manages only their own rows).

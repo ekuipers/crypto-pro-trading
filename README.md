@@ -135,9 +135,10 @@ hourly (`0 * * * *`). Three env vars control it, all optional:
 ### 7. Per-user Alpaca credentials (multi-tenant, in progress)
 
 Each signed-in account can store its own Alpaca API credentials for the server-side engine, instead of
-every scheduled run using the one shared `APCA_*` env-var account. **Phase 2 of 6 — storage and
-management only:** the cron dispatcher still uses the shared account until Phase 5, so nothing about
-today's trading behavior changes. Full plan: `memory/project-trader-multitenant-plan.md`.
+every scheduled run using the one shared `APCA_*` env-var account. **Phases 2–3 of 6 — storage and
+resolution only:** the cron dispatcher still uses the shared account and the compiled config until
+Phase 5, so nothing about today's trading behavior changes. Full plan:
+`memory/project-trader-multitenant-plan.md`.
 
 | Route | Purpose |
 |-------|---------|
@@ -155,6 +156,25 @@ before they reach the database, so a database dump alone yields no usable keys.
   environment** — Preview inherits Production variables by default, and with the same key and database a
   preview build could decrypt production credentials. There is no key-rotation path yet: changing it makes
   already-stored credentials unreadable and users must reconnect.
+
+**Per-user strategy config (Phase 3).** Alongside credentials, each account can have its own copy of the
+strategy/risk tunables, stored in `trader_strategy_config` as just the keys it overrides.
+`resolveConfigForUser(uid)` in `src/userConfig.js` merges that row over the compiled `config.json`
+defaults; no uid (the CLI, and every path until Phase 5) resolves to exactly the compiled values.
+
+Overrides are validated against `CONFIG_SPEC` on **every read**, not only on write, so a value edited
+straight into the database still cannot reach a trading decision. Two categories are refused outright:
+
+- **Out-of-bounds** — the bounds encode the hard rules below (0.2% limit band, 0.5% stop band, ≤30%
+  per-symbol cap, ≤2% risk per trade, 7 total / 5 per-tier budget, ≤8% swing-low stop). A user may
+  tighten any of these, never loosen them.
+- **Locked keys** — shorts (Alpaca crypto is spot-only), the streak throttle, and every ships-OFF
+  feature that was never ported to `src/risk.js` (pyramiding, conviction sizing, measured-move
+  targets, breadth gate, maker-first entries, chandelier trail).
+
+An invalid key degrades to its default and is reported, rather than failing the whole resolve — a bad
+row must not be able to stop a user's engine, including its stop watchdog. **No route writes a config
+row yet**; the editor UI and its route arrive with Phase 6.
 
 Storing live credentials is allowed (the engine uses live keys for read-only insight), but the
 paper-trading-only hard rule is unaffected — `assertPaperTrading()` independently blocks all order
@@ -301,6 +321,7 @@ All thresholds are configured in `config.json` — edit there, not in source fil
 | `src/risk.js` | Pure-function risk checks — position-cap, limit-band, stop-loss, trailing stop, correlation budget, daily drawdown gate, stop-loss limit-price helpers, plus (2026-07-09) trade economics (`spreadPct`, `roundTripCostPct`, `netRr`), partial-TP (`shouldPartialTp`), stale exit (`isStalePosition`), and rotation (`rotationAllows`) — all loaded from `config.json` |
 | `src/positionState.js` | Persistent state manager — per-symbol HWM, entry time, partial-TP/breakeven state, stop order ID + cycle count; portfolio-level day-open equity, capital preservation mode. Atomic writes to `data/positions_state.json` locally, or Postgres `trader_state` on Vercel. |
 | `src/alpacaClient.js` | Credential-injection factory (`createAlpacaClient(...)`) — HTTP retry + every hard rule, so multiple Alpaca accounts can share the same process (multi-tenant groundwork). |
+| `src/userConfig.js` | Per-user strategy/risk config resolution — `DEFAULT_CFG` (compiled `config.json`, flattened), `CONFIG_SPEC` (type/bounds/locked per key, where the hard rules are enforced against stored JSON), `validateOverrides`, `mergeConfig`, `resolveConfigForUser(uid)`. No uid ⇒ the compiled defaults. |
 | `src/scout.js` | Universe scout — auto-promotes uptrending score-≥4 `*/USD` pairs outside the watchlist into `data/watchlist_dynamic.json`; merged by `runEvaluation` when `scout.enabled` (default 5% cap + all gates apply) |
 | `src/symbols.js` | Canonical symbol notation — single `toSlash()` converter (`BTCUSD → BTC/USD`, USDT/USDC/USD quotes, longest match first). The project-wide notation is the slash pair `BASE/QUOTE`; Alpaca's no-slash form exists only at the API boundary. Mirrors the dashboard's `toSlash()`. |
 | `src/env.js` | Loads `.env` into `process.env` (`loadEnv()`) |

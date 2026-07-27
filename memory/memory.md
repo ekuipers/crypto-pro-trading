@@ -1,5 +1,52 @@
 # Project: CryptoPro Trader
 
+## v2026-07-27.2 — 2026-07-27 — Multi-tenant Phase 3: per-user strategy/risk config
+
+Suite roadmap item 1 (multi-tenant). Resolution layer + engine plumbing only — nothing writes a
+config row yet (the route ships with Phase 6's UI), so this has zero behavior change.
+
+- `src/userConfig.js` (new): `DEFAULT_CFG` (the compiled `config.json` values flattened, same
+  UPPER_SNAKE key names so each conversion is a mechanical `X` → `cfg.X` rename), `CONFIG_SPEC`
+  (per-key type/bounds/locked), `validateOverrides`, `mergeConfig`, `resolveConfigForUser(uid)`.
+  Bounds are where CLAUDE.md's hard rules are enforced against stored JSON: 0.2% limit band, 0.5%
+  stop band, ≤30% symbol cap, ≤2% risk/trade, 7 total / 5 per-tier budget, ≤8% swing-low stop.
+  Shorts, the streak throttle, and every unported ships-OFF flag are **locked** — not settable at
+  all, so `assertNotShipped()` can keep checking the compiled config only.
+- `src/db.js`: new `trader_strategy_config(uid pk, data jsonb, updated_at)` + `getStrategyConfig`/
+  `putStrategyConfig`/`deleteStrategyConfig`. Stores only the keys a user changed; the resolver
+  re-validates on every read, so a row written before a bound was tightened degrades that one key
+  to its default instead of failing the resolve and stopping the engine.
+- `src/risk.js`: added trailing override params to the 8 pure functions that read module constants
+  directly (`checkLimitBand`, `shouldStopOut`, `shouldCoverShort`, `stopLossPrice`,
+  `shortStopPrice`, `effectiveStopPct`, `tierCount`, `correlationBudgetAllows`). The plan doc had
+  claimed these already accepted overrides; they did not.
+- Converted to take `cfg` (defaulting to `DEFAULT_CFG`) through their existing `deps`/options
+  parameter: `evaluateSymbol.js`, `runEvaluation.js`, `rotation.js`, `entrySizing.js`,
+  `stopWatchdog.js`, `reconcile.js`, `journal.js`, `alpacaClient.js` — 179 constant reads in all.
+- **Latent multi-tenant bug fixed:** `reconcile.js`'s session-penalty cache was an unkeyed
+  module-level singleton. Phase 5 loops every user inside one serverless invocation, so user B
+  would have inherited the buckets computed from user A's fills. Now keyed by `cacheKey`.
+  Same pass: `sevenDayDrawdown()` in `runEvaluation.js` was not passed `client`, so one user's
+  drawdown would have driven another's streak throttle.
+
+**Self-review findings, fixed before commit:** numeric validation used `Number(value)`, so a quoted
+`"4.0"` (and `true` → 1) coerced through — now a strict `typeof` check, since a typo in a JSON
+editor silently trading a coerced value is the exact failure this spec exists to prevent. Cross-field
+conflicts were reported but still applied, because `mergeConfig` deliberately applies `clean`
+regardless of `ok`; conflicting pairs are now dropped from `clean`. `CONFIG_SPEC[key]` resolved
+inherited members, so `__proto__`/`constructor` bypassed the unknown-key error — now `Object.hasOwn`,
+and `cfgSymbolCap` likewise. Note: **no agent-based security-reviewer pass was run this session**
+(agent use is disabled in this session's config) — worth running before Phase 6 exposes a write route.
+
+**Verified:** `npm test` 401/401 (42 new, baseline 359 unchanged). Plus 15 end-to-end checks against
+the real Supabase database (`debug/phase3_e2e.mjs`, gitignored): jsonb round-trip, merge-over-default,
+upsert-replaces, cascade delete, and — importantly — that an out-of-bound or locked value written
+*directly into the table* still never reaches the resolved cfg. Test rows cleaned up, table left empty.
+
+**Not in this phase:** no HTTP route writes a config row yet. `putStrategyConfig` is storage-only and
+does no validation by design; the Phase 6 editor route must call `validateOverrides` before writing.
+
+
 ## v2026-07-27.1 — 2026-07-27 — Multi-tenant Phase 2: encrypted per-user Alpaca credentials
 
 Suite roadmap item 1 (multi-tenant). Storage + management only — the cron dispatcher still uses the

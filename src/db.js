@@ -263,6 +263,20 @@ export async function init() {
   await q(`create unique index if not exists trader_alpaca_credentials_active_uidx
            on trader_alpaca_credentials (uid) where active`);
 
+  // Multi-tenant conversion Phase 3: per-user strategy/risk overrides. Same
+  // generic uid→jsonb shape as `layouts`. The row holds only the keys the
+  // user actually changed, not a full config snapshot — src/userConfig.js
+  // merges it over the compiled config.json defaults on read, so a default
+  // that later changes in config.json still reaches users who never
+  // overrode it. Values are re-validated against CONFIG_SPEC on every
+  // resolve, so a row written before a bound was tightened degrades to the
+  // default for that key rather than trading an out-of-range value.
+  await q(`create table if not exists trader_strategy_config (
+    uid        text primary key references accounts(id) on delete cascade,
+    data       jsonb not null,
+    updated_at timestamptz not null default now()
+  )`);
+
   console.log('[db] connected; tables ready');
   return true;
 }
@@ -620,5 +634,32 @@ export async function deleteAlpacaCredential(uid, mode) {
     'delete from trader_alpaca_credentials where uid = $1 and mode = $2',
     [uid, mode],
   );
+  return rowCount > 0;
+}
+
+// ---- Per-user strategy config (multi-tenant Phase 3) -----------------------
+// Storage only: these accessors deliberately do no validation. The engine
+// resolves through src/userConfig.js's resolveConfigForUser(), which
+// re-validates every key against CONFIG_SPEC, so a row cannot smuggle an
+// out-of-range value into a trading decision by any path.
+
+/** The user's raw override object, or null when they've never saved one. */
+export async function getStrategyConfig(uid) {
+  const { rows } = await q('select data from trader_strategy_config where uid = $1', [uid]);
+  return rows[0]?.data ?? null;
+}
+
+/** Upsert the user's overrides. `data` should already have been validated. */
+export async function putStrategyConfig(uid, data) {
+  await q(
+    `insert into trader_strategy_config (uid, data, updated_at) values ($1, $2::jsonb, now())
+     on conflict (uid) do update set data = excluded.data, updated_at = now()`,
+    [uid, JSON.stringify(data)],
+  );
+}
+
+/** Drop all overrides for a user, reverting them to the compiled defaults. */
+export async function deleteStrategyConfig(uid) {
+  const { rowCount } = await q('delete from trader_strategy_config where uid = $1', [uid]);
   return rowCount > 0;
 }

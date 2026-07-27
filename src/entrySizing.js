@@ -4,28 +4,15 @@
 // entry path and rotation.js's rotation-in leg -- a faithful port of
 // scripts/run_evaluation.py's compute_entry_qty()/symbol_cap()/_load_caps().
 
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
-import { RISK_PER_TRADE_PCT, FALLBACK_SIZE_PCT, ATR_MULTIPLIER } from "./strategyConfig.js";
+// Multi-tenant Phase 3: both functions take a trailing resolved-config
+// object. It defaults to DEFAULT_CFG (the compiled config.json values), so
+// every existing caller and the CLI path behave exactly as before.
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = path.join(__dirname, "..");
-
-function loadCaps() {
-  try {
-    const cfg = JSON.parse(readFileSync(path.join(PROJECT_ROOT, "config.json"), "utf-8"));
-    return cfg.portfolio_caps || { caps: {}, default_cap: 0.05 };
-  } catch {
-    return { caps: {}, default_cap: 0.05 };
-  }
-}
-
-const CAPS_DATA = loadCaps();
+import { DEFAULT_CFG, cfgSymbolCap } from "./userConfig.js";
 
 /** Position cap fraction for `symbol` (e.g. 0.30 for BTC/USD), 0.05 default. */
-export function symbolCap(symbol) {
-  return CAPS_DATA.caps?.[symbol] ?? CAPS_DATA.default_cap ?? 0.05;
+export function symbolCap(symbol, cfg = DEFAULT_CFG) {
+  return cfgSymbolCap(cfg, symbol);
 }
 
 /**
@@ -33,14 +20,14 @@ export function symbolCap(symbol) {
  * the risk budget for the streak throttle (and, once ported, conviction
  * sizing); the per-symbol hard cap is never scaled.
  */
-export function computeEntryQty(equity, symbol, price, atrVal, riskMult = 1.0) {
-  const symCapPct = symbolCap(symbol);
+export function computeEntryQty(equity, symbol, price, atrVal, riskMult = 1.0, cfg = DEFAULT_CFG) {
+  const symCapPct = symbolCap(symbol, cfg);
   const hardCap = Math.round(((equity * symCapPct) / price) * 0.99 * 1e4) / 1e4;
   if (atrVal && atrVal > 0) {
-    const maxRisk = equity * RISK_PER_TRADE_PCT * riskMult;
-    const stopDist = atrVal * ATR_MULTIPLIER;
+    const maxRisk = equity * cfg.RISK_PER_TRADE_PCT * riskMult;
+    const stopDist = atrVal * cfg.ATR_MULTIPLIER;
     const rawQty = Math.round((maxRisk / stopDist) * 0.99 * 1e4) / 1e4;
     return Math.min(rawQty, hardCap);
   }
-  return Math.min(Math.round(((equity * FALLBACK_SIZE_PCT * riskMult) / price) * 0.99 * 1e4) / 1e4, hardCap);
+  return Math.min(Math.round(((equity * cfg.FALLBACK_SIZE_PCT * riskMult) / price) * 0.99 * 1e4) / 1e4, hardCap);
 }

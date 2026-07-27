@@ -117,25 +117,25 @@ export function checkPositionSize(equity, qty, price, capPct = MAX_POSITION_PCT)
 }
 
 /**
- * Limit price must be within LIMIT_BAND_PCT of the current ask (above or
- * below). Maker-first extension: when a live bid is supplied, any limit
- * sitting inside the spread (bid <= limit <= ask) is also accepted.
+ * Limit price must be within `bandPct` of the current ask (above or below).
+ * Maker-first extension: when a live bid is supplied, any limit sitting
+ * inside the spread (bid <= limit <= ask) is also accepted.
  */
-export function checkLimitBand(limitPrice, ask, bid = null) {
+export function checkLimitBand(limitPrice, ask, bid = null, bandPct = LIMIT_BAND_PCT) {
   if (ask <= 0) return { ok: false, reason: "ask must be positive" };
   if (limitPrice <= 0) return { ok: false, reason: "limit_price must be positive" };
   if (bid && bid > 0 && bid <= limitPrice && limitPrice <= ask) {
     return { ok: true, reason: "limit inside the bid-ask spread (maker-safe)" };
   }
-  const band = ask * LIMIT_BAND_PCT;
+  const band = ask * bandPct;
   const diff = Math.abs(limitPrice - ask);
   if (diff > band) {
     return {
       ok: false,
-      reason: `limit outside ${(LIMIT_BAND_PCT * 100).toFixed(1)}% band (ask=${ask.toFixed(4)} limit=${limitPrice.toFixed(4)})`,
+      reason: `limit outside ${(bandPct * 100).toFixed(1)}% band (ask=${ask.toFixed(4)} limit=${limitPrice.toFixed(4)})`,
     };
   }
-  return { ok: true, reason: `limit within ${(LIMIT_BAND_PCT * 100).toFixed(1)}% of ask` };
+  return { ok: true, reason: `limit within ${(bandPct * 100).toFixed(1)}% of ask` };
 }
 
 // ---------------------------------------------------------------------------
@@ -171,28 +171,28 @@ export function swingLowStopPrice(
  * is supplied (e.g. the 4H swing-low stop), the position stops out at/below
  * that level. Otherwise falls back to the fixed STOP_LOSS_PCT drawdown.
  */
-export function shouldStopOut(entryPrice, currentPrice, stopPrice = null) {
+export function shouldStopOut(entryPrice, currentPrice, stopPrice = null, stopPct = STOP_LOSS_PCT) {
   if (entryPrice <= 0) return false;
   if (stopPrice !== null && stopPrice > 0) return currentPrice <= stopPrice;
   const drawdown = (entryPrice - currentPrice) / entryPrice;
-  return drawdown >= STOP_LOSS_PCT;
+  return drawdown >= stopPct;
 }
 
-/** True if a short position has moved >= STOP_LOSS_PCT against us (price rose). */
-export function shouldCoverShort(entryPrice, currentPrice) {
+/** True if a short position has moved >= stopPct against us (price rose). */
+export function shouldCoverShort(entryPrice, currentPrice, stopPct = STOP_LOSS_PCT) {
   if (entryPrice <= 0) return false;
   const adverseMove = (currentPrice - entryPrice) / entryPrice;
-  return adverseMove >= STOP_LOSS_PCT;
+  return adverseMove >= stopPct;
 }
 
 /** The price at which a long stop-loss triggers. */
-export function stopLossPrice(entryPrice) {
-  return entryPrice * (1 - STOP_LOSS_PCT);
+export function stopLossPrice(entryPrice, stopPct = STOP_LOSS_PCT) {
+  return entryPrice * (1 - stopPct);
 }
 
 /** The price at which a short stop-loss triggers (price rose above entry). */
-export function shortStopPrice(entryPrice) {
-  return entryPrice * (1 + STOP_LOSS_PCT);
+export function shortStopPrice(entryPrice, stopPct = STOP_LOSS_PCT) {
+  return entryPrice * (1 + stopPct);
 }
 
 // ---------------------------------------------------------------------------
@@ -234,14 +234,15 @@ export function effectiveStopPct(
   activationPct = TRAILING_STOP_ACTIVATION_PCT,
   trailPct = TRAILING_STOP_TRAIL_PCT,
   capitalPreservation = false,
-  preservationStopPct = CAPITAL_PRESERVATION_STOP_PCT
+  preservationStopPct = CAPITAL_PRESERVATION_STOP_PCT,
+  stopPct = STOP_LOSS_PCT
 ) {
   if (capitalPreservation) return preservationStopPct;
   if (entryPrice > 0 && highWaterMark !== null && highWaterMark !== undefined) {
     const activated = (highWaterMark - entryPrice) / entryPrice >= activationPct;
     if (activated) return trailPct;
   }
-  return STOP_LOSS_PCT;
+  return stopPct;
 }
 
 // ---------------------------------------------------------------------------
@@ -311,11 +312,11 @@ export function openPositionCount(positions) {
 
 /**
  * Count how many open positions are in the same tier as symbol. Tier 1 =
- * TIER1_SYMBOLS (BTC/USD, ETH/USD). Tier 2 = everything else.
+ * `tier1` (default TIER1_SYMBOLS: BTC/USD, ETH/USD). Tier 2 = everything else.
  */
-export function tierCount(symbol, openSymbols) {
-  const inTier1 = TIER1_SYMBOLS.includes(symbol);
-  return openSymbols.filter((s) => TIER1_SYMBOLS.includes(s) === inTier1).length;
+export function tierCount(symbol, openSymbols, tier1 = TIER1_SYMBOLS) {
+  const inTier1 = tier1.includes(symbol);
+  return openSymbols.filter((s) => tier1.includes(s) === inTier1).length;
 }
 
 /**
@@ -326,15 +327,16 @@ export function correlationBudgetAllows(
   symbol,
   openSymbols,
   maxPositions = MAX_OPEN_POSITIONS,
-  maxPerTier = MAX_POSITIONS_PER_TIER
+  maxPerTier = MAX_POSITIONS_PER_TIER,
+  tier1 = TIER1_SYMBOLS
 ) {
   const total = openSymbols.length;
   if (total >= maxPositions) {
     return { allowed: false, reason: `correlation budget: ${total}/${maxPositions} positions open` };
   }
-  const sameTier = tierCount(symbol, openSymbols);
+  const sameTier = tierCount(symbol, openSymbols, tier1);
   if (sameTier >= maxPerTier) {
-    const tierLabel = TIER1_SYMBOLS.includes(symbol) ? "Tier-1 (BTC/ETH)" : "Tier-2 (alts)";
+    const tierLabel = tier1.includes(symbol) ? "Tier-1 (BTC/ETH)" : "Tier-2 (alts)";
     return {
       allowed: false,
       reason: `correlation budget: ${sameTier}/${maxPerTier} ${tierLabel} positions open`,
