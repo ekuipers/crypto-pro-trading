@@ -1,5 +1,36 @@
 # Project: CryptoPro Trader
 
+## v2026-07-27.1 — 2026-07-27 — Multi-tenant Phase 2: encrypted per-user Alpaca credentials
+
+Suite roadmap item 1 (multi-tenant). Storage + management only — the cron dispatcher still uses the
+shared env-var account until Phase 5, so this ships with zero behavior change.
+
+- `src/secretsCrypto.js` (new): AES-256-GCM envelope (`iv[12] || tag[16] || ciphertext`), key from
+  `TRADER_CREDENTIALS_ENC_KEY` read lazily per call. Bound to its row via GCM AAD
+  (`credentialAad(uid, mode)`) so a ciphertext copied into another user's row fails to decrypt.
+- `src/db.js`: new `trader_alpaca_credentials` table (PK `(uid, mode)`, partial unique index
+  `(uid) where active`), `tx()` transaction helper, and the credential accessors. `baseUrl` is
+  re-derived from the `mode` column on read, never trusted from the decrypted blob — it is what
+  `assertPaperTrading()` keys on.
+- `src/credentialsRoutes.js` (new): `GET/POST/DELETE /api/alpaca-credentials/:mode` + `/activate`.
+  Write-only — no route can return a stored key, secret or ciphertext. Scoped to the session uid
+  only. Rate-limited per uid via the new shared `src/rateLimit.js` (extracted from `auth.js`).
+- `src/alpacaClient.js`: `ALPACA_HOSTS` constant so the paper host literal exists once.
+- `server.js`: routes wired, JSON-parse errors return a fixed 400 (the parser's message can embed a
+  fragment of the submitted secret), boot warns when the encryption key is missing.
+
+**Security review (mandatory for this phase):** no CRITICAL findings. Fixed before merge — missing
+rate limiting (HIGH), ciphertext relocation via missing AAD, `baseUrl` round-tripping through the
+blob, a `setActiveAlpacaMode` race that could leave zero active credentials while reporting success,
+unique-violation surfacing as a 500, poisoned pooled connection on rollback failure. Deferred with
+reasons: step-up password on credential write/delete (a Phase 6 UI decision), audit-trail table.
+
+**Verified:** `npm test` 359/359 (36 new). Plus 24 end-to-end checks against the real Supabase
+database (`debug/verify-phase2.mjs`, gitignored): no plaintext in the stored row, metadata never
+leaks the ciphertext, exactly-one-active holds, cross-user ciphertext relocation rejected, wrong key
+throws, account delete cascades. Test rows cleaned up; the table is left empty.
+
+
 ## v2026-07-26.1 — 2026-07-26 — Live Alpaca mode is read-only (Suite roadmap)
 
 Suite roadmap: live trading must be insights-only; only paper mode may place orders or manage a

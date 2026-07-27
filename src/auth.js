@@ -10,31 +10,16 @@
 import crypto from 'crypto';
 import * as db from './db.js';
 import { generateSecret, verifyTotp, otpauthUri } from './totp.js';
+import { rateLimited } from './rateLimit.js';
 
 const SESSION_COOKIE = 'cpc_session';
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const SSO_TICKET_TTL_MS = 60 * 1000; // single-use, must be redeemed within 60s
 
 // ---- Rate limiting -----------------------------------------------------
-// In-memory sliding window per IP. Dependency-free rather than pulling in
-// express-rate-limit for two routes. Swept periodically so long-running
-// processes don't leak memory.
-const rateBuckets = new Map(); // key -> timestamps[]
-function rateLimited(key, limit, windowMs) {
-  const now = Date.now();
-  const hits = (rateBuckets.get(key) || []).filter(t => now - t < windowMs);
-  hits.push(now);
-  rateBuckets.set(key, hits);
-  return hits.length > limit;
-}
-setInterval(() => {
-  const cutoff = Date.now() - 60 * 60 * 1000;
-  for (const [key, hits] of rateBuckets) {
-    const kept = hits.filter(t => t > cutoff);
-    if (kept.length) rateBuckets.set(key, kept); else rateBuckets.delete(key);
-  }
-}, 15 * 60 * 1000).unref();
-
+// The sliding-window helper lives in src/rateLimit.js so the per-user Alpaca
+// credential routes can share it (see that file for the per-process caveat).
+// The windows below are unchanged: per IP, for register and login.
 function clientIp(req) { return req.ip || req.socket?.remoteAddress || 'unknown'; }
 
 // ---- Passwords (salted scrypt + constant-time compare) -----------------

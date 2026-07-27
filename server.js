@@ -12,6 +12,8 @@ import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
 import { installAuthRoutes, currentUid } from './src/auth.js';
 import { installCronRoutes } from './src/cronRoutes.js';
+import { installCredentialsRoutes } from './src/credentialsRoutes.js';
+import { cryptoEnabled } from './src/secretsCrypto.js';
 import { installGlossaryRoutes } from './src/glossaryRoutes.js';
 import { extractGlossarySections } from './src/glossaryExtract.js';
 import * as db from './src/db.js';
@@ -46,6 +48,16 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '2mb' }));
 
+// A malformed JSON body throws before any route's try/catch, and Node's
+// SyntaxError message embeds a snippet of the offending input — which, on
+// POST /api/alpaca-credentials/:mode, is a fragment of an API secret. Answer
+// with a fixed string instead of letting express's default handler decide.
+app.use((err, req, res, next) => {
+  if (err?.type === 'entity.parse.failed') return res.status(400).json({ error: 'Invalid JSON body' });
+  if (err?.type === 'entity.too.large') return res.status(413).json({ error: 'Request body too large' });
+  return next(err);
+});
+
 // Multi-user auth (SSO) — accounts & sessions persist in the same Supabase
 // Postgres database as the rest of CryptoPro Suite. See src/db.js.
 installAuthRoutes(app);
@@ -54,6 +66,18 @@ installAuthRoutes(app);
 // manual dashboard trigger) drives the Node evaluation/watchdog/daily-
 // summary engines instead of GitHub Actions. See src/cronRoutes.js.
 installCronRoutes(app);
+
+// Multi-tenant conversion Phase 2 (Suite roadmap: per-user cron schedules /
+// "truly multi-tenant") — each signed-in account stores its own Alpaca API
+// credentials, encrypted at rest with TRADER_CREDENTIALS_ENC_KEY. Storage and
+// management only for now; the cron dispatcher still uses the shared env-var
+// account until Phase 5. See src/credentialsRoutes.js.
+installCredentialsRoutes(app);
+// Surface a missing encryption key at boot rather than only when a user hits
+// a 503 — same "warn loudly, keep serving" convention as db.js's dbEnabled().
+if (!cryptoEnabled()) {
+  console.warn('[credentials] TRADER_CREDENTIALS_ENC_KEY not set (or not 32 bytes base64) — per-user Alpaca credential storage is disabled');
+}
 
 // Suite roadmap: glossary served from the database instead of a file — see
 // src/glossaryRoutes.js. memory/glossary.md stays the git-tracked edit

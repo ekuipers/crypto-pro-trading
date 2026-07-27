@@ -66,7 +66,52 @@ legacy shim.
 
 ---
 
-## Phase 2 — encrypted credential storage (not yet implemented)
+## Phase 2 — DONE (2026-07-27): encrypted credential storage
+
+Shipped as designed below, with these deliberate deviations (all from the mandatory security
+review — see `memory.md` v2026-07-27.1):
+
+1. **AAD binding added.** `encryptSecret`/`decryptSecret` now take a required `aad` argument
+   (`credentialAad(uid, mode)` = `v1|<uid>|<mode>`). Without it the tag authenticates the bytes but
+   not the row, so anyone with database *write* access could copy a victim's ciphertext into their
+   own row and have the engine trade the victim's Alpaca account — a confused deputy that never
+   requires breaking GCM. Done now while the table is empty; retrofitting later needs a re-encrypt
+   migration. This also covers `enc_version`, which is otherwise written but never read.
+2. **`baseUrl` is not trusted from the ciphertext.** It is derived from `mode` at write time
+   (`ALPACA_HOSTS`, now exported from `alpacaClient.js` next to `isPaperTradingUrl` so the paper
+   host literal exists exactly once), validated again in `putAlpacaCredential`, and *re-derived*
+   from the `mode` column in `getActiveAlpacaCredential`. It is the value `assertPaperTrading()`
+   keys on, so it must come from a server-side constant, never from stored data or a client body.
+3. **Rate limiting.** `auth.js`'s sliding-window helper was extracted to `src/rateLimit.js` and
+   applied per-uid (20 writes/h, 120 reads/h). Registration is open suite-wide and the pg pool is
+   `max: 5`, so an authenticated flood of locking transactions could otherwise starve the session
+   lookups that decide whether *anyone* is signed in.
+4. **Concurrency.** `tx()` sets `statement_timeout`/`idle_in_transaction_session_timeout` via
+   `SET LOCAL` (survives Supabase's transaction-mode pgbouncer, unlike a connection-level option),
+   takes `pg_advisory_xact_lock` per uid before flipping `active`, uses `select … for update` in
+   `setActiveAlpacaMode`, and returns the final UPDATE's `rowCount` — the original design could
+   report success while leaving the user with zero active credentials (which, per Phase 5's
+   no-fallback rule, silently stops their engine including the stop watchdog).
+5. **`tradingEnabled`** added to the metadata shape (`mode === 'paper'`) so Phase 5's dispatcher and
+   Phase 6's UI key on one field instead of each re-deriving the paper-only hard rule.
+
+**Deferred, with reasons (pick up in Phase 6):**
+
+- Step-up authentication (require the account password) on credential write/delete. The codebase
+  sets that precedent for disabling 2FA. Deferred because it changes the API contract the Phase 6
+  UI is built against — decide it with the UI, not before.
+- A credential audit *table*. Successful mutations currently log one line (uid + mode, never the key
+  preview or body); a queryable trail belongs with Phase 4's schema work.
+- `deleteAlpacaCredential` goes through `q()`'s transient-retry loop, so a connection reset after a
+  committed DELETE can return a confusing 404. Low impact, no data risk.
+- Deleting the active credential leaves the user with nothing active and no promotion/warning.
+  Phase 6 should surface an active-count.
+
+**Ops note:** `TRADER_CREDENTIALS_ENC_KEY` must differ per Vercel environment. Preview deployments
+inherit Production env vars by default; same key + same Supabase database means any preview build of
+any branch could decrypt every stored production credential.
+
+Original design, as implemented:
 
 New `src/secretsCrypto.js`: AES-256-GCM via Node's built-in `crypto` module (no new dependency).
 `encryptSecret(obj) -> base64`, `decryptSecret(b64) -> obj`. Key from new env var

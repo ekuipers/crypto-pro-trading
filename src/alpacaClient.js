@@ -47,6 +47,18 @@ export function isPaperTradingUrl(url) {
 }
 
 /**
+ * The only two base URLs a stored per-user credential may resolve to
+ * (multi-tenant Phase 2). Kept here, next to isPaperTradingUrl(), so the
+ * paper host is written down exactly once -- that function is what gates
+ * order placement, and a drifting copy of the literal elsewhere would
+ * silently turn a "paper" credential into a live one.
+ */
+export const ALPACA_HOSTS = Object.freeze({
+  paper: "https://paper-api.alpaca.markets",
+  live: "https://api.alpaca.markets",
+});
+
+/**
  * Build an Alpaca API client bound to one credential set.
  *
  * `symbolCap(symbol) -> fraction` resolves the per-symbol position cap used

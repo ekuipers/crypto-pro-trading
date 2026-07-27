@@ -132,6 +132,34 @@ hourly (`0 * * * *`). Three env vars control it, all optional:
 - `CRON_EXECUTE` — **`true` in production.** These routes place real paper orders when set. Leave unset
   in any environment where real order placement isn't wanted (local dev, a fork, etc.).
 
+### 7. Per-user Alpaca credentials (multi-tenant, in progress)
+
+Each signed-in account can store its own Alpaca API credentials for the server-side engine, instead of
+every scheduled run using the one shared `APCA_*` env-var account. **Phase 2 of 6 — storage and
+management only:** the cron dispatcher still uses the shared account until Phase 5, so nothing about
+today's trading behavior changes. Full plan: `memory/project-trader-multitenant-plan.md`.
+
+| Route | Purpose |
+|-------|---------|
+| `GET /api/alpaca-credentials` | Which modes are connected, which is active, last 4 of each key id |
+| `POST /api/alpaca-credentials/:mode` | Connect/replace (`{keyId, secret, activate?}`); `:mode` is `paper` or `live` |
+| `POST /api/alpaca-credentials/:mode/activate` | Choose which stored credential the engine uses |
+| `DELETE /api/alpaca-credentials/:mode` | Disconnect |
+
+All four require a signed-in session and act only on that account's own rows. The API is **write-only** —
+no route returns a stored key or secret. Secrets are encrypted with AES-256-GCM (`src/secretsCrypto.js`)
+before they reach the database, so a database dump alone yields no usable keys.
+
+- `TRADER_CREDENTIALS_ENC_KEY` — 32 random bytes, base64 (`openssl rand -base64 32`). Unset means these
+  routes fail closed with 503 and nothing is ever stored in plaintext. **Use a different value per Vercel
+  environment** — Preview inherits Production variables by default, and with the same key and database a
+  preview build could decrypt production credentials. There is no key-rotation path yet: changing it makes
+  already-stored credentials unreadable and users must reconnect.
+
+Storing live credentials is allowed (the engine uses live keys for read-only insight), but the
+paper-trading-only hard rule is unaffected — `assertPaperTrading()` independently blocks all order
+placement and cancellation on the live host.
+
 ---
 
 ## Architecture

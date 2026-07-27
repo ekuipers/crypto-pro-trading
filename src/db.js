@@ -8,6 +8,8 @@
 // journal, etc.) is unaffected — this module only owns accounts/sessions.
 // ============================================================
 import pg from 'pg';
+import { encryptSecret, decryptSecret, credentialAad, ENC_VERSION } from './secretsCrypto.js';
+import { ALPACA_HOSTS } from './alpacaClient.js';
 
 const { Pool } = pg;
 
@@ -80,6 +82,44 @@ async function q(text, params) {
       if (i >= delays.length || !isTransient(e)) throw e;
       await new Promise(r => setTimeout(r, delays[i]));
     }
+  }
+}
+
+/**
+ * Runs `fn` inside a single transaction on one pooled client. Needed where a
+ * partial unique index makes two writes mutually exclusive mid-statement —
+ * e.g. flipping which Alpaca credential is `active`, which must clear the old
+ * row before setting the new one or the index rejects the transient duplicate.
+ * No retry wrapper: replaying half a transaction is worse than surfacing the
+ * error to the caller.
+ */
+async function tx(fn) {
+  const client = await getPool().connect();
+  let poisoned = null;
+  try {
+    await client.query('begin');
+    // Bound how long one transaction can hold a client from a 5-connection
+    // pool: without these, a slow/stuck statement starves every other
+    // request, including the session lookups that decide whether a user is
+    // signed in. SET LOCAL (not a connection-level option) so this survives
+    // Supabase's transaction-mode pgbouncer.
+    await client.query(`set local statement_timeout = '15s'`);
+    await client.query(`set local idle_in_transaction_session_timeout = '15s'`);
+    const out = await fn(client);
+    await client.query('commit');
+    return out;
+  } catch (e) {
+    try {
+      await client.query('rollback');
+    } catch (rollbackError) {
+      // The connection may still be inside an aborted transaction. Handing it
+      // back to the pool would poison the next caller — release(err) makes pg
+      // destroy it instead.
+      poisoned = rollbackError;
+    }
+    throw e;
+  } finally {
+    client.release(poisoned || undefined);
   }
 }
 
@@ -199,6 +239,30 @@ export async function init() {
     content    text not null,
     updated_at timestamptz not null default now()
   )`);
+
+  // Multi-tenant conversion Phase 2 (memory/project-trader-multitenant-plan.md):
+  // per-user Alpaca credentials so the server-side engine can eventually run
+  // one schedule per account instead of one shared env-var account.
+  // `ciphertext` is an AES-256-GCM envelope (src/secretsCrypto.js) — a
+  // database dump alone does not yield usable API keys. `key_preview` is the
+  // only plaintext fragment (last 4 chars of the key id) and exists purely so
+  // the UI can show *which* key is connected without ever decrypting.
+  // A user may store both a paper and a live row; the partial unique index
+  // enforces that at most one is `active` (the one the engine would use).
+  await q(`create table if not exists trader_alpaca_credentials (
+    uid          text not null references accounts(id) on delete cascade,
+    mode         text not null check (mode in ('paper','live')),
+    active       boolean not null default false,
+    key_preview  text not null,
+    ciphertext   text not null,
+    enc_version  integer not null default 1,
+    created_at   timestamptz not null default now(),
+    updated_at   timestamptz not null default now(),
+    primary key (uid, mode)
+  )`);
+  await q(`create unique index if not exists trader_alpaca_credentials_active_uidx
+           on trader_alpaca_credentials (uid) where active`);
+
   console.log('[db] connected; tables ready');
   return true;
 }
@@ -400,4 +464,161 @@ export async function putGlossary(content) {
      where glossary.content is distinct from excluded.content`,
     [content],
   );
+}
+
+// ---- Per-user Alpaca credentials (multi-tenant Phase 2) --------------------
+// The secret itself only ever exists in this module in two places: the
+// encryptSecret() call on write and the decryptSecret() call in
+// getActiveAlpacaCredential() on read. Everything else — and every route —
+// works with the metadata shape below, which has no ciphertext and no secret.
+
+/** Metadata for one row; deliberately has no ciphertext/secret field so it is always safe to serialize. */
+function toCredentialMeta(r) {
+  return {
+    mode: r.mode,
+    active: !!r.active,
+    keyPreview: r.key_preview,
+    encVersion: r.enc_version,
+    // One authoritative field for "may this credential place orders", so the
+    // Phase 5 dispatcher and the Phase 6 UI key on it instead of each
+    // re-deriving the paper-only hard rule a third time. alpacaClient.js's
+    // assertPaperTrading() remains the actual enforcement point.
+    tradingEnabled: r.mode === 'paper',
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+/** Serializes the lock for one user's credential rows onto the current transaction. */
+const lockUidRows = (client, uid) =>
+  client.query('select pg_advisory_xact_lock(hashtext($1))', [`alpaca-cred:${uid}`]);
+
+/** All of one user's stored credentials, metadata only — safe to send to that user's client. */
+export async function listAlpacaCredentials(uid) {
+  const { rows } = await q(
+    `select mode, active, key_preview, enc_version, created_at, updated_at
+     from trader_alpaca_credentials where uid = $1 order by mode`,
+    [uid],
+  );
+  return rows.map(toCredentialMeta);
+}
+
+/**
+ * The credential the server-side engine should trade with for this user.
+ * DECRYPTS — server-internal only. The returned object contains the raw
+ * Alpaca secret and must never reach a JSON response, a log line, or an
+ * error message.
+ * @returns {Promise<{mode, keyId, secret, baseUrl}|null>} null when the user
+ *   has no active credential. Throws DecryptFailed if the row can't be
+ *   authenticated (caller must treat that as "disconnected", never as "trade
+ *   with the legacy env-var account").
+ */
+export async function getActiveAlpacaCredential(uid) {
+  const { rows } = await q(
+    `select mode, ciphertext from trader_alpaca_credentials where uid = $1 and active`,
+    [uid],
+  );
+  if (!rows[0]) return null;
+  const { mode } = rows[0];
+  // AAD is recomputed from this row's own uid/mode: a ciphertext copied out
+  // of another user's row (or another mode) fails authentication here rather
+  // than handing back working credentials for the wrong account.
+  const payload = decryptSecret(rows[0].ciphertext, credentialAad(uid, mode));
+  return {
+    ...payload,
+    mode,
+    // Re-derived from the `mode` column, NOT trusted from the decrypted blob.
+    // baseUrl is what assertPaperTrading() keys on, i.e. it decides whether
+    // orders may be placed at all — that decision must come from a
+    // server-side constant, never from stored data.
+    baseUrl: ALPACA_HOSTS[mode],
+    tradingEnabled: mode === 'paper',
+  };
+}
+
+/**
+ * Stores (or replaces) one mode's credential for a user.
+ * @param {object} payload {keyId, secret, baseUrl} — encrypted as a unit.
+ * @param {boolean} makeActive true => this becomes the active credential and
+ *   any other mode is deactivated. false => an existing row keeps whatever
+ *   active flag it already had (re-saving the key you're using shouldn't
+ *   silently disconnect you); a new row starts inactive.
+ */
+export async function putAlpacaCredential(uid, mode, payload, makeActive) {
+  if (!ALPACA_HOSTS[mode]) throw new Error(`unknown Alpaca mode: ${mode}`);
+  // Defence in depth against a future caller (a CLI import, a backfill
+  // script, a test fixture) passing its own host: baseUrl is what gates order
+  // placement, so anything but the mode's canonical host is refused here too,
+  // not only in the route's validation one layer up.
+  if (payload?.baseUrl !== ALPACA_HOSTS[mode]) {
+    throw new Error(`baseUrl for mode "${mode}" must be ${ALPACA_HOSTS[mode]}`);
+  }
+  // Encrypt before opening a transaction so a missing/invalid encryption key
+  // fails without holding a pooled client.
+  const ciphertext = encryptSecret(payload, credentialAad(uid, mode));
+  const keyPreview = String(payload?.keyId || '').slice(-4);
+  const activate = makeActive === true;
+  await tx(async (client) => {
+    if (activate) {
+      // Serialize concurrent activations for this user. The UPDATE below only
+      // takes a row lock when a row is actually active, so from a zero-active
+      // state two simultaneous activate requests would otherwise both proceed
+      // and one would fail the partial unique index with a raw 23505.
+      await lockUidRows(client, uid);
+      // Must clear the previous active row first: the partial unique index
+      // (uid) where active rejects even a transient second active row.
+      await client.query(
+        'update trader_alpaca_credentials set active = false, updated_at = now() where uid = $1 and active',
+        [uid],
+      );
+    }
+    await client.query(
+      `insert into trader_alpaca_credentials (uid, mode, active, key_preview, ciphertext, enc_version)
+       values ($1, $2, $3, $4, $5, $6)
+       on conflict (uid, mode) do update set
+         active      = case when $3 then true else trader_alpaca_credentials.active end,
+         key_preview = excluded.key_preview,
+         ciphertext  = excluded.ciphertext,
+         enc_version = excluded.enc_version,
+         updated_at  = now()`,
+      [uid, mode, activate, keyPreview, ciphertext, ENC_VERSION],
+    );
+  });
+}
+
+/** Switches which stored mode is active. Returns false (changing nothing) when that mode isn't stored. */
+export async function setActiveAlpacaMode(uid, mode) {
+  return tx(async (client) => {
+    await lockUidRows(client, uid);
+    // `for update` matters: a concurrent DELETE of this very row could
+    // otherwise commit between this check and the UPDATE below, leaving the
+    // user with NOTHING active while this call still reported success — which
+    // silently stops their engine, stop-loss watchdog included.
+    const { rows } = await client.query(
+      'select 1 from trader_alpaca_credentials where uid = $1 and mode = $2 for update',
+      [uid, mode],
+    );
+    // Bail before deactivating anything — otherwise a request naming a mode
+    // the user never stored would disconnect the credential they do have.
+    if (!rows.length) return false;
+    await client.query(
+      'update trader_alpaca_credentials set active = false, updated_at = now() where uid = $1 and active',
+      [uid],
+    );
+    const { rowCount } = await client.query(
+      'update trader_alpaca_credentials set active = true, updated_at = now() where uid = $1 and mode = $2',
+      [uid, mode],
+    );
+    // Report what actually happened, not what the earlier SELECT saw.
+    return rowCount > 0;
+  });
+}
+
+/** Removes one mode's credential. Returns false when there was nothing to delete. */
+export async function deleteAlpacaCredential(uid, mode) {
+  const { rowCount } = await q(
+    'delete from trader_alpaca_credentials where uid = $1 and mode = $2',
+    [uid, mode],
+  );
+  return rowCount > 0;
 }
