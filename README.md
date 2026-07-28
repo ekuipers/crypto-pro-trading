@@ -121,24 +121,30 @@ for links to the other CryptoPro apps.
 `GET /api/cron/dispatch` is a dispatcher that checks each job's dashboard-configured hour (Command tab's
 "☁ Scheduled Jobs" panel) and runs it once per UTC day at that hour — this is the live trading engine.
 This project is on **Vercel Pro**, so `vercel.json`'s own cron entry drives the dispatcher directly,
-hourly (`0 * * * *`). Three env vars control it, all optional:
+hourly (`0 * * * *`). Two env vars control it, both optional:
 
 - `CRON_SECRET` — Vercel sends `Authorization: Bearer $CRON_SECRET` with every scheduled call; without
-  it, scheduled runs 401 (the endpoints still work for a manual trigger via `TRADER_OWNER_UID`).
-- `TRADER_OWNER_UID` — your account id (the username you registered with), required for the dashboard's
-  "☁ Scheduled Jobs" panel (Command tab) to view/adjust status, schedule, or use "Run now". Unset means
-  that panel is disabled for everyone — accounts are shared Suite-wide, so this isn't opened to "any
-  signed-in account".
+  it, scheduled runs 401 (the dashboard's signed-in "Run now" still works).
+- `TRADER_OWNER_UID` — **removed.** The engine has no single owner any more: every account that
+  connects its own Alpaca credentials becomes a tenant with its own schedule, state, journal and
+  strategy config, and the "☁ Scheduled Jobs" panel shows each signed-in account **its own** jobs.
+  An account with no connected credential is not a tenant, so its schedule never runs — the panel
+  says so rather than showing an enabled toggle that does nothing.
 - `CRON_EXECUTE` — **`true` in production.** These routes place real paper orders when set. Leave unset
   in any environment where real order placement isn't wanted (local dev, a fork, etc.).
 
 ### 7. Per-user Alpaca credentials (multi-tenant, in progress)
 
-Each signed-in account can store its own Alpaca API credentials for the server-side engine, instead of
-every scheduled run using the one shared `APCA_*` env-var account. **Phases 2–4 of 6 — storage,
-resolution and schema only:** the cron dispatcher still uses the shared account and the compiled config
-until Phase 5, so nothing about today's trading behavior changes. Full plan:
-`memory/project-trader-multitenant-plan.md`.
+Each signed-in account stores its own Alpaca API credentials for the server-side engine, instead of
+every scheduled run using the one shared `APCA_*` env-var account. **Phases 2–5 of 6 done** — the
+dispatcher now loops per (job, tenant), so each account runs on its own schedule, state, journal and
+strategy config. Full plan: `memory/project-trader-multitenant-plan.md`.
+
+**Connecting credentials is what makes an account a tenant.** The dispatcher visits only accounts with
+an active credential, and it never falls back to the `APCA_*` env-var account for one that lacks
+it — a fallback would place that user's orders on someone else's Alpaca account while the engine
+looked perfectly healthy. An account with no credential is skipped with a reason, and the Scheduled
+Jobs panel says so instead of showing a schedule that will never run.
 
 | Route | Purpose |
 |-------|---------|

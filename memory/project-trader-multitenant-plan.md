@@ -289,7 +289,44 @@ the dispatcher's own path (`handleDispatch` → `getLatestJobRuns(uid)` → `get
 `isJobDue`) rests on unit tests plus hourly no-op ticks until each job's hour comes round again.
 `daily-summary` has no `cron_config` row and still runs on `DEFAULT_HOUR_UTC` 6.
 
-## Phase 5 — cron dispatcher rewrite, highest-risk phase (not yet implemented)
+## Phase 5 — CODE DONE 2026-07-28, NOT YET DEPLOYED
+
+Shipped as designed below, with these deviations and findings:
+
+1. **`TRADER_OWNER_UID` deleted outright**, not repurposed as an admin override — the open judgment
+   call below, decided by the user 2026-07-28. `requireSelf` replaces `isOwner` everywhere.
+2. **New `src/tenantEngine.js`** rather than putting the wiring in `cronRoutes.js`. It is the single
+   place that answers "which account are we trading", and it is unit-testable without HTTP.
+3. **`tenantDeps` injects every call individually, not just `client`.** The plan assumed threading a
+   per-user client into `deps` was enough. It isn't: `stopWatchdog.js` and `dailySummary.js` never
+   read `deps.client` — they take individual functions whose defaults are env-var bound. Passing only
+   a client leaves both runners trading the legacy account while the dispatcher looks correct.
+4. **`getCryptoBars4h` must be bound explicitly, not spread.** Its options are the *third* positional
+   argument, so `(...a, {client})` lands the options object in `limit` whenever a caller passes only a
+   symbol — silently reverting to the default client. Exactly the class of bug this phase is about.
+5. **The client is built from the tenant's resolved cfg**, not `DEFAULT_CFG` — `createAlpacaClient`
+   bakes in two order-band hard rules, so the wrong cfg would widen a user's tightened bands back out.
+6. **An unexpected error propagates instead of degrading to a skip.** Only "no credential" and
+   decrypt failures are skips; a database outage reported as "this user has no credential" would read
+   as a deliberate opt-out and hide an engine-wide failure.
+7. **`/api/trader-state` became session-scoped.** Not in the original plan. It was unauthenticated,
+   which was defensible with one shared engine; the row now holds one tenant's open positions and
+   entry prices, so serving it to anyone would be a cross-account disclosure.
+8. **Rate limits added** (inline security review): manual trigger 30/uid/h, config 60/uid/h. These
+   routes were owner-only and therefore unrated; now any signed-in account can reach them, and
+   registration is open suite-wide. `requireSelf` also rejects a falsy uid, not just `GUEST`.
+
+**Verified:** `npm test` 438/438 (12 new in `src/tenantEngine.test.js`), `npm run build` clean.
+
+**BLOCKER — do not deploy.** `trader_alpaca_credentials` is empty, so the engine has zero tenants and
+deploying stops all trading including the stop watchdog on live paper positions. `ekuipers` must first
+connect keys against **Production** via `POST /api/alpaca-credentials/paper` (Phase 2's routes are
+live; the UI is Phase 6). It must be Production — local has no `TRADER_CREDENTIALS_ENC_KEY`, and a row
+written under any other key is correctly rejected as `KeyMismatch`.
+
+### Original design
+
+
 
 `cronRoutes.js`'s `handleDispatch` loop becomes nested: for each job, for each uid with an active
 credential **and** that job enabled in their own `cron_config` row (new
@@ -311,9 +348,10 @@ the per-user client must be built from the resolved config, not `DEFAULT_CFG`.
 `isOwner`/`TRADER_OWNER_UID` gating on the manual-trigger/config routes is replaced by
 `requireSelf` (any signed-in user manages only their own rows).
 
-**Open judgment call:** recommend keeping `TRADER_OWNER_UID` around, repurposed as an optional
-admin/diagnostic override (e.g. a read-only "view any user's job history" route), rather than
-deleting it outright. Confirm with the user when this phase starts.
+**Open judgment call — RESOLVED 2026-07-28: deleted outright.** The plan had recommended keeping
+`TRADER_OWNER_UID` as an optional admin/diagnostic override; the user chose the pure per-user model,
+no privileged account. The variable is safe to remove from Vercel. One leftover consumer:
+`scripts/migratePhase4.mjs` reads it as a convenience default for its `--uid` target.
 
 Ships with `CRON_EXECUTE` forced false through a shadow-run verification window, mirroring the
 original Python→Node cutover's parity-gate discipline (see `project-trader-node-cutover-gates.md`

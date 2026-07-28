@@ -561,6 +561,47 @@ export async function getCronConfig(uid) {
   return rows;
 }
 
+// ---- Tenant discovery for the per-user dispatcher (Phase 5) ----------------
+
+/**
+ * Every account the scheduled engine should consider for one job.
+ *
+ * Membership is defined by having an ACTIVE Alpaca credential — that, not the
+ * accounts table, is what makes an account a tenant of the trading engine. A
+ * user who never connected keys simply isn't in the list, which is why the
+ * dispatcher has no reason to ever fall back to the legacy env-var account.
+ *
+ * The cron_config join is a LEFT join with `coalesce(..., true)`: a tenant who
+ * has never touched the schedule UI has no row, and must still run on the
+ * compiled defaults rather than being silently skipped.
+ *
+ * @returns {Promise<Array<{uid, enabled, hourUtc}>>}
+ */
+export async function getActiveTenantsForJob(job) {
+  const { rows } = await q(
+    `select c.uid, coalesce(cc.enabled, true) as enabled, cc.hour_utc
+     from trader_alpaca_credentials c
+     left join cron_config cc on cc.uid = c.uid and cc.job = $1
+     where c.active
+     order by c.uid`,
+    [job],
+  );
+  return rows.map((r) => ({ uid: r.uid, enabled: !!r.enabled, hourUtc: r.hour_utc ?? null }));
+}
+
+/**
+ * Latest start time per uid for one job, as a plain object — one query instead
+ * of one per tenant inside the dispatch loop.
+ * @returns {Promise<Record<string, Date>>}
+ */
+export async function getLastRunAtByUid(job) {
+  const { rows } = await q(
+    `select distinct on (uid) uid, started_at from job_runs where job = $1 order by uid, started_at desc`,
+    [job],
+  );
+  return Object.fromEntries(rows.map((r) => [r.uid, r.started_at]));
+}
+
 // ---- Glossary (Suite roadmap: DB-backed instead of file-loaded) -----------
 export async function getGlossary() {
   const { rows } = await q(`select content, updated_at from glossary where id = 'trader'`);

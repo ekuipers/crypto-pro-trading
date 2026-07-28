@@ -241,7 +241,7 @@
       let status;
       try {
         const r = await fetch("/api/cron/status");
-        if (r.status === 401) { el.innerHTML = '<span style="color:var(--muted)">Sign in as the configured owner account (TRADER_OWNER_UID) to view and manage scheduled jobs.</span>'; return; }
+        if (r.status === 401) { el.innerHTML = '<span style="color:var(--muted)">Sign in to view and manage your scheduled jobs.</span>'; return; }
         if (!r.ok) throw new Error("HTTP " + r.status);
         status = await r.json();
       } catch (e) {
@@ -253,6 +253,14 @@
       const cfgByJob = {};
       (status.jobs || []).forEach(function (c) { cfgByJob[c.job] = c; });
 
+      // Multi-tenant Phase 5: an account only becomes a tenant of the scheduled
+      // engine by connecting Alpaca credentials. Without that the schedule
+      // below is inert -- the dispatcher skips this uid entirely -- so say so
+      // rather than letting an enabled-looking toggle imply it will run.
+      var notConnected = status.connected === false
+        ? '<div class="warn-banner" style="margin-bottom:10px">No Alpaca credentials connected for this account, so these jobs will not run. Connect them in Settings → Server-Side Trading Engine.</div>'
+        : "";
+
       // Local click state counts as "running" immediately, ahead of the
       // server confirming it on the next poll -- see _cronLocalRunning's comment.
       const localRunning = function (id) { return Object.prototype.hasOwnProperty.call(_cronLocalRunning, id); };
@@ -263,7 +271,7 @@
         return j.touchesState && (localRunning(j.id) || (runsByJob[j.id] && runsByJob[j.id].status === "running"));
       });
 
-      el.innerHTML = CRON_JOBS.map(function (j) {
+      el.innerHTML = notConnected + CRON_JOBS.map(function (j) {
         const run = runsByJob[j.id];
         const cfg = cfgByJob[j.id] || { enabled: true, hourUtc: 0 };
         const thisRunning = localRunning(j.id) || (run && run.status === "running");

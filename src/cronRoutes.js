@@ -30,110 +30,54 @@
 import crypto from "node:crypto";
 import * as db from "./db.js";
 import { currentUid } from "./auth.js";
+import { rateLimited } from "./rateLimit.js";
 import * as ps from "./positionState.js";
+import * as te from "./tenantEngine.js";
 import { main as runEvaluationMain } from "./runEvaluation.js";
-import { buildJournalBlockText } from "./journal.js";
-import { main as stopWatchdogMain, buildStopWatchdogBlockText } from "./stopWatchdog.js";
+import { main as stopWatchdogMain } from "./stopWatchdog.js";
 import { main as dailySummaryMain } from "./dailySummary.js";
-import { amsterdamParts } from "./tz.js";
 import { DEFAULT_HOUR_UTC, isJobDue } from "./cronSchedule.js";
 
 const CRON_EXECUTE = process.env.CRON_EXECUTE === "true";
 const JOBS = ["evaluate", "watchdog", "daily-summary"];
 
-// This project's accounts table is shared Suite-wide (any CryptoPro Charts/
-// Training/Suite account can sign in here too, registration is open) — but
-// the cron endpoints control a single shared trading engine, not
-// caller-owned data. Gating the manual/"Run now" and config-toggle routes
-// on "any signed-in account" would let any Suite account trigger real order
-// placement or disable the stop watchdog. TRADER_OWNER_UID restricts those
-// routes to one account; unset means fail closed (manual trigger/config
-// disabled, scheduled runs via CRON_SECRET are unaffected) rather than fail
-// open (security review finding, 2026-07-21 — see memory/memory.md).
-const OWNER_UID = process.env.TRADER_OWNER_UID ? String(process.env.TRADER_OWNER_UID).trim().toLowerCase() : null;
-
-// Multi-tenant Phase 4: trader_state/trader_journal/job_runs/cron_config are
-// all keyed by uid now. Phase 5 is what turns the dispatcher into a per-user
-// loop; until then there is still exactly one engine and it runs as the owner
-// account, so every call site below threads this one uid through.
+// Multi-tenant Phase 5: there is no longer a single owner account. Every
+// account with an ACTIVE Alpaca credential is a tenant of the scheduled engine
+// and runs on its own schedule, state, journal and strategy config.
 //
-// Fail closed when it isn't configured. Falling back to db.LEGACY_ENGINE_UID
-// would read a uid with no state at all, which presents as "no open positions"
-// — evaluate would re-enter blind and the stop watchdog would manage nothing,
-// silently, on a live paper account. An unset TRADER_OWNER_UID must stop the
-// engine, not run it against an empty tenant.
-const ENGINE_UID = OWNER_UID;
+// TRADER_OWNER_UID is gone entirely (user decision, 2026-07-28). The routes it
+// used to gate are now scoped to the caller's own rows via requireSelf, which
+// is both a smaller surface and the thing that makes the feature work for
+// anyone but the owner. The concern the owner gate originally addressed —
+// "registration is open suite-wide, so any Suite account could trigger real
+// order placement or disable the stop watchdog" — no longer applies, because a
+// caller can now only ever act on their own tenant: their own schedule, their
+// own state, and their own Alpaca credentials. An account with no connected
+// credential has no engine to trigger at all.
 
-async function loadTraderState(uid) {
-  const data = await db.getTraderState(uid);
-  return data || ps.EMPTY_STATE();
+/** Runs one job for one already-resolved tenant. */
+async function runJobForTenant(job, ctx) {
+  const { uid } = ctx;
+  const capture = { journalText: null, journalNow: null };
+  const state = await te.loadTenantState(uid);
+  const deps = te.tenantDeps(ctx, state, capture);
+
+  let code;
+  if (job === "evaluate") {
+    code = await runEvaluationMain({ execute: CRON_EXECUTE, deps });
+  } else if (job === "watchdog") {
+    code = await stopWatchdogMain({ execute: CRON_EXECUTE, deps });
+  } else {
+    code = await dailySummaryMain({ deps });
+  }
+
+  // daily-summary is journal-only; it must not write state back, or a summary
+  // run would clobber whatever evaluate/watchdog last persisted for this user.
+  if (job !== "daily-summary") await db.putTraderState(uid, state);
+  await te.persistTenantJournal(uid, capture);
+
+  return { code, detail: code === 0 ? "ok" : `${job} failed (see logs)` };
 }
-
-async function persistJournal(uid, text, now) {
-  if (!text) return;
-  const { dateStr } = amsterdamParts(now);
-  await db.appendTraderJournal(uid, dateStr, text);
-}
-
-async function runEvaluate(uid) {
-  const state = await loadTraderState(uid);
-  let journalText = null;
-  let journalNow = null;
-  const code = await runEvaluationMain({
-    execute: CRON_EXECUTE,
-    deps: {
-      loadState: () => state,
-      saveState: () => {}, // persisted explicitly below
-      appendJournalBlock: (args) => {
-        journalText = buildJournalBlockText(args);
-        journalNow = args.now;
-        return "postgres";
-      },
-    },
-  });
-  await db.putTraderState(uid, state);
-  await persistJournal(uid, journalText, journalNow);
-  return { code, detail: code === 0 ? "ok" : "evaluation failed (see logs)" };
-}
-
-async function runWatchdog(uid) {
-  const state = await loadTraderState(uid);
-  let journalText = null;
-  let journalNow = null;
-  const code = await stopWatchdogMain({
-    execute: CRON_EXECUTE,
-    deps: {
-      loadState: () => state,
-      saveState: () => {}, // persisted explicitly below
-      appendStopWatchdogBlock: (actions, now) => {
-        journalText = buildStopWatchdogBlockText(actions, now);
-        journalNow = now;
-        return "postgres";
-      },
-    },
-  });
-  await db.putTraderState(uid, state);
-  await persistJournal(uid, journalText, journalNow);
-  return { code, detail: code === 0 ? "ok" : "watchdog failed (see logs)" };
-}
-
-async function runDailySummary(uid) {
-  let block = null;
-  let blockNow = null;
-  const code = await dailySummaryMain({
-    deps: {
-      appendDailySummaryBlock: (b, now) => {
-        block = b;
-        blockNow = now;
-        return "postgres";
-      },
-    },
-  });
-  await persistJournal(uid, block, blockNow);
-  return { code, detail: code === 0 ? "ok" : "daily summary failed (see logs)" };
-}
-
-const RUNNERS = { evaluate: runEvaluate, watchdog: runWatchdog, "daily-summary": runDailySummary };
 
 /** Constant-time compare against `Authorization: Bearer $CRON_SECRET`. */
 function cronSecretOk(req) {
@@ -144,89 +88,161 @@ function cronSecretOk(req) {
   return got.length === want.length && crypto.timingSafeEqual(got, want);
 }
 
-/** True only for the single configured owner account — see OWNER_UID's comment above. */
-async function isOwner(req) {
-  if (!OWNER_UID) return false;
+// Manual triggers used to be reachable only by the single owner account, so
+// they needed no rate limit. Now any signed-in Suite account can run its own
+// jobs, and registration is open suite-wide — each request costs a credential
+// decrypt, a config resolve and a burst of Alpaca calls. The concurrency lock
+// caps *concurrent* runs at one per (uid, job) but not serial hammering.
+const TRIGGER_LIMIT = 30; // per uid per hour
+const CONFIG_LIMIT = 60;
+const RATE_WINDOW_MS = 60 * 60 * 1000;
+
+/**
+ * Resolves the signed-in uid, or null when the caller may not proceed (401/429
+ * already sent).
+ *
+ * The uid comes only from the session cookie — never the path, body or query —
+ * which is what makes it impossible to address another account's rows.
+ */
+async function requireSelf(req, res, limit = null) {
   const uid = await currentUid(req);
-  return uid === OWNER_UID;
+  // Explicitly reject falsy as well as the GUEST sentinel: if currentUid ever
+  // returned null/undefined, an identity check alone would fall through and
+  // hand a bad uid to a db accessor.
+  if (!uid || uid === db.GUEST) {
+    res.status(401).json({ error: "Sign in first" });
+    return null;
+  }
+  if (limit !== null && rateLimited(`cron:${limit}:${uid}`, limit, RATE_WINDOW_MS)) {
+    res.status(429).json({ error: "Too many requests — please try again later." });
+    return null;
+  }
+  return uid;
 }
 
 /**
  * Runs one job for one user (lock + record), independent of any HTTP response —
- * shared by the direct-trigger routes and the dispatcher. `uid` is an explicit
- * parameter rather than a module constant so Phase 5's per-user loop only has
- * to change the callers, not this function.
+ * shared by the direct-trigger routes and the dispatcher.
+ *
+ * Credential resolution happens BEFORE the job_runs row is created, so a tenant
+ * with no usable credential reads as a skip rather than a failed run. And it is
+ * a skip, never a fallback: running this user's schedule against the legacy
+ * env-var account would place their orders on someone else's Alpaca account
+ * while the engine looked perfectly healthy.
  */
 async function executeJob(job, triggeredBy, uid) {
-  if (!uid) {
-    return { job, triggeredBy, status: 503, error: "TRADER_OWNER_UID is not configured — engine disabled" };
-  }
+  if (!uid) return { job, triggeredBy, status: 400, error: "missing uid" };
+
   if (triggeredBy === "cron" && !(await db.isCronJobEnabled(uid, job))) {
-    return { job, triggeredBy, skipped: true, reason: "disabled via dashboard" };
+    return { job, uid, triggeredBy, skipped: true, reason: "disabled via dashboard" };
   }
-  const runId = await db.startJobRun(uid, job, triggeredBy);
-  if (runId === null) return { job, triggeredBy, status: 409, error: "already running" };
+
+  let ctx;
   try {
-    const result = await RUNNERS[job](uid);
+    ctx = await te.buildTenantContext(uid);
+  } catch (e) {
+    console.error(`[cron] ${job} tenant resolution failed for ${uid}:`, e?.stack || e);
+    return { job, uid, triggeredBy, status: 500, error: String(e?.message || e) };
+  }
+  if (!ctx.ok) {
+    console.warn(`[cron] ${job} skipped for ${uid}: ${ctx.reason}`);
+    return { job, uid, triggeredBy, skipped: true, reason: ctx.reason };
+  }
+  // How a user learns a stored config key was rejected — resolveConfigForUser
+  // degrades it to the default rather than failing, so it is otherwise silent.
+  if (ctx.configErrors?.length) {
+    console.warn(`[cron] ${job} config warnings for ${uid}: ${ctx.configErrors.join("; ")}`);
+  }
+
+  const runId = await db.startJobRun(uid, job, triggeredBy);
+  if (runId === null) return { job, uid, triggeredBy, status: 409, error: "already running" };
+  try {
+    const result = await runJobForTenant(job, ctx);
     await db.finishJobRun(runId, result.code === 0 ? "ok" : "error", result.detail);
-    return { job, triggeredBy, ok: result.code === 0, ...result };
+    return { job, uid, triggeredBy, ok: result.code === 0, ...result };
   } catch (e) {
     const detail = String(e?.message || e);
-    console.error(`[cron] ${job} failed:`, e?.stack || e);
+    console.error(`[cron] ${job} failed for ${uid}:`, e?.stack || e);
     await db.finishJobRun(runId, "error", detail);
-    return { job, triggeredBy, status: 500, error: detail };
+    return { job, uid, triggeredBy, status: 500, error: detail };
   }
+}
+
+/** Runs one job for every eligible tenant, ignoring the schedule (direct bearer trigger). */
+async function executeJobForAllTenants(job, triggeredBy) {
+  const tenants = await db.getActiveTenantsForJob(job);
+  const results = [];
+  for (const t of tenants) {
+    if (!t.enabled) {
+      results.push({ job, uid: t.uid, triggeredBy, skipped: true, reason: "disabled via dashboard" });
+      continue;
+    }
+    results.push(await executeJob(job, triggeredBy, t.uid));
+  }
+  return results;
 }
 
 // GET is the Vercel Cron contract (bearer secret ONLY — session cookies are
 // SameSite=Lax, which are still sent on a top-level cross-site GET
 // navigation, so accepting session auth on GET here would let a hostile
 // page trigger a run just by getting the signed-in owner to open a link;
-// security review finding, 2026-07-21). POST is the owner-only manual path,
-// covered by server.js's CSRF Origin check on mutating /api/* requests.
-// Both run the job immediately/unconditionally (aside from the enabled +
-// concurrency-lock checks in executeJob) — the configured hour_utc only
-// gates the hourly dispatcher below, not a direct/manual trigger.
+// security review finding, 2026-07-21). POST is the manual path and is scoped
+// to the CALLER'S OWN uid, covered by server.js's CSRF Origin check on
+// mutating /api/* requests. Both run immediately/unconditionally (aside from
+// the enabled + concurrency-lock checks) — the configured hour_utc only gates
+// the hourly dispatcher below, not a direct/manual trigger.
 async function handleCronTrigger(req, res, job) {
   if (!cronSecretOk(req)) return res.status(401).json({ error: "unauthorized" });
-  const result = await executeJob(job, "cron", ENGINE_UID);
-  res.status(result.status || 200).json(result);
+  const results = await executeJobForAllTenants(job, "cron");
+  res.json({ results });
 }
 async function handleManualTrigger(req, res, job) {
-  if (!(await isOwner(req))) return res.status(401).json({ error: "unauthorized" });
-  const result = await executeJob(job, "manual", ENGINE_UID);
+  // No owner check any more: a signed-in user may trigger their OWN job, and
+  // the uid comes from the session rather than the request, so there is no way
+  // to name someone else's.
+  const uid = await requireSelf(req, res, TRIGGER_LIMIT);
+  if (!uid) return;
+  const result = await executeJob(job, "manual", uid);
   res.status(result.status || 200).json(result);
 }
 
 /**
  * Vercel Cron wakes this once an hour (bearer-secret only, same as the
- * individual job routes); it decides per-job whether today's configured
- * hour_utc has arrived and the job hasn't already run today
- * (src/cronSchedule.js's isJobDue), which is how the dashboard's "adjust the
- * schedule" actually takes effect without a redeploy.
+ * individual job routes). It now loops per (job, tenant): for each job, every
+ * account with an active Alpaca credential is evaluated against ITS OWN
+ * hour_utc and last-run time (src/cronSchedule.js's isJobDue), which is what
+ * makes "each user manages their own schedule" real rather than cosmetic.
+ *
+ * One serverless invocation runs every tenant sequentially. That is deliberate:
+ * the per-tenant Alpaca clients are independent, but running them concurrently
+ * would multiply the Alpaca rate-limit pressure and make a partial failure much
+ * harder to read in the job log.
  */
 async function handleDispatch(req, res) {
   if (!cronSecretOk(req)) return res.status(401).json({ error: "unauthorized" });
-  if (!ENGINE_UID) {
-    return res.status(503).json({ error: "TRADER_OWNER_UID is not configured — engine disabled" });
-  }
   const now = new Date();
-  const latestRuns = await db.getLatestJobRuns(ENGINE_UID);
-  const lastRunAtByJob = Object.fromEntries(latestRuns.map((r) => [r.job, r.started_at]));
-
   const results = [];
+
   for (const job of JOBS) {
-    const cfg = await db.getCronJobConfig(ENGINE_UID, job);
-    const hourUtc = cfg.hourUtc ?? DEFAULT_HOUR_UTC[job];
-    if (!cfg.enabled) {
-      results.push({ job, skipped: true, reason: "disabled via dashboard" });
-    } else if (!isJobDue(hourUtc, now, lastRunAtByJob[job])) {
-      results.push({ job, skipped: true, reason: "not due yet" });
-    } else {
-      results.push(await executeJob(job, "cron", ENGINE_UID));
+    const [tenants, lastRunAtByUid] = await Promise.all([
+      db.getActiveTenantsForJob(job),
+      db.getLastRunAtByUid(job),
+    ]);
+    for (const t of tenants) {
+      const hourUtc = t.hourUtc ?? DEFAULT_HOUR_UTC[job];
+      if (!t.enabled) {
+        results.push({ job, uid: t.uid, skipped: true, reason: "disabled via dashboard" });
+      } else if (!isJobDue(hourUtc, now, lastRunAtByUid[t.uid])) {
+        results.push({ job, uid: t.uid, skipped: true, reason: "not due yet" });
+      } else {
+        results.push(await executeJob(job, "cron", t.uid));
+      }
     }
   }
-  res.json({ results });
+  // An empty result set means nobody has connected credentials. Say so
+  // explicitly — otherwise a silently idle engine looks identical to a healthy
+  // one that simply had nothing due.
+  res.json({ results, tenants: new Set(results.map((r) => r.uid)).size });
 }
 
 export function installCronRoutes(app) {
@@ -236,22 +252,21 @@ export function installCronRoutes(app) {
   }
   app.get("/api/cron/dispatch", handleDispatch);
 
-  // Read-only, unauthenticated -- same trust level as the static
-  // data/positions_state.json fetch this replaces/supplements (roadmap: the
-  // dashboard Autopilot coexists with whichever cron engine is authoritative,
-  // by design -- it only runs while a browser tab is open, the cron engine
-  // covers the gaps like overnight/asleep. Autopilot merges HWM/partial-TP/
-  // entry-time from this endpoint so a closed-then-reopened browser never
-  // regresses bookkeeping the cron engine advanced while it was away. Prefers
-  // the Postgres row (authoritative once the Node/Vercel cron engine is live);
-  // falls back to the git-committed file for as long as Python/GitHub Actions
-  // remains the live engine, or for local dev without a DB configured.
+  // The dashboard Autopilot coexists with the cron engine by design -- it only
+  // runs while a browser tab is open, the cron engine covers the gaps like
+  // overnight/asleep. Autopilot merges HWM/partial-TP/entry-time from this
+  // endpoint so a closed-then-reopened browser never regresses bookkeeping the
+  // cron engine advanced while it was away.
+  //
+  // SCOPED TO THE SESSION as of Phase 5. It used to be unauthenticated, which
+  // was defensible when there was one shared engine, but now the row holds one
+  // tenant's open positions and entry prices -- serving it to anyone would be a
+  // cross-account disclosure. Guests get the file fallback, which is this
+  // deployment's own committed state, not a user's.
   app.get("/api/trader-state", async (req, res) => {
     try {
-      // Still the single engine's state (Phase 4 only re-keys the row). Phase 6
-      // is what makes this per-signed-in-user; until then an unconfigured owner
-      // falls through to the file, exactly as a missing row already did.
-      const data = ENGINE_UID ? await db.getTraderState(ENGINE_UID) : null;
+      const uid = await currentUid(req);
+      const data = uid === db.GUEST ? null : await db.getTraderState(uid);
       if (data) return res.json(data);
     } catch (e) {
       console.error("[trader-state] db read failed, falling back to file:", e?.message || e);
@@ -259,11 +274,12 @@ export function installCronRoutes(app) {
     res.json(ps.loadState());
   });
 
-  // Dashboard-only: status/config, owner-only (see isOwner's comment).
+  // Dashboard-only: each signed-in user sees their own runs and schedule.
   app.get("/api/cron/status", async (req, res) => {
     try {
-      if (!(await isOwner(req))) return res.status(401).json({ error: "Sign in first" });
-      const [runs, config] = await Promise.all([db.getLatestJobRuns(ENGINE_UID), db.getCronConfig(ENGINE_UID)]);
+      const uid = await requireSelf(req, res);
+      if (!uid) return;
+      const [runs, config] = await Promise.all([db.getLatestJobRuns(uid), db.getCronConfig(uid)]);
       // Fill in the compiled-in default hour for any job with no saved config yet.
       const byJob = Object.fromEntries(config.map((c) => [c.job, c]));
       const jobs = JOBS.map((job) => ({
@@ -272,7 +288,11 @@ export function installCronRoutes(app) {
         hourUtc: byJob[job]?.hour_utc ?? DEFAULT_HOUR_UTC[job],
         updatedByUid: byJob[job]?.updated_by_uid ?? null,
       }));
-      res.json({ runs, jobs });
+      // `connected` tells the UI why an otherwise-enabled schedule never runs:
+      // without an active credential this account is not a tenant of the engine
+      // and the dispatcher skips it entirely.
+      const credentials = await db.listAlpacaCredentials(uid);
+      res.json({ runs, jobs, connected: credentials.some((c) => c.active) });
     } catch (e) {
       console.error("[cron] status failed:", e?.stack || e);
       res.status(500).json({ error: String(e?.message || e) });
@@ -281,17 +301,18 @@ export function installCronRoutes(app) {
 
   app.put("/api/cron/config/:job", async (req, res) => {
     try {
-      if (!(await isOwner(req))) return res.status(401).json({ error: "Sign in first" });
+      const uid = await requireSelf(req, res, CONFIG_LIMIT);
+      if (!uid) return;
       const { job } = req.params;
       if (!JOBS.includes(job)) return res.status(400).json({ error: "unknown job" });
       const hourUtc = Number(req.body?.hourUtc);
       if (!Number.isInteger(hourUtc) || hourUtc < 0 || hourUtc > 23) {
         return res.status(400).json({ error: "hourUtc must be an integer 0-23" });
       }
-      // isOwner(req) already confirmed the signed-in uid === OWNER_UID, so the
-      // owning uid and the "who changed it" uid are the same account here.
+      // The uid comes from the session, never the request, so a user can only
+      // ever write their own (uid, job) row.
       // Strict === true (not Boolean(...)) so a stray truthy string like "false" can't coerce to enabled.
-      await db.setCronJobConfig(ENGINE_UID, job, req.body?.enabled === true, hourUtc, OWNER_UID);
+      await db.setCronJobConfig(uid, job, req.body?.enabled === true, hourUtc);
       res.json({ ok: true });
     } catch (e) {
       console.error("[cron] config update failed:", e?.stack || e);

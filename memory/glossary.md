@@ -32,6 +32,7 @@ architecture and hard rules live in `CLAUDE.md`.
 | SMA | Simple Moving Average | Equal-weight average |
 | SoS | Sign of Strength | Wyckoff: volume-confirmed breakout above trading range |
 | TA | Technical Analysis | Chart-based signal analysis |
+| Tenant | An account the scheduled engine runs for | Defined by having an **active** Alpaca credential row, not by having an account — `db.getActiveTenantsForJob()`. An account without one is skipped, never run on the env-var account (`src/tenantEngine.js`) |
 | TF | Timeframe | e.g. 15Min, 4Hour, 1Day |
 | %b | Bollinger percent-B | Position within band: 0=lower, 1=upper |
 

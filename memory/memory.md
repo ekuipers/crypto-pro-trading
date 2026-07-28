@@ -1,5 +1,54 @@
 # Project: CryptoPro Trader
 
+## v2026-07-28.2 — 2026-07-28 — Multi-tenant Phase 5: per-user cron dispatcher
+
+The phase that actually turns the seams on. **Code complete, NOT deployed** — see the blocker below.
+
+- **`src/tenantEngine.js` (new)** is the single place that answers "which account are we trading".
+  `buildTenantContext(uid)` resolves the active credential, resolves that user's config, and builds a
+  per-user `createAlpacaClient` **from that resolved cfg** (the client bakes in two order-band hard
+  rules, so building it from `DEFAULT_CFG` would silently widen a user's tightened bands back out).
+  `tenantDeps()` returns the runner dep bundle.
+- **`tenantDeps` injects every call individually, not just `client`.** `stopWatchdog.js` and
+  `dailySummary.js` do not read `deps.client` — they take individual functions whose defaults are
+  env-var bound. Passing only a client would leave those two runners trading the legacy account while
+  the dispatcher looked correct. `getCryptoBars4h` is bound explicitly rather than spread, because its
+  options are the *third* positional argument: `(...a, {client})` would land the options object in
+  `limit` whenever a caller passed only a symbol, silently reverting to the default client.
+- **A tenant with no/unreadable credential is skipped with a reason, never run on the env-var
+  account** — the one failure mode that looks healthy while placing one user's orders on someone
+  else's Alpaca account. `KeyMismatch` is reported separately from a plain decrypt failure (it is a
+  subclass, so the check order matters). An *unexpected* error propagates instead of degrading to a
+  skip: a database outage reported as "this user has no credential" would read as a deliberate opt-out
+  and hide an engine-wide failure.
+- **`db.getActiveTenantsForJob(job)`** defines tenancy as "has an active credential", LEFT JOINed to
+  `cron_config` with `coalesce(enabled, true)` so a user who never opened the schedule UI still runs.
+  Plus `getLastRunAtByUid(job)` — one query instead of one per tenant inside the loop.
+- **`TRADER_OWNER_UID` deleted entirely** (user decision, 2026-07-28; the plan had recommended keeping
+  it as an admin override). `requireSelf` scopes manual trigger / status / config to the caller's own
+  rows, with the uid taken only from the session cookie.
+- **`/api/trader-state` is now session-scoped.** It was unauthenticated, which was defensible with one
+  shared engine; the row now holds one tenant's open positions and entry prices, so serving it to
+  anyone would be cross-account disclosure. Guests get the committed-file fallback.
+- **Security review (inline) found two things worth fixing before merge:** manual trigger and config
+  routes were owner-only and therefore unrated; now that any signed-in account can reach them and
+  registration is open suite-wide, they gained per-uid rate limits (30/60 per hour) — each request
+  costs a credential decrypt, a config resolve and a burst of Alpaca calls, and the concurrency lock
+  caps concurrent runs but not serial hammering. And `requireSelf` now rejects a falsy uid as well as
+  the `GUEST` sentinel, so a future `currentUid` returning null can't fall through into a db accessor.
+- Dashboard: `/api/cron/status` returns `connected`, and the Scheduled Jobs panel shows a banner when
+  the account has no active credential — otherwise an enabled-looking toggle implies a schedule that
+  the dispatcher will never visit.
+
+**Verified:** `npm test` 438/438 (12 new), `npm run build` clean, full server import smoke test.
+
+**BLOCKER — do not deploy yet.** `trader_alpaca_credentials` is empty, so the engine has **zero
+tenants**. Deploying Phase 5 in that state stops all trading including the stop watchdog, on live
+paper positions. `ekuipers` must first connect keys against **Production** (`POST
+/api/alpaca-credentials/paper` from a signed-in browser — the Phase 2 routes are already live, the UI
+is Phase 6). It has to be Production: local has no `TRADER_CREDENTIALS_ENC_KEY`, and a row written
+under a different key is correctly rejected as `KeyMismatch`.
+
 ## v2026-07-28.1 — 2026-07-28 — Phase 4 applied; two findings from doing it
 
 Migration applied to the shared database (`--confirm`) and the code pushed to `main`. Backfill
