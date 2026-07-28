@@ -275,10 +275,19 @@ the new build is confirmed serving, re-run `node scripts/migratePhase4.mjs --con
 `init()` also creates needs the same treatment.
 
 Deploy confirmed clean 2026-07-28 and the sweep re-run performed — nothing had returned, so the
-resurrection was a single event during the window. Phase 4 is complete bar one thing: **no scheduled
-job has run since the migration** (`evaluate` fires at `hour_utc=1`, `watchdog`/`daily-summary` on the
-compiled defaults 4/6), so a live cron cycle writing the four tables under their new keys is still
-unobserved. Everything else is covered by the 426-test suite and direct database inspection.
+resurrection was a single event during the window.
+
+**Phase 4 is DONE and verified against the live system (2026-07-28 20:02 UTC).** All three jobs run
+`ok` on the new code under `uid=ekuipers`. `trader_state.ekuipers` updated while the legacy `trader`
+row stayed frozen at its pre-migration timestamp — the new code writes only the uid row and the
+rollback point is intact. `trader_journal` appended through `on conflict (uid, day)`; the dashboard
+schedule editor upserted `cron_config` through `on conflict (uid, job)`; `startJobRun`'s
+`on conflict (uid, job) where status='running'` took and released three locks with no 23505.
+
+Scope caveat: those were **manual** triggers, so `executeJob` → runner → persistence is proven while
+the dispatcher's own path (`handleDispatch` → `getLatestJobRuns(uid)` → `getCronJobConfig` →
+`isJobDue`) rests on unit tests plus hourly no-op ticks until each job's hour comes round again.
+`daily-summary` has no `cron_config` row and still runs on `DEFAULT_HOUR_UTC` 6.
 
 ## Phase 5 — cron dispatcher rewrite, highest-risk phase (not yet implemented)
 

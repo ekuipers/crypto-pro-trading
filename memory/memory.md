@@ -36,13 +36,25 @@ re-run performed — nothing had come back, so the single resurrection was a one
 old-build cold start during the deploy window. `job_runs` now carries only `job_runs_pkey` and the two
 uid-scoped indexes; `npm test` 426/426 against the live schema.
 
-**Genuinely still unverified:** no *scheduled* job has fired since the migration. Today's runs
-(01:00/04:00/06:00 UTC) all predate it, and each job fires once daily at its own hour, so the first
-real exercise of the new code end-to-end is `evaluate` at 01:00 UTC (`cron_config.hour_utc = 1`;
-`watchdog`/`daily-summary` have no row and fall back to `DEFAULT_HOUR_UTC` 4 and 6). Everything up to
-that point is verified by test and by direct database inspection, but a live cron cycle writing
-`trader_state`/`trader_journal`/`job_runs` under the new keys has not happened yet — check
-`/api/cron/status` afterwards.
+**End-to-end verified 2026-07-28 20:02 UTC.** All three jobs triggered from the dashboard ran `ok`
+on the new code, every row under `uid=ekuipers`. What the timestamps prove, beyond "it ran":
+
+- `trader_state.ekuipers` updated 20:02:37 while the legacy `trader` row stayed at 04:00:57 — new
+  code writes only the uid row, and the copy-not-move rollback point is genuinely still intact.
+- `trader_journal` for 2026-07-28 grew 8.3k → 19,026 chars — the `on conflict (uid, day)` append
+  path works against the composite key.
+- `cron_config` upserted from the Scheduled Jobs panel via `on conflict (uid, job)`: `evaluate`
+  hour 0, `watchdog` hour 3, both `updated_by_uid = ekuipers`.
+- `startJobRun`'s `on conflict (uid, job) where status='running'` issued three lock acquisitions and
+  releases with no 23505 and no error rows.
+
+Caveat on scope: these were **manual** triggers, so `executeJob` → runner → persistence is proven,
+while the *dispatcher's* own path (`handleDispatch` → `getLatestJobRuns(uid)` → `getCronJobConfig` →
+`isJobDue`) is covered only by unit tests plus the hourly no-op ticks. It won't fire for real until
+tomorrow at each job's hour, because `isJobDue` also requires "hasn't run today" and these manual
+runs satisfy that for today.
+
+`daily-summary` still has no `cron_config` row and runs on the compiled `DEFAULT_HOUR_UTC` 6.
 
 ## v2026-07-27.5 — 2026-07-27 — Multi-tenant Phase 4: uid-keyed engine tables
 
