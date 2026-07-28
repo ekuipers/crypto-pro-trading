@@ -174,24 +174,42 @@ export async function init() {
   // watchdog/daily-summary engines run as Vercel Cron-triggered serverless
   // functions instead of GitHub Actions. A serverless function has no
   // persistent local disk across invocations, so positions_state.json and
-  // journal/*.md move here — single-tenant (this project has one trading
-  // engine, not one row per account), same reasoning as the Python engine's
-  // git-committed files, just a different storage backend.
+  // journal/*.md move here.
+  //
+  // Multi-tenant Phase 4 (memory/project-trader-multitenant-plan.md): all four
+  // of these tables are now keyed by uid. The DDL below is the *target* shape,
+  // which a fresh database gets directly. An existing single-tenant database is
+  // reshaped by scripts/migratePhase4.mjs, which must be run BEFORE deploying
+  // this code — `create table if not exists` cannot alter an existing table, so
+  // init() alone would leave the old primary keys in place. checkPhase4Migrated()
+  // below warns loudly if that hasn't happened.
+  //
+  // Deliberately NO foreign key to accounts(id): the engine's legacy uid
+  // (LEGACY_ENGINE_UID) is a sentinel, not an account, and job_runs is an audit
+  // trail that should survive an account deletion rather than cascade with it.
   await q(`create table if not exists trader_state (
-    id         text primary key default 'trader',
+    id         text primary key,
     data       jsonb not null,
     updated_at timestamptz not null default now()
   )`);
+  // Note: `id` now holds the owning uid rather than the fixed 'trader'
+  // sentinel. Dropping the old column default is the migration script's job,
+  // not init()'s — `alter table` takes an ACCESS EXCLUSIVE lock even when it
+  // changes nothing, and init() runs on every serverless cold start.
   await q(`create table if not exists trader_journal (
-    day        text primary key,
+    uid        text not null,
+    day        text not null,
     content    text not null default '',
-    updated_at timestamptz not null default now()
+    updated_at timestamptz not null default now(),
+    primary key (uid, day)
   )`);
+  await q(`alter table trader_journal add column if not exists uid text`);
   // One row per job run — doubles as the audit trail git commits used to be
   // (job_runs.status='running' also acts as the concurrency lock: a job
   // already running blocks a second scheduled/manual trigger from starting).
   await q(`create table if not exists job_runs (
     id          bigserial primary key,
+    uid         text not null,
     job         text not null,
     status      text not null default 'running',
     triggered_by text not null default 'cron',
@@ -199,30 +217,38 @@ export async function init() {
     finished_at timestamptz,
     detail      text
   )`);
-  await q(`create index if not exists job_runs_job_started_idx on job_runs (job, started_at desc)`);
+  await q(`alter table job_runs add column if not exists uid text`);
+  await q(`create index if not exists job_runs_uid_job_started_idx on job_runs (uid, job, started_at desc)`);
   // Partial unique index backing the concurrency lock: at most one 'running'
-  // row per job at the database level, so startJobRun's insert can be
+  // row per (job, uid) at the database level, so startJobRun's insert can be
   // atomic (ON CONFLICT DO NOTHING) instead of a check-then-insert that two
   // near-simultaneous requests could both pass (security review finding,
   // 2026-07-21 — see memory/memory.md).
-  await q(`create unique index if not exists job_runs_running_uidx on job_runs (job) where status = 'running'`);
+  //
+  // The uid is part of the key as of Phase 4: on the old (job)-only index two
+  // different users' evaluate runs would contend for one lock and block each
+  // other, which is a correctness bug rather than just an isolation gap.
+  await q(`create unique index if not exists job_runs_uid_running_uidx on job_runs (uid, job) where status = 'running'`);
   // Per-job enable/disable toggle + adjustable schedule the dashboard can
   // change without a redeploy — vercel.json's own cron entry just wakes the
   // hourly dispatcher (src/cronRoutes.js), which reads hour_utc from here to
   // decide whether a given job is actually due (src/cronSchedule.js).
-  // `updated_by_uid` records which account last changed it (Suite roadmap
-  // follow-up: "save the schedule configuration for each user account") —
-  // this is a single shared trading engine, not one schedule per account,
-  // so it's attribution on the one config row, not a separate row per uid.
+  // One row per (uid, job) as of Phase 4: each user schedules their own jobs.
+  // `updated_by_uid` is kept (rather than dropped as the plan sketched) because
+  // dropping a column is irreversible and it still records *who* last wrote the
+  // row, which stays meaningful if an admin override is added in Phase 5.
   await q(`create table if not exists cron_config (
-    job        text primary key,
+    uid        text not null,
+    job        text not null,
     enabled    boolean not null default true,
     hour_utc   integer,
     updated_by_uid text,
-    updated_at timestamptz not null default now()
+    updated_at timestamptz not null default now(),
+    primary key (uid, job)
   )`);
   await q(`alter table cron_config add column if not exists hour_utc integer`);
   await q(`alter table cron_config add column if not exists updated_by_uid text`);
+  await q(`alter table cron_config add column if not exists uid text`);
   // Suite roadmap: "Add glossary to the database instead of loading it from
   // a file." Same single-shared-row shape as trader_state — memory/glossary.md
   // stays the git-tracked, human/AI-edited source in full (Trader CLAUDE.md
@@ -285,8 +311,39 @@ export async function init() {
     updated_at timestamptz not null default now()
   )`);
 
+  await checkPhase4Migrated();
   console.log('[db] connected; tables ready');
   return true;
+}
+
+/**
+ * Warns if this database still has the pre-Phase-4 single-tenant shape.
+ *
+ * init() can create the new tables but cannot reshape existing ones, so a
+ * database that predates Phase 4 keeps its old primary keys until
+ * scripts/migratePhase4.mjs runs. Running this code against that shape fails
+ * loudly on the first journal/job/config write (`ON CONFLICT` finds no matching
+ * unique index) — this turns that into a startup warning naming the fix instead
+ * of a runtime error with no context.
+ */
+async function checkPhase4Migrated() {
+  const { rows } = await q(`
+    select c.relname as table_name
+    from pg_class c
+    join pg_index i on i.indrelid = c.oid and i.indisprimary
+    where c.relname in ('trader_journal','cron_config')
+      and not exists (
+        select 1 from pg_attribute a
+        where a.attrelid = c.oid and a.attnum = any(i.indkey) and a.attname = 'uid'
+      )`);
+  if (rows.length) {
+    console.warn(
+      `[db] WARNING: ${rows.map((r) => r.table_name).join(', ')} still use the pre-Phase-4 ` +
+        'single-tenant primary key. Run `node scripts/migratePhase4.mjs --confirm` before serving traffic — ' +
+        'journal, job-run and cron-config writes will fail until then.',
+    );
+  }
+  return rows.length === 0;
 }
 
 // ---- Accounts --------------------------------------------------------------
@@ -387,28 +444,46 @@ export async function putLayout(uid, name, data) {
   );
 }
 
-// ---- Trader state / journal (cron cutover) ---------------------------------
-export async function getTraderState() {
-  const { rows } = await q(`select data from trader_state where id = 'trader'`);
+// ---- Trader state / journal (cron cutover; uid-scoped since Phase 4) -------
+//
+// Every accessor below takes the owning uid first. There is deliberately NO
+// default: an accidental uid-less call must be a TypeError here, not a silent
+// read of (or write into) some other tenant's positions. Callers that still
+// represent the single legacy engine pass LEGACY_ENGINE_UID explicitly.
+
+/** Sentinel uid for the pre-multi-tenant engine, matching trader_state's old fixed row id. */
+export const LEGACY_ENGINE_UID = 'trader';
+
+function requireUid(uid, fn) {
+  if (typeof uid !== 'string' || !uid) throw new TypeError(`${fn} requires a uid`);
+  return uid;
+}
+
+export async function getTraderState(uid) {
+  requireUid(uid, 'getTraderState');
+  const { rows } = await q('select data from trader_state where id = $1', [uid]);
   return rows[0]?.data ?? null;
 }
-export async function putTraderState(data) {
+export async function putTraderState(uid, data) {
+  requireUid(uid, 'putTraderState');
   await q(
-    `insert into trader_state (id, data, updated_at) values ('trader', $1::jsonb, now())
+    `insert into trader_state (id, data, updated_at) values ($1, $2::jsonb, now())
      on conflict (id) do update set data = excluded.data, updated_at = now()`,
-    [JSON.stringify(data)],
+    [uid, JSON.stringify(data)],
   );
 }
-export async function getTraderJournal(day) {
-  const { rows } = await q('select content from trader_journal where day = $1', [day]);
+export async function getTraderJournal(uid, day) {
+  requireUid(uid, 'getTraderJournal');
+  const { rows } = await q('select content from trader_journal where uid = $1 and day = $2', [uid, day]);
   return rows[0]?.content ?? '';
 }
-/** Appends `block` to the day's journal text (creates the row if absent). */
-export async function appendTraderJournal(day, block) {
+/** Appends `block` to the day's journal text for one user (creates the row if absent). */
+export async function appendTraderJournal(uid, day, block) {
+  requireUid(uid, 'appendTraderJournal');
   await q(
-    `insert into trader_journal (day, content, updated_at) values ($1, $2, now())
-     on conflict (day) do update set content = trader_journal.content || excluded.content, updated_at = now()`,
-    [day, block],
+    `insert into trader_journal (uid, day, content, updated_at) values ($1, $2, $3, now())
+     on conflict (uid, day) do update set content = trader_journal.content || excluded.content, updated_at = now()`,
+    [uid, day, block],
   );
 }
 
@@ -421,55 +496,68 @@ export async function appendTraderJournal(day, block) {
  * succeed, unlike a separate check-then-insert (security review finding,
  * 2026-07-21).
  */
-export async function startJobRun(job, triggeredBy) {
+export async function startJobRun(uid, job, triggeredBy) {
+  requireUid(uid, 'startJobRun');
   // A 'running' row older than 15 minutes is treated as abandoned (crashed/
   // timed-out function) and released first, so a stuck row can't block the
-  // job forever — Vercel functions are capped well under this.
+  // job forever — Vercel functions are capped well under this. Scoped to this
+  // uid so one user's stuck run is never released by another user's request.
   await q(
-    `update job_runs set status = 'abandoned' where job = $1 and status = 'running' and started_at <= now() - interval '15 minutes'`,
-    [job],
+    `update job_runs set status = 'abandoned'
+     where uid = $1 and job = $2 and status = 'running' and started_at <= now() - interval '15 minutes'`,
+    [uid, job],
   );
   const { rows } = await q(
-    `insert into job_runs (job, status, triggered_by) values ($1, 'running', $2)
-     on conflict (job) where status = 'running' do nothing
+    `insert into job_runs (uid, job, status, triggered_by) values ($1, $2, 'running', $3)
+     on conflict (uid, job) where status = 'running' do nothing
      returning id`,
-    [job, triggeredBy],
+    [uid, job, triggeredBy],
   );
   return rows[0]?.id ?? null;
 }
 export async function finishJobRun(id, status, detail) {
   await q(`update job_runs set status = $2, detail = $3, finished_at = now() where id = $1`, [id, status, detail ?? null]);
 }
-/** Latest run per job (for the dashboard status panel). */
-export async function getLatestJobRuns() {
+/** Latest run per job for one user (for the dashboard status panel). */
+export async function getLatestJobRuns(uid) {
+  requireUid(uid, 'getLatestJobRuns');
   const { rows } = await q(
     `select distinct on (job) job, status, triggered_by, started_at, finished_at, detail
-     from job_runs order by job, started_at desc`,
+     from job_runs where uid = $1 order by job, started_at desc`,
+    [uid],
   );
   return rows;
 }
 
-// ---- Cron config: enable/disable + adjustable schedule ---------------------
-export async function isCronJobEnabled(job) {
-  const { rows } = await q('select enabled from cron_config where job = $1', [job]);
+// ---- Cron config: enable/disable + adjustable schedule (uid-scoped) --------
+export async function isCronJobEnabled(uid, job) {
+  requireUid(uid, 'isCronJobEnabled');
+  const { rows } = await q('select enabled from cron_config where uid = $1 and job = $2', [uid, job]);
   return rows[0]?.enabled ?? true; // no row yet => enabled by default
 }
-/** { enabled, hourUtc } for one job — hourUtc is null if never configured (caller applies a default). */
-export async function getCronJobConfig(job) {
-  const { rows } = await q('select enabled, hour_utc from cron_config where job = $1', [job]);
+/** { enabled, hourUtc } for one user's job — hourUtc is null if never configured (caller applies a default). */
+export async function getCronJobConfig(uid, job) {
+  requireUid(uid, 'getCronJobConfig');
+  const { rows } = await q('select enabled, hour_utc from cron_config where uid = $1 and job = $2', [uid, job]);
   const r = rows[0];
   return { enabled: r?.enabled ?? true, hourUtc: r?.hour_utc ?? null };
 }
-/** Upserts enabled + hour_utc together (the dashboard form always submits both), recording who changed it. */
-export async function setCronJobConfig(job, enabled, hourUtc, uid) {
+/**
+ * Upserts enabled + hour_utc together (the dashboard form always submits both).
+ * `updatedByUid` defaults to the owning uid — it differs only if an admin
+ * override ever edits someone else's schedule (a Phase 5 open question).
+ */
+export async function setCronJobConfig(uid, job, enabled, hourUtc, updatedByUid) {
+  requireUid(uid, 'setCronJobConfig');
   await q(
-    `insert into cron_config (job, enabled, hour_utc, updated_by_uid, updated_at) values ($1, $2, $3, $4, now())
-     on conflict (job) do update set enabled = excluded.enabled, hour_utc = excluded.hour_utc, updated_by_uid = excluded.updated_by_uid, updated_at = now()`,
-    [job, enabled, hourUtc, uid ?? null],
+    `insert into cron_config (uid, job, enabled, hour_utc, updated_by_uid, updated_at) values ($1, $2, $3, $4, $5, now())
+     on conflict (uid, job) do update set enabled = excluded.enabled, hour_utc = excluded.hour_utc, updated_by_uid = excluded.updated_by_uid, updated_at = now()`,
+    [uid, job, enabled, hourUtc, updatedByUid ?? uid],
   );
 }
-export async function getCronConfig() {
-  const { rows } = await q('select job, enabled, hour_utc, updated_by_uid from cron_config');
+export async function getCronConfig(uid) {
+  requireUid(uid, 'getCronConfig');
+  const { rows } = await q('select job, enabled, hour_utc, updated_by_uid from cron_config where uid = $1', [uid]);
   return rows;
 }
 

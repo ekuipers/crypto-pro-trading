@@ -52,19 +52,31 @@ const JOBS = ["evaluate", "watchdog", "daily-summary"];
 // open (security review finding, 2026-07-21 — see memory/memory.md).
 const OWNER_UID = process.env.TRADER_OWNER_UID ? String(process.env.TRADER_OWNER_UID).trim().toLowerCase() : null;
 
-async function loadTraderState() {
-  const data = await db.getTraderState();
+// Multi-tenant Phase 4: trader_state/trader_journal/job_runs/cron_config are
+// all keyed by uid now. Phase 5 is what turns the dispatcher into a per-user
+// loop; until then there is still exactly one engine and it runs as the owner
+// account, so every call site below threads this one uid through.
+//
+// Fail closed when it isn't configured. Falling back to db.LEGACY_ENGINE_UID
+// would read a uid with no state at all, which presents as "no open positions"
+// — evaluate would re-enter blind and the stop watchdog would manage nothing,
+// silently, on a live paper account. An unset TRADER_OWNER_UID must stop the
+// engine, not run it against an empty tenant.
+const ENGINE_UID = OWNER_UID;
+
+async function loadTraderState(uid) {
+  const data = await db.getTraderState(uid);
   return data || ps.EMPTY_STATE();
 }
 
-async function persistJournal(text, now) {
+async function persistJournal(uid, text, now) {
   if (!text) return;
   const { dateStr } = amsterdamParts(now);
-  await db.appendTraderJournal(dateStr, text);
+  await db.appendTraderJournal(uid, dateStr, text);
 }
 
-async function runEvaluate() {
-  const state = await loadTraderState();
+async function runEvaluate(uid) {
+  const state = await loadTraderState(uid);
   let journalText = null;
   let journalNow = null;
   const code = await runEvaluationMain({
@@ -79,13 +91,13 @@ async function runEvaluate() {
       },
     },
   });
-  await db.putTraderState(state);
-  await persistJournal(journalText, journalNow);
+  await db.putTraderState(uid, state);
+  await persistJournal(uid, journalText, journalNow);
   return { code, detail: code === 0 ? "ok" : "evaluation failed (see logs)" };
 }
 
-async function runWatchdog() {
-  const state = await loadTraderState();
+async function runWatchdog(uid) {
+  const state = await loadTraderState(uid);
   let journalText = null;
   let journalNow = null;
   const code = await stopWatchdogMain({
@@ -100,12 +112,12 @@ async function runWatchdog() {
       },
     },
   });
-  await db.putTraderState(state);
-  await persistJournal(journalText, journalNow);
+  await db.putTraderState(uid, state);
+  await persistJournal(uid, journalText, journalNow);
   return { code, detail: code === 0 ? "ok" : "watchdog failed (see logs)" };
 }
 
-async function runDailySummary() {
+async function runDailySummary(uid) {
   let block = null;
   let blockNow = null;
   const code = await dailySummaryMain({
@@ -117,7 +129,7 @@ async function runDailySummary() {
       },
     },
   });
-  await persistJournal(block, blockNow);
+  await persistJournal(uid, block, blockNow);
   return { code, detail: code === 0 ? "ok" : "daily summary failed (see logs)" };
 }
 
@@ -139,15 +151,23 @@ async function isOwner(req) {
   return uid === OWNER_UID;
 }
 
-/** Runs one job (lock + record), independent of any HTTP response — shared by the direct-trigger routes and the dispatcher. */
-async function executeJob(job, triggeredBy) {
-  if (triggeredBy === "cron" && !(await db.isCronJobEnabled(job))) {
+/**
+ * Runs one job for one user (lock + record), independent of any HTTP response —
+ * shared by the direct-trigger routes and the dispatcher. `uid` is an explicit
+ * parameter rather than a module constant so Phase 5's per-user loop only has
+ * to change the callers, not this function.
+ */
+async function executeJob(job, triggeredBy, uid) {
+  if (!uid) {
+    return { job, triggeredBy, status: 503, error: "TRADER_OWNER_UID is not configured — engine disabled" };
+  }
+  if (triggeredBy === "cron" && !(await db.isCronJobEnabled(uid, job))) {
     return { job, triggeredBy, skipped: true, reason: "disabled via dashboard" };
   }
-  const runId = await db.startJobRun(job, triggeredBy);
+  const runId = await db.startJobRun(uid, job, triggeredBy);
   if (runId === null) return { job, triggeredBy, status: 409, error: "already running" };
   try {
-    const result = await RUNNERS[job]();
+    const result = await RUNNERS[job](uid);
     await db.finishJobRun(runId, result.code === 0 ? "ok" : "error", result.detail);
     return { job, triggeredBy, ok: result.code === 0, ...result };
   } catch (e) {
@@ -169,12 +189,12 @@ async function executeJob(job, triggeredBy) {
 // gates the hourly dispatcher below, not a direct/manual trigger.
 async function handleCronTrigger(req, res, job) {
   if (!cronSecretOk(req)) return res.status(401).json({ error: "unauthorized" });
-  const result = await executeJob(job, "cron");
+  const result = await executeJob(job, "cron", ENGINE_UID);
   res.status(result.status || 200).json(result);
 }
 async function handleManualTrigger(req, res, job) {
   if (!(await isOwner(req))) return res.status(401).json({ error: "unauthorized" });
-  const result = await executeJob(job, "manual");
+  const result = await executeJob(job, "manual", ENGINE_UID);
   res.status(result.status || 200).json(result);
 }
 
@@ -187,20 +207,23 @@ async function handleManualTrigger(req, res, job) {
  */
 async function handleDispatch(req, res) {
   if (!cronSecretOk(req)) return res.status(401).json({ error: "unauthorized" });
+  if (!ENGINE_UID) {
+    return res.status(503).json({ error: "TRADER_OWNER_UID is not configured — engine disabled" });
+  }
   const now = new Date();
-  const latestRuns = await db.getLatestJobRuns();
+  const latestRuns = await db.getLatestJobRuns(ENGINE_UID);
   const lastRunAtByJob = Object.fromEntries(latestRuns.map((r) => [r.job, r.started_at]));
 
   const results = [];
   for (const job of JOBS) {
-    const cfg = await db.getCronJobConfig(job);
+    const cfg = await db.getCronJobConfig(ENGINE_UID, job);
     const hourUtc = cfg.hourUtc ?? DEFAULT_HOUR_UTC[job];
     if (!cfg.enabled) {
       results.push({ job, skipped: true, reason: "disabled via dashboard" });
     } else if (!isJobDue(hourUtc, now, lastRunAtByJob[job])) {
       results.push({ job, skipped: true, reason: "not due yet" });
     } else {
-      results.push(await executeJob(job, "cron"));
+      results.push(await executeJob(job, "cron", ENGINE_UID));
     }
   }
   res.json({ results });
@@ -225,7 +248,10 @@ export function installCronRoutes(app) {
   // remains the live engine, or for local dev without a DB configured.
   app.get("/api/trader-state", async (req, res) => {
     try {
-      const data = await db.getTraderState();
+      // Still the single engine's state (Phase 4 only re-keys the row). Phase 6
+      // is what makes this per-signed-in-user; until then an unconfigured owner
+      // falls through to the file, exactly as a missing row already did.
+      const data = ENGINE_UID ? await db.getTraderState(ENGINE_UID) : null;
       if (data) return res.json(data);
     } catch (e) {
       console.error("[trader-state] db read failed, falling back to file:", e?.message || e);
@@ -237,7 +263,7 @@ export function installCronRoutes(app) {
   app.get("/api/cron/status", async (req, res) => {
     try {
       if (!(await isOwner(req))) return res.status(401).json({ error: "Sign in first" });
-      const [runs, config] = await Promise.all([db.getLatestJobRuns(), db.getCronConfig()]);
+      const [runs, config] = await Promise.all([db.getLatestJobRuns(ENGINE_UID), db.getCronConfig(ENGINE_UID)]);
       // Fill in the compiled-in default hour for any job with no saved config yet.
       const byJob = Object.fromEntries(config.map((c) => [c.job, c]));
       const jobs = JOBS.map((job) => ({
@@ -262,9 +288,10 @@ export function installCronRoutes(app) {
       if (!Number.isInteger(hourUtc) || hourUtc < 0 || hourUtc > 23) {
         return res.status(400).json({ error: "hourUtc must be an integer 0-23" });
       }
-      // isOwner(req) already confirmed the signed-in uid === OWNER_UID.
+      // isOwner(req) already confirmed the signed-in uid === OWNER_UID, so the
+      // owning uid and the "who changed it" uid are the same account here.
       // Strict === true (not Boolean(...)) so a stray truthy string like "false" can't coerce to enabled.
-      await db.setCronJobConfig(job, req.body?.enabled === true, hourUtc, OWNER_UID);
+      await db.setCronJobConfig(ENGINE_UID, job, req.body?.enabled === true, hourUtc, OWNER_UID);
       res.json({ ok: true });
     } catch (e) {
       console.error("[cron] config update failed:", e?.stack || e);

@@ -1,5 +1,53 @@
 # Project: CryptoPro Trader
 
+## v2026-07-27.5 — 2026-07-27 — Multi-tenant Phase 4: uid-keyed engine tables
+
+Schema + code for the multi-tenant conversion's Phase 4. The four engine tables are now keyed by
+uid. **The migration has been written and dry-run but NOT applied** — see "Pending" below.
+
+- `src/db.js`: `trader_state.id` now holds the owning uid (the `default 'trader'` is dropped, since a
+  default would silently collect every uid-less write into one row); `trader_journal` pk `(day)` →
+  `(uid, day)`; `job_runs` gains `uid` with the lock index `(job)` → `(uid, job)`; `cron_config` pk
+  `(job)` → `(uid, job)`. **No foreign key to `accounts`** on any of them — the legacy engine uid is a
+  sentinel rather than an account, and `job_runs` is an audit trail that should outlive an account
+  deletion instead of cascading with it.
+- Every accessor takes the uid first and **throws `TypeError` when it is missing** rather than
+  defaulting. A silent default is the failure mode worth designing out: it would read or overwrite
+  another tenant's positions. New `db.LEGACY_ENGINE_UID` (`'trader'`) names the old sentinel.
+- `job_runs`' lock is the one genuine correctness fix here, not just isolation: on the old
+  `(job)`-only partial unique index two users' evaluate runs contend for a single lock and block each
+  other. `startJobRun`'s 15-minute abandoned-row release is now uid-scoped too, so one tenant's stuck
+  run can't be released by another's request.
+- `src/cronRoutes.js`: `executeJob(job, triggeredBy, uid)` and the three runners take a uid, so
+  Phase 5's per-user loop only has to change the callers. A new `ENGINE_UID` (= `OWNER_UID`) threads
+  the single engine through. **Fails closed when `TRADER_OWNER_UID` is unset** (503) instead of
+  falling back to the legacy sentinel: that uid has no state, which presents as "no open positions" —
+  evaluate would re-enter blind and the watchdog would manage nothing, silently, on a live paper
+  account.
+- `scripts/migratePhase4.mjs` — one-shot, transactional, idempotent (catalog-checked, so a re-run
+  reports "already migrated"), dry-run by default. Refuses to run unless the target uid exists in
+  `accounts`. `trader_state`'s legacy row is **copied, not moved**, so `id='trader'` survives as a
+  free rollback point. Deliberately not in `init()`: init() boots in every environment against one
+  shared database, and attributing existing rows to a uid is a once-only human decision.
+- `scripts/backupPhase4Tables.mjs` — JSON snapshot of the four tables (pg_dump isn't on PATH here;
+  at ~34 rows a JSON dump is a complete backup). Output goes to `backups/`, now gitignored.
+- `db.init()` gained `checkPhase4Migrated()`, which warns at boot if a database still has the old
+  primary keys — otherwise the first journal/job/config write fails with an opaque `ON CONFLICT`
+  error naming no cause.
+
+**Verified:** `npm test` 420/420 (10 new argument-guard tests). `src/dbMultitenant.test.js` also adds
+integration tests — state/journal/cron-config isolation between two synthetic uids and, most
+importantly, that user B's `startJobRun` is *not* blocked by user A's running job. They skip with an
+explicit reason until the migration runs, since an unmigrated database is a legitimate transient
+state rather than a code failure. Migration dry run against the real database is clean: 1
+`trader_state`, 4 `trader_journal`, 28 `job_runs`, 1 `cron_config` row, all attributing to `ekuipers`.
+
+**Pending (not done):** the migration has not been applied and the code has not been deployed. Run
+order matters — backup, `node scripts/migratePhase4.mjs --confirm`, then deploy immediately. Between
+those last two the *old* deployed code runs against the *new* schema and its `ON CONFLICT (day)` /
+`(job)` clauses error, so jobs fail (loudly, before placing any order) until the deploy lands. Keep
+the window short and off the watchdog's scheduled hour.
+
 ## v2026-07-27.3 — 2026-07-27 — Credential key fingerprint (cross-environment diagnosis)
 
 Follow-up to Phase 2's ops guidance. Production/Preview/Development are to hold **different**

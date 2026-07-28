@@ -23,6 +23,7 @@ architecture and hard rules live in `CLAUDE.md`.
 | HL | Higher Low | Bullish structure |
 | LH | Lower High | Bearish structure |
 | LL | Lower Low | Bearish structure |
+| Legacy engine uid | Sentinel uid for the pre-multi-tenant engine | `'trader'` — `trader_state`'s old fixed row id (`db.LEGACY_ENGINE_UID`), kept as a rollback snapshot after the Phase 4 backfill copies it to the owner's uid |
 | MACD | Moving Average Convergence Divergence | 12/26 EMA diff; 9-period signal line |
 | MiCA | Markets in Crypto-Assets Regulation | EU crypto regulation; reason this project is paper-trading only |
 | POC | Point of Control | Volume profile: price level with highest traded volume |

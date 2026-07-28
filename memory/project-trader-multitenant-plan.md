@@ -10,8 +10,9 @@ a separate in-progress cutover, untouched here); full per-user Alpaca credential
 account; per-user strategy/risk config too, not just credentials.
 
 Staged into 6 phases so each is independently shippable/testable/reviewable. Phases 1-3 have shipped
-(1 on 2026-07-24, 2 and 3 on 2026-07-27 — see `memory.md`'s dated entries); phases 4-6 are designed
-below but not yet implemented.
+(1 on 2026-07-24, 2 and 3 on 2026-07-27 — see `memory.md`'s dated entries). Phase 4's code is written
+and its migration dry-run, but **the migration has not been applied and the code is not deployed**;
+phases 5-6 are designed below but not yet implemented.
 
 ---
 
@@ -222,19 +223,45 @@ Original open judgment call, resolved: threading ~20-30 distinct constants indiv
 function signatures would be noisy — one merged `cfg` object as a single deps field was recommended
 and chosen.
 
-## Phase 4 — schema migration + one-time data backfill (not yet implemented)
+## Phase 4 — CODE DONE 2026-07-27, MIGRATION NOT YET APPLIED
 
-- `trader_state`: `id text PK default 'trader'` → `id` becomes the uid itself (drop the default,
-  parameterize `getTraderState`/`putTraderState`).
-- `trader_journal`: `day text PK` → composite `(uid, day)`.
-- `job_runs`: add `uid`; concurrency lock's partial unique index changes from `(job)` to
-  `(job, uid)` — **without this, two different users' jobs would contend for the same lock and
-  block each other**, a correctness bug that's latent today with only one user.
-- `cron_config`: `job text PK` → composite `(uid, job)`; `updated_by_uid` becomes redundant and
-  can be dropped.
-- One-time **manual** SQL backfill (not part of `db.js`'s idempotent `init()`) attributing all
-  existing global rows to the current owner's uid — run during a maintenance window with
-  `CRON_EXECUTE` confirmed off and a `pg_dump` of the 4 tables taken immediately before.
+Shipped as designed, with these deviations:
+
+1. **`cron_config.updated_by_uid` was kept, not dropped.** Dropping a column is irreversible and this
+   migration already reshapes four primary keys; the field still records *who* last wrote the row,
+   which stays meaningful if Phase 5 adds the admin override. `setCronJobConfig` defaults it to the
+   owning uid.
+2. **No foreign key to `accounts`** on any of the four tables (unlike `trader_alpaca_credentials`).
+   The legacy engine uid is a sentinel rather than an account, and `job_runs` is an audit trail that
+   should outlive an account deletion instead of cascading with it.
+3. **`trader_state`'s legacy row is copied, not moved.** `id='trader'` survives the migration as a
+   free rollback snapshot. Nothing writes it once the new code is deployed, so it cannot diverge
+   except in the rollback case, where the stale copy is exactly what's wanted.
+4. **Accessors throw on a missing uid** rather than defaulting to anything. A silent default is the
+   failure mode worth designing out — it would read or overwrite another tenant's positions. New
+   `db.LEGACY_ENGINE_UID` (`'trader'`) names the old sentinel for the migration's benefit.
+5. **`ENGINE_UID` fails closed.** `cronRoutes.js` runs as `OWNER_UID` and answers 503 when
+   `TRADER_OWNER_UID` is unset, instead of falling back to the sentinel. The sentinel uid has no state
+   after the backfill, which presents as "no open positions": evaluate would re-enter blind and the
+   watchdog would manage nothing, silently, on a live paper account.
+6. **The backfill is a script, not manual SQL.** `scripts/migratePhase4.mjs` — transactional,
+   catalog-checked so a re-run is a no-op, dry-run by default, refuses a uid that isn't in `accounts`.
+   Still deliberately outside `init()`, for the reason the plan gave. `scripts/backupPhase4Tables.mjs`
+   stands in for `pg_dump` (not on PATH on this machine); at ~34 rows a JSON snapshot is a complete
+   backup. `init()` gained `checkPhase4Migrated()`, a boot warning for an unmigrated database.
+7. **`executeJob`/the three runners already take a `uid` parameter**, so Phase 5's per-user loop only
+   has to change the callers, not these functions.
+
+**Verified:** `npm test` 420/420. `src/dbMultitenant.test.js` adds argument guards plus integration
+tests for state/journal/cron-config isolation and — the point of the phase — that user B's
+`startJobRun` is not blocked by user A's running job. The integration half skips with an explicit
+reason until the migration runs. Dry run against the real database is clean (1/4/28/1 rows → `ekuipers`).
+
+**Remaining, and it is the risky part:** back up → `node scripts/migratePhase4.mjs --confirm` →
+**deploy immediately**. Between those last two steps the previously deployed code runs against the new
+schema and its `ON CONFLICT (day)`/`(job)` clauses error, so scheduled jobs fail — loudly, and before
+any order is placed, but the stop watchdog is among them. Keep the window short and off the watchdog's
+configured hour.
 
 ## Phase 5 — cron dispatcher rewrite, highest-risk phase (not yet implemented)
 

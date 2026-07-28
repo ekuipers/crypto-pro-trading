@@ -26,3 +26,6 @@ ruvector.db
 
 # Scratch/debug files from investigations — not source
 /debug/
+
+# Database snapshots taken before a migration — operational state, not source
+/backups/

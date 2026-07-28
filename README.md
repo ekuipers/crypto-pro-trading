@@ -135,9 +135,9 @@ hourly (`0 * * * *`). Three env vars control it, all optional:
 ### 7. Per-user Alpaca credentials (multi-tenant, in progress)
 
 Each signed-in account can store its own Alpaca API credentials for the server-side engine, instead of
-every scheduled run using the one shared `APCA_*` env-var account. **Phases 2–3 of 6 — storage and
-resolution only:** the cron dispatcher still uses the shared account and the compiled config until
-Phase 5, so nothing about today's trading behavior changes. Full plan:
+every scheduled run using the one shared `APCA_*` env-var account. **Phases 2–4 of 6 — storage,
+resolution and schema only:** the cron dispatcher still uses the shared account and the compiled config
+until Phase 5, so nothing about today's trading behavior changes. Full plan:
 `memory/project-trader-multitenant-plan.md`.
 
 | Route | Purpose |
@@ -189,6 +189,31 @@ row yet**; the editor UI and its route arrive with Phase 6.
 Storing live credentials is allowed (the engine uses live keys for read-only insight), but the
 paper-trading-only hard rule is unaffected — `assertPaperTrading()` independently blocks all order
 placement and cancellation on the live host.
+
+**Uid-keyed engine tables (Phase 4).** The four tables the scheduled engine writes are keyed by
+account: `trader_state.id` holds the owning uid, `trader_journal` is `(uid, day)`, `cron_config` is
+`(uid, job)`, and `job_runs` carries a `uid` whose concurrency-lock index moved from `(job)` to
+`(uid, job)`. That last one is a correctness fix rather than an isolation nicety — on a `(job)`-only
+lock, two accounts' evaluate runs contend for one row and block each other. Every `db.js` accessor
+takes the uid first and throws if it is missing, so a uid-less call can never silently read or
+overwrite another account's positions.
+
+Existing single-tenant databases are reshaped by a one-shot script rather than by `init()`, because
+`init()` boots in every environment against the one shared database and attributing existing rows to
+an account is a once-only decision:
+
+```bash
+node scripts/backupPhase4Tables.mjs          # JSON snapshot -> backups/ (gitignored)
+node scripts/migratePhase4.mjs               # dry run: prints the plan, changes nothing
+node scripts/migratePhase4.mjs --confirm     # applies it in one transaction
+# then deploy immediately
+```
+
+The migration is idempotent and refuses a uid that isn't an account. `trader_state`'s legacy
+`id='trader'` row is copied rather than moved, so it remains as a rollback point. Deploy right after
+committing it: in between, the previously deployed code runs against the new schema and its
+`ON CONFLICT` clauses error, so scheduled jobs fail (loudly, before placing any order) until the new
+build is live. `db.init()` warns at boot if a database still has the old primary keys.
 
 ---
 
