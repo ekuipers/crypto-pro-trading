@@ -318,11 +318,17 @@ Shipped as designed below, with these deviations and findings:
 
 **Verified:** `npm test` 438/438 (12 new in `src/tenantEngine.test.js`), `npm run build` clean.
 
-**BLOCKER — do not deploy.** `trader_alpaca_credentials` is empty, so the engine has zero tenants and
-deploying stops all trading including the stop watchdog on live paper positions. `ekuipers` must first
-connect keys against **Production** via `POST /api/alpaca-credentials/paper` (Phase 2's routes are
-live; the UI is Phase 6). It must be Production — local has no `TRADER_CREDENTIALS_ENC_KEY`, and a row
-written under any other key is correctly rejected as `KeyMismatch`.
+**Unblocked and deployed 2026-07-28.** `ekuipers`/paper is stored and active (`key_fp` 81203168), so
+`getActiveTenantsForJob` returns one tenant for all three jobs. Two ops findings from connecting it,
+both now fixed or recorded: the Vercel **shared** env vars had never been connected to the project (so
+`TRADER_CREDENTIALS_ENC_KEY` was absent at runtime and writes 503'd, despite the docs recording that
+step as verified a day earlier); and those 503s each consumed one of the 20/hour credential-write
+tokens, so the misconfiguration locked the endpoint while it was being diagnosed — `requireUid` now
+answers 503 before charging the budget.
+
+**Rollout note for Phase 6 and beyond:** verify a credential write against the *database*, not the
+HTTP response. The discriminator for "did Production write to a different database?" is
+`/api/cron/status` — matching millisecond run timestamps prove one shared database.
 
 ### Original design
 

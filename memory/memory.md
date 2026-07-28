@@ -42,12 +42,25 @@ The phase that actually turns the seams on. **Code complete, NOT deployed** — 
 
 **Verified:** `npm test` 438/438 (12 new), `npm run build` clean, full server import smoke test.
 
-**BLOCKER — do not deploy yet.** `trader_alpaca_credentials` is empty, so the engine has **zero
-tenants**. Deploying Phase 5 in that state stops all trading including the stop watchdog, on live
-paper positions. `ekuipers` must first connect keys against **Production** (`POST
-/api/alpaca-credentials/paper` from a signed-in browser — the Phase 2 routes are already live, the UI
-is Phase 6). It has to be Production: local has no `TRADER_CREDENTIALS_ENC_KEY`, and a row written
-under a different key is correctly rejected as `KeyMismatch`.
+**Unblocked and pushed 2026-07-28 ~21:00 UTC.** `ekuipers`/paper is stored and active (`key_fp`
+81203168, `key_preview` H4Z4 matching the `.env` key, 224-char envelope), and
+`getActiveTenantsForJob` returns that one tenant for all three jobs. Connecting it took four attempts
+and each failure taught something worth keeping:
+
+1. **`configured: false` on Production** — the Vercel **shared** environment variables existed but had
+   never been *connected to the project*, so `TRADER_CREDENTIALS_ENC_KEY` was absent at runtime and
+   every write 503'd. The docs had recorded this ops step as done and verified on 2026-07-27, which
+   made an empty table look like "never got round to it" instead of "cannot store at all".
+2. **Those 503s spent the write budget.** `requireUid` records the rate-limit hit *before* the
+   handler runs, so ~20 failed attempts produced a 429 — the misconfiguration locked the endpoint
+   while it was being diagnosed. Fixed: the 503 is now answered before a token is charged, for the
+   one route that needs the key. Validation 400s still count, deliberately.
+3. **A 400 on `keyId`** came from pasting a documentation placeholder containing a literal `…`, which
+   is not in `[A-Za-z0-9_-]`. Worth writing snippets with `prompt()` instead of inline placeholders —
+   it also keeps the secret out of console history.
+4. **Verify writes against the database, not the response.** Two pasted "successes" were the example
+   echoed back; only a direct query settled it. The discriminator for "did Production write somewhere
+   else?" was `/api/cron/status` — matching millisecond timestamps proved one shared database.
 
 ## v2026-07-28.1 — 2026-07-28 — Phase 4 applied; two findings from doing it
 
