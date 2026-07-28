@@ -119,10 +119,23 @@ export function installCredentialsRoutes(app) {
    * The uid comes only from the session cookie — never from the path, body or
    * query — which is what makes cross-account access impossible.
    */
-  async function requireUid(req, res, limit) {
+  async function requireUid(req, res, limit, { needsCrypto = false } = {}) {
     const uid = await currentUid(req);
     if (uid === db.GUEST) {
       res.status(401).json({ error: 'Sign in first' });
+      return null;
+    }
+    // Answered BEFORE a rate-limit token is spent. A deployment with no usable
+    // encryption key cannot store anything, so this write was going to 503
+    // regardless — and charging it against the budget makes a misconfiguration
+    // self-limiting: the operator gets locked out of the endpoint precisely
+    // while diagnosing it. Observed for real on 2026-07-28, where a missing
+    // TRADER_CREDENTIALS_ENC_KEY burned the 20/hour write budget on 503s.
+    // Safe to check here: currentUid() has already run, so this leaks
+    // deployment state only to signed-in callers, who can read the same field
+    // from GET /api/alpaca-credentials anyway.
+    if (needsCrypto && !cryptoEnabled()) {
+      res.status(503).json({ error: 'Server-side credential storage is not configured on this deployment.' });
       return null;
     }
     if (rateLimited(`credentials:${limit}:${uid}`, limit, WINDOW_MS)) {
@@ -157,7 +170,7 @@ export function installCredentialsRoutes(app) {
   // repeats the metadata list, not the submitted values.
   app.post('/api/alpaca-credentials/:mode', async (req, res) => {
     try {
-      const uid = await requireUid(req, res, WRITE_LIMIT);
+      const uid = await requireUid(req, res, WRITE_LIMIT, { needsCrypto: true });
       if (!uid) return;
       const built = buildCredentialPayload(req.params.mode, req.body);
       if (!built.ok) return res.status(400).json({ error: built.error });
