@@ -173,18 +173,28 @@ try {
     note(`job_runs: add uid, attribute ${n} row(s) to '${UID}', lock index (job) -> (uid, job)`);
     await client.query(`update job_runs set uid = $1 where uid is null`, [UID]);
     await client.query(`alter table job_runs alter column uid set not null`);
-    // Drop the old lock: leaving it in place alongside the new one would keep
-    // two users' jobs contending on the (job)-only index, which is the exact
-    // bug this phase exists to fix. `if not exists` on the creates because
-    // db.js's init() may already have built them.
-    await client.query(`drop index if exists job_runs_running_uidx`);
-    await client.query(`drop index if exists job_runs_job_started_idx`);
+    // `if not exists` because db.js's init() may already have built these.
     await client.query(
       `create unique index if not exists job_runs_uid_running_uidx on job_runs (uid, job) where status = 'running'`,
     );
     await client.query(
       `create index if not exists job_runs_uid_job_started_idx on job_runs (uid, job, started_at desc)`,
     );
+  }
+
+  // Outside the branch above ON PURPOSE, so every run of this script removes
+  // them. During the deploy window the previously deployed build can cold-start
+  // and its init() recreates `job_runs_running_uidx` with `if not exists`,
+  // resurrecting the (job)-only lock against the already-migrated table — two
+  // tenants would then contend for one lock, the exact bug this phase fixes.
+  // Observed for real on 2026-07-28. Re-run this script once the new build is
+  // serving to sweep it.
+  const staleLock = await indexExists("job_runs_running_uidx");
+  const staleIdx = await indexExists("job_runs_job_started_idx");
+  if (staleLock || staleIdx) {
+    note(`job_runs: dropping resurrected pre-Phase-4 index(es): ${[staleLock && "job_runs_running_uidx", staleIdx && "job_runs_job_started_idx"].filter(Boolean).join(", ")}`);
+    await client.query(`drop index if exists job_runs_running_uidx`);
+    await client.query(`drop index if exists job_runs_job_started_idx`);
   }
 
   // ---- cron_config: pk (job) -> (uid, job) --------------------------------

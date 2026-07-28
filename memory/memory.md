@@ -1,5 +1,40 @@
 # Project: CryptoPro Trader
 
+## v2026-07-28.1 — 2026-07-28 — Phase 4 applied; two findings from doing it
+
+Migration applied to the shared database (`--confirm`) and the code pushed to `main`. Backfill
+attributed 5 `trader_journal`, 31 `job_runs` and 1 `cron_config` row to `ekuipers`; `trader_state`'s
+legacy `id='trader'` row was copied, and both rows carry the same `updated_at`, so the engine reads
+the same state it had before. Sequenced migration-first on purpose: the reverse order deploys new code
+onto the old schema, where `getTraderState('ekuipers')` finds no row and returns `EMPTY_STATE()` while
+`isCronJobEnabled` defaults to enabled — evaluate would have run on empty state and could place orders
+blind, with `CRON_EXECUTE` true in production. Migration-first fails safe instead: old code errors at
+`startJobRun`'s `ON CONFLICT` before reaching order placement.
+
+Two things only doing it surfaced:
+
+1. **The old build's `init()` resurrects the dropped lock index.** During the deploy window a cold
+   start of the previously deployed code ran `create unique index if not exists job_runs_running_uidx`
+   against the already-migrated table, restoring the `(job)`-only lock alongside the new `(uid, job)`
+   one — the exact contention bug Phase 4 exists to remove. The migration's `job_runs` branch is
+   skipped on a re-run (it keys on `uid` being NOT NULL), so it would not have cleaned this up.
+   Fixed: the legacy-index drop now lives **outside** that branch, so every run sweeps it. **Standing
+   rule: re-run `node scripts/migratePhase4.mjs --confirm` once the new build is serving**, and check
+   `pg_indexes` for `job_runs_running_uidx` — it must be absent.
+2. **`node:test` treats `{ skip: null }` as "skip".** The Phase 4 integration tests were passing the
+   option unconditionally, so the whole suite had been silently skipped since it was written — the
+   earlier "420/420" never executed them. The suite reported `# SKIP` while listing its tests as
+   cancelled, which is what gave it away. Fixed by omitting the options object entirely when not
+   skipping. **Any suite gated this way needs the same treatment** — pass no options rather than a
+   null `skip`.
+
+**Verified after both fixes:** `npm test` 426/426 with the integration half genuinely running against
+the migrated schema, including the test that user B's `startJobRun` is not blocked by user A's.
+
+**Still open:** the Vercel deployment was not confirmed live from here (no `gh` CLI, production URL
+not checked). Until it is, another old-build cold start can resurrect the index again — hence the
+re-run rule above.
+
 ## v2026-07-27.5 — 2026-07-27 — Multi-tenant Phase 4: uid-keyed engine tables
 
 Schema + code for the multi-tenant conversion's Phase 4. The four engine tables are now keyed by

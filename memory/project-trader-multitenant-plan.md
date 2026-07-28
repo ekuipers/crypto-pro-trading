@@ -257,11 +257,22 @@ tests for state/journal/cron-config isolation and — the point of the phase —
 `startJobRun` is not blocked by user A's running job. The integration half skips with an explicit
 reason until the migration runs. Dry run against the real database is clean (1/4/28/1 rows → `ekuipers`).
 
-**Remaining, and it is the risky part:** back up → `node scripts/migratePhase4.mjs --confirm` →
-**deploy immediately**. Between those last two steps the previously deployed code runs against the new
-schema and its `ON CONFLICT (day)`/`(job)` clauses error, so scheduled jobs fail — loudly, and before
-any order is placed, but the stop watchdog is among them. Keep the window short and off the watchdog's
-configured hour.
+**APPLIED 2026-07-28.** Backup → `--confirm` → push, in that order. Migration-first is the safe
+direction: the reverse puts new code on the old schema, where `getTraderState(uid)` finds no row and
+`isCronJobEnabled` defaults to enabled, so evaluate runs on `EMPTY_STATE()` and can place orders blind
+with `CRON_EXECUTE` true. Migration-first fails at `startJobRun`'s `ON CONFLICT` instead, before any
+order. Backfill: 5 journal, 31 job_runs, 1 cron_config row → `ekuipers`; `trader_state` copied with
+`updated_at` preserved.
+
+**Gotcha found while applying it — the deploy window is not just "jobs fail".** A cold start of the
+*previously deployed* build re-runs its own `init()`, whose
+`create unique index if not exists job_runs_running_uidx` **resurrects the `(job)`-only lock** against
+the already-migrated table, so both locks exist and two tenants contend again. The migration's
+`job_runs` branch keys on `uid` being NOT NULL and is skipped on a re-run, so it would not have swept
+it; the legacy-index drop now sits outside that branch and every run cleans up. **Standing rule: after
+the new build is confirmed serving, re-run `node scripts/migratePhase4.mjs --confirm` and verify
+`job_runs_running_uidx` is absent from `pg_indexes`.** Any future migration that drops an object
+`init()` also creates needs the same treatment.
 
 ## Phase 5 — cron dispatcher rewrite, highest-risk phase (not yet implemented)
 

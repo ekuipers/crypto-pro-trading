@@ -76,9 +76,15 @@ if (!db.dbEnabled() || !connectionUrl()) {
 }
 if (skipReason) console.log(`[dbMultitenant.test] skipping integration tests: ${skipReason}`);
 
+// The options object is omitted entirely when not skipping: node:test treats a
+// present `skip` key as "skip" even when its value is null, so passing
+// `{ skip: null }` silently skips the whole suite and reports its tests as
+// cancelled rather than run.
+const suiteOpts = skipReason ? { skip: skipReason } : {};
+
 let pool = null;
 
-describe("uid-scoped engine tables", { skip: skipReason }, () => {
+describe("uid-scoped engine tables", suiteOpts, () => {
   before(async () => {
     pool = new pg.Pool({ connectionString: connectionUrl(), max: 2 });
     await cleanup();
