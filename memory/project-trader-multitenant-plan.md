@@ -274,6 +274,12 @@ the new build is confirmed serving, re-run `node scripts/migratePhase4.mjs --con
 `job_runs_running_uidx` is absent from `pg_indexes`.** Any future migration that drops an object
 `init()` also creates needs the same treatment.
 
+Deploy confirmed clean 2026-07-28 and the sweep re-run performed — nothing had returned, so the
+resurrection was a single event during the window. Phase 4 is complete bar one thing: **no scheduled
+job has run since the migration** (`evaluate` fires at `hour_utc=1`, `watchdog`/`daily-summary` on the
+compiled defaults 4/6), so a live cron cycle writing the four tables under their new keys is still
+unobserved. Everything else is covered by the 426-test suite and direct database inspection.
+
 ## Phase 5 — cron dispatcher rewrite, highest-risk phase (not yet implemented)
 
 `cronRoutes.js`'s `handleDispatch` loop becomes nested: for each job, for each uid with an active

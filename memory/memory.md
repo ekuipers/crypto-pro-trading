@@ -31,9 +31,18 @@ Two things only doing it surfaced:
 **Verified after both fixes:** `npm test` 426/426 with the integration half genuinely running against
 the migrated schema, including the test that user B's `startJobRun` is not blocked by user A's.
 
-**Still open:** the Vercel deployment was not confirmed live from here (no `gh` CLI, production URL
-not checked). Until it is, another old-build cold start can resurrect the index again — hence the
-re-run rule above.
+**Closed out same day:** user confirmed the production deploy clean and working. Post-deploy sweep
+re-run performed — nothing had come back, so the single resurrection was a one-off from the
+old-build cold start during the deploy window. `job_runs` now carries only `job_runs_pkey` and the two
+uid-scoped indexes; `npm test` 426/426 against the live schema.
+
+**Genuinely still unverified:** no *scheduled* job has fired since the migration. Today's runs
+(01:00/04:00/06:00 UTC) all predate it, and each job fires once daily at its own hour, so the first
+real exercise of the new code end-to-end is `evaluate` at 01:00 UTC (`cron_config.hour_utc = 1`;
+`watchdog`/`daily-summary` have no row and fall back to `DEFAULT_HOUR_UTC` 4 and 6). Everything up to
+that point is verified by test and by direct database inspection, but a live cron cycle writing
+`trader_state`/`trader_journal`/`job_runs` under the new keys has not happened yet — check
+`/api/cron/status` afterwards.
 
 ## v2026-07-27.5 — 2026-07-27 — Multi-tenant Phase 4: uid-keyed engine tables
 
