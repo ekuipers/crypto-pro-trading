@@ -1,5 +1,59 @@
 # Project: CryptoPro Trader
 
+## 2026-07-29 — MEASUREMENT ONLY (no code change): the 15-min timeframe cannot pay for itself
+
+Ran the new replay harness against the strategic question the market-researcher raised. **No code
+was changed by this work** — it is recorded because it should decide the next real change, and
+because two of my own hypotheses along the way were wrong.
+
+**Controlled 15-min vs 4H, same 30 days, same 0.58% spread, same engine:**
+
+| | 15-min | 4H |
+|---|---|---|
+| windows | 28,210 | 1,210 |
+| cleared the ≥2.5 score gate | 2,239 | 61 |
+| net R:R **negative** | 1,278 / 1,500 (85%) | 8 / 56 (14%) |
+| mean net R:R | **−0.130** | **+0.260** |
+
+An earlier attempt at this used 400 bars of each, i.e. **4 days vs 66 days** — not a timeframe
+comparison at all, partly two different market regimes. Discarded. Always fix the wall-clock window.
+
+**Then a stop/target grid on 4H execution** (self-checked: the cell the engine actually uses
+reproduced `decision.netRr` exactly, 56 compared, 0 mismatched):
+
+| stop / target | n | ≥1.0 gate | ≥1.5 full | mean R:R |
+|---|---|---|---|---|
+| daily-stop, BB-upper | 56 | 4% | 0% | 0.26 |
+| daily-stop, 3×ATR | 61 | 7% | 0% | 0.53 |
+| **4H-stop, BB-upper** | 56 | **32%** | **30%** | **2.01** |
+| 4H-stop, 3×ATR | 61 | 44% | 31% | 2.22 |
+
+- **My hypothesis was wrong: the target definition is NOT the binding constraint — the STOP
+  TIMEFRAME is.** Same BB-upper target, stop moved from daily to 4H: mean R:R 0.26 → **2.01**.
+  BB-upper is fine and beats 2×ATR (1.29); **no need to touch the ships-OFF measured-move flag.**
+- **The stop must sit on the EXECUTION timeframe, not one above it.** Production today is 15-min
+  execution with a *4H* swing-low stop — the risk leg is a whole timeframe wider than the reward
+  leg. That is the same defect the market-researcher measured as a 6–9× sizing/exit stop mismatch.
+- **But matching the stop does NOT rescue 15-min.** Tested: 15-min execution with a 15-min stop
+  gives mean R:R **−0.57** (worse than production's −0.12), with the negative count *identical* at
+  1,820/2,134 (85%). The stop is only the denominator — **85% of 15-min candidates have a negative
+  reward leg no matter what the stop is**, because the 15-min BB-upper target is not far enough to
+  cover the round-trip cost. A tighter stop lifts the few positive cases over the gate (1% → 5%
+  passing) while making the negative ones more negative. It does not create edge.
+
+**Conclusion, well-evidenced: 4H execution WITH a matched 4H swing-low stop.** Mean net R:R 2.01,
+32% of candidates clearing the ≥1.0 gate and 30% clearing the full ≥1.5 gate, versus production's
+−0.12 and 1%. Roughly 18 gate-passing candidates per 30 days before the correlation budget — note
+the "2 entries per 30 days" figure from the first 4H run was the *daily-stop* configuration, which
+we now know is the wrong cell.
+
+**What this does NOT establish, and must not be read as:** favourable geometry is not edge. A 2:1
+R:R with a 30% win rate still loses. The live record is 44.1% wins at a 0.57 payoff; holding that
+win rate while moving the payoff toward 2:1 would be strongly profitable, but *whether the
+confluence score predicts direction at a 4H horizon is untested*. That is precisely what the
+walk-forward evaluator (fills + P&L) has to answer, and the screen it was gated behind has now
+passed.
+
 ## v2026-07-29.6 — 2026-07-29 — replay harness; volume numerator guard, measured before shipping
 
 The point of this one is the **order of operations**: build the measurement, then use it, then ship.
