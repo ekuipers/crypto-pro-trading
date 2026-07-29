@@ -1,13 +1,13 @@
 // src/cronRoutes.js
 //
 // Vercel Cron-triggered (or dashboard-triggered) HTTP entry points for the
-// Node evaluation/watchdog/daily-summary engines — the Suite roadmap item
+// Node evaluation/watchdog engines — the Suite roadmap item
 // (Trader only) to replace the GitHub Actions Python cron workflows with an
 // "unattended process orchestrated via the front end". See
 // memory/memory.md v2026-07-21.3 for the full analysis this implements.
 //
 // A Vercel serverless function has no persistent local disk across
-// invocations, so runEvaluation.js/stopWatchdog.js/dailySummary.js's default
+// invocations, so runEvaluation.js/stopWatchdog.js's default
 // file-based state/journal deps can't be used here. Their `deps` injection
 // point (built for testing) is reused instead: loadState/saveState/
 // appendJournalBlock etc. are swapped for Postgres-backed equivalents.
@@ -35,11 +35,15 @@ import * as ps from "./positionState.js";
 import * as te from "./tenantEngine.js";
 import { main as runEvaluationMain } from "./runEvaluation.js";
 import { main as stopWatchdogMain } from "./stopWatchdog.js";
-import { main as dailySummaryMain } from "./dailySummary.js";
 import { DEFAULT_HOUR_UTC, isJobDue } from "./cronSchedule.js";
 
 const CRON_EXECUTE = process.env.CRON_EXECUTE === "true";
-const JOBS = ["evaluate", "watchdog", "daily-summary"];
+// daily-summary removed 2026-07-29 (user decision): it was journal-only —
+// it placed no orders and touched no position state — so dropping it changes
+// nothing about how the engine trades. Historical `job_runs` rows for it are
+// kept as an audit trail; any leftover `cron_config` row is inert, since the
+// dispatcher only ever iterates this list.
+const JOBS = ["evaluate", "watchdog"];
 
 // Multi-tenant Phase 5: there is no longer a single owner account. Every
 // account with an ACTIVE Alpaca credential is a tenant of the scheduled engine
@@ -68,12 +72,17 @@ async function runJobForTenant(job, ctx) {
   } else if (job === "watchdog") {
     code = await stopWatchdogMain({ execute: CRON_EXECUTE, deps });
   } else {
-    code = await dailySummaryMain({ deps });
+    // Explicit rather than a trailing else that runs the watchdog: every
+    // caller already validates against JOBS, so reaching here means a bug,
+    // and silently running a different job than the one asked for would be
+    // worse than failing. (Before 2026-07-29 this branch was daily-summary.)
+    throw new Error(`unknown job: ${job}`);
   }
 
-  // daily-summary is journal-only; it must not write state back, or a summary
-  // run would clobber whatever evaluate/watchdog last persisted for this user.
-  if (job !== "daily-summary") await db.putTraderState(uid, state);
+  // Both remaining jobs mutate position state, so it always persists. This
+  // used to be conditional because daily-summary was journal-only and writing
+  // state back would clobber whatever evaluate/watchdog last persisted.
+  await db.putTraderState(uid, state);
   await te.persistTenantJournal(uid, capture);
 
   return { code, detail: code === 0 ? "ok" : `${job} failed (see logs)` };

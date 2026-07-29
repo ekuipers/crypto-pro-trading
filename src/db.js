@@ -171,7 +171,7 @@ export async function init() {
   )`);
 
   // Cron cutover (Suite roadmap, "For Trader only"): the Node evaluation/
-  // watchdog/daily-summary engines run as Vercel Cron-triggered serverless
+  // watchdog engines run as Vercel Cron-triggered serverless
   // functions instead of GitHub Actions. A serverless function has no
   // persistent local disk across invocations, so positions_state.json and
   // journal/*.md move here.

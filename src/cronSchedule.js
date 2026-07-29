@@ -11,7 +11,7 @@
 // hour has arrived AND it hasn't already run today -- decoupling "how often
 // Vercel wakes the function" from "does this specific job actually run now".
 
-export const DEFAULT_HOUR_UTC = { evaluate: 2, watchdog: 4, "daily-summary": 6 };
+export const DEFAULT_HOUR_UTC = { evaluate: 2, watchdog: 4 };
 
 /** "YYYY-MM-DD" for `now`, in UTC (matches hour_utc's timezone). */
 export function todayUtcDateStr(now = new Date()) {

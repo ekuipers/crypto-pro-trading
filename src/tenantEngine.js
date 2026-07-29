@@ -79,11 +79,10 @@ export async function buildTenantContext(uid, deps = {}) {
 /**
  * The dep bundle for a runner, bound to one tenant.
  *
- * stopWatchdog.js and dailySummary.js don't read `deps.client` — they take
- * individual functions whose defaults are env-var bound (see their imports from
- * trade.js). So every call they make has to be injected explicitly here;
- * passing only `client` would leave them trading the legacy account while
- * looking correct.
+ * stopWatchdog.js doesn't read `deps.client` — it takes individual functions
+ * whose defaults are env-var bound (see its imports from trade.js). So every
+ * call it makes has to be injected explicitly here; passing only `client`
+ * would leave it trading the legacy account while looking correct.
  *
  * State and journal writes are deliberately NOT done inside these deps: the
  * runners call saveState/appendJournalBlock synchronously (an fs-era contract),
@@ -123,11 +122,6 @@ export function tenantDeps(ctx, state, capture) {
     },
     appendStopWatchdogBlock: (actions, now) => {
       capture.journalText = buildStopWatchdogBlockText(actions, now);
-      capture.journalNow = now;
-      return "postgres";
-    },
-    appendDailySummaryBlock: (block, now) => {
-      capture.journalText = block;
       capture.journalNow = now;
       return "postgres";
     },

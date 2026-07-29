@@ -196,10 +196,11 @@
     // job's stale read clobber the slower job's write. The dispatcher never
     // hits this (it awaits each job in sequence), only manual "Run now"
     // clicks can -- so the guard lives here, not in cronRoutes.js.
+    // daily-summary removed 2026-07-29 — it was journal-only and is gone from
+    // the product; the server no longer exposes a route for it.
     const CRON_JOBS = [
       { id: "evaluate", label: "Evaluate", touchesState: true },
-      { id: "watchdog", label: "Stop Watchdog", touchesState: true },
-      { id: "daily-summary", label: "Daily Summary", touchesState: false }
+      { id: "watchdog", label: "Stop Watchdog", touchesState: true }
     ];
 
     function cronFmtTime(iso) {

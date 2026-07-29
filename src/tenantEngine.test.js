@@ -160,10 +160,10 @@ describe("tenantDeps", () => {
   });
 
   test("every injected call routes through the tenant's client", async () => {
-    // stopWatchdog.js and dailySummary.js do NOT read deps.client — they take
-    // individual functions whose defaults are env-var bound. If any of these
-    // were left out, those runners would trade the legacy account while the
-    // dispatcher looked correct.
+    // stopWatchdog.js does NOT read deps.client — it takes individual
+    // functions whose defaults are env-var bound. If any of these were left
+    // out, that runner would trade the legacy account while the dispatcher
+    // looked correct.
     const d = tenantDeps(ctx(), {}, {});
     assert.deepEqual(await d.getPositions(), [{ symbol: "BTC/USD" }]);
     assert.deepEqual(await d.getAccount(), { equity: "1000" });
@@ -190,17 +190,23 @@ describe("tenantDeps", () => {
     assert.equal(d.saveState(), undefined);
   });
 
-  test("journal appenders capture text instead of writing, for all three job shapes", () => {
+  test("journal appenders capture text instead of writing, for both job shapes", () => {
     const capture = {};
     const d = tenantDeps(ctx(), {}, capture);
     const now = new Date("2026-07-28T12:00:00Z");
 
-    assert.equal(d.appendDailySummaryBlock("summary text", now), "postgres");
-    assert.equal(capture.journalText, "summary text");
-    assert.equal(capture.journalNow, now);
-
     d.appendStopWatchdogBlock([], now);
     assert.equal(typeof capture.journalText, "string");
     assert.equal(capture.journalNow, now);
+
+    d.appendJournalBlock({ decisions: [], executed: [], now });
+    assert.equal(typeof capture.journalText, "string");
+    assert.equal(capture.journalNow, now);
+  });
+
+  test("the removed daily-summary appender is gone, not left dangling", () => {
+    // daily-summary was deleted 2026-07-29. A leftover dep here would be a
+    // silent no-op seam that later reads as a supported job.
+    assert.equal(tenantDeps(ctx(), {}, {}).appendDailySummaryBlock, undefined);
   });
 });

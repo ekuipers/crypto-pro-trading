@@ -1,5 +1,40 @@
 # Project: CryptoPro Trader
 
+## v2026-07-29.2 — 2026-07-29 — daily-summary cron job deleted
+
+User decision, taken after being offered three scopes (unschedule only / delete the feature /
+disable in the DB): **delete the feature entirely.**
+
+- **No trading impact.** daily-summary was journal-only — it placed no orders and touched no
+  position state. What is actually lost is the closing daily journal block: equity + day change,
+  cash, open positions with unrealized P&L, today's fills, and FIFO realized P&L for round trips
+  closed that day. That block is now produced by nothing, by cron *or* by hand.
+- Deleted: `src/dailySummary.js` (114 lines), `src/dailySummary.test.js` (74), the `JOBS` and
+  `DEFAULT_HOUR_UTC` entries, `tenantDeps`' `appendDailySummaryBlock`, the Scheduled Jobs row in
+  `tabs-command.js`, and the mentions in `command.html`/`db.js`/`.env.example`. Both
+  `/api/cron/daily-summary` routes now 404 (routes are registered by iterating `JOBS`).
+- **`runJobForTenant` now throws on an unknown job.** It used to end in a trailing `else` that ran
+  daily-summary; with that gone the same shape would silently run the *watchdog* for any unrecognised
+  job. Callers all validate against `JOBS`, so reaching it means a bug — and running a different job
+  than the one asked for is worse than failing.
+- **`putTraderState` became unconditional.** It was guarded by `if (job !== "daily-summary")`
+  precisely because that job was journal-only and writing state back would clobber what
+  evaluate/watchdog last persisted. Both remaining jobs mutate state, so the guard is now dead.
+- Kept deliberately: historical `job_runs` rows (audit trail), and any stale `cron_config` row —
+  inert, because the dispatcher only ever iterates `JOBS`.
+- The panel's mutual "Run now" disable between Evaluate and Watchdog now covers the whole panel,
+  since daily-summary was the only job that didn't touch `trader_state`.
+- **Process note worth keeping.** The first route-removal check reported `POST
+  /api/cron/daily-summary` → 401 instead of 404, which looked like the route surviving. It was a
+  **stale `node server.js` from an earlier smoke test still holding port 3000** — the new server had
+  died with `EADDRINUSE` and curl was talking to the old build. `pkill -f "node server.js"` does not
+  work in this Git Bash environment; use `tasklist //FI "IMAGENAME eq node.exe"` + `taskkill //F
+  //PID`. **Always confirm the server actually bound** (grep the log for "listening" or EADDRINUSE)
+  before trusting a local HTTP smoke test.
+- Verified: 464 tests pass (was 469: −6 dailySummary tests, +1 new asserting the removed
+  `appendDailySummaryBlock` dep is gone rather than left dangling as a silent no-op seam); build
+  clean; `daily-summary` 404s on both verbs while `evaluate`/`watchdog` still answer 401 for a guest.
+
 ## v2026-07-29.1 — 2026-07-29 — Multi-tenant Phase 6: dashboard UI (FINAL PHASE)
 
 The conversion is feature-complete. **Code complete, not yet deployed.** Unlike Phase 4 this needs no

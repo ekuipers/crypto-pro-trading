@@ -157,14 +157,14 @@ describe("uid-scoped engine tables", suiteOpts, () => {
   });
 
   test("latest job runs are scoped to the requesting uid", async () => {
-    const id = await db.startJobRun(UID_A, "daily-summary", "manual");
+    const id = await db.startJobRun(UID_A, "watchdog", "manual");
     await db.finishJobRun(id, "ok", "detail-a");
 
     const forA = await db.getLatestJobRuns(UID_A);
-    assert.ok(forA.some((r) => r.job === "daily-summary" && r.detail === "detail-a"));
+    assert.ok(forA.some((r) => r.job === "watchdog" && r.detail === "detail-a"));
 
     const forB = await db.getLatestJobRuns(UID_B);
-    assert.ok(!forB.some((r) => r.job === "daily-summary"), "B saw A's job run");
+    assert.ok(!forB.some((r) => r.job === "watchdog"), "B saw A's job run");
   });
 
   test("cron config is per (uid, job) and defaults to enabled", async () => {
