@@ -67,6 +67,8 @@ architecture and hard rules live in `CLAUDE.md`.
 | Limit order | Only order type used; price ≤ ask + 0.2% |
 | Stop escalation | A stop-loss order that hasn't filled for 2 cycles is cancel-replaced with a wider limit band (0.5% → 0.8% from ask), so it can still cross a spread that has widened past the base band |
 | Replay harness | `scripts/replay.mjs` — replays historical bars through the live decision engine and reports what it *would* have done: score distribution, gate crossings, and which gate blocked each candidate. Measures a strategy change before it ships. Not a backtester: no fills, no P&L |
+| Timeframe comparison | `scripts/compareTimeframes.mjs` — replays each execution-timeframe / stop / target configuration over the *same wall-clock window* and compares net R:R. Comparing equal bar counts instead of equal time spans compares two market regimes, not two timeframes |
+| Geometry vs edge | Net R:R describes the shape of a trade (reward relative to risk); it says nothing about whether the entry signal picks direction. A 2:1 reward-to-risk at a 30% win rate still loses money |
 | Paper spot trading | Simulated spot trades only; Alpaca paper environment (no futures support yet) |
 | Read-only mode | Live Alpaca credentials show account/positions/quotes but can never place or cancel an order |
 | Morning brief | Scheduled 7 AM task: eval + journal block + dashboard summary |

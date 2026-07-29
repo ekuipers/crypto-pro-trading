@@ -1,5 +1,23 @@
 # Project: CryptoPro Trader
 
+## 2026-07-29 — the timeframe measurement is now reproducible in-repo
+
+The findings below were originally produced by throwaway scratchpad scripts in a temp directory,
+which meant **the user could not re-run the numbers driving a strategy decision.** Fixed:
+
+- **`scripts/compareTimeframes.mjs` (new)** — the whole stop/target/timeframe grid as a committed
+  script. Bar counts are derived from `--days` so the wall-clock window is equal by construction;
+  the mistake it prevents (400 bars of each = 4 days vs 66 days) is documented in its header.
+- **`scripts/replay.mjs` gained `--timeframe` / `--htf`**, which shift the execution and
+  higher-timeframe slots together and validate against the four timeframes marketData supports.
+  Without them the 4H result was simply not reachable from the CLI.
+- **The self-check got stronger in the process**: it now verifies every cell the engine computes
+  itself, not just one — **1,556 compared, 0 mismatched**, and the script prints a loud refusal
+  banner if that ever drifts. All five cells reproduced the scratchpad numbers exactly.
+
+**Standing lesson:** a measurement that decides a strategy change belongs in the repo, not in a
+scratchpad. If the user cannot re-run it, it is an assertion, not evidence.
+
 ## 2026-07-29 — MEASUREMENT ONLY (no code change): the 15-min timeframe cannot pay for itself
 
 Ran the new replay harness against the strategic question the market-researcher raised. **No code
