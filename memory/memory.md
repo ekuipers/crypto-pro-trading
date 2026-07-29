@@ -1,5 +1,36 @@
 # Project: CryptoPro Trader
 
+## v2026-07-29.5 — 2026-07-29 — the net R:R entry gate failed OPEN, inverted
+
+Third finding from the same market-researcher pass, and the same shape as the stop-escalation one:
+a documented rule that did not do what it said, in **both** engines.
+
+- **The inversion.** `netRr()` returns `null` when either leg is missing, and both
+  `evaluateSymbol.js` and the dashboard's `autopilot.js` guarded with `if (rr !== null)` /
+  `if (rrNet !== null && ...)` — i.e. **skipped the gate entirely** on null. But `target` is null
+  precisely when `bb.upper <= ask`, meaning **price is at or above the BB upper band**. So the most
+  extended setups — the exact case the gate exists to catch — passed unchecked, while ordinary
+  setups were tested. A null `entryStop` (fewer than 5 usable 4H lows, or a swing low above entry)
+  skipped it too, entering with an unmeasurable risk leg.
+- **It was known and worked around, not unknown.** `evaluateSymbol.test.js`'s existing R:R test
+  carried the comment *"upper == ask -> no usable target -> rr stays null -> gate skipped"* and
+  chose a different fixture to avoid it. The behaviour was documented in a test as expected rather
+  than recognised as a defect. Worth remembering as a review smell: a test comment explaining how to
+  route *around* a code path is often describing a bug.
+- **Fix:** both null cases now **block**, and the reason string names which leg is missing
+  ("no upside to the BB upper band" vs "risk leg is unmeasurable") — "R:R unavailable" alone would
+  have sent the next investigation guessing, the same way bare "n/a" did on the volume component.
+  Applied to `evaluateSymbol.js` and `src/js/autopilot.js` together. The word "soft" was dropped
+  from the rule in CLAUDE.md.
+- 492 tests pass (488 + 4). **No existing test failed when the behaviour changed** — none of them
+  exercised the fail-open path, which is why it survived. The four new tests cover: at the band,
+  above the band, missing stop, and a healthy setup still entering (so the gate didn't become a
+  blanket block).
+- **Pattern across today's three engine bugs — worth acting on.** Stop escalation, and now this,
+  were both **engine/dashboard divergences or shared fail-opens in order/entry logic**, not scoring.
+  `src/scoreParity.test.js` covers scoring only. There is still no parity or fail-closed test over
+  order placement and entry gating, and that is where two of the three live-money bugs were.
+
 ## v2026-07-29.4 — 2026-07-29 — the 2-cycle stop escalation was a no-op; stops were unfillable
 
 Found by the market-researcher pass, verified in code before acting. **Not a scoring nicety — this

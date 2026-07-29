@@ -580,20 +580,33 @@
           const corrHalf = !!(corr && corr.rho > AP_CORR_LIMIT);
           if (corrHalf) apLog("info", `${sym} score ${res.score} — high correlation with open ${corr.sym} (ρ ${fmt(corr.rho, 2)} > ${AP_CORR_LIMIT}) — half-sizing entry.`);
 
-          // Net R:R soft gate (roadmap 2026-07-09 items 1+7 — mirrors Python):
-          // reward to the BB-upper target net of round-trip cost (2× taker fee
-          // + live spread) vs the distance to the 4H swing-low stop.
-          // Soft: skipped when the stop/target geometry is unavailable.
+          // Net R:R gate (roadmap 2026-07-09 items 1+7 — mirrors the engine's
+          // evaluateSymbol.js): reward to the BB-upper target net of round-trip
+          // cost (2× taker fee + live spread) vs the distance to the 4H
+          // swing-low stop.
+          //
+          // FAILS CLOSED since 2026-07-29. It used to skip the check whenever
+          // the geometry was unavailable, which inverted the gate: rrTarget is
+          // null precisely when the ask is at or ABOVE the BB upper band, so
+          // the most extended setups — what the gate exists to catch — passed
+          // unchecked. Keep this in step with evaluateSymbol.js.
           const lows4hE  = ((b4h || {})[sym] || (b4h || {})[sym.replace("/", "")] || []).map(b => b.l);
           const entryStop = swingLowStop4h(lows4hE, ask);
           const rrTarget  = res.bb && res.bb.upper > ask ? res.bb.upper : null;
           const rrCost    = roundTripCostPct(liveSpread[sym]);
           const rrNet     = netRrPct(ask, entryStop, rrTarget, rrCost);
-          if (rrNet !== null && rrNet < STRAT_CFG.minRrHalf) {
+          if (rrNet === null) {
+            const why = entryStop === null
+              ? "no 4H swing-low stop, so the risk leg is unmeasurable"
+              : "no upside to the BB upper band (price is at or above it)";
+            apLog("block", `${sym} score ${res.score} — blocked: net R:R unavailable — ${why}.`);
+            continue;
+          }
+          if (rrNet < STRAT_CFG.minRrHalf) {
             apLog("block", `${sym} score ${res.score} — blocked: net R:R ${fmt(rrNet, 2)} < ${STRAT_CFG.minRrHalf} (round-trip cost ${fmt(rrCost, 2)}%).`);
             continue;
           }
-          const rrHalf = rrNet !== null && rrNet < STRAT_CFG.minRrFull;
+          const rrHalf = rrNet < STRAT_CFG.minRrFull;
           if (rrHalf) apLog("info", `${sym} score ${res.score} — net R:R ${fmt(rrNet, 2)} < ${STRAT_CFG.minRrFull} — half-sizing entry.`);
 
           const capPct = (PORTFOLIO_CAPS[sym] || 5) / 100;            // per-symbol cap (5% default)

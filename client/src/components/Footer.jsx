@@ -21,7 +21,7 @@ export default function Footer() {
       <span className="footer-sep">·</span>
       <span>{t('footer.lastModified')} <strong>2026-07-29</strong></span>
       <span className="footer-sep">·</span>
-      <span>{t('footer.version')} <strong>v2026-07-29.4</strong></span>
+      <span>{t('footer.version')} <strong>v2026-07-29.5</strong></span>
       <span className="footer-sep">·</span>
       <span className="footer-disclaimer">{t('footer.disclaimer')}</span>
       <button type="button" className="footer-terms-link" onClick={() => window.openTermsModal()}>{t('footer.terms')}</button>

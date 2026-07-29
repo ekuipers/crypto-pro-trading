@@ -560,11 +560,18 @@ async function evaluateFlatEntry({ decision, symbol, score, ask, bid, state, ope
   const inDowntrend = regime === "downtrend";
   const allowLong = (!inDowntrend && score >= BUY_SCORE_HALF_SIZE) || (inDowntrend && score >= DOWNTREND_LONG_SCORE);
   if (allowLong) {
-    // R:R soft entry gate: reward leg is net of the round-trip cost (2x
-    // taker fee + live spread). Risk leg = distance to the 4H swing-low
-    // stop; target = BB upper band. Soft: skipped when the stop/target
-    // geometry is unavailable. (Measured-move target ships OFF -- guarded
-    // unreachable at module load; the BB-upper target is used unconditionally.)
+    // R:R entry gate: reward leg is net of the round-trip cost (2x taker fee
+    // + live spread). Risk leg = distance to the 4H swing-low stop; target =
+    // BB upper band. (Measured-move target ships OFF -- guarded unreachable at
+    // module load; the BB-upper target is used unconditionally.)
+    //
+    // FAILS CLOSED since 2026-07-29. It used to skip the check whenever the
+    // geometry was unavailable, which inverted the gate: `target` is null
+    // precisely when the ask is at or ABOVE the BB upper band, i.e. the most
+    // extended setups -- exactly what the gate exists to catch -- sailed
+    // through unchecked, while ordinary setups got tested. A soft gate that
+    // opens on its own worst cases is worse than no gate. Same fix applied to
+    // the dashboard Autopilot's copy in src/js/autopilot.js.
     let rrHalfNote = "";
     const costPct = roundTripCostPct(bid, ask, TAKER_FEE_BPS_PER_SIDE);
     const entryStop = swingLowStopPrice(
@@ -579,14 +586,22 @@ async function evaluateFlatEntry({ decision, symbol, score, ask, bid, state, ope
     const target = bbTarget;
     const rr = netRr(ask, entryStop, target, costPct);
     decision.netRr = rr;
-    if (rr !== null) {
-      if (rr < MIN_RR_HALF) {
-        decision.reason = `BLOCKED: net R:R ${rr.toFixed(2)} < ${MIN_RR_HALF.toFixed(1)} (stop $${entryStop.toFixed(4)}, target $${target.toFixed(4)}, round-trip cost ${(costPct * 100).toFixed(2)}%)`;
-        return decision;
-      }
-      if (rr < MIN_RR_FULL) {
-        rrHalfNote = `, half-size on net R:R ${rr.toFixed(2)} < ${MIN_RR_FULL.toFixed(1)}`;
-      }
+    if (rr === null) {
+      // Name which leg is missing -- the two causes are different problems and
+      // "R:R unavailable" alone would send the next investigation guessing.
+      const why =
+        entryStop === null
+          ? "no 4H swing-low stop, so the risk leg is unmeasurable"
+          : "no upside to the BB upper band (price is at or above it)";
+      decision.reason = `BLOCKED: net R:R unavailable — ${why} (round-trip cost ${(costPct * 100).toFixed(2)}%)`;
+      return decision;
+    }
+    if (rr < MIN_RR_HALF) {
+      decision.reason = `BLOCKED: net R:R ${rr.toFixed(2)} < ${MIN_RR_HALF.toFixed(1)} (stop $${entryStop.toFixed(4)}, target $${target.toFixed(4)}, round-trip cost ${(costPct * 100).toFixed(2)}%)`;
+      return decision;
+    }
+    if (rr < MIN_RR_FULL) {
+      rrHalfNote = `, half-size on net R:R ${rr.toFixed(2)} < ${MIN_RR_FULL.toFixed(1)}`;
     }
 
     // Session-edge filter: half-size entries during hour/weekday buckets

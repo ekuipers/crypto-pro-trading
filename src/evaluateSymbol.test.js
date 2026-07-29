@@ -275,18 +275,65 @@ describe("evaluateSymbol — flat entry (new position)", () => {
 
   test("net R:R gate blocks an entry whose reward doesn't clear the round-trip cost", async () => {
     const deps = baseDeps({
-      // upper == ask -> no usable target -> rr stays null -> gate skipped;
-      // instead force a target just barely above ask so rr computes very low.
+      // A target just barely above ask, so rr computes but comes out very low.
       ind: withScore(4.0, { bollinger: () => [99, 99.95, 100.05, 0.001, 0.6] }),
     });
     const d = await evaluateSymbol("BTC/USD", {}, freshState(), [], { deps });
-    // Either blocked outright or half-sized on RR -- both are valid outcomes
-    // of the soft gate; assert it never grants a naive full-size BUY here.
+    // Either blocked outright or half-sized on RR -- both are valid outcomes;
+    // assert it never grants a naive full-size BUY here.
     if (d.action === "BUY") {
       assert.match(d.reason, /half-size/);
     } else {
       assert.match(d.reason, /BLOCKED: net R:R/);
     }
+  });
+
+  // 2026-07-29: the gate used to be SKIPPED whenever netRr() returned null,
+  // which inverted it -- the target is null precisely when price is at or above
+  // the BB upper band, so the most extended setups passed unchecked. The
+  // previous version of the test above even documented that as expected
+  // ("upper == ask -> no usable target -> rr stays null -> gate skipped").
+  describe("net R:R gate fails CLOSED when the geometry is unavailable", () => {
+    test("price at the BB upper band is blocked, not waved through", async () => {
+      const deps = baseDeps({
+        // upper == ask -> no upside -> target null. A high score would
+        // otherwise have produced a confident full-size BUY.
+        ind: withScore(5.0, { bollinger: () => [99, 99.5, 100, 0.01, 1.0] }),
+      });
+      const d = await evaluateSymbol("BTC/USD", {}, freshState(), [], { deps });
+      assert.notEqual(d.action, "BUY", "an extended setup must not enter");
+      assert.match(d.reason, /BLOCKED: net R:R unavailable/);
+      assert.match(d.reason, /no upside to the BB upper band/);
+    });
+
+    test("price above the BB upper band is blocked too", async () => {
+      const deps = baseDeps({
+        ind: withScore(5.0, { bollinger: () => [98, 99, 99.5, 0.01, 1.2] }), // upper < ask
+      });
+      const d = await evaluateSymbol("BTC/USD", {}, freshState(), [], { deps });
+      assert.notEqual(d.action, "BUY");
+      assert.match(d.reason, /no upside to the BB upper band/);
+    });
+
+    test("an unmeasurable risk leg is blocked, and says so distinctly", async () => {
+      const deps = baseDeps({
+        getCryptoBars4h: async () => [], // no 4H lows -> swingLowStopPrice returns null
+        ind: withScore(5.0, { bollinger: () => [99, 100, 102, 0.03, 0.4] }), // healthy target
+      });
+      const d = await evaluateSymbol("BTC/USD", {}, freshState(), [], { deps });
+      assert.notEqual(d.action, "BUY");
+      assert.match(d.reason, /BLOCKED: net R:R unavailable/);
+      assert.match(d.reason, /risk leg is unmeasurable/);
+    });
+
+    test("a healthy setup still passes — the gate did not become a blanket block", async () => {
+      const deps = baseDeps({
+        ind: withScore(5.0, { bollinger: () => [95, 100, 108, 0.13, 0.3] }), // ample upside
+      });
+      const d = await evaluateSymbol("BTC/USD", {}, freshState(), [], { deps });
+      assert.equal(d.action, "BUY", `expected a BUY, got ${d.action}: ${d.reason}`);
+      assert.doesNotMatch(d.reason, /net R:R unavailable/);
+    });
   });
 
   test("no entry when the score is below the half-size gate in a mixed regime", async () => {
