@@ -9,7 +9,8 @@ import assert from "node:assert/strict";
 import { stubFetch } from "./testUtils/fetchStub.js";
 import * as trade from "./trade.js";
 import { createAlpacaClient, isPaperTradingUrl } from "./alpacaClient.js";
-import { STOP_LOSS_LIMIT_BAND_PCT } from "./risk.js";
+import { STOP_LOSS_LIMIT_BAND_PCT, STOP_LOSS_ESCALATION_EXTRA_PCT } from "./risk.js";
+import * as risk from "./risk.js";
 
 let stub;
 afterEach(() => {
@@ -94,15 +95,20 @@ describe("placeOrder — basic rule enforcement", () => {
 
 // Port of tests/test_trade_stop_clamp.py's TestStopLossClamp class.
 describe("placeOrder — stop-loss self-rejection clamp (2026-06-11 fix)", () => {
+  // The clamp ceiling is the MAX band (base + escalation), not the base band —
+  // changed 2026-07-29, see the escalation suite below.
+  const MAX_BAND = STOP_LOSS_LIMIT_BAND_PCT + STOP_LOSS_ESCALATION_EXTRA_PCT;
+
   test("a stale limit far below the fresh ask is clamped, not rejected", async () => {
     const ask = 100.0;
-    const staleLimit = 98.0; // 2% below ask, way outside the 0.5% band
+    const staleLimit = 98.0; // 2% below ask, way outside even the escalated band
     stub = stubFetch([quoteResponse(ask), orderAcceptedResponse()]);
     const result = await trade.placeOrder("BTC/USD", 0.1, "sell", staleLimit, true);
     assert.equal(result.status, "accepted");
     const postCall = stub.calls.find((c) => c.init.method === "POST");
     const sent = Number(JSON.parse(postCall.init.body).limit_price);
-    assert.ok(Math.abs(sent - ask * (1 - STOP_LOSS_LIMIT_BAND_PCT)) < 1e-9);
+    assert.ok(Math.abs(sent - ask * (1 - MAX_BAND)) < 1e-9,
+      `expected clamp to the max band edge ${ask * (1 - MAX_BAND)}, got ${sent}`);
   });
 
   test("a limit already inside the band is sent unchanged", async () => {
@@ -121,6 +127,68 @@ describe("placeOrder — stop-loss self-rejection clamp (2026-06-11 fix)", () =>
       () => trade.placeOrder("BTC/USD", 0.1, "buy", 98.0, false),
       (e) => e instanceof trade.TradeRejected
     );
+  });
+});
+
+// Regression suite for the 2026-07-29 finding: the clamp erased the escalation
+// by construction, so CLAUDE.md's "cancel-replace wider after 2 cycles" hard
+// rule never functioned in the engine.
+describe("placeOrder — the 2-cycle stop escalation must survive the clamp", () => {
+  const MAX_BAND = STOP_LOSS_LIMIT_BAND_PCT + STOP_LOSS_ESCALATION_EXTRA_PCT;
+
+  test("an escalated stop price reaches the exchange unchanged", async () => {
+    const ask = 100.0;
+    // Exactly what risk.js's stopLossLimitPrice(ask, cyclesOpen=2) produces.
+    const escalated = risk.stopLossLimitPrice(ask, 2);
+    assert.ok(escalated < ask * (1 - STOP_LOSS_LIMIT_BAND_PCT),
+      "fixture must actually be outside the BASE band, or this proves nothing");
+
+    stub = stubFetch([quoteResponse(ask), orderAcceptedResponse()]);
+    await trade.placeOrder("BTC/USD", 0.1, "sell", escalated, true);
+    const sent = Number(JSON.parse(stub.calls.find((c) => c.init.method === "POST").init.body).limit_price);
+    assert.ok(Math.abs(sent - escalated) < 1e-6,
+      `escalated stop was altered: sent ${sent}, expected ${escalated}`);
+  });
+
+  test("the pre-fix behaviour is gone: it is NOT clamped back to the base band", async () => {
+    const ask = 100.0;
+    const escalated = risk.stopLossLimitPrice(ask, 2);
+    stub = stubFetch([quoteResponse(ask), orderAcceptedResponse()]);
+    await trade.placeOrder("BTC/USD", 0.1, "sell", escalated, true);
+    const sent = Number(JSON.parse(stub.calls.find((c) => c.init.method === "POST").init.body).limit_price);
+    assert.notEqual(Math.round(sent * 1e6), Math.round(ask * (1 - STOP_LOSS_LIMIT_BAND_PCT) * 1e6),
+      "clamped back to the base band — the escalation is a no-op again");
+  });
+
+  test("an unescalated stop is unaffected by the wider ceiling", async () => {
+    const ask = 100.0;
+    const base = risk.stopLossLimitPrice(ask, 0);
+    stub = stubFetch([quoteResponse(ask), orderAcceptedResponse()]);
+    await trade.placeOrder("BTC/USD", 0.1, "sell", base, true);
+    const sent = Number(JSON.parse(stub.calls.find((c) => c.init.method === "POST").init.body).limit_price);
+    assert.ok(Math.abs(sent - base) < 1e-6);
+  });
+
+  test("the ceiling still binds — nothing may exceed base + escalation", async () => {
+    const ask = 100.0;
+    stub = stubFetch([quoteResponse(ask), orderAcceptedResponse()]);
+    await trade.placeOrder("BTC/USD", 0.1, "sell", ask * 0.9, true); // 10% away
+    const sent = Number(JSON.parse(stub.calls.find((c) => c.init.method === "POST").init.body).limit_price);
+    assert.ok(Math.abs(sent - ask * (1 - MAX_BAND)) < 1e-9);
+  });
+
+  test("an escalated stop clears the spreads that made stops unfillable", async () => {
+    // Measured 2026-07-29: AVAX 0.570-0.577%, LTC 0.586% — wider than the 0.5%
+    // base band, so a stop at ask x 0.995 sat ABOVE the bid and never crossed.
+    const ask = 100.0;
+    const escalated = risk.stopLossLimitPrice(ask, 2);
+    for (const spreadPct of [0.00577, 0.00586]) {
+      const bid = ask * (1 - spreadPct);
+      assert.ok(ask * (1 - STOP_LOSS_LIMIT_BAND_PCT) > bid,
+        `base band should NOT cross a ${(spreadPct * 100).toFixed(3)}% spread — fixture is wrong`);
+      assert.ok(escalated <= bid,
+        `escalated stop ${escalated} must cross a ${(spreadPct * 100).toFixed(3)}% spread (bid ${bid})`);
+    }
   });
 });
 

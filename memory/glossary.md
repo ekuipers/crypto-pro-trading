@@ -65,6 +65,7 @@ architecture and hard rules live in `CLAUDE.md`.
 | Hard cap | Position capped at 5% of total equity; enforced in `src/trade.js` |
 | ATR sizing | 1% risk rule: qty = (equity×1%) / (ATR×1.5), capped at 5% equity |
 | Limit order | Only order type used; price ≤ ask + 0.2% |
+| Stop escalation | A stop-loss order that hasn't filled for 2 cycles is cancel-replaced with a wider limit band (0.5% → 0.8% from ask), so it can still cross a spread that has widened past the base band |
 | Paper spot trading | Simulated spot trades only; Alpaca paper environment (no futures support yet) |
 | Read-only mode | Live Alpaca credentials show account/positions/quotes but can never place or cancel an order |
 | Morning brief | Scheduled 7 AM task: eval + journal block + dashboard summary |

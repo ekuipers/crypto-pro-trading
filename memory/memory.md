@@ -1,5 +1,46 @@
 # Project: CryptoPro Trader
 
+## v2026-07-29.4 — 2026-07-29 — the 2-cycle stop escalation was a no-op; stops were unfillable
+
+Found by the market-researcher pass, verified in code before acting. **Not a scoring nicety — this
+was a live risk-management failure.**
+
+- **The bug, exact and arithmetic.** `risk.js`'s `stopLossLimitPrice(ask, cyclesOpen)` widens the
+  band 0.5% → 0.8% at `cyclesOpen >= STOP_LOSS_ESCALATION_CYCLES` (2). `alpacaClient.js` then
+  clamped any stop-loss limit more than `STOP_LOSS_LIMIT_BAND_PCT` (0.5%) from the ask back to
+  exactly `ask − 0.5%`. Since `0.005 + 0.003 > 0.005` **by construction**, the escalated price was
+  always clamped straight back to the un-escalated price. `STOP_LOSS_ESCALATION_EXTRA_PCT` could
+  never reach an order. CLAUDE.md's "cancel-replace wider after 2 cycles" hard rule did not
+  function in the engine, and had not since the clamp was introduced (2026-06-11).
+- **Why it mattered, not hypothetically.** Measured spreads 2026-07-29: **AVAX 0.570–0.577%,
+  LTC 0.586%** — *wider than the 0.5% base band*. A stop-loss sell priced at `ask × 0.995`
+  therefore sat **above the bid** and could never cross. Those stops were not executable at all.
+  Plausible mechanical contributor to the measured −4.25% average loss per losing leg against
+  stops that should cap nearer −5%.
+- **It also worked fine in the dashboard the whole time.** `autopilot.js`'s `escBand = 0.005 +
+  escalationExtraPct/100` is sent straight through with no clamp. So one documented rule had two
+  behaviours: live in the browser loop, dead in the cron engine. Another instance of the
+  engine/dashboard divergence class that `scoreParity.test.js` was written for — worth remembering
+  that the parity risk is **not confined to scoring**.
+- **Fix.** `MAX_STOP_LOSS_BAND_PCT = STOP_LOSS_LIMIT_BAND_PCT + STOP_LOSS_ESCALATION_EXTRA_PCT` is
+  now the clamp ceiling. `placeOrder` receives a *price*, not a cycle count, so it cannot tell a
+  deliberately escalated stop from a stale one — `risk.js` stays the authority on which band
+  applies, and the client enforces only the outer bound. `CONFIG_SPEC`'s
+  `STOP_LOSS_ESCALATION_EXTRA_PCT` bound tightened 0.01 → 0.005 in the same change, so the absolute
+  ceiling a user override can reach is 1.0% from ask (default path stays 0.8%).
+- **The pre-existing test pinned the bug.** `trade.test.js`'s "stale limit is clamped" asserted the
+  base-band edge, i.e. it encoded the broken behaviour as correct. Updated to the max-band edge,
+  plus 5 new tests including one that asserts an escalated stop actually crosses the *measured*
+  AVAX/LTC spreads — a fixture that fails if anyone re-narrows the ceiling.
+- 488 tests pass (483 + 5). **Deployed but not yet observed against a real unfilled stop** — the
+  next stop-loss that goes 2 cycles unfilled is the confirmation.
+- **Still open from the same research pass, in priority order:** (1) the soft R:R gate **fails
+  open** — `netRr()` returns `null` when `target <= entry` (`risk.js:423`) and `evaluateSymbol.js:582`
+  then skips the check entirely, so the gate is bypassed precisely on the most extended setups
+  (DOT was in that state at the time of the report); (2) the volume guard's unguarded numerator;
+  (3) sizing stop (1.5×ATR 15m, 0.45–0.96%) vs exit stop (4H swing low, up to 6.46%) differ by
+  6–9×, so the "1% risk per trade" rule is nominal; (4) no Node walk-forward evaluator.
+
 ## v2026-07-29.3 — 2026-07-29 — volume component only scores when the tape is real
 
 Chased down the `volume: 0.00x avg (thin, -0.5)` line that appeared on nearly every symbol in the

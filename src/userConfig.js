@@ -155,7 +155,12 @@ export const CONFIG_SPEC = Object.freeze({
   LIMIT_BAND_PCT: N(0.0001, 0.002, "limit orders within 0.2% of ask"),
   STOP_LOSS_LIMIT_BAND_PCT: N(0.0005, 0.005, "stop limit band 0.5%"),
   STOP_LOSS_ESCALATION_CYCLES: N(1, 10),
-  STOP_LOSS_ESCALATION_EXTRA_PCT: N(0, 0.01),
+  // Tightened 0.01 -> 0.005 on 2026-07-29, when the escalation stopped being a
+  // no-op. Until then alpacaClient clamped every stop back to the base band, so
+  // this value could not reach an order and its bound never mattered. Now it
+  // does: base (max 0.005) + extra caps a stop-loss limit at 1.0% from the ask,
+  // which is the real hard ceiling. Default stays 0.003, i.e. 0.8%.
+  STOP_LOSS_ESCALATION_EXTRA_PCT: N(0, 0.005, "escalated stop band max 1.0% total"),
 
   STOP_LOSS_MODE: { type: "enum", values: ["swing_low_4h", "fixed"] },
   STOP_LOSS_PCT: N(0.01, 0.1),

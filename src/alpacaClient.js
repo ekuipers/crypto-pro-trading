@@ -83,6 +83,24 @@ export function createAlpacaClient({
   cfg = DEFAULT_CFG,
 } = {}) {
   const STOP_LOSS_LIMIT_BAND_PCT = cfg.STOP_LOSS_LIMIT_BAND_PCT;
+  // The OUTER bound a stop-loss limit may ever sit at — base band plus the
+  // escalation allowance. Clamping to the base band instead (the behaviour
+  // before 2026-07-29) silently erased the escalation: risk.js widens
+  // 0.5% -> 0.8% at cycle >= 2, and this clamp put it straight back to 0.5%,
+  // by construction, every time. STOP_LOSS_ESCALATION_EXTRA_PCT could never
+  // take effect, so CLAUDE.md's "cancel-replace wider after 2 cycles" hard
+  // rule did not function in the engine at all. (The dashboard Autopilot's
+  // own escalation, autopilot.js's escBand, was never clamped and has been
+  // using the wider band all along — so this also removes a real
+  // engine/dashboard divergence on the same documented rule.)
+  //
+  // Why this matters beyond tidiness: measured spreads on 2026-07-29 were
+  // AVAX 0.570-0.577% and LTC 0.586% — WIDER than the 0.5% base band. A
+  // stop-loss sell priced at ask x 0.995 therefore sat above the bid and
+  // could never cross. Those stops were not executable at all; escalation to
+  // 0.8% is what makes them fill.
+  const MAX_STOP_LOSS_BAND_PCT =
+    cfg.STOP_LOSS_LIMIT_BAND_PCT + (cfg.STOP_LOSS_ESCALATION_EXTRA_PCT ?? 0);
   /** Alpaca auth headers. */
   function headers(jsonBody = false) {
     const h = {
@@ -196,16 +214,21 @@ export function createAlpacaClient({
 
     let bandCheck;
     if (isStopLoss) {
-      const band = ask * STOP_LOSS_LIMIT_BAND_PCT;
+      // Clamped against the MAXIMUM permitted band, not the base one. This
+      // function receives a price, not a cycle count, so it cannot tell a
+      // deliberately escalated stop from a stale one -- risk.js's
+      // stopLossLimitPrice() is the authority on which band applies at a given
+      // cycle, and this is the ceiling that keeps an absurd price off the
+      // exchange. See MAX_STOP_LOSS_BAND_PCT above for why the base band was
+      // the wrong ceiling.
+      const band = ask * MAX_STOP_LOSS_BAND_PCT;
       const diff = Math.abs(limitPrice - ask);
       if (diff > band) {
         // A stop-loss exists to exit -- clamp the limit to the nearest band
-        // edge of the fresh ask instead of failing. The hard rule (limit
-        // within 0.5% of ask) still holds: the clamped price sits exactly
-        // on the band boundary.
+        // edge of the fresh ask instead of failing.
         const clamped = Math.min(Math.max(limitPrice, ask - band), ask + band);
         console.log(
-          `${symbol}: stop-loss limit ${limitPrice.toFixed(4)} outside ${(STOP_LOSS_LIMIT_BAND_PCT * 100).toFixed(1)}% band of ask ${ask.toFixed(4)} -- clamped to ${clamped.toFixed(4)}`
+          `${symbol}: stop-loss limit ${limitPrice.toFixed(4)} outside ${(MAX_STOP_LOSS_BAND_PCT * 100).toFixed(1)}% max band of ask ${ask.toFixed(4)} -- clamped to ${clamped.toFixed(4)}`
         );
         limitPrice = Math.round(clamped * 1e6) / 1e6;
       }
