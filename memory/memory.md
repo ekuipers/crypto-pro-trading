@@ -37,10 +37,21 @@ because each cost a probe and would otherwise be re-tried.**
 - **`src/scoreParity.test.js` (new) is the first test that actually enforces the dashboard↔engine
   identity rule** — it had lived only as prose in CLAUDE.md while the two files sat in different
   module systems, which is exactly the split that drifts silently. `ta-lib.js` loads standalone in
-  a `vm` context (nothing touches window/document at definition time), so the parity check diffs
-  the two implementations across the full traded-bar range. **Covers the volume component only**;
-  the full 6-point score needs a fixture translator, since `calcSignalScore` takes bar objects and
-  `signalScore` takes parallel arrays. Worth doing, deliberately not attempted here.
+  a `vm` context (nothing touches window/document at definition time). Extended the same day to the
+  **full 6-point score**: `fixture()` is the translator (`calcSignalScore` takes bar objects,
+  `signalScore` takes parallel arrays), driven by a seeded PRNG so any failure is reproducible from
+  the seed printed in the assertion. Covers 200 random markets across drift/volatility/tape-density,
+  the data-sufficiency edges, and the -6..+6 range.
+
+  **It immediately found a second, unrelated divergence — which is the point.** `emaArr()` yields a
+  value at exactly 50 bars, so the dashboard scored ±1 on **signal 1 (15-min EMA cross) and signal 6
+  (4H regime)** where the engine's `emaCrossState()` — which requires `slow + 1` = 51 — scored
+  `n/a`. Up to **2 points** of disagreement on short history, on a score whose gates are 3.5/2.5.
+  Not hypothetical: reachable through `fill4hFallback()`'s synthetic 4H series and newly-listed
+  symbols. Fixed by moving the dashboard to the engine's threshold (`EMA_CROSS_MIN_BARS = 51`),
+  because at exactly 50 bars an EMA-50 is still just its SMA seed with no exponential character yet,
+  and because the engine is what trades on the cron. **Engine behaviour unchanged** — `evaluateSymbol`
+  already enforced `MIN_BARS` 60, so only the dashboard/Autopilot short-history path moves.
 - **Live effect, measured before/after on the real watchlist:** 7/10 symbols changed contribution —
   4 gained +0.5 (were wrongly penalised: DOGE, LINK, DOT, LTC, AAVE), 2 lost −1.0 (were wrongly
   rewarded: SOL, AVAX). BTC and ETH sit at 20/20 traded bars, keep the signal, and currently score

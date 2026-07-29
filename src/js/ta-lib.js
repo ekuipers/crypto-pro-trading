@@ -140,6 +140,10 @@
      *  0.000 or 126x, worth 1.5 points of swing on gates of 3.5/2.5. Decline
      *  to score it rather than emit a number that reads as signal. */
     const MIN_TRADED_BARS = 10;
+
+    /** Bars required before an EMA(20) vs EMA(50) cross may be scored — slow + 1,
+     *  mirroring src/indicators.js's emaCrossState(). Used by signals 1 and 6. */
+    const EMA_CROSS_MIN_BARS = 51;
     function calcVolRatio(volumes) {
       if (volumes.length < 21) return null;
       const window = volumes.slice(-21, -1);
@@ -258,7 +262,14 @@
       let score = 0;
 
       // 1. EMA cross (15-min) — ±0.05% dead zone matches Python indicators.ema_cross_state()
-      if (!isNaN(ema20) && !isNaN(ema50)) {
+      //    The `>= 51` guard mirrors src/indicators.js's emaCrossState(), which
+      //    requires slow + 1 bars. emaArr() alone produces a value at exactly
+      //    50 bars — but that value is still just the SMA seed, with no
+      //    exponential character yet. Without this the dashboard scored ±1 on
+      //    a 50-bar series where the engine scored n/a (found 2026-07-29 by
+      //    src/scoreParity.test.js; combined with signal 6 the two disagreed
+      //    by up to 2 points on short history).
+      if (closes.length >= EMA_CROSS_MIN_BARS && !isNaN(ema20) && !isNaN(ema50)) {
         if (ema20 > ema50 * 1.0005)      { score += 1; signals.ema_cross = "+1 Golden"; }
         else if (ema20 < ema50 * 0.9995) { score -= 1; signals.ema_cross = "−1 Death"; }
         else                             { signals.ema_cross = "0 Neutral"; }
@@ -313,7 +324,9 @@
       }
 
       // 6. 4H regime — same ±0.05% dead zone as Signal 1, matching Python ema_cross_state()
-      if (!isNaN(ema4h_20) && !isNaN(ema4h_50)) {
+      //    Same slow + 1 guard as signal 1, and the same reason: the engine
+      //    gates this on `closes4h.length >= 51`.
+      if (c4.length >= EMA_CROSS_MIN_BARS && !isNaN(ema4h_20) && !isNaN(ema4h_50)) {
         if (ema4h_20 > ema4h_50 * 1.0005)      { score += 1; signals.regime4h = "+1 Golden"; }
         else if (ema4h_20 < ema4h_50 * 0.9995) { score -= 1; signals.regime4h = "−1 Death"; }
         else                                    { signals.regime4h = "0 Neutral"; }
