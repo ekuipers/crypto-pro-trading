@@ -66,6 +66,7 @@ architecture and hard rules live in `CLAUDE.md`.
 | ATR sizing | 1% risk rule: qty = (equity×1%) / (ATR×1.5), capped at 5% equity |
 | Limit order | Only order type used; price ≤ ask + 0.2% |
 | Stop escalation | A stop-loss order that hasn't filled for 2 cycles is cancel-replaced with a wider limit band (0.5% → 0.8% from ask), so it can still cross a spread that has widened past the base band |
+| Replay harness | `scripts/replay.mjs` — replays historical bars through the live decision engine and reports what it *would* have done: score distribution, gate crossings, and which gate blocked each candidate. Measures a strategy change before it ships. Not a backtester: no fills, no P&L |
 | Paper spot trading | Simulated spot trades only; Alpaca paper environment (no futures support yet) |
 | Read-only mode | Live Alpaca credentials show account/positions/quotes but can never place or cancel an order |
 | Morning brief | Scheduled 7 AM task: eval + journal block + dashboard summary |

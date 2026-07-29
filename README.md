@@ -328,7 +328,7 @@ The agent's operating knowledge lives in two skills in `skills/`:
 | 2 | MACD histogram | Green and rising +1 | Red and falling −1 |
 | 3 | RSI | 40–65 rising or <30 oversold +1 | >70 overbought −1 |
 | 4 | Bollinger %b | Near lower band (<0.25) +1 | Near upper band (>0.75) −1 |
-| 5 | Volume | ≥1.2× 20-bar avg +1 | <0.7× avg −0.5 — **n/a (0) when fewer than 10 of the 20 baseline bars traded** |
+| 5 | Volume | ≥1.2× 20-bar avg +1 | <0.7× avg −0.5 — **n/a (0)** when fewer than 10 of the 20 baseline bars traded, or when the measured bar had no trades at all |
 | 6 | 4H trend | 20 EMA > 50 EMA on 4H +1 | 20 EMA < 50 EMA on 4H −1 |
 
 **Long entry rules:**

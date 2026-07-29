@@ -257,10 +257,34 @@ describe("volumeRatio — sparse-tape guard (Alpaca 15-min crypto, 2026-07-29)",
   });
 
   test("a genuinely thin bar in an ACTIVE tape still scores thin", () => {
-    // The guard must not swallow real information: an empty bucket amid a
-    // dense tape is meaningful, unlike one amid a 92%-empty tape.
-    const vr = ind.volumeRatio(series(20, 0.0));
+    // The guard must not swallow real information. Note the fixture volume is
+    // small but NON-ZERO: since 2026-07-29 a zero-volume current bar is
+    // treated as no observation rather than as maximal thinness (below), so
+    // "thin" now means few trades, not none.
+    const vr = ind.volumeRatio(series(20, 1.0));
     assert.ok(vr !== null && vr < 0.7, "a real thin bar must still be scored");
+  });
+
+  test("a current bar with NO trades is not scored as maximally thin", () => {
+    // 0 / anything is 0, which the caller scored -0.5. But zero trades is an
+    // absence of observation, not a reading. This is the half the first guard
+    // left unfixed: ETH measured 0.00x -> thin, -0.5 with 19/20 baseline bars
+    // traded, i.e. dense enough to pass the baseline check.
+    assert.equal(ind.volumeRatio(series(20, 0.0)), null);
+    assert.equal(ind.volumeRatio(series(19, 0.0)), null);
+  });
+
+  test("the two n/a causes are labelled distinctly in the breakdown", () => {
+    const { closes, highs, lows } = sineOhlcv();
+    const dense = closes.map(() => 100.0);
+    dense[dense.length - 1] = 0; // dense baseline, empty current bar
+    const a = ind.signalScore(closes, { volumes: dense, highs, lows });
+    assert.match(a.parts.volume, /current bar had no trades/);
+
+    const sparse = closes.map((_, i) => (i % 10 === 0 ? 100.0 : 0.0));
+    sparse[sparse.length - 1] = 100.0; // current bar traded, baseline too thin
+    const b = ind.signalScore(closes, { volumes: sparse, highs, lows });
+    assert.match(b.parts.volume, /baseline bars traded/);
   });
 
   test("tradedBarCount counts the baseline window, excluding the last bar", () => {
@@ -272,6 +296,9 @@ describe("volumeRatio — sparse-tape guard (Alpaca 15-min crypto, 2026-07-29)",
   test("a sparse tape contributes 0 to the score, not a penalty or a bonus", () => {
     const { closes, highs, lows } = sineOhlcv();
     const sparse = closes.map((_, i) => (i % 10 === 0 ? 100.0 : 0.0)); // ~10% traded
+    // Make the CURRENT bar traded, so this exercises the baseline-sparsity
+    // branch specifically rather than the empty-current-bar one.
+    sparse[sparse.length - 1] = 100.0;
     const { parts, score } = ind.signalScore(closes, { volumes: sparse, highs, lows });
     const { score: noVolume } = ind.signalScore(closes, { volumes: null, highs, lows });
     assert.match(parts.volume, /too thin to score/);

@@ -370,6 +370,17 @@ export const MIN_TRADED_BARS = 10;
  */
 export function volumeRatio(volumes, period = 20, minTradedBars = MIN_TRADED_BARS) {
   if (volumes.length < period + 1) return null;
+  // No trades in the bar being measured is an ABSENCE OF OBSERVATION, not a
+  // reading of "maximally thin" -- 0 / anything is 0, which the caller then
+  // scores -0.5. Distinct from a small-but-real volume, which is genuine
+  // thinness and still scores. Added 2026-07-29 after the first guard (the
+  // baseline check below) left this half unfixed: ETH measured 0.00x -> thin,
+  // -0.5 with 19/20 baseline bars traded, i.e. the exact artifact the guard
+  // was written to remove, surviving on a symbol dense enough to pass it.
+  // Replay-measured over 3,410 windows before shipping: mean score +0.039,
+  // positive on every watchlist symbol and negative on none, 7.7% of windows
+  // changed, >=2.5 gate crossings 191 -> 202.
+  if (!(volumes[volumes.length - 1] > 0)) return null;
   const window = volumes.slice(-(period + 1), -1);
   if (tradedBarCount(volumes, period) < minTradedBars) return null;
   const avg = window.reduce((a, b) => a + b, 0) / period;
@@ -484,10 +495,13 @@ export function signalScore(closes, { volumes = null, highs = null, lows = null,
       // a bug in the bar-window end calculation, when the real answer was that
       // Alpaca's 15-min tape is 64-92% empty for the alts.
       const traded = tradedBarCount(volumes);
-      parts.volume =
-        traded < MIN_TRADED_BARS
-          ? `n/a (only ${traded}/20 baseline bars traded — too thin to score)`
-          : "n/a";
+      if (!(volumes[volumes.length - 1] > 0)) {
+        parts.volume = "n/a (current bar had no trades — nothing to measure)";
+      } else if (traded < MIN_TRADED_BARS) {
+        parts.volume = `n/a (only ${traded}/20 baseline bars traded — too thin to score)`;
+      } else {
+        parts.volume = "n/a";
+      }
     } else if (vr >= 1.2) {
       score += 1;
       parts.volume = `${vr.toFixed(2)}x avg (above avg, +1)`;

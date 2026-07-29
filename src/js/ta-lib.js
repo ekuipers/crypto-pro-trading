@@ -139,15 +139,25 @@
      *  into a near-binary readout of "did a trade land in the last bucket" —
      *  0.000 or 126x, worth 1.5 points of swing on gates of 3.5/2.5. Decline
      *  to score it rather than emit a number that reads as signal. */
+    // Seeded from config.json › indicators.min_traded_bars by
+    // api-config.js's seedStrategyConfig(); the literal is the compile-time
+    // fallback for a browser that hasn't loaded config.json yet.
     const MIN_TRADED_BARS = 10;
+    const minTradedBars = () =>
+      (typeof STRAT_CFG === "object" && typeof STRAT_CFG.minTradedBars === "number")
+        ? STRAT_CFG.minTradedBars
+        : MIN_TRADED_BARS;
 
     /** Bars required before an EMA(20) vs EMA(50) cross may be scored — slow + 1,
      *  mirroring src/indicators.js's emaCrossState(). Used by signals 1 and 6. */
     const EMA_CROSS_MIN_BARS = 51;
     function calcVolRatio(volumes) {
       if (volumes.length < 21) return null;
+      // No trades in the measured bar is an absence of observation, not a
+      // reading of "maximally thin" — mirrors src/indicators.js.
+      if (!(volumes[volumes.length - 1] > 0)) return null;
       const window = volumes.slice(-21, -1);
-      if (window.filter(v => v > 0).length < MIN_TRADED_BARS) return null;
+      if (window.filter(v => v > 0).length < minTradedBars()) return null;
       const avg = window.reduce((a, b) => a + b, 0) / 20;
       return avg === 0 ? null : volumes[volumes.length - 1] / avg;
     }
@@ -274,7 +284,11 @@
         else if (ema20 < ema50 * 0.9995) { score -= 1; signals.ema_cross = "−1 Death"; }
         else                             { signals.ema_cross = "0 Neutral"; }
       } else {
-        signals.ema_cross = "0 Neutral";
+        // NOT "0 Neutral" — that reads as "we looked and the EMAs are level",
+        // when in fact there was never enough history to look. The engine says
+        // "n/a (need 51 bars)"; the scores already match, this makes the two
+        // tell the user the same story.
+        signals.ema_cross = `0 n/a (need ${EMA_CROSS_MIN_BARS} bars)`;
       }
 
       // 2. MACD histogram — partial credits match Python indicators.signal_score()
@@ -331,7 +345,9 @@
         else if (ema4h_20 < ema4h_50 * 0.9995) { score -= 1; signals.regime4h = "−1 Death"; }
         else                                    { signals.regime4h = "0 Neutral"; }
       } else {
-        signals.regime4h = "0 –";
+        // Same reasoning as signal 1: say there was no 4H history to judge,
+        // rather than an ambiguous dash that reads as a verdict.
+        signals.regime4h = `0 n/a (need ${EMA_CROSS_MIN_BARS} 4H bars)`;
       }
 
       return {

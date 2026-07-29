@@ -1,5 +1,54 @@
 # Project: CryptoPro Trader
 
+## v2026-07-29.6 — 2026-07-29 — replay harness; volume numerator guard, measured before shipping
+
+The point of this one is the **order of operations**: build the measurement, then use it, then ship.
+Four strategy changes shipped earlier today on single-scan evidence, and one carried a wrong
+published figure as a direct result.
+
+- **`src/replay.js` + `scripts/replay.mjs` (new).** Drives the real `evaluateSymbol` across a
+  sliding window of historical bars and reports score distribution, gate crossings, net-R:R stats,
+  and a bucketed tally of *which gate decided each window*. **Explicitly not a backtester** — no
+  fills, no P&L, answers nothing about profitability. That is the larger follow-up that also
+  retires the Backtest tab's stale banner.
+- **Two fidelity rules it would be worthless without**, both pinned by tests: higher-timeframe bars
+  align by **timestamp, not index** (index alignment leaks future 4H/daily regime into every
+  window — the classic way a replay flatters a strategy), and `spreadPct` is **required with no
+  default**, because it feeds round-trip cost and therefore the R:R gate directly.
+- **Baseline, 3,410 windows at a 0.58% spread:** 191 windows cleared the ≥2.5 score gate,
+  **180 of those were then blocked by R:R**, 6 entries. The R:R gate does ~97% of the rejecting,
+  and 139 of 179 evaluated net-R:R values are negative. `blocked:rr-no-target` = 7 — the fail-open
+  path closed earlier today, so 7 windows would previously have entered unchecked.
+- **A misread of my own, worth recording.** Two runs at 0.05% and 0.58% spread produced identical
+  bucket counts and I called it a harness bug. It wasn't: the spread *does* propagate (mean netRr
+  −0.11 → −0.42), but every value is negative at both spreads, so the outcome bucket is the same.
+  Chasing it produced the sharper finding — **at a 0.05% spread the round-trip cost is still 0.55%,
+  so the 2×25bps taker fee ALONE exceeds the 15-min BB-upper target distance.** It is not mainly
+  the spread. `summarize()` now reports `meanNetRr`/`rrNegative` so this is visible in the report
+  instead of needing a probe.
+- **Volume numerator guard, measured then applied.** `volumeRatio` now also returns `null` when the
+  **measured bar itself had no trades** — `0 / anything` is 0, which the caller scored −0.5, but
+  zero trades is an absence of observation, not "maximally thin". A small-but-real volume is
+  genuine thinness and still scores. **Predicted from replay before merging: mean +0.039, positive
+  on every symbol, 7.7% of windows changed, ≥2.5 crossings 191 → 202. Confirmed post-merge: 202.**
+  DOGE and LTC were unchanged — so sparse that the baseline guard already returns null first.
+- Semantics tightened as a result: "thin" now means *few* trades, not *none*. An existing test
+  asserting a zero-volume bar still scores −0.5 had its fixture changed to a small non-zero volume,
+  and the two n/a causes are now labelled separately in the journal.
+- **`config.json › indicators.min_traded_bars` is the single source of truth** (raised by
+  market-researcher: the constant was absent from config.json entirely, breaking the
+  "STRAT_CFG seeded from config.json" invariant it sits beside). `indicators.js` stays a config-free
+  pure module and `ta-lib.js` needs a value before config.json loads, so both keep a mirroring
+  literal — and `scoreParity.test.js` now fails if any of the three drift. The long-unread
+  `indicators.volume_period` is pinned the same way.
+- **Dashboard label honesty.** Below 51 bars `ta-lib.js` said `"0 Neutral"` / `"0 –"` where the
+  engine says `"n/a (need 51 bars)"` — scores matched, but the label told the user the cross *was*
+  evaluated when there was never enough history to look. Both now say n/a.
+- 508 tests pass (492 + 16: 13 harness, 3 volume/label). Build clean.
+- **Next, in order:** 4H+median volume baseline (the remaining skew defect); order-placement and
+  entry-gate parity tests, since two of today's three engine bugs were there and `scoreParity`
+  covers scoring only; then the walk-forward evaluator with fills and P&L.
+
 ## v2026-07-29.5 — 2026-07-29 — the net R:R entry gate failed OPEN, inverted
 
 Third finding from the same market-researcher pass, and the same shape as the stop-escalation one:

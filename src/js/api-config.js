@@ -51,6 +51,12 @@
       if (num(rk.swing_low_buffer_pct)           !== null) STRAT_CFG.swingLowBufferPct    = rk.swing_low_buffer_pct * 100;
       if (num(rk.swing_low_max_stop_pct)         !== null) STRAT_CFG.swingLowMaxStopPct   = rk.swing_low_max_stop_pct * 100;
       if (num(dt.min_bars_for_signal)            !== null) STRAT_CFG.minBarsForSignal     = dt.min_bars_for_signal;
+      // Volume sparse-tape guard (2026-07-29). config.json is the single source
+      // of truth; src/indicators.js's MIN_TRADED_BARS mirrors it and
+      // src/scoreParity.test.js fails if the two ever drift apart.
+      const ic = cfg.indicators || {};
+      if (num(ic.min_traded_bars)                !== null) STRAT_CFG.minTradedBars        = ic.min_traded_bars;
+      if (num(ic.volume_period)                  !== null) STRAT_CFG.volumePeriod         = ic.volume_period;
       if (num(rk.daily_drawdown_gate_pct)        !== null) STRAT_CFG.dailyDrawdownGatePct = rk.daily_drawdown_gate_pct * 100;
       if (num(rk.stop_loss_escalation_cycles)    !== null) STRAT_CFG.escalationCycles     = rk.stop_loss_escalation_cycles;
       if (num(rk.stop_loss_escalation_extra_pct) !== null) STRAT_CFG.escalationExtraPct   = rk.stop_loss_escalation_extra_pct * 100;

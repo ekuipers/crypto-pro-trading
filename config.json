@@ -89,7 +89,8 @@
     "bollinger_std": 2.0,
     "volume_period": 20,
     "bollinger_squeeze_lookback": 60,
-    "bollinger_squeeze_percentile": 20
+    "bollinger_squeeze_percentile": 20,
+    "min_traded_bars": 10
   },
   "data": {
     "bars_15min": 200,

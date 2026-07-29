@@ -118,6 +118,25 @@ describe("dashboard/engine volume-scoring parity", () => {
     assert.equal(dash.MIN_TRADED_BARS, ind.MIN_TRADED_BARS);
   });
 
+  test("config.json is the single source of truth for the volume constants", () => {
+    // Both implementations carry their own literal — indicators.js is a
+    // deliberately config-free pure module, and ta-lib.js needs a value before
+    // config.json has loaded in the browser. That is fine as long as they
+    // cannot silently drift from the file the dashboard actually seeds from,
+    // which is what this pins. Raised by the market-researcher pass: the
+    // constant was absent from config.json entirely, breaking the
+    // "STRAT_CFG seeded from config.json" invariant it sits next to.
+    const cfgJson = JSON.parse(readFileSync(path.join(here, "..", "config.json"), "utf8"));
+    assert.equal(cfgJson.indicators.min_traded_bars, ind.MIN_TRADED_BARS,
+      "config.json › indicators.min_traded_bars must match indicators.js");
+    assert.equal(cfgJson.indicators.min_traded_bars, dash.MIN_TRADED_BARS,
+      "config.json › indicators.min_traded_bars must match ta-lib.js's fallback");
+    // volume_period sat in config.json unread for the life of the file; pin it
+    // to volumeRatio's default so it is either honoured or visibly wrong.
+    assert.equal(cfgJson.indicators.volume_period, 20,
+      "volumeRatio()'s period default is 20 — change both or neither");
+  });
+
   test("both agree across the full traded-bar range", () => {
     for (let traded = 0; traded <= 20; traded++) {
       for (const lastVolume of [0.0, 1.0, 100.0, 5000.0]) {
@@ -264,8 +283,9 @@ describe("EMA-cross bar threshold — the divergence this file was extended to c
     assert.equal(engine, dashboard);
     assert.match(engineParts.emaCross, /n\/a/);
     assert.match(engineParts.regime4h, /n\/a/);
-    assert.equal(dashboardSignals.ema_cross, "0 Neutral");
-    assert.equal(dashboardSignals.regime4h, "0 –");
+    // Both sides must say "we couldn't look", not "we looked and it's level".
+    assert.match(dashboardSignals.ema_cross, /n\/a/);
+    assert.match(dashboardSignals.regime4h, /n\/a/);
   });
 
   test("one bar more and both score it", () => {
