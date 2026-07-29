@@ -1,5 +1,26 @@
 # Project: CryptoPro Trader
 
+## 2026-07-29 — Roadmap rescan: multi-tenant conversion retired from the roadmap (docs only)
+
+No code changed. `CLAUDE.md`'s roadmap carried all six multi-tenant phases as open items long after they
+shipped; the last three still read "NOT YET DEPLOYED" although every commit through Phase 6 is pushed.
+
+- **Retired** the 6-phase item to a one-line COMPLETE pointer into this file. The durable operating rules it
+  contained were **kept, not deleted** — they moved to a new `## Multi-tenant engine — standing rules`
+  section (encryption-key policy, shared-DB per-row isolation, migrate-then-redeploy ordering, uid-first
+  accessors, `CONFIG_SPEC` as the hard-rule boundary, `tenantEngine` injection, step-up policy and its
+  accepted limit). Breaking these stops the engine or crosses accounts, so they are not history.
+- **Promoted three real open items** that were buried inside "done" prose: the Settings engine panel has never
+  had a browser click-through, sub-daily cron cadence is still unsupported, and walk-forward backtesting still
+  has no Node port.
+- **Corrected three stale single-tenant claims** contradicted by the shipped code: the Scheduled Jobs panel is
+  no longer owner-only and each account now has its own `(uid, job)` schedule; `/api/trader-state` is
+  session-scoped, not unauthenticated. Verified against `src/cronRoutes.js` rather than the docs.
+
+**Lesson:** a roadmap that records deployment state has to be re-read after the deploy, or it inverts —
+these entries claimed *less* progress than the repo actually had, which is the failure mode that hides
+genuinely open work behind items everyone assumes are stale-but-done.
+
 ## 2026-07-29 — the timeframe measurement is now reproducible in-repo
 
 The findings below were originally produced by throwaway scratchpad scripts in a temp directory,
