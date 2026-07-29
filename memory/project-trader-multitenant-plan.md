@@ -363,20 +363,37 @@ Ships with `CRON_EXECUTE` forced false through a shadow-run verification window,
 original Python→Node cutover's parity-gate discipline (see `project-trader-node-cutover-gates.md`
 in the global auto-memory).
 
-## Phase 6 — dashboard UI (not yet implemented)
+## Phase 6 — dashboard UI (DONE 2026-07-29, not yet deployed)
 
-Extends `client/src/tabs/settings.html` with a new, visually distinct "☁ Server-Side Trading
-Engine" credential section (write-only fields, masked "•••• connected" badge from
-`listAlpacaCredentials`, never pre-filled) — kept clearly separate from the existing browser-only
-Alpaca fields (those already work per-browser via `localStorage`, untouched). A JSON-textarea
-config editor (not a full field-by-field form — that's a larger separate follow-up) pre-filled
-with `resolveConfigForUser`'s merged output. The "☁ Scheduled Jobs" sub-tab (`tabs-command.js`)
-needs **zero UI changes** — it already calls `GET /api/cron/status` unconditionally and shows a
-friendly message on 401; once the backend gate changes from `isOwner` to `requireSelf` in Phase
-5, the same UI transparently becomes "your own jobs" for any signed-in user.
+Shipped essentially as designed. `client/src/tabs/settings.html` gained a second panel,
+`.engine-panel` "☁ Server-Side Trading Engine" — visually distinct via a blue accent rail + tint,
+write-only, never pre-filled, kept clearly separate from the browser-only `localStorage` Alpaca
+fields above it (untouched). Driven by new classic-global `src/js/settings-engine.js`
+(`SCRIPT_ORDER` after `auth.js`; `nav.js`'s `switchTab("settings")` also calls
+`loadEngineSettings()`). The "☁ Scheduled Jobs" sub-tab needed **zero UI changes**, as predicted.
 
-**Open judgment call:** JSON textarea vs. a full field-by-field form for the config editor (~30
-fields) — plan assumes the textarea for the first cut, a form is a larger separate UI project.
+**Resolved judgment calls** (user chose all three recommendations, 2026-07-28): JSON textarea over a
+field-by-field form; step-up auth on **destructive actions only**; include the deferred credential
+audit table now.
+
+**Deviations and additions worth knowing:**
+
+- The badge is three-state, not two. `readableHere:false` gets its own "unreadable here" state —
+  a row encrypted under another environment's key, which the engine skips. Rendering that as
+  "connected" would be a lie the Scheduled Jobs panel then contradicts.
+- The config editor is **not** pre-filled with `resolveConfigForUser`'s merged output as the plan
+  said. It is pre-filled with the raw *overrides* only. Merged output would round-trip every
+  default back into the stored row, so a later change to a `config.json` default would stop
+  reaching that user — the whole reason Phase 3 stores only changed keys.
+- `PUT /api/strategy-config` **rejects** on any invalid/unknown/locked key rather than degrading
+  like the engine's read path. GET returns `staleErrors` so a saved value disabled by a
+  later-tightened bound is visible instead of appearing to be in force.
+- `listCredentialAudit` filters on `at >= accounts.created_at`. `accounts.id` IS the normalized
+  username and this table has no cascade by design, so without it a re-registered username would
+  inherit the previous owner's trail.
+- Step-up's limit, stated so it is not later mistaken for a hole: it protects against *losing*
+  access, not against a session holder *adding* their own key. Failed attempts spend a write-limit
+  token, so 20/hour/uid is also the password-guessing ceiling.
 
 ## Rollout safety (phases 4-5)
 

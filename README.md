@@ -82,6 +82,12 @@ insights load, but the trade ticket, Autopilot and every cancel action are disab
 (theme, last tab, watchlist, backtest-form defaults) do sync to the signed-in account's row in the shared
 Postgres database (`src/js/settings-sync.js`), so they follow you across devices/browsers.
 
+Below those fields, a separate **☁ Server-Side Trading Engine** panel does something different and is
+styled differently to say so. Its credentials go to the *server*, encrypted, and are used by your
+scheduled jobs — which run whether or not this browser is open. That panel is also where you edit your
+per-account strategy overrides as JSON. Connecting a key there is what makes your account a tenant of the
+scheduled engine; the browser fields above never are. See *Per-user Alpaca credentials* below.
+
 > **Safety:** pointing `APCA_BASE_URL` (or the dashboard's mode selector) at live does not enable live
 > trading — it makes the connection read-only. Orders can only be placed against
 > `https://paper-api.alpaca.markets`. Confirm the connectivity check above and a paper order round-trip
@@ -148,14 +154,30 @@ Jobs panel says so instead of showing a schedule that will never run.
 
 | Route | Purpose |
 |-------|---------|
-| `GET /api/alpaca-credentials` | Which modes are connected, which is active, last 4 of each key id |
+| `GET /api/alpaca-credentials` | Which modes are connected, which is active, last 4 of each key id, recent activity |
 | `POST /api/alpaca-credentials/:mode` | Connect/replace (`{keyId, secret, activate?}`); `:mode` is `paper` or `live` |
 | `POST /api/alpaca-credentials/:mode/activate` | Choose which stored credential the engine uses |
 | `DELETE /api/alpaca-credentials/:mode` | Disconnect |
+| `GET /api/strategy-config` | This account's overrides, the shipped defaults, and which keys are settable within what bounds |
+| `PUT /api/strategy-config` | Save overrides (`{config:{...}}`) — **rejects** on any invalid, unknown or locked key |
+| `DELETE /api/strategy-config` | Revert to the shipped defaults |
 
-All four require a signed-in session and act only on that account's own rows. The API is **write-only** —
-no route returns a stored key or secret. Secrets are encrypted with AES-256-GCM (`src/secretsCrypto.js`)
-before they reach the database, so a database dump alone yields no usable keys.
+All require a signed-in session and act only on that account's own rows. The credential API is
+**write-only** — no route returns a stored key or secret. Secrets are encrypted with AES-256-GCM
+(`src/secretsCrypto.js`) before they reach the database, so a database dump alone yields no usable keys.
+
+**Destructive credential changes ask for your account password** (step-up auth): disconnecting, or
+replacing the credential the engine is currently trading with. Connecting your first key and switching
+between keys you already stored do not — they take nothing away. Every change is recorded in
+`trader_credential_audit` and shown under *Recent credential activity* in the Settings panel.
+
+`PUT /api/strategy-config` is deliberately **stricter than the engine's own read path**. The engine
+merges what validates and drops what doesn't, so one stale value can never stop a running engine; a save
+you are watching does the opposite and refuses, because a silently dropped key would read as "saved"
+while the engine kept trading the old number. Values outside the bounds in `src/userConfig.js`'s
+`CONFIG_SPEC` — the 0.2% limit band, ≤30% symbol cap, ≤2% risk per trade, 7 total / 5 per-tier budget,
+≤8% swing-low stop — and every locked setting (shorts, the streak throttle, all ships-OFF flags) are
+rejected here, so the hard rules cannot be edited through this surface.
 
 - `TRADER_CREDENTIALS_ENC_KEY` — 32 random bytes, base64 (`openssl rand -base64 32`). Unset means these
   routes fail closed with 503 and nothing is ever stored in plaintext. **Use a different value per Vercel

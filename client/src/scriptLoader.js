@@ -37,6 +37,9 @@ export const SCRIPT_ORDER = [
   'qrcode-lib.js',
   'auth.js',
   'settings-sync.js',
+  // After auth.js: the engine panel's routes are all session-scoped, and it
+  // renders a "sign in first" state rather than an error for guests.
+  'settings-engine.js',
   'manual.js',
   'terms-modal.js',
   'main.js',

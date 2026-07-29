@@ -1,5 +1,81 @@
 # Project: CryptoPro Trader
 
+## v2026-07-29.1 — 2026-07-29 — Multi-tenant Phase 6: dashboard UI (FINAL PHASE)
+
+The conversion is feature-complete. **Code complete, not yet deployed.** Unlike Phase 4 this needs no
+migration script and no migrate-before-deploy ordering: the one new table is a pure addition created by
+`init()`'s `create table if not exists`, reshaping nothing.
+
+- **`src/strategyConfigRoutes.js` (new)** — `GET`/`PUT`/`DELETE /api/strategy-config`, the write surface
+  the Phase 3 storage layer never had. **PUT rejects on `!validateOverrides().ok` and stores `clean`,
+  never the raw body.** That is deliberately stricter than the engine's own read path, which merges
+  `clean` and drops bad keys so one stale value cannot stop a running engine. Both behaviours are
+  wanted: silent degradation is right for a resolve that must not fail, and wrong for a save the user
+  is watching — there a dropped key reads as "saved" while the engine keeps trading the old number.
+  GET returns `staleErrors` from `mergeConfig` for the same reason: a saved value that a
+  later-tightened bound has since disabled must be visible, not silently displayed as if in force.
+- **Body-size bound before validation.** `MAX_KEYS = 200` is checked before `validateOverrides`,
+  because `express.json`'s 2mb limit would otherwise let a body of junk keys become a 2mb array of
+  per-key error strings in the response.
+- **Step-up auth, destructive actions only.** `stepUpRequired(action, {isActive})` in
+  `credentialsRoutes.js` is the entire policy as one pure, tested predicate: **delete** always;
+  **replace** only when overwriting the credential the engine is trading with right now;
+  **connect**/**activate** never. `auth.js` gained an exported
+  `verifyStepUpPassword(uid, password, {getAccount})` — `hashPassword`/`verifyPassword` stay
+  module-private, so routes re-authenticate through one path instead of each reaching for the raw
+  hash. It returns false and never throws for *every* failure mode (guest, no password, unknown
+  account, malformed stored hash, database error): a step-up check that errors open is worse than one
+  that denies.
+- **The limit of step-up, stated because it is easy to misread as a hole.** It protects against
+  *losing* access, not against a session holder *adding* their own key — an attacker with the session
+  can connect and activate their own credential without a password, exactly as a legitimate new user
+  does. Closing that would put a password wall on the one step every user must clear, protecting
+  nothing. Failed attempts do spend a write-limit token, so the 20/hour/uid budget doubles as the
+  password-guessing ceiling on these routes.
+- **`trader_credential_audit` (new table)** — deferred from Phase 2, added now that these rows decide
+  which Alpaca account trades. Append-only `(uid, action, mode, detail, at)`; **no FK to `accounts`**
+  (evidence that vanishes with the account it documents is not evidence — same reasoning as
+  `job_runs`) and no key material, `detail` being a short server-authored phrase.
+  `appendCredentialAudit` never throws: the mutation it records has already committed, so rejecting
+  there would report a failure that did not happen and could push a user into re-submitting their key.
+  `credentialsRoutes.js` still logs its own line per mutation, so a trail write failure still leaves a
+  platform-log trace.
+- **`listCredentialAudit` joins `accounts` and filters `at >= accounts.created_at`.** Found during the
+  security pass: `accounts.id` IS the normalized username (`auth.js`'s register), and this table has
+  no cascade by design — so a username deleted and re-registered would show the new owner credential
+  changes they never made, which reads exactly like a compromise. The rows stay for forensics; they
+  are just no longer attributed to the new account.
+- **Two more security-pass fixes in `src/js/settings-engine.js`.** (1) It does **not** use utils.js's
+  `escapeHtml`, which escapes only `& < >` — this file interpolates into attribute values as well as
+  text, where an unescaped quote breaks out. It carries its own attribute-safe escaper. (2) The
+  per-credential buttons use `data-engine-action` + delegation instead of an inline `onclick` built by
+  concatenation; an interpolated `onclick` is HTML-decoded *before* it is parsed as JS, so escaping
+  alone never makes that pattern safe. Neither was exploitable today (the only interpolated value is
+  `mode`, constrained to `paper`/`live` by a CHECK constraint) — both are the latent kind that becomes
+  real the moment someone adds a field.
+- **`withStepUp` re-prompts without restarting.** The first draft recursed into the whole flow on a
+  wrong password, which re-issued a password-less attempt and spent two rate-limit tokens per retry —
+  halving the guessing budget that is supposed to be the ceiling.
+- **UI is a deliberately separate panel.** `.engine-panel` (blue accent rail + tint) in
+  `client/src/tabs/settings.html`, below the existing Alpaca fields. Those are browser-only
+  `localStorage`; these go to the server and trade unattended. Badge states are *in use* / *stored* /
+  *unreadable here* — the third is `readableHere:false`, a row encrypted under another environment's
+  key, which the engine skips; rendering that as "connected" would be a lie the Scheduled Jobs panel
+  would then contradict. Step-up prompts inline and masked (`#engineStepUpEl`), not via
+  `window.prompt()`.
+- Wiring: new classic-global `src/js/settings-engine.js` in `scriptLoader.js`'s `SCRIPT_ORDER` after
+  `auth.js`; `nav.js`'s `switchTab("settings")` also calls `loadEngineSettings()` (guarded — it loads
+  later in SCRIPT_ORDER than nav.js, so a `#settings` deep link can fire before it exists). New CSS in
+  `forms-modals-footer.css`, including the `.warn-banner` class Phase 5 had already referenced in
+  `tabs-command.js` without ever defining.
+- **Verified:** 469 tests pass (438 baseline + 31 new in `strategyConfigRoutes.test.js` /
+  `stepUp.test.js`); `npm run build` clean; i18n 594 keys × 4 locales in parity with all 47 markup +
+  24 script refs resolving. **Not verified — no browser tool this session:** an actual click-through
+  of connect / activate / disconnect / save-overrides. **Also worth checking on first deploy:** the
+  disconnect flow sends its password in a `DELETE` body; Express parses it, but a proxy that strips
+  DELETE bodies would make disconnect impossible (fails closed, but as a confusing "password
+  incorrect").
+
 ## v2026-07-28.2 — 2026-07-28 — Multi-tenant Phase 5: per-user cron dispatcher
 
 The phase that actually turns the seams on. **Code complete, NOT deployed** — see the blocker below.

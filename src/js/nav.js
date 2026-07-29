@@ -84,7 +84,13 @@
         catch (e) { location.hash = id; }
       }
 
-      if (id === "settings") loadSettingsForm();
+      if (id === "settings") {
+        loadSettingsForm();
+        // Server-side engine panel (settings-engine.js). Guarded because it
+        // loads later in SCRIPT_ORDER than nav.js — a deep link to #settings
+        // can fire this before it exists.
+        if (typeof loadEngineSettings === "function") loadEngineSettings();
+      }
       else if (id === "backtest") {
         loadBacktestForm();
         refreshCurrent();

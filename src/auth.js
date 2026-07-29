@@ -93,6 +93,35 @@ export async function currentUid(req) {
   return user?.id || db.GUEST;
 }
 
+/**
+ * Step-up authentication: proves the person holding this session also knows
+ * the account password, before a destructive or high-consequence action.
+ *
+ * Exported (unlike hashPassword/verifyPassword, which stay module-private) so
+ * that credential routes re-authenticate through this one code path rather
+ * than each reaching for the raw hash. Callers pass the uid they already
+ * resolved from the session cookie — never a uid from the request body.
+ *
+ * Returns false, never throws, for every failure mode (unknown account,
+ * missing password, storage hiccup): a step-up check that errors open is
+ * worse than one that simply denies.
+ *
+ * @param {{getAccount?: Function}} deps test seam only — production callers
+ *   pass two arguments and get db.getAccount.
+ */
+export async function verifyStepUpPassword(uid, password, { getAccount = db.getAccount } = {}) {
+  const pw = String(password || '');
+  if (!uid || uid === db.GUEST || !pw) return false;
+  try {
+    const user = await getAccount(uid);
+    if (!user?.salt || !user?.passwordHash) return false;
+    return verifyPassword(pw, user.salt, user.passwordHash);
+  } catch (e) {
+    console.error('[auth] step-up verification failed:', e?.message || e);
+    return false;
+  }
+}
+
 // ---- Routes --------------------------------------------------------------
 export function installAuthRoutes(app) {
   // ---- Cross-project SSO handoff -----------------------------------------

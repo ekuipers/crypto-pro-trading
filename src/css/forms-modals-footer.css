@@ -250,3 +250,102 @@
       footer { padding:16px; }
     }
 
+
+    /* ---- Server-side trading engine (multi-tenant Phase 6) ----------------
+       These controls write ENCRYPTED credentials to the server, where the
+       scheduled engine trades with them unattended. The panel above them
+       writes to localStorage and never leaves this browser. Confusing the two
+       is the expensive mistake here, so the server panel is deliberately a
+       different surface: blue accent rail, tinted background, cloud marker. */
+    .engine-panel {
+      border-left:3px solid var(--blue);
+      background:linear-gradient(180deg, rgba(88,166,255,.06), transparent 140px), var(--surface);
+    }
+    .engine-panel .panel-title { color:var(--blue); }
+
+    .warn-banner {
+      padding:10px 12px;
+      border-radius:8px;
+      border:1px solid rgba(210,153,34,.35);
+      background:rgba(210,153,34,.10);
+      color:var(--yellow);
+      font-size:12px;
+      line-height:1.45;
+    }
+    .warn-banner.err {
+      border-color:rgba(248,81,73,.35);
+      background:rgba(248,81,73,.10);
+      color:var(--red);
+    }
+    .warn-banner.ok {
+      border-color:rgba(63,185,80,.35);
+      background:rgba(63,185,80,.10);
+      color:var(--green);
+    }
+
+    /* "Connected" state. There is no field to render the key into — the API
+       never returns one — so the badge shows only the last 4 characters the
+       server stored as a non-secret hint. */
+    .cred-row {
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      padding:10px 12px;
+      border:1px solid var(--border);
+      border-radius:8px;
+      background:var(--surface2);
+      margin-bottom:10px;
+    }
+    .cred-badge {
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:3px 9px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:700;
+      letter-spacing:.3px;
+    }
+    .cred-badge.active   { background:rgba(63,185,80,.16);  color:var(--green); }
+    .cred-badge.inactive { background:rgba(139,148,158,.16); color:var(--muted); }
+    .cred-badge.broken   { background:rgba(248,81,73,.16);  color:var(--red); }
+    .cred-preview {
+      font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size:12px;
+      color:var(--muted);
+    }
+    .cred-preview b { color:var(--text); }
+
+    /* Config editor. Monospace + generous height because the content is JSON
+       a user is expected to read, not a one-line field. */
+    #engineConfigEditor {
+      width:100%;
+      min-height:260px;
+      font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size:12px;
+      line-height:1.5;
+      resize:vertical;
+      tab-size:2;
+    }
+    .engine-errors {
+      margin:8px 0 0;
+      padding-left:18px;
+      font-size:12px;
+      color:var(--red);
+    }
+    .engine-errors li { margin:2px 0; }
+    .engine-keylist {
+      max-height:130px;
+      overflow:auto;
+      font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size:11px;
+      color:var(--muted);
+      line-height:1.6;
+    }
+    .engine-audit {
+      font-size:11px;
+      color:var(--muted);
+      line-height:1.7;
+    }
+    .engine-audit time { color:var(--text); }

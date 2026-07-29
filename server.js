@@ -13,6 +13,7 @@ import { readFileSync } from 'fs';
 import { installAuthRoutes, currentUid } from './src/auth.js';
 import { installCronRoutes } from './src/cronRoutes.js';
 import { installCredentialsRoutes } from './src/credentialsRoutes.js';
+import { installStrategyConfigRoutes } from './src/strategyConfigRoutes.js';
 import { cryptoEnabled } from './src/secretsCrypto.js';
 import { installGlossaryRoutes } from './src/glossaryRoutes.js';
 import { extractGlossarySections } from './src/glossaryExtract.js';
@@ -73,6 +74,12 @@ installCronRoutes(app);
 // management only for now; the cron dispatcher still uses the shared env-var
 // account until Phase 5. See src/credentialsRoutes.js.
 installCredentialsRoutes(app);
+
+// Multi-tenant conversion Phase 6 — the write surface for the Phase 3 per-user
+// strategy/risk overrides the Settings JSON editor edits. Validates against
+// CONFIG_SPEC and rejects, where the engine's read path merely drops bad keys.
+// See src/strategyConfigRoutes.js.
+installStrategyConfigRoutes(app);
 // Surface a missing encryption key at boot rather than only when a user hits
 // a 503 — same "warn loudly, keep serving" convention as db.js's dbEnabled().
 if (!cryptoEnabled()) {

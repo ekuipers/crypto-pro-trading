@@ -91,5 +91,83 @@
             Use a backend/proxy so your API secret is not exposed in the browser.
           </div>
         </div>
+
+        <!-- ==========================================================
+             SERVER-SIDE TRADING ENGINE (multi-tenant Phase 6)
+             Deliberately a separate panel with its own visual treatment:
+             everything above is browser-only localStorage, everything here
+             is stored encrypted on the server and used by the scheduled
+             engine while nobody is watching. See src/js/settings-engine.js.
+             ========================================================== -->
+        <div class="panel engine-panel" style="margin-top:18px">
+          <div class="panel-title" data-i18n="app:settings.engineTitle">☁ Server-Side Trading Engine</div>
+          <div class="small" style="margin-bottom:14px;color:var(--muted)" data-i18n="app:settings.engineIntro">
+            These credentials are stored encrypted on the server and used by your scheduled jobs — they run
+            even when this browser is closed. They are separate from the browser-only keys above, and are
+            never sent back to the browser once saved.
+          </div>
+
+          <div id="engineStatusEl"></div>
+          <!-- Step-up password prompt, rendered by settings-engine.js only when
+               the server answers 401 {stepUp:true}. Inline rather than a
+               window.prompt() so the password is masked. -->
+          <div id="engineStepUpEl"></div>
+
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:16px 0 10px" data-i18n="app:settings.engineCredHeader">🔑 Connected Credentials</div>
+          <div id="engineCredListEl" class="small" style="color:var(--muted)" data-i18n="app:settings.engineLoading">Loading…</div>
+
+          <div class="form-grid" style="margin-top:14px">
+            <div>
+              <label data-i18n="app:settings.engineLabelMode">Mode</label>
+              <select id="engineMode">
+                <option value="paper" data-i18n="app:settings.engineModePaper">Paper (trading enabled)</option>
+                <option value="live" data-i18n="app:settings.engineModeLive">Live (read-only insights)</option>
+              </select>
+            </div>
+            <div>
+              <label data-i18n="app:settings.engineLabelKey">API Key ID</label>
+              <input id="engineKeyId" autocomplete="off" spellcheck="false" placeholder="PK...">
+            </div>
+            <div>
+              <label data-i18n="app:settings.engineLabelSecret">API Secret</label>
+              <input id="engineSecret" type="password" autocomplete="new-password" placeholder="Secret">
+            </div>
+          </div>
+          <label class="small" style="display:flex;align-items:center;gap:6px;margin-top:10px;color:var(--muted);cursor:pointer">
+            <input type="checkbox" id="engineActivate" checked>
+            <span data-i18n="app:settings.engineActivateLabel">Use this credential for my scheduled jobs</span>
+          </label>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+            <button class="btn btn-green" onclick="engineSaveCredential()" data-i18n="app:settings.engineConnectBtn">Connect</button>
+            <button class="btn" onclick="engineRefresh()" data-i18n="app:settings.engineRefreshBtn">↻ Refresh</button>
+          </div>
+          <div class="small" style="margin-top:10px;color:var(--muted)" data-i18n="app:settings.engineLiveNote">
+            🔒 Live credentials are read-only: this project places orders on the paper account only.
+            Replacing the credential in use, or disconnecting one, asks for your account password.
+          </div>
+
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:22px 0 10px" data-i18n="app:settings.engineConfigHeader">🎛 Strategy Overrides (JSON)</div>
+          <div class="small" style="margin-bottom:8px;color:var(--muted)" data-i18n="app:settings.engineConfigIntro">
+            Only the settings you change, as a JSON object. Everything else uses the shipped defaults.
+            Values outside the allowed range, unknown keys, and settings locked by the trading rules are rejected on save.
+          </div>
+          <textarea id="engineConfigEditor" spellcheck="false" aria-label="Strategy overrides JSON">{}</textarea>
+          <div id="engineConfigMsgEl"></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+            <button class="btn btn-green" onclick="engineSaveConfig()" data-i18n="app:settings.engineSaveConfigBtn">Save Overrides</button>
+            <button class="btn" onclick="engineFormatConfig()" data-i18n="app:settings.engineFormatBtn">⧉ Format</button>
+            <button class="btn btn-red" onclick="engineResetConfig()" data-i18n="app:settings.engineResetConfigBtn">↩ Reset to defaults</button>
+          </div>
+
+          <details style="margin-top:14px">
+            <summary class="small" style="cursor:pointer;color:var(--muted)" data-i18n="app:settings.engineKeysSummary">Show editable settings and their defaults</summary>
+            <div id="engineKeyListEl" class="engine-keylist" style="margin-top:8px"></div>
+          </details>
+
+          <details style="margin-top:8px">
+            <summary class="small" style="cursor:pointer;color:var(--muted)" data-i18n="app:settings.engineAuditSummary">Recent credential activity</summary>
+            <div id="engineAuditEl" class="engine-audit" style="margin-top:8px"></div>
+          </details>
+        </div>
       </section>
     </div>

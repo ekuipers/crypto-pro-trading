@@ -27,9 +27,15 @@
 //     assertPaperTrading() independently blocks every order placement and
 //     cancellation on a non-paper base URL. Storing a key here does not, and
 //     must not, become a way around that.
+//   * Phase 6 adds step-up auth on DESTRUCTIVE changes only (disconnecting a
+//     credential, or overwriting one that is currently active — i.e. the one
+//     the engine is trading with). Connecting a first credential stays
+//     frictionless: it takes nothing away, and a password prompt on the very
+//     first setup step is where users give up. Every mutation writes a row to
+//     trader_credential_audit regardless.
 // ============================================================
 import * as db from './db.js';
-import { currentUid } from './auth.js';
+import { currentUid, verifyStepUpPassword } from './auth.js';
 import { cryptoEnabled, CryptoNotConfigured, DecryptFailed, KeyMismatch } from './secretsCrypto.js';
 import { ALPACA_HOSTS } from './alpacaClient.js';
 import { rateLimited } from './rateLimit.js';
@@ -52,6 +58,34 @@ const KEY_ID_RE = /^[A-Za-z0-9_-]{8,128}$/;
 const SECRET_RE = /^[\x21-\x7e]{8,256}$/; // printable ASCII, no spaces/control chars
 
 export const isValidMode = (mode) => MODES.includes(mode);
+
+/**
+ * The step-up policy in one place, as a pure predicate: which credential
+ * mutations require the account password to be re-entered.
+ *
+ * Step-up guards actions that DESTROY access or redirect a live engine, not
+ * actions that add or merely re-select. Requiring a password to connect a
+ * first key would put a friction wall at the one step every user must clear,
+ * and would protect nothing — an attacker holding the session could simply
+ * connect their own key without it.
+ *
+ * @param {'connect'|'replace'|'activate'|'delete'} action
+ * @param {{isActive?: boolean}} ctx isActive => the credential being replaced
+ *   is the one the engine is trading with right now.
+ */
+export function stepUpRequired(action, { isActive = false } = {}) {
+  // Irreversible: the ciphertext is gone, the plaintext was never recoverable
+  // from us, and if it was active the account's engine stops — stop-loss
+  // watchdog included.
+  if (action === 'delete') return true;
+  // Overwriting the live credential redirects every future scheduled run to a
+  // different Alpaca account. Replacing a stored-but-inactive mode changes
+  // nothing that is running.
+  if (action === 'replace') return isActive === true;
+  // 'connect' (nothing to lose) and 'activate' (picks between keys the user
+  // already connected, trivially reversible) stay frictionless.
+  return false;
+}
 
 /**
  * Validates the client payload and builds exactly what gets encrypted.
@@ -145,9 +179,35 @@ export function installCredentialsRoutes(app) {
     return uid;
   }
 
-  /** One line per successful mutation: uid + mode only, never the key preview or body. */
-  const audit = (action, uid, mode) =>
+  /**
+   * Records one successful mutation in both channels: the platform log (uid +
+   * mode only, never the key preview or the request body) and the durable
+   * per-user trail the Settings panel shows. db.appendCredentialAudit never
+   * throws, so a trail failure cannot turn a completed change into an error.
+   */
+  const audit = (action, uid, mode, detail = null) => {
     console.log(`[credentials] ${action} uid=${uid} mode=${mode} at=${new Date().toISOString()}`);
+    return db.appendCredentialAudit(uid, action, mode, detail);
+  };
+
+  /**
+   * Answers 401 and returns false unless the caller re-proves the account
+   * password. Used only where the action destroys or replaces a credential
+   * the engine may be trading with right now.
+   */
+  async function requireStepUp(req, res, uid) {
+    if (await verifyStepUpPassword(uid, req.body?.password)) return true;
+    // Deliberately identical wording whether the password was absent or
+    // wrong, and no hint about which credential exists.
+    res.status(401).json({ error: 'Enter your account password to confirm this change.', stepUp: true });
+    return false;
+  }
+
+  /** True when this mode already holds the credential the engine would trade with. */
+  async function isActiveMode(uid, mode) {
+    const rows = await db.listAlpacaCredentials(uid);
+    return rows.some((r) => r.mode === mode && r.active);
+  }
 
   // Metadata only: which modes are connected, which is active, last 4 of each
   // key id. Never the key, never the secret, never the ciphertext.
@@ -155,10 +215,13 @@ export function installCredentialsRoutes(app) {
     try {
       const uid = await requireUid(req, res, READ_LIMIT);
       if (!uid) return;
-      const credentials = await db.listAlpacaCredentials(uid);
+      const [credentials, auditTrail] = await Promise.all([
+        db.listAlpacaCredentials(uid),
+        db.listCredentialAudit(uid, 10),
+      ]);
       // Account-scoped: never let an intermediary cache it.
       res.set('Cache-Control', 'no-store');
-      res.json({ configured: cryptoEnabled(), credentials });
+      res.json({ configured: cryptoEnabled(), credentials, audit: auditTrail });
     } catch (e) {
       console.error('[credentials] list failed:', e?.stack || e);
       const { status, body } = errorResponse(e);
@@ -174,8 +237,15 @@ export function installCredentialsRoutes(app) {
       if (!uid) return;
       const built = buildCredentialPayload(req.params.mode, req.body);
       if (!built.ok) return res.status(400).json({ error: built.error });
+      const replacingActive = await isActiveMode(uid, req.params.mode);
+      if (stepUpRequired('replace', { isActive: replacingActive }) && !(await requireStepUp(req, res, uid))) return;
       await db.putAlpacaCredential(uid, req.params.mode, built.payload, built.activate);
-      audit(built.activate ? 'connected+activated' : 'connected', uid, req.params.mode);
+      await audit(
+        replacingActive ? db.CREDENTIAL_ACTIONS.REPLACED : db.CREDENTIAL_ACTIONS.CONNECTED,
+        uid,
+        req.params.mode,
+        built.activate ? 'set active' : null,
+      );
       res.json({ ok: true, credentials: await db.listAlpacaCredentials(uid) });
     } catch (e) {
       // Log the error message only — never req.body, which holds the secret.
@@ -194,7 +264,9 @@ export function installCredentialsRoutes(app) {
       if (!isValidMode(mode)) return res.status(400).json({ error: 'mode must be "paper" or "live"' });
       const switched = await db.setActiveAlpacaMode(uid, mode);
       if (!switched) return res.status(404).json({ error: `No ${mode} credential is connected` });
-      audit('activated', uid, mode);
+      // No step-up: this only picks between credentials the user already
+      // connected, destroys nothing, and is trivially reversible.
+      await audit(db.CREDENTIAL_ACTIONS.ACTIVATED, uid, mode);
       res.json({ ok: true, credentials: await db.listAlpacaCredentials(uid) });
     } catch (e) {
       console.error('[credentials] activate failed:', e?.stack || e);
@@ -209,12 +281,15 @@ export function installCredentialsRoutes(app) {
       if (!uid) return;
       const { mode } = req.params;
       if (!isValidMode(mode)) return res.status(400).json({ error: 'mode must be "paper" or "live"' });
+      // Checked before the delete, not after.
+      if (stepUpRequired('delete') && !(await requireStepUp(req, res, uid))) return;
       const removed = await db.deleteAlpacaCredential(uid, mode);
       if (!removed) return res.status(404).json({ error: `No ${mode} credential is connected` });
-      audit('deleted', uid, mode);
+      await audit(db.CREDENTIAL_ACTIONS.DELETED, uid, mode);
       res.json({ ok: true, credentials: await db.listAlpacaCredentials(uid) });
     } catch (e) {
-      console.error('[credentials] delete failed:', e?.stack || e);
+      // Message only — this request body carries the account password.
+      console.error('[credentials] delete failed:', e?.message || e);
       const { status, body } = errorResponse(e);
       res.status(status).json(body);
     }

@@ -23,6 +23,8 @@ architecture and hard rules live in `CLAUDE.md`.
 | HL | Higher Low | Bullish structure |
 | LH | Lower High | Bearish structure |
 | LL | Lower Low | Bearish structure |
+| Audit trail (credentials) | Append-only record of credential changes | `trader_credential_audit` — who changed which Alpaca credential, when. Holds no key material; has no foreign key, so it outlives the account it documents |
+| Step-up auth | Re-entering your account password to confirm a high-consequence action | Asked only when disconnecting a credential, or replacing the one the scheduled engine is trading with. Connecting a first key, and switching between keys you already stored, do not ask |
 | Legacy engine uid | Sentinel uid for the pre-multi-tenant engine | `'trader'` — `trader_state`'s old fixed row id (`db.LEGACY_ENGINE_UID`), kept as a rollback snapshot after the Phase 4 backfill copies it to the owner's uid |
 | MACD | Moving Average Convergence Divergence | 12/26 EMA diff; 9-period signal line |
 | MiCA | Markets in Crypto-Assets Regulation | EU crypto regulation; reason this project is paper-trading only |

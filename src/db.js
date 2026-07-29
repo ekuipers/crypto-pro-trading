@@ -311,6 +311,26 @@ export async function init() {
     updated_at timestamptz not null default now()
   )`);
 
+  // Multi-tenant conversion Phase 6: append-only trail of who changed which
+  // credential, when. Deferred from Phase 2 because until Phase 5 the rows
+  // weren't wired to anything that trades; now they decide which Alpaca
+  // account the engine places orders against, so a change needs a record.
+  //
+  // Deliberately NO foreign key to accounts: this is evidence, and evidence
+  // that vanishes when the account it incriminates is deleted is not evidence
+  // (same reasoning as job_runs). It also stores no key material whatsoever —
+  // `detail` is a short server-authored phrase, never anything user-supplied.
+  await q(`create table if not exists trader_credential_audit (
+    id      bigserial primary key,
+    uid     text not null,
+    action  text not null,
+    mode    text,
+    detail  text,
+    at      timestamptz not null default now()
+  )`);
+  await q(`create index if not exists trader_credential_audit_uid_at_idx
+           on trader_credential_audit (uid, at desc)`);
+
   await checkPhase4Migrated();
   console.log('[db] connected; tables ready');
   return true;
@@ -818,4 +838,57 @@ export async function putStrategyConfig(uid, data) {
 export async function deleteStrategyConfig(uid) {
   const { rowCount } = await q('delete from trader_strategy_config where uid = $1', [uid]);
   return rowCount > 0;
+}
+
+// ---- Credential audit trail (multi-tenant Phase 6) ------------------------
+
+/** Actions the audit trail records. Server-authored — never echo a client string. */
+export const CREDENTIAL_ACTIONS = Object.freeze({
+  CONNECTED: 'connected',
+  REPLACED: 'replaced',
+  ACTIVATED: 'activated',
+  DELETED: 'deleted',
+});
+
+/**
+ * Appends one audit row. Never throws: the mutation it records has already
+ * committed, so rejecting here would report a failure that didn't happen and
+ * could push a user into re-submitting their key. A failed write is logged
+ * loudly instead, and credentialsRoutes.js also emits its own console line per
+ * mutation, so the trail survives in the platform logs either way.
+ * @param {string} detail short server-authored phrase — MUST NOT contain key material.
+ */
+export async function appendCredentialAudit(uid, action, mode, detail = null) {
+  try {
+    await q(
+      'insert into trader_credential_audit (uid, action, mode, detail) values ($1, $2, $3, $4)',
+      [uid, action, mode ?? null, detail],
+    );
+  } catch (e) {
+    console.error('[db] credential audit write failed:', e?.message || e);
+  }
+}
+
+/** Most recent audit rows for one user, newest first. Safe to return to that user. */
+export async function listCredentialAudit(uid, limit = 20) {
+  // Clamped, not trusted: this bound is what stops a client from asking for
+  // the whole table through a query param.
+  const n = Math.min(Math.max(Number(limit) || 20, 1), 100);
+  // Scoped to rows created after the account itself. accounts.id IS the
+  // normalized username (see auth.js's register), so a username that is
+  // deleted and re-registered yields a *different* account owning the *same*
+  // uid string — and this table intentionally has no cascade, because an
+  // audit trail that vanishes with the account it documents is not a trail.
+  // Without this join the new owner would be shown credential changes they
+  // never made, which reads exactly like a compromise. The rows stay in the
+  // table for forensics; they are just not attributed to the new account.
+  const { rows } = await q(
+    `select a.action, a.mode, a.detail, a.at
+     from trader_credential_audit a
+     join accounts acc on acc.id = a.uid
+     where a.uid = $1 and a.at >= acc.created_at
+     order by a.at desc, a.id desc limit $2`,
+    [uid, n],
+  );
+  return rows.map((r) => ({ action: r.action, mode: r.mode, detail: r.detail, at: r.at }));
 }
