@@ -35,9 +35,19 @@
 import { evaluateSymbol } from "./evaluateSymbol.js";
 import { EMPTY_STATE } from "./positionState.js";
 import { DEFAULT_CFG } from "./userConfig.js";
+import { BARS_FOR_INDICATORS } from "./marketData.js";
 
 /** Windows below this can't clear evaluateSymbol's own history gates. */
 export const MIN_WINDOW = 60;
+
+/**
+ * Bars visible to any one evaluation. Production calls getCryptoBars() with
+ * BARS_FOR_INDICATORS (200) and gets exactly that many — it never sees the
+ * whole history. An ever-growing prefix would hand late windows more history
+ * than the live engine has, which shifts EMA seeding and every indicator
+ * derived from it. Rolling, not cumulative, is the faithful shape.
+ */
+export const DEFAULT_LOOKBACK = BARS_FOR_INDICATORS;
 
 /**
  * Collapses a decision reason into a stable bucket.
@@ -81,7 +91,11 @@ function visibleThrough(bars, asOf, cursor) {
  *   the round-trip cost and therefore the R:R gate.
  * @returns {Promise<{symbol, windows, rows}>} one row per evaluated window.
  */
-export async function replaySymbol(symbol, series, { spreadPct, cfg = DEFAULT_CFG, minWindow = MIN_WINDOW } = {}) {
+export async function replaySymbol(
+  symbol,
+  series,
+  { spreadPct, cfg = DEFAULT_CFG, minWindow = MIN_WINDOW, lookback = DEFAULT_LOOKBACK } = {},
+) {
   if (typeof spreadPct !== "number" || !(spreadPct >= 0)) {
     // Refused rather than defaulted: a wrong spread quietly moves the R:R gate,
     // which is one of the things this harness exists to measure.
@@ -93,7 +107,10 @@ export async function replaySymbol(symbol, series, { spreadPct, cfg = DEFAULT_CF
   let cD = 0;
 
   for (let i = minWindow; i <= bars15.length; i++) {
-    const window15 = bars15.slice(0, i);
+    // Rolling window — see DEFAULT_LOOKBACK. Also keeps the replay linear
+    // rather than quadratic, which is what makes a multi-thousand-window run
+    // practical at all.
+    const window15 = bars15.slice(Math.max(0, i - lookback), i);
     const last = window15[window15.length - 1];
     const asOf = new Date(last.t).getTime();
 

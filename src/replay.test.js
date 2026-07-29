@@ -110,6 +110,37 @@ describe("replaySymbol", () => {
     );
   });
 
+  test("each evaluation sees a ROLLING window, never the whole history", async () => {
+    // Production calls getCryptoBars() with BARS_FOR_INDICATORS and gets
+    // exactly that many. A cumulative prefix would hand late windows more
+    // history than the live engine has and shift every EMA-seeded indicator.
+    let widest = 0;
+    const bars15 = bars(200, { drift: 0.001 });
+    const spy = {
+      bars15,
+      bars4h: bars(60, { stepMs: 4 * 60 * 60_000 }),
+      barsDaily: bars(60, { stepMs: 24 * 60 * 60_000 }),
+    };
+    // Re-derive the window width from the harness itself by replaying with a
+    // small explicit lookback and checking no evaluation could have exceeded it.
+    const lookback = 80;
+    const { rows } = await replaySymbol("BTC/USD", spy, { spreadPct: 0.003, lookback });
+    assert.ok(rows.length > 0);
+    // A cumulative harness would produce different scores late in the series
+    // than a rolling one; a rolling harness is invariant to history added
+    // BEFORE the lookback window.
+    const padded = { ...spy, bars15: [...bars(300, { start: 5, drift: 0 }), ...bars15] };
+    const { rows: rowsPadded } = await replaySymbol("BTC/USD", padded, { spreadPct: 0.003, lookback });
+    const tail = rowsPadded.slice(-rows.length + MIN_WINDOW);
+    const orig = rows.slice(MIN_WINDOW);
+    assert.deepEqual(
+      tail.slice(-orig.length).map((r) => r.score),
+      orig.map((r) => r.score),
+      "prepending ancient history must not change recent decisions",
+    );
+    void widest;
+  });
+
   test("every row carries what a report needs", async () => {
     const { rows } = await replaySymbol("BTC/USD", series(), { spreadPct: 0.003 });
     for (const key of ["t", "close", "score", "action", "bucket", "reason"]) {
