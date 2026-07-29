@@ -253,12 +253,18 @@ function openAccountModal(user) {
       </div>
       <div class="small" id="authNotifyEmailMsg" style="color:var(--muted);min-height:14px"></div>
     </div>
+    <div class="danger-zone">
+      <div class="danger-zone-title">${window.t('app:auth.dangerZone')}</div>
+      <p class="small" style="color:var(--muted)">${window.t('app:auth.deleteAccountBlurb')}</p>
+      <button class="btn btn-red" id="authDeleteBtn">${window.t('app:auth.deleteAccountBtn')}</button>
+    </div>
     `,
     `<button class="btn" id="authChangePwBtn">${window.t('app:auth.changePasswordBtn')}</button>
      <button class="btn" id="authTotpBtn">${user.totpEnabled ? window.t('app:auth.disable2faBtn') : window.t('app:auth.enable2faBtn')}</button>
      <button class="btn" onclick="closeAuthModal()">${window.t('app:auth.closeBtn')}</button>
      <button class="btn btn-red" id="authLogoutBtn">${window.t('app:auth.signOutBtn')}</button>`,
   );
+  $("authDeleteBtn").addEventListener('click', () => openDeleteAccountModal(user));
   $("authChangePwBtn").addEventListener('click', openChangePasswordModal);
   $("authTotpBtn").addEventListener('click', () => (user.totpEnabled ? openDisableTotpModal() : openSetupTotpModal()));
   $("authNotifyEmailSaveBtn").addEventListener('click', async () => {
@@ -282,6 +288,72 @@ function openAccountModal(user) {
   $("authLogoutBtn").addEventListener('click', async () => {
     try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
     window.location.reload();
+  });
+}
+
+// ---- Self-service account deletion (Suite roadmap 2026-07-29) -------------
+// Three separate confirmations on purpose — password, exact username, and the
+// 2FA code when enabled — because this is the one irreversible action in the
+// suite and it takes data out of three other apps the user isn't looking at.
+// Trader has the most to lose here: a connected Alpaca credential and the
+// server-side engine's state go with the account, which the copy says plainly.
+function openDeleteAccountModal(user) {
+  renderAuthView(
+    window.t('app:auth.deleteAccountTitle'),
+    `
+    <p class="small" style="color:var(--muted)">${window.t('app:auth.deleteAccountWarn')}</p>
+    <div style="margin-bottom:10px">
+      <label>${window.t('app:auth.passwordLabel')}</label>
+      <input id="authDelPw" type="password" autocomplete="current-password" style="width:100%">
+    </div>
+    <div style="margin-bottom:10px">
+      <label>${window.t('app:auth.confirmUsernameLabel')}</label>
+      <input id="authDelUser" type="text" autocomplete="off" style="width:100%" placeholder="${authEsc(user.username)}">
+    </div>
+    ${user.totpEnabled ? `<div style="margin-bottom:10px">
+      <label>${window.t('app:auth.totpLabel')}</label>
+      <input id="authDelTotp" type="text" inputmode="numeric" autocomplete="one-time-code" style="width:100%">
+    </div>` : ''}
+    <div class="small" id="authDelMsg" style="color:var(--muted);min-height:14px"></div>
+    `,
+    `<button class="btn" id="authDelCancelBtn">${window.t('app:auth.cancelBtn')}</button>
+     <button class="btn btn-red" id="authDelConfirmBtn">${window.t('app:auth.deleteAccountBtn')}</button>`,
+  );
+  $("authDelCancelBtn").addEventListener('click', () => openAccountModal(user));
+  $("authDelConfirmBtn").addEventListener('click', async () => {
+    const msgEl = $("authDelMsg");
+    const btn = $("authDelConfirmBtn");
+    msgEl.style.color = 'var(--muted)';
+    msgEl.textContent = window.t('app:auth.deletingText');
+    btn.disabled = true;
+    try {
+      const body = {
+        password: $("authDelPw").value,
+        confirmUsername: $("authDelUser").value,
+      };
+      const totpEl = $("authDelTotp");
+      if (totpEl) body.totpCode = totpEl.value.trim();
+      const r = await fetch('/api/auth/delete-account', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        msgEl.style.color = 'var(--red)';
+        msgEl.textContent = data.error || window.t('app:auth.couldNotDeleteAccount');
+        btn.disabled = false;
+        return;
+      }
+      // The server cleared the session cookie; a full reload is the simplest
+      // way to drop every piece of in-memory signed-in state the dashboard
+      // holds (Autopilot state, cached tabs, settings sync).
+      alert(window.t('app:auth.deleteScheduledBody'));
+      window.location.reload();
+    } catch {
+      msgEl.style.color = 'var(--red)';
+      msgEl.textContent = window.t('app:auth.networkError');
+      btn.disabled = false;
+    }
   });
 }
 

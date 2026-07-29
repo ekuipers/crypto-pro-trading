@@ -611,7 +611,16 @@
     "closeBtn": "Sluiten",
     "signOutBtn": "Uitloggen",
     "signedInAs": "Ingelogd als {{name}}",
-    "signInTitleAttr": "Log in bij uw CryptoPro Suite-account"
+    "signInTitleAttr": "Log in bij uw CryptoPro Suite-account",
+    "dangerZone": "Gevarenzone",
+    "deleteAccountBlurb": "Als je je account verwijdert, worden je gegevens uit elke CryptoPro-app verwijderd — Charts, Trader en Training — omdat ze één account delen.",
+    "deleteAccountBtn": "Mijn account verwijderen",
+    "deleteAccountTitle": "Mijn account verwijderen",
+    "deleteAccountWarn": "Je account wordt gepland voor verwijdering en je wordt onmiddellijk uitgelogd bij elke CryptoPro-app. Na 30 dagen worden je gegevens definitief gewist — je gekoppelde Alpaca-inloggegevens, de status en het journaal van de server-engine, je schema’s en strategie-instellingen, opgeslagen lay-outs en watchlists, en je cursusvoortgang. Binnen die 30 dagen kan een beheerder dit voor je ongedaan maken.",
+    "confirmUsernameLabel": "Typ je gebruikersnaam ter bevestiging",
+    "deletingText": "Verwijderen…",
+    "couldNotDeleteAccount": "Kon het account niet verwijderen.",
+    "deleteScheduledBody": "Account gepland voor verwijdering. Je bent overal uitgelogd. Je gegevens worden over 30 dagen definitief gewist — neem daarvoor contact op met een beheerder als dit een vergissing was."
   },
   "manual": {
     "sectionOverview": "Overzicht",

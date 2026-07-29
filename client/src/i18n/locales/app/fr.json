@@ -611,7 +611,16 @@
     "closeBtn": "Fermer",
     "signOutBtn": "Se déconnecter",
     "signedInAs": "Connecté en tant que {{name}}",
-    "signInTitleAttr": "Connectez-vous à votre compte CryptoPro Suite"
+    "signInTitleAttr": "Connectez-vous à votre compte CryptoPro Suite",
+    "dangerZone": "Zone de danger",
+    "deleteAccountBlurb": "La suppression de votre compte efface vos données de toutes les applications CryptoPro — Charts, Trader et Training — car elles partagent un seul compte.",
+    "deleteAccountBtn": "Supprimer mon compte",
+    "deleteAccountTitle": "Supprimer mon compte",
+    "deleteAccountWarn": "Votre compte sera programmé pour suppression et vous serez immédiatement déconnecté de toutes les applications CryptoPro. Après 30 jours, vos données seront définitivement effacées — vos identifiants Alpaca connectés, l’état et le journal du moteur serveur, vos planifications et réglages de stratégie, vos mises en page et listes de suivi enregistrées, ainsi que votre progression de cours. Pendant ces 30 jours, un administrateur peut annuler cette opération pour vous.",
+    "confirmUsernameLabel": "Saisissez votre nom d’utilisateur pour confirmer",
+    "deletingText": "Suppression…",
+    "couldNotDeleteAccount": "Impossible de supprimer le compte.",
+    "deleteScheduledBody": "Compte programmé pour suppression. Vous avez été déconnecté partout. Vos données seront définitivement effacées dans 30 jours — contactez un administrateur avant cette échéance en cas d’erreur."
   },
   "manual": {
     "sectionOverview": "Aperçu",

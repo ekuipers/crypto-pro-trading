@@ -1,5 +1,32 @@
 # Project: CryptoPro Trader
 
+## 2026-07-29 — Suite roadmap: account deletion, including saved user data
+
+Two-stage deletion, ported identically across the suite (admin + purge side in Suite only). Soft delete
+stamps `accounts.deleted_at`/`deleted_by`, drops every session and SSO ticket, and makes `currentUser()` and
+`/api/auth/login` treat the account as gone; Suite's daily cron hard-deletes 30 days later. Self-service entry
+point here is the account modal's new Danger zone (password + exact username + 2FA when enabled), with 8 new
+i18n keys × 4 locales (app namespace now 603 keys, in parity).
+
+**Why the purge is an explicit table list:** only four tables cascade from `accounts`. Nine hold user data with
+no FK at all — including this project's `trader_state` (uid lives in `id`, not `uid`), `trader_journal`,
+`cron_config` and `job_runs` — so a plain `delete from accounts` would leave them orphaned and the erasure
+would look complete while being mostly cosmetic. `db.js`'s `USER_DATA_TABLES` is that inventory and has to be
+extended whenever a new per-user table is added anywhere in the suite.
+
+**Decision recorded:** `job_runs` and `trader_credential_audit` are **hard-deleted**. `db.js` documented both
+as audit trails that must outlive an account deletion ("evidence that vanishes when the account it incriminates
+is deleted is not evidence"); the user chose complete erasure, and the comment was corrected rather than left
+contradicting the code.
+
+**Found and fixed in passing:** this project never checked `isBlocked` — a blocked account could still sign in
+here, since only Suite enforced it. The same guard now checks both. Also caught before it shipped: `currentUid`
+returns the GUEST sentinel when signed out in this project (Suite's returns null), so a `if (!uid)` guard on
+the delete route would have let anonymous callers through; all four routes use `currentUser()` instead.
+
+Verified: 520/520 tests (11 new in `accountDeletion.test.js` — reserved-uid guards plus a real-database
+soft delete → restore → purge cycle, test rows cleaned up), client build clean, server imports clean.
+
 ## 2026-07-29 — Roadmap rescan: multi-tenant conversion retired from the roadmap (docs only)
 
 No code changed. `CLAUDE.md`'s roadmap carried all six multi-tenant phases as open items long after they

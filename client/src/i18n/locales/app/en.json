@@ -611,7 +611,16 @@
     "closeBtn": "Close",
     "signOutBtn": "Sign out",
     "signedInAs": "Signed in as {{name}}",
-    "signInTitleAttr": "Sign in to your CryptoPro Suite account"
+    "signInTitleAttr": "Sign in to your CryptoPro Suite account",
+    "dangerZone": "Danger zone",
+    "deleteAccountBlurb": "Deleting your account removes your data from every CryptoPro app — Charts, Trader and Training — because they share one account.",
+    "deleteAccountBtn": "Delete my account",
+    "deleteAccountTitle": "Delete my account",
+    "deleteAccountWarn": "Your account will be scheduled for deletion and you will be signed out of every CryptoPro app immediately. After 30 days your data is permanently erased — your connected Alpaca credentials, the server-side engine’s state and journal, your schedules and strategy overrides, saved layouts and watchlists, and your course progress. Within those 30 days an administrator can undo this for you.",
+    "confirmUsernameLabel": "Type your username to confirm",
+    "deletingText": "Deleting…",
+    "couldNotDeleteAccount": "Could not delete the account.",
+    "deleteScheduledBody": "Account scheduled for deletion. You have been signed out everywhere. Your data will be permanently erased in 30 days — contact an administrator before then if this was a mistake."
   },
   "manual": {
     "sectionOverview": "Overview",

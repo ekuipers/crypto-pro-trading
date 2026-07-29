@@ -80,7 +80,15 @@ export async function currentUser(req) {
   try {
     const uid = await db.getSessionUid(sid);
     if (!uid) return null;
-    return await db.getAccount(uid);
+    const account = await db.getAccount(uid);
+    // A blocked or pending-deletion account is treated as signed-out on every
+    // request — currentUser() gates every authenticated route, so no separate
+    // session teardown is needed. softDeleteAccount already drops the sessions
+    // rows; this is what makes a deletion (or a block set in CryptoPro Suite's
+    // admin panel) take effect instantly in this app too, since all four share
+    // one database.
+    if (account?.isBlocked || account?.deletedAt) return null;
+    return account;
   } catch (e) {
     console.error('[auth] currentUser lookup failed:', e?.message || e);
     return null; // storage hiccup — treat as signed-out, don't crash
@@ -228,6 +236,15 @@ export function installAuthRoutes(app) {
         if (!code) return res.status(401).json({ error: 'Enter your 2FA code', requiresTotp: true });
         if (!verifyTotp(user.totpSecret, code)) return res.status(401).json({ error: 'Invalid 2FA code', requiresTotp: true });
       }
+      // Checked only after the password (and 2FA) verify, so this never tells an
+      // unauthenticated prober whether a given username is blocked or pending
+      // deletion. Both states are set in CryptoPro Suite; this app enforces them.
+      if (user.isBlocked) {
+        return res.status(403).json({ error: 'This account has been blocked. Contact an administrator.' });
+      }
+      if (user.deletedAt) {
+        return res.status(403).json({ error: 'This account is scheduled for deletion. Contact an administrator if this was a mistake.' });
+      }
       try { await db.updateLastLogin(uid); } catch { /* non-critical */ }
 
       const sid = token(24);
@@ -336,6 +353,52 @@ export function installAuthRoutes(app) {
     } catch (e) {
       console.error('[auth] 2fa disable failed:', e?.stack || e);
       res.status(500).json({ error: 'Could not disable 2FA — database error, please retry.' });
+    }
+  });
+
+  // ---- Self-service account deletion (Suite roadmap 2026-07-29) -----------
+  // Soft-deletes the caller's own account: sign-in stops working across the
+  // whole suite immediately and every session dies, but the rows survive the
+  // grace period so an admin (in CryptoPro Suite) can undo it. Requires the
+  // account password even though the caller is already signed in — a session
+  // alone should not be enough to destroy an account.
+  app.post('/api/auth/delete-account', async (req, res) => {
+    if (!db.dbEnabled()) return res.status(503).json({ error: 'Accounts are unavailable right now — please retry later.' });
+    try {
+      // currentUser, not currentUid: currentUid falls back to the GUEST
+      // sentinel when signed out, so a truthiness check would let an anonymous
+      // caller through.
+      const user = await currentUser(req);
+      if (!user) return res.status(401).json({ error: 'Sign in first' });
+      const uid = user.id;
+      // Same budget as sign-in: this endpoint verifies a password, so it is
+      // also a password-guessing surface for anyone holding a stolen session.
+      if (rateLimited(`delete-account:${uid}`, 5, 15 * 60 * 1000)) {
+        return res.status(429).json({ error: 'Too many attempts — please try again later.' });
+      }
+      const password = String(req.body?.password || '');
+      if (!verifyPassword(password, user.salt, user.passwordHash)) {
+        return res.status(401).json({ error: 'Password is incorrect' });
+      }
+      // Typing the username is the deliberate friction that separates this from
+      // a misclick; checked server-side so a modified client can't skip it.
+      if (normUser(req.body?.confirmUsername) !== uid) {
+        return res.status(400).json({ error: 'Type your username exactly to confirm deletion' });
+      }
+      // 2FA, when enabled, is part of proving identity — not requiring it here
+      // would make deletion the weakest door into the account.
+      if (user.totpEnabled) {
+        const code = req.body?.totpCode;
+        if (!code) return res.status(401).json({ error: 'Enter your 2FA code', requiresTotp: true });
+        if (!verifyTotp(user.totpSecret, code)) return res.status(401).json({ error: 'Invalid 2FA code', requiresTotp: true });
+      }
+      const ok = await db.softDeleteAccount(uid, uid);
+      clearCookie(res, SESSION_COOKIE);
+      console.log(`[auth] account ${uid} soft-deleted by self; purge in ${db.ACCOUNT_PURGE_GRACE_DAYS} days`);
+      res.json({ ok, graceDays: db.ACCOUNT_PURGE_GRACE_DAYS });
+    } catch (e) {
+      console.error('[auth] delete account failed:', e?.stack || e);
+      res.status(500).json({ error: 'Could not delete the account — database error, please retry.' });
     }
   });
 

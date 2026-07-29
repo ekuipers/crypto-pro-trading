@@ -611,7 +611,16 @@
     "closeBtn": "Cerrar",
     "signOutBtn": "Cerrar sesión",
     "signedInAs": "Sesión iniciada como {{name}}",
-    "signInTitleAttr": "Inicie sesión en su cuenta de CryptoPro Suite"
+    "signInTitleAttr": "Inicie sesión en su cuenta de CryptoPro Suite",
+    "dangerZone": "Zona de peligro",
+    "deleteAccountBlurb": "Eliminar tu cuenta borra tus datos de todas las aplicaciones CryptoPro — Charts, Trader y Training — porque comparten una sola cuenta.",
+    "deleteAccountBtn": "Eliminar mi cuenta",
+    "deleteAccountTitle": "Eliminar mi cuenta",
+    "deleteAccountWarn": "Tu cuenta quedará programada para eliminación y se cerrará tu sesión en todas las aplicaciones CryptoPro de inmediato. Pasados 30 días, tus datos se borrarán de forma permanente: las credenciales de Alpaca conectadas, el estado y el diario del motor del servidor, tus programaciones y ajustes de estrategia, los diseños y listas de seguimiento guardados, y tu progreso del curso. Durante esos 30 días, un administrador puede deshacerlo por ti.",
+    "confirmUsernameLabel": "Escribe tu nombre de usuario para confirmar",
+    "deletingText": "Eliminando…",
+    "couldNotDeleteAccount": "No se pudo eliminar la cuenta.",
+    "deleteScheduledBody": "Cuenta programada para eliminación. Se ha cerrado tu sesión en todas partes. Tus datos se borrarán definitivamente en 30 días; contacta con un administrador antes si esto fue un error."
   },
   "manual": {
     "sectionOverview": "Resumen",

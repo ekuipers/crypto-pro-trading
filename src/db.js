@@ -139,6 +139,16 @@ export async function init() {
   await q(`alter table accounts add column if not exists password_changed_at timestamptz`);
   // Suite roadmap: optional email for notifications, unrelated to sign-in.
   await q(`alter table accounts add column if not exists notification_email text`);
+  // Suite roadmap 2026-07-29: account deletion, ported identically across the
+  // suite. Two-stage — `deleted_at` marks a soft delete (sign-in dies suite-wide
+  // at once, the username stays reserved) and the scheduled purge in CryptoPro
+  // Suite hard-deletes the data once the grace period expires. `is_blocked` is
+  // added here too: the column is owned by Suite's admin backend, but this
+  // project now enforces it, and rule 23 says each project must stand alone.
+  await q(`alter table accounts add column if not exists deleted_at timestamptz`);
+  await q(`alter table accounts add column if not exists deleted_by text`);
+  await q(`alter table accounts add column if not exists is_blocked boolean not null default false`);
+  await q(`create index if not exists accounts_deleted_at_idx on accounts(deleted_at) where deleted_at is not null`);
   await q(`create table if not exists sessions (
     sid        text primary key,
     uid        text not null references accounts(id) on delete cascade,
@@ -316,10 +326,16 @@ export async function init() {
   // weren't wired to anything that trades; now they decide which Alpaca
   // account the engine places orders against, so a change needs a record.
   //
-  // Deliberately NO foreign key to accounts: this is evidence, and evidence
-  // that vanishes when the account it incriminates is deleted is not evidence
-  // (same reasoning as job_runs). It also stores no key material whatsoever —
-  // `detail` is a short server-authored phrase, never anything user-supplied.
+  // NO foreign key to accounts, but note this no longer means the trail
+  // survives the account. The original reasoning was that evidence which
+  // vanishes when the account it incriminates is deleted is not evidence; the
+  // user overrode that on 2026-07-29 in favour of complete erasure, so
+  // `purgeAccount` deletes these rows explicitly (see USER_DATA_TABLES). The
+  // missing FK now only means the rows aren't destroyed *implicitly* by a
+  // cascade — the purge is the one and only thing that removes them, and it is
+  // gated behind a 30-day grace period.
+  // It stores no key material whatsoever — `detail` is a short server-authored
+  // phrase, never anything user-supplied.
   await q(`create table if not exists trader_credential_audit (
     id      bigserial primary key,
     uid     text not null,
@@ -374,6 +390,9 @@ function toAccount(r) {
     createdAt: r.created_at, lastLogin: r.last_login,
     totpSecret: r.totp_secret, totpEnabled: !!r.totp_enabled,
     notificationEmail: r.notification_email,
+    isBlocked: !!r.is_blocked,
+    deletedAt: r.deleted_at || null,
+    deletedBy: r.deleted_by || null,
   };
 }
 export async function getAccount(uid) {
@@ -407,6 +426,176 @@ export async function disableTotp(uid) {
 export async function updateNotificationEmail(uid, email) {
   await q('update accounts set notification_email = $2 where id = $1', [uid, email]);
 }
+
+// ---- Account deletion (Suite roadmap 2026-07-29) ---------------------------
+// Ported identically into all four projects, same convention as the auth
+// routes. Deliberately two-stage: a delete request soft-deletes (sign-in stops
+// working everywhere in the suite immediately and every session is killed), but
+// the rows survive a grace period so an accidental — or malicious, if someone
+// got a session — deletion is recoverable by an admin in CryptoPro Suite. Only
+// the scheduled purge actually destroys data, and it cannot be undone.
+//
+// The username stays reserved for the whole grace period on purpose: releasing
+// it at soft-delete would let someone re-register it and inherit whatever rows
+// the purge hasn't reached yet.
+export const ACCOUNT_PURGE_GRACE_DAYS = 30;
+
+// Sentinel uids that are not people. GUEST scopes every signed-out user's rows
+// (Charts writes anonymous alerts under it) and 'trader' is the pre-Phase-4
+// rollback row in trader_state. A username collision must never let a delete
+// reach either, so these are refused outright rather than filtered.
+const RESERVED_UIDS = new Set([GUEST, 'trader']);
+
+// Every table in the shared suite database that holds per-user rows, and the
+// column carrying the uid. The list spans all four projects on purpose: rule 18
+// puts them in ONE database, so deleting a user from any app has to clear their
+// rows in every app's tables or the erasure is partial and silent. Tables that
+// don't exist in a given deployment are skipped (`to_regclass`), which is what
+// lets this same list ship in all four projects (rule 23, autonomy).
+//
+// NOT listed, deliberately: `klines`, `market_events`, `market_status_cache`
+// and `glossary` hold no per-user data. `sessions`, `sso_tickets`,
+// `trader_alpaca_credentials` and `trader_strategy_config` are absent because
+// they already have `on delete cascade` FKs to accounts — deleting the account
+// row takes them.
+//
+// `job_runs` and `trader_credential_audit` ARE listed. Trader's db.js used to
+// document them as audit trails that should outlive an account deletion; the
+// user overrode that on 2026-07-29 in favour of complete erasure, and those
+// comments were corrected in the same change.
+const USER_DATA_TABLES = [
+  ['layouts', 'uid'],
+  ['alerts', 'uid'],
+  ['templates', 'uid'],
+  ['saved_scans', 'uid'],
+  ['paper_trades', 'uid'],
+  ['trader_journal', 'uid'],
+  ['cron_config', 'uid'],
+  ['job_runs', 'uid'],
+  ['trader_credential_audit', 'uid'],
+  // trader_state keys the owning uid in `id`, not `uid` — the Phase 4 migration
+  // reused the existing PK column rather than adding one.
+  ['trader_state', 'id'],
+];
+
+// Table and column names cannot be parameterized, so they are interpolated.
+// They come only from the const above, never from a request — this assertion
+// makes that guarantee local and load-time rather than a matter of trust.
+for (const [table, col] of USER_DATA_TABLES) {
+  if (!/^[a-z_]+$/.test(table) || !/^[a-z_]+$/.test(col)) {
+    throw new Error(`[db] unsafe identifier in USER_DATA_TABLES: ${table}.${col}`);
+  }
+}
+
+// A dedicated client, not q(): q() retries transient failures, which is exactly
+// wrong mid-transaction — a retry after the server aborted the tx would run
+// against a dead snapshot.
+async function withTx(fn) {
+  const client = await getPool().connect();
+  try {
+    await client.query('begin');
+    const out = await fn(client);
+    await client.query('commit');
+    return out;
+  } catch (e) {
+    try { await client.query('rollback'); } catch { /* connection may already be gone */ }
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+async function tableExists(client, table) {
+  const { rows } = await client.query('select to_regclass($1) as t', [table]);
+  return Boolean(rows[0]?.t);
+}
+
+/**
+ * Mark an account deleted and cut off every way back in. Returns false when the
+ * account doesn't exist or is already soft-deleted, so a double-submit is a
+ * no-op rather than a second audit entry.
+ */
+export async function softDeleteAccount(uid, byUid) {
+  if (RESERVED_UIDS.has(uid)) throw new Error(`Refusing to delete reserved uid "${uid}"`);
+  return withTx(async (c) => {
+    const { rowCount } = await c.query(
+      `update accounts set deleted_at = now(), deleted_by = $2
+       where id = $1 and deleted_at is null`,
+      [uid, byUid || uid],
+    );
+    if (!rowCount) return false;
+    // The grace period protects the data, not the session: a tab that is
+    // already signed in must not keep working, and a pending SSO ticket must
+    // not hand out a fresh session in a sibling app.
+    await c.query('delete from sessions where uid = $1', [uid]);
+    await c.query('delete from sso_tickets where uid = $1', [uid]);
+    return true;
+  });
+}
+
+/** Cancel a pending deletion. Admin-only, in CryptoPro Suite — a soft-deleted user cannot sign in to undo it themselves. */
+export async function restoreAccount(uid) {
+  const { rowCount } = await q(
+    `update accounts set deleted_at = null, deleted_by = null
+     where id = $1 and deleted_at is not null`,
+    [uid],
+  );
+  return rowCount > 0;
+}
+
+/**
+ * Hard-delete one account and every row it owns, in a single transaction.
+ * Irreversible. Returns a per-table tally so the caller can log what went.
+ */
+export async function purgeAccount(uid) {
+  if (RESERVED_UIDS.has(uid)) throw new Error(`Refusing to purge reserved uid "${uid}"`);
+  return withTx(async (c) => {
+    const perTable = {};
+    for (const [table, col] of USER_DATA_TABLES) {
+      if (!await tableExists(c, table)) continue;
+      const r = await c.query(`delete from ${table} where ${col} = $1`, [uid]);
+      if (r.rowCount) perTable[table] = r.rowCount;
+    }
+    // Another account's cron_config row can still name this user as its last
+    // editor — a dangling identity reference that would outlive the purge.
+    if (await tableExists(c, 'cron_config')) {
+      const r = await c.query('update cron_config set updated_by_uid = null where updated_by_uid = $1', [uid]);
+      if (r.rowCount) perTable['cron_config.updated_by_uid'] = r.rowCount;
+    }
+    // Last: this cascades sessions, sso_tickets, trader_alpaca_credentials and
+    // trader_strategy_config via their FKs.
+    const acct = await c.query('delete from accounts where id = $1', [uid]);
+    return { uid, accountDeleted: acct.rowCount > 0, perTable };
+  });
+}
+
+/** uids whose grace period has expired and are due for permanent deletion. */
+export async function listAccountsPendingPurge(graceDays = ACCOUNT_PURGE_GRACE_DAYS) {
+  const { rows } = await q(
+    `select id from accounts
+     where deleted_at is not null and deleted_at < now() - ($1 || ' days')::interval
+     order by deleted_at asc`,
+    [String(graceDays)],
+  );
+  return rows.map(r => r.id);
+}
+
+/**
+ * Purge every account past its grace period. Each is its own transaction, so
+ * one failure can't strand the rest half-deleted; failures are reported rather
+ * than thrown, because a scheduled sweep should keep going.
+ */
+export async function purgeExpiredAccounts(graceDays = ACCOUNT_PURGE_GRACE_DAYS) {
+  const due = await listAccountsPendingPurge(graceDays);
+  const purged = [];
+  const failed = [];
+  for (const uid of due) {
+    try { purged.push(await purgeAccount(uid)); }
+    catch (e) { failed.push({ uid, error: e?.message || String(e) }); }
+  }
+  return { due: due.length, purged, failed };
+}
+
 
 // ---- Sessions --------------------------------------------------------------
 export async function createSession(sid, uid, expiresAtMs) {

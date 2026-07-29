@@ -117,6 +117,13 @@ secret, generated client-side via a vendored `qrcode-generator` (no network call
 The account modal also lets you save a notification email (`accounts.notification_email`), unrelated to
 sign-in. It's captured and persisted only — nothing sends a notification anywhere yet.
 
+The account modal's **Danger zone** deletes the account. Because one account is shared across the whole
+suite, this removes your data from Charts and Training as well — including, from this app, any connected
+Alpaca credentials, the server-side engine's state and journal, and your schedules and strategy overrides.
+Deletion asks for your password, your exact username, and your 2FA code when enabled. It takes effect
+immediately (you are signed out everywhere and can no longer sign in) but is **reversible by an
+administrator for 30 days**; after that a scheduled job in CryptoPro Suite erases the data permanently.
+
 Signing in on the CryptoPro Suite landing page and clicking through to this dashboard also signs you in
 here automatically — a short-lived, single-use `?sso=` ticket in the URL is redeemed for a local session
 and stripped from the address bar. This app only accepts that handoff today; it doesn't yet issue tickets

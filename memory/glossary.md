@@ -45,6 +45,11 @@ architecture and hard rules live in `CLAUDE.md`.
 | Term | Meaning |
 |------|---------|
 | Confluence score | 6-point TA signal score; ≥3.5 = buy, ≥2.5 = half-size, <2.5 = hold (≥4.0 = half-size counter-trend long in a downtrend); ≤−4 = short, −3 = half-size short, ≥+2 = cover |
+| Soft delete | An account marked as deleted but whose data still exists. Sign-in stops working everywhere in the suite at once and every session ends, yet nothing is destroyed and the username stays reserved |
+| Grace period | The 30 days between a soft delete and permanent erasure, during which an administrator can undo the deletion. The only window in which an accidental or malicious deletion is recoverable |
+| Purge | The permanent, irreversible erasure of an account and every row it owns across all four suite applications, once its grace period has expired |
+| Danger zone | The separately framed section of the account screen holding the one irreversible action, kept visually apart from routine settings so it cannot be triggered by mistake |
+| Step-up authentication | Re-proving identity (password, and a second factor when enabled) for a destructive action even though the session is already signed in — a stolen session alone should not be enough to destroy an account or its credentials |
 | Markov analysis | Dashboard Markov tab. First-order Markov chain over daily close-to-close returns. |
 | Transition matrix | 3×3 matrix where cell (i,j) = empirical probability of moving from state i to state j on the next day. Rows sum to 1. |
 | Stationary distribution | Long-run state probabilities π satisfying π = πP; computed via power iteration. The Markov tab shows it alongside the empirical state frequencies. |

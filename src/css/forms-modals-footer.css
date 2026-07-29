@@ -349,3 +349,25 @@
       line-height:1.7;
     }
     .engine-audit time { color:var(--text); }
+
+    /* ---------- Account deletion (Suite roadmap 2026-07-29) ----------
+       Separated from the rest of the account modal by its own border and tint,
+       so the one irreversible action can't be mistaken for the routine ones
+       above it. Same treatment as the .engine-panel split in Settings: things
+       that reach beyond this browser get their own visual frame. */
+    .danger-zone {
+      margin-top:16px;
+      padding:12px;
+      border:1px solid color-mix(in srgb, var(--red) 35%, transparent);
+      border-radius:8px;
+      background:color-mix(in srgb, var(--red) 6%, transparent);
+    }
+    .danger-zone-title {
+      color:var(--red);
+      font-size:11px;
+      font-weight:800;
+      letter-spacing:0.05em;
+      text-transform:uppercase;
+      margin-bottom:6px;
+    }
+    .danger-zone .btn-red { margin-top:8px; }
