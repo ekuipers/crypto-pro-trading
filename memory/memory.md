@@ -1,5 +1,54 @@
 # Project: CryptoPro Trader
 
+## v2026-07-29.3 — 2026-07-29 — volume component only scores when the tape is real
+
+Chased down the `volume: 0.00x avg (thin, -0.5)` line that appeared on nearly every symbol in the
+2026-07-28 evaluate journal. **Two hypotheses were wrong before the right one; both are recorded
+because each cost a probe and would otherwise be re-tried.**
+
+- **Wrong #1: the in-progress bar leaking past `end = now − 1 bar`.** `barsEnd()` is correct.
+- **Wrong #2: the price series being synthetic.** It isn't. Zero-trade bars have **0**
+  consecutive-identical closes, **0** bars with `o==h==l==c`, and their closes still move
+  0.15–0.19%/bar. Alpaca derives real OHLC from quotes even when its own trade tape is empty, so
+  EMA/MACD/RSI/Bollinger were never affected. Five of the six score components were fine.
+- **Actual cause: Alpaca's 15-min crypto tape is nearly empty for the alts.** Measured live
+  2026-07-29 — share of 200 15-min bars with zero trades: BTC 2%, ETH 9%, SOL 38%, AVAX 64%,
+  ADA 66%, LINK 71%, AAVE 73%, DOT 75%, DOGE 80%, **LTC 92%**. 4H is 0–16% empty and daily is 0%,
+  so the regime filters and the swing-low stop source were never in question either.
+- **Why that broke the signal.** `volumeRatio` is `last bar ÷ mean of previous 20`. When most of
+  the window is zero the mean collapses, so the ratio degenerates into a near-binary readout of
+  "did a trade land in the last bucket": in one scan, 0.000 on five symbols (→ thin, −0.5) and
+  58×/80×/126× on three others (→ above average, +1). **LTC's 126× was one trade after nineteen
+  empty buckets.** The clincher: **AVAX read 0.000/−0.5 in one probe and 4.385/+1 minutes later** —
+  the same symbol swinging the full 1.5 points on trade arrival alone, on a 6-point score whose
+  gates are 3.5 and 2.5.
+- **My earlier framing of this as "a permanent −0.5" was wrong on mechanism** — it is noise, not
+  bias, which is worse: a constant can be calibrated out, random can't.
+- **Fix: a data-sufficiency guard, matching the house style** (`MIN_TRADED_BARS = 10`, half the
+  window). Below that, `volumeRatio` returns `null` → scored n/a, worth 0, never ±. Same shape as
+  the existing min-bars and `SESSION_MIN_SAMPLE` guards: when the input can't answer the question,
+  decline to score it rather than emit a number that reads as signal. A genuinely empty bar in an
+  *active* tape still scores −0.5 — the guard removes noise, not information.
+- **Applied to both sides** per CLAUDE.md's identity rule: `src/indicators.js` and the dashboard's
+  `calcVolRatio` in `src/js/ta-lib.js`. Only the *score* has to match; the label strings already
+  differed legitimately ("−0.5 Low vol" vs "0.42x avg (thin, -0.5)"), so the engine's journal label
+  was improved to name the cause (`n/a (only 3/20 baseline bars traded — too thin to score)`)
+  without touching the dashboard's.
+- **`src/scoreParity.test.js` (new) is the first test that actually enforces the dashboard↔engine
+  identity rule** — it had lived only as prose in CLAUDE.md while the two files sat in different
+  module systems, which is exactly the split that drifts silently. `ta-lib.js` loads standalone in
+  a `vm` context (nothing touches window/document at definition time), so the parity check diffs
+  the two implementations across the full traded-bar range. **Covers the volume component only**;
+  the full 6-point score needs a fixture translator, since `calcSignalScore` takes bar objects and
+  `signalScore` takes parallel arrays. Worth doing, deliberately not attempted here.
+- **Live effect, measured before/after on the real watchlist:** 7/10 symbols changed contribution —
+  4 gained +0.5 (were wrongly penalised: DOGE, LINK, DOT, LTC, AAVE), 2 lost −1.0 (were wrongly
+  rewarded: SOL, AVAX). BTC and ETH sit at 20/20 traded bars, keep the signal, and currently score
+  −0.5 legitimately.
+- Verified: 475 tests pass (464 + 11 new: 6 guard tests, 5 parity tests); build clean.
+- **Not done:** CLAUDE.md's rule to run the **market-researcher** subagent after a strategy change.
+  Flagged to the user rather than invoked, per the session instruction not to spawn agents unasked.
+
 ## v2026-07-29.2 — 2026-07-29 — daily-summary cron job deleted
 
 User decision, taken after being offered three scopes (unschedule only / delete the feature /

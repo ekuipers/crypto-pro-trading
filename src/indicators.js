@@ -329,13 +329,52 @@ export function bollingerSqueeze(values, period = 20, lookback = 60, percentile 
 // ---------- Volume -----------------------------------------------------------
 
 /**
+ * How many of the previous `period` bars actually traded. The volume signal is
+ * only meaningful when most of its baseline window has a real tape behind it.
+ */
+export function tradedBarCount(volumes, period = 20) {
+  if (volumes.length < period + 1) return 0;
+  return volumes.slice(-(period + 1), -1).filter((v) => v > 0).length;
+}
+
+/**
+ * Minimum traded bars required in the 20-bar baseline before a volume ratio
+ * means anything. Half the window.
+ *
+ * Measured 2026-07-29 against Alpaca's live 15-min crypto tape: BTC 2% and
+ * ETH 9% of bars have zero trades, but the alts run 64-92% empty (LTC 92%,
+ * DOGE 80%, DOT 75%). With a window that sparse the mean collapses toward
+ * zero, so the ratio degenerates into a near-binary readout of "did a trade
+ * land in the last bucket" — observed the same scan: 0.000 on five symbols
+ * (scored thin, -0.5) and 58x / 80x / 126x on three others (scored above
+ * average, +1). LTC's 126x was one trade after nineteen empty buckets, not a
+ * volume surge. That is 1.5 points of swing on a 6-point score whose gates
+ * are 3.5 and 2.5, driven by trade arrival rather than by participation.
+ *
+ * Only the volume component is affected: the same bars carry genuine OHLC
+ * derived from quotes (zero consecutive-identical closes, no o==h==l==c fills,
+ * closes still moving 0.15-0.19% per bar), and 4H/daily volume is 0-16% empty,
+ * so the price indicators and the regime filters were never in question.
+ */
+export const MIN_TRADED_BARS = 10;
+
+/**
  * Current volume / average of the previous `period` bars. > 1.0 means
  * above-average volume on the current bar (a positive signal).
+ *
+ * Returns null — scored n/a, worth 0, never ± — when the baseline window is
+ * too sparse to support a ratio. Same shape as this module's other
+ * data-sufficiency guards (min bars, session-filter min sample): when the
+ * input can't answer the question, decline to score it rather than emit a
+ * number that reads as signal.
  */
-export function volumeRatio(volumes, period = 20) {
+export function volumeRatio(volumes, period = 20, minTradedBars = MIN_TRADED_BARS) {
   if (volumes.length < period + 1) return null;
   const window = volumes.slice(-(period + 1), -1);
+  if (tradedBarCount(volumes, period) < minTradedBars) return null;
   const avg = window.reduce((a, b) => a + b, 0) / period;
+  // Unreachable once the traded-bar guard passes (a traded bar has v > 0), but
+  // kept: it is the cheaper invariant and it documents the division.
   if (avg === 0) return null;
   return volumes[volumes.length - 1] / avg;
 }
@@ -441,7 +480,14 @@ export function signalScore(closes, { volumes = null, highs = null, lows = null,
   if (volumes !== null && volumes.length >= 21) {
     const vr = volumeRatio(volumes);
     if (vr === null) {
-      parts.volume = "n/a";
+      // Name the cause. "n/a" alone sent an earlier investigation looking for
+      // a bug in the bar-window end calculation, when the real answer was that
+      // Alpaca's 15-min tape is 64-92% empty for the alts.
+      const traded = tradedBarCount(volumes);
+      parts.volume =
+        traded < MIN_TRADED_BARS
+          ? `n/a (only ${traded}/20 baseline bars traded — too thin to score)`
+          : "n/a";
     } else if (vr >= 1.2) {
       score += 1;
       parts.volume = `${vr.toFixed(2)}x avg (above avg, +1)`;

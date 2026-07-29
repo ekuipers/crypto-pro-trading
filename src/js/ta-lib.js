@@ -132,9 +132,19 @@
     }
 
     /** Volume ratio vs 20-bar average. */
+    /** Must stay score-identical to src/indicators.js's volumeRatio() — see
+     *  CLAUDE.md's scoring invariants. MIN_TRADED_BARS mirrors the constant
+     *  there: Alpaca's 15-min crypto tape is 64-92% empty for the alts (LTC
+     *  92%, DOGE 80%), which collapses the baseline mean and turns the ratio
+     *  into a near-binary readout of "did a trade land in the last bucket" —
+     *  0.000 or 126x, worth 1.5 points of swing on gates of 3.5/2.5. Decline
+     *  to score it rather than emit a number that reads as signal. */
+    const MIN_TRADED_BARS = 10;
     function calcVolRatio(volumes) {
       if (volumes.length < 21) return null;
-      const avg = volumes.slice(-21, -1).reduce((a, b) => a + b, 0) / 20;
+      const window = volumes.slice(-21, -1);
+      if (window.filter(v => v > 0).length < MIN_TRADED_BARS) return null;
+      const avg = window.reduce((a, b) => a + b, 0) / 20;
       return avg === 0 ? null : volumes[volumes.length - 1] / avg;
     }
 

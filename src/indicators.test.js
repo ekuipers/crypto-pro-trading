@@ -229,6 +229,56 @@ describe("volumeRatio", () => {
   });
 });
 
+describe("volumeRatio — sparse-tape guard (Alpaca 15-min crypto, 2026-07-29)", () => {
+  // Builds a 20-bar baseline with `traded` non-empty bars, plus a last bar.
+  const series = (traded, lastVolume) => {
+    const window = Array.from({ length: 20 }, (_, i) => (i < traded ? 100.0 : 0.0));
+    return [...window, lastVolume];
+  };
+
+  test("scores normally when the baseline has a real tape", () => {
+    // BTC/ETH shape: 2-9% of bars empty.
+    const vr = ind.volumeRatio(series(19, 200.0));
+    assert.ok(vr !== null && vr > 1.2, "a dense window must still produce a ratio");
+  });
+
+  test("declines to score when the baseline is mostly empty", () => {
+    // LTC shape: 92% of 15-min bars have no trades. The mean collapses, so a
+    // single trade in the last bucket used to read as "126x above average".
+    assert.equal(ind.volumeRatio(series(2, 100.0)), null);
+    // ...and an empty last bucket used to read as "thin, -0.5".
+    assert.equal(ind.volumeRatio(series(2, 0.0)), null);
+  });
+
+  test("the boundary is exactly half the window, inclusive", () => {
+    assert.equal(ind.volumeRatio(series(9, 100.0)), null, "9/20 must not score");
+    assert.ok(ind.volumeRatio(series(10, 100.0)) !== null, "10/20 must score");
+    assert.equal(ind.MIN_TRADED_BARS, 10);
+  });
+
+  test("a genuinely thin bar in an ACTIVE tape still scores thin", () => {
+    // The guard must not swallow real information: an empty bucket amid a
+    // dense tape is meaningful, unlike one amid a 92%-empty tape.
+    const vr = ind.volumeRatio(series(20, 0.0));
+    assert.ok(vr !== null && vr < 0.7, "a real thin bar must still be scored");
+  });
+
+  test("tradedBarCount counts the baseline window, excluding the last bar", () => {
+    // The last bar is the thing being measured, not part of its own baseline.
+    assert.equal(ind.tradedBarCount(series(7, 999.0)), 7);
+    assert.equal(ind.tradedBarCount(series(0, 999.0)), 0);
+  });
+
+  test("a sparse tape contributes 0 to the score, not a penalty or a bonus", () => {
+    const { closes, highs, lows } = sineOhlcv();
+    const sparse = closes.map((_, i) => (i % 10 === 0 ? 100.0 : 0.0)); // ~10% traded
+    const { parts, score } = ind.signalScore(closes, { volumes: sparse, highs, lows });
+    const { score: noVolume } = ind.signalScore(closes, { volumes: null, highs, lows });
+    assert.match(parts.volume, /too thin to score/);
+    assert.equal(score, noVolume, "a sparse tape must score like no volume data at all");
+  });
+});
+
 describe("signalScore", () => {
   test("score within bounds", () => {
     const { closes, highs, lows, volumes } = sineOhlcv();

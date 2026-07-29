@@ -69,7 +69,7 @@ architecture and hard rules live in `CLAUDE.md`.
 | Read-only mode | Live Alpaca credentials show account/positions/quotes but can never place or cancel an order |
 | Morning brief | Scheduled 7 AM task: eval + journal block + dashboard summary |
 | Daily regime | Computed from 90-day daily bars: SMA-20 vs SMA-50 vs last close |
-| Vol ratio | Current bar volume / 20-bar average volume |
+| Vol ratio | Current bar volume / 20-bar average volume. Scored only when at least 10 of those 20 baseline bars actually traded — Alpaca's 15-min crypto tape is 64–92% empty for the alts, and a mostly-empty baseline makes the ratio a coin flip on trade arrival rather than a measure of participation. Too sparse ⇒ n/a, worth 0, never a penalty or a bonus |
 | Live R:R | Real-time risk-to-reward: `(target − current) / (current − stop)` using −5% stop, +10% target |
 | Ticker strip | Top-of-dashboard price bar driven by the active watchlist. |
 | Correlation heatmap | 10×10 Pearson ρ matrix of daily log-returns; shown in Risk tab |
