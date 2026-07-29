@@ -52,10 +52,29 @@ because each cost a probe and would otherwise be re-tried.**
   because at exactly 50 bars an EMA-50 is still just its SMA seed with no exponential character yet,
   and because the engine is what trades on the cron. **Engine behaviour unchanged** — `evaluateSymbol`
   already enforced `MIN_BARS` 60, so only the dashboard/Autopilot short-history path moves.
-- **Live effect, measured before/after on the real watchlist:** 7/10 symbols changed contribution —
-  4 gained +0.5 (were wrongly penalised: DOGE, LINK, DOT, LTC, AAVE), 2 lost −1.0 (were wrongly
-  rewarded: SOL, AVAX). BTC and ETH sit at 20/20 traded bars, keep the signal, and currently score
-  −0.5 legitimately.
+- **Live effect — CORRECTED 2026-07-29 by the market-researcher pass; the original figure here was
+  wrong.** I reported "7/10 changed: 4× +0.5, 2× −1.0" from a *single scan*. Replayed properly over
+  140 evaluation points per symbol (1,400 total): average score **+0.18, positive on every symbol
+  and negative on none**. SOL and AVAX — the two I said lost 1.0 — actually *rose* (+0.04, +0.14);
+  the −1.0 was a single-scan artifact. Gate crossings: ≥2.5 62→67 (+8%), ≥3.5 11→6 (−45%), i.e.
+  more, smaller entries. Root reason it is net-positive: on the 15-min tape signal 5 reads −0.5 on
+  68–86% of bars and +1 on only 10–23%, so deleting it deletes a net negative. **Lesson: a single
+  live scan is not a measurement of a scoring change.** Three consecutive strategy commits now rest
+  on single scans, against a live record of PF 0.30 — write the Node walk-forward evaluator before
+  the next one.
+- **The guard is INCOMPLETE — two defects found by market-researcher, verified in code, unfixed.**
+  (1) **The numerator is unguarded.** `volumeRatio` tests only the *baseline* window, so a dense
+  baseline still scores −0.5 whenever the current bar is empty: BTC measured `0.07x (thin, −0.5)`
+  and ETH `0.00x` at 19/20 baseline bars traded — the exact artifact the guard exists to remove,
+  surviving on the two symbols it was meant to preserve. On the alts it is worse: guard-*passing*
+  windows still have an empty current bar 67–100% of the time, so post-guard LINK and AAVE are
+  **+1: 0% / −0.5: 100%** — positives removed, near-pure penalty kept. Minimum fix: also require
+  `volumes[last] > 0`. (2) **The mean baseline is skew-biased on every symbol and timeframe,
+  including daily** — crypto volume is right-skewed, so −0.5 fires ~3× more often than +1 even on
+  BTC/ETH 4H; a **median** baseline centres it near 45/45. **Do not tune `MIN_TRADED_BARS`** — it is
+  a per-symbol on/off switch, not a per-scan test (pass rates BTC/ETH 100%, SOL 78%, AVAX 11%,
+  LINK 4%, LTC/DOGE 0%), and SOL at 78% is *new* instability, flipping scored↔n/a ~1 scan in 4.
+  Recommended direction: **4H volume with a median baseline** (4H is 0–16% empty on all ten).
 - Verified: 475 tests pass (464 + 11 new: 6 guard tests, 5 parity tests); build clean.
 - **Not done:** CLAUDE.md's rule to run the **market-researcher** subagent after a strategy change.
   Flagged to the user rather than invoked, per the session instruction not to spawn agents unasked.
