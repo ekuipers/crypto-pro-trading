@@ -68,7 +68,9 @@ architecture and hard rules live in `CLAUDE.md`.
 | Distribution | Wyckoff exit zone: range after uptrend, do not add positions |
 | Regime (daily) | last_close > 50-day SMA AND 20-day SMA > 50-day SMA = uptrend |
 | Hard cap | Position capped at 5% of total equity; enforced in `src/trade.js` |
-| ATR sizing | 1% risk rule: qty = (equity×1%) / (ATR×1.5), capped at 5% equity |
+| ATR sizing | 1% risk rule: qty = (equity×1%) / (ATR×1.5), capped at 5% equity. The 1% is **nominal** — the position actually exits at the 4H swing low, which is typically 6–9× further away than the sizing distance, so a losing trade can cost well over 1% of equity |
+| Nominal risk | A risk-per-trade figure that comes from the distance used to *size* the position, when the position is *exited* at a different distance. The stated percentage is then a label, not a measured loss |
+| Walk-forward test | Repeatedly training on one slice of history and testing on the next unseen slice, to check a strategy holds up out-of-sample. Unlike the replay harness it simulates fills and profit/loss — so it, not net R:R, is what shows whether a signal actually makes money. **This project has no working walk-forward test today**, which is why the Backtest tab's baseline banner reports a missing file |
 | Limit order | Only order type used; price ≤ ask + 0.2% |
 | Stop escalation | A stop-loss order that hasn't filled for 2 cycles is cancel-replaced with a wider limit band (0.5% → 0.8% from ask), so it can still cross a spread that has widened past the base band |
 | Replay harness | `scripts/replay.mjs` — replays historical bars through the live decision engine and reports what it *would* have done: score distribution, gate crossings, and which gate blocked each candidate. Measures a strategy change before it ships. Not a backtester: no fills, no P&L |

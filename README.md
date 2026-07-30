@@ -5,11 +5,11 @@ A fully automated crypto trading agent running on Alpaca. The agent evaluates pr
 when a score threshold is met, and journals every decision.
 
 **Node.js + React, deployed on Vercel with a Supabase (Postgres) database.** The Node engine
-(`src/`, 310-test `node --test` suite via `npm test`) is the sole trading engine, running as
+(`src/`, 520-test `node --test` suite via `npm test`) is the sole trading engine, running as
 Vercel Cron-triggered HTTP endpoints (`src/cronRoutes.js` + `vercel.json`, `CRON_EXECUTE=true`).
 There is no Python and no CI/CD workflow anywhere in this project. One capability doesn't exist
-here: walk-forward backtesting has no implementation, so the dashboard's Backtest-tab staleness
-banner will always read as stale.
+here: walk-forward backtesting has no implementation, so the dashboard's Backtest-tab banner
+permanently reports its baseline file as missing (see §"Walk-forward baseline banner" below).
 
 ---
 
@@ -499,7 +499,7 @@ Key features:
 - **📖 Glossary sub-tab (Command)** *(roadmap 2026-07-18; DB-backed 2026-07-24, scope corrected to Acronyms + Trading Terms only same day)* — renders the trading-term/acronym reference directly in the dashboard, one click away instead of living only in the repo. Fetches `GET /api/glossary` (`src/glossaryRoutes.js`), backed by a new Postgres `glossary` table (`src/db.js`) that `server.js` syncs on every boot from `memory/glossary.md`'s **"Acronyms & Abbreviations" and "Trading Terms" sections only** (`src/glossaryExtract.js`) — the rest of that file is a dated implementation changelog (bug fixes, feature notes), not glossary content, and is deliberately excluded from what's served. `memory/glossary.md` stays the full edit source; only the DB row (and what it's synced from) changed. Renders the small markdown subset the content uses — headers, tables, `**bold**`, `` `code` ``, `---` rules — with a search box that filters table rows/paragraphs by substring match (section headers stay visible). 5-min cache, ↻ Refresh forces a re-read. **Superseded fallback (bugfix 2026-07-18 → DB-backed 2026-07-24):** the original bugfix targeted browsers blocking `fetch()` of a local sibling file under `file://`, but `server.js` never statically served `memory/` at all — so in production the tab was silently stuck on the small built-in fallback permanently, `file://` or not. `/api/glossary` is reachable in production; the same small built-in reference (curated acronyms + core trading terms — already scoped identically to the two sections above) still covers the case where the API call itself fails, with a status line explaining why and inviting a retry.
 - **🤖 Autopilot controls always in sight** *(roadmap 2026-07-10 item 11 v2, v2026-07-10.3)* — the Autopilot controls (toggle, interval selector, ⛔ kill switch, status line) sit at the very top of the Command tab, **above the trading-permission indicator**; the Autopilot panel at the bottom of the page keeps the description and activity log.
 - **🛑 Stop watchdog** — `src/stopWatchdog.js` on the Vercel Cron dispatcher checks only open-long exit levels (trailing stop from the persisted HWM, max(4H swing low, breakeven), fixed −5% fallback), firing the stop path. Skips symbols with a pending SELL; commits only when a stop fires.
-- **🧪 Walk-forward baseline banner** *(roadmap 2026-07-10 item 8)* — the Backtest vs Live tab reads `reports/walkforward_latest.json` (stable pointer written by every walk-forward run, fees now 25 bps/side) and shows the baseline date + avg Sharpe per timeframe, turning red when the baseline is older than `walkforward.max_baseline_age_days` (45).
+- **🧪 Walk-forward baseline banner** *(roadmap 2026-07-10 item 8 — **currently inert**, see below)* — the Backtest vs Live tab reads `reports/walkforward_latest.json` and shows the baseline date + avg Sharpe per timeframe, turning red when the baseline is older than `walkforward.max_baseline_age_days` (45). **That file no longer exists**: it was written by the Python `scripts/walkforward_evaluate.py`, deleted 2026-07-25 with the rest of the Python engine, and there is no Node port. So the banner permanently takes its not-found branch and reads *"reports/walkforward_latest.json not found yet — it is written by the next Forward Analysis run"*, which promises a run that cannot happen. Tracked as roadmap item 1 in `CLAUDE.md`.
 - **🎯 Execution tab — order Total column** *(roadmap 2026-07-09, v2026-07-09.4)* — the Recent Orders table shows each order's **total value in USD** (sortable, after Avg Fill): filled qty × avg fill price for (partially) filled orders, otherwise qty × limit price, falling back to the order's notional; "–" when no price is available.
 - **🎯 Execution tab — order filters** *(roadmap, 2026-07-13)* — Symbol / Type / Side / Status filters above the Recent Orders table. Symbol, Type, and Status options populate dynamically from the orders actually loaded (`populateExecutionFilters()`); Side is a static Buy/Sell picker. Filtering is client-side against the cached order set (`applyExecutionFilters()` — no refetch) and shows a live "Showing X of Y orders" count; a Reset button clears all four filters back to "All".
 - **Stop Distance column** — Positions table shows Stop $ and Target $ (direction-aware: longs use `entry × 0.95` / `entry × 1.10`; shorts use `entry × 1.05` / `entry × 0.90`), Live R:R, and a `SHORT` badge for short positions.
@@ -592,7 +592,10 @@ Scripts load this at startup; no restart needed between runs.
 }
 ```
 
-After changing indicator periods, re-run the walk-forward backtest to validate.
+After changing indicator periods, measure the change with `node scripts/replay.mjs` before shipping it — it
+replays the real `evaluateSymbol` over a sliding window of historical bars and reports the score distribution,
+gate crossings, and which gate decided each window. (It has no fills and no P&L; the walk-forward backtest
+that would provide those has no Node port — roadmap item 1 in `CLAUDE.md`.)
 
 ### Environment Variables (`.env`)
 

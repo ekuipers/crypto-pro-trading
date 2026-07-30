@@ -1,5 +1,32 @@
 # Project: CryptoPro Trader
 
+## 2026-07-30 — Roadmap rescan: promote the buried items, reorder by what a fix is worth (docs only)
+
+No code changed; 520/520 tests pass. The three items from the 2026-07-29 rescan were all verified **still
+open against the code**, but the list was missing more than it held.
+
+- **Promoted four genuinely open items** that existed only as prose in `CLAUDE.md`: the mean-baselined
+  volume signal (skew-biased on every symbol/timeframe, 4H+median is the recommended direction), the
+  **sizing-stop vs exit-stop 6–9× divergence** that makes "1% risk per trade" nominal (ranked #3 by the
+  2026-07-29 research pass and never promoted — verified at `entrySizing.js:27-28` vs `risk.js`'s
+  `swingLowStopPrice()`), `scoreParity.test.js`'s coverage stopping at the score, and the stop-escalation
+  fix never having been observed against a real unfilled stop.
+- **Reordered by value, not by age.** Walk-forward is now item 1 because it gates every other strategy
+  question — the 4H finding (net R:R 2.01 vs −0.12) cannot be acted on without fills and P&L. Sub-daily
+  cron cadence dropped to last with "no one has asked for this" stated, so it stops reading as pending work.
+- **Corrected item 1's own claim.** It said the Backtest banner "reads as stale indefinitely". It doesn't:
+  `loadWalkforwardBaseline()` fetches `reports/walkforward_latest.json`, which no longer exists, so it takes
+  the not-found branch and tells the user the file "is written by the next Forward Analysis run" — promising
+  a run that became impossible when the Python script was deleted 2026-07-25. Worse than stale: it's a
+  false promise, and either the port lands or the message changes.
+- Also refreshed the stale "509/509" test count to 520/520 and pointed the four prose sites at their new
+  item numbers, so the roadmap and the standing rules can't drift apart again.
+
+**Lesson (a variant of last rescan's):** last time the roadmap understated progress. This time it
+understated *scope* — the highest-value open item in the repo (nominal risk sizing) sat inside a
+parenthetical in the hard-rules table while a feature nobody wants sat at #1. A rescan has to re-rank,
+not just re-check.
+
 ## 2026-07-29 — Suite roadmap: account deletion, including saved user data
 
 Two-stage deletion, ported identically across the suite (admin + purge side in Suite only). Soft delete
