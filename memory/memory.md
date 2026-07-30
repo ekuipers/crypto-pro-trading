@@ -15,8 +15,8 @@ Found and fixed the same class of bug on the account button while checking for s
 rendered by React (`Header.jsx`, `useTranslation`) but `auth.js` overwrites its innerHTML with the signed-in
 avatar + username, so a language switch made React re-render it back to the "Sign in" label and drop the name.
 `auth.js` now re-applies the button on `lang-changed`, deferred a tick so it lands after React's re-render.
-**That one still needs a browser to confirm the ordering** — it is the only part of this fix not covered by
-the headless test.
+**Confirmed working in the browser by the user 2026-07-30**, including the deferred re-apply ordering that
+the headless test could not cover.
 
 ## v2026-07-30.1 — Multi-language: the deferred long-form prose is translated
 
