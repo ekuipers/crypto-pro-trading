@@ -92,9 +92,18 @@
         </div>`;
     }
 
+    // The band explainer is translated via data-i18n-html, so a language
+    // switch re-renders that <div> and resets #mkThreshLabel to its static
+    // placeholder — put the real value back (see i18n's 'lang-changed').
+    function mkApplyThreshLabel() {
+      const el = $("mkThreshLabel");
+      if (el) el.textContent = (MK_THRESH * 100).toFixed(1);
+    }
+    document.addEventListener("lang-changed", mkApplyThreshLabel);
+
     async function loadMarkov() {
       const s = getSettings();
-      $("mkThreshLabel").textContent = (MK_THRESH * 100).toFixed(1);
+      mkApplyThreshLabel();
       if (!s.apiKey || !s.apiSecret) {
         $("markovContent").innerHTML = '<div class="placeholder">Configure API credentials in Settings first.</div>';
         return;

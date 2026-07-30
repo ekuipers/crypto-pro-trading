@@ -78,6 +78,10 @@ export function setDashLang(lang) {
   i18n.changeLanguage(lang);
   try { localStorage.setItem(STORAGE_KEY, lang); } catch (e) {}
   applyDomI18n(document);
+  // applyDomI18n replaces innerHTML wherever data-i18n-html is used, which
+  // wipes any live value a tab script had written into a nested span (e.g.
+  // markov's #mkThreshLabel). Tabs listen for this and re-apply their values.
+  document.dispatchEvent(new CustomEvent('lang-changed', { detail: { lang } }));
   if (typeof scheduleSettingsSync === 'function') scheduleSettingsSync();
 }
 window.setDashLang = setDashLang;

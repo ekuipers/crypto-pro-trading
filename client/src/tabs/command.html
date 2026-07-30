@@ -56,7 +56,7 @@
       <section>
         <div class="panel">
           <div class="panel-title" data-i18n="app:command.autopilotTitle">🤖 Autopilot</div>
-          <div class="small" style="color:var(--muted);margin-bottom:10px">
+          <div class="small" style="color:var(--muted);margin-bottom:10px" data-i18n-html="app:command.autopilotDescHtml">
             Automated <b>long-only</b> execution of the 6-point confluence strategy on the watchlist
             + fresh scout promotions (entry score ≥ 3.5 full / ≥ 2.5 half, half-size counter-trend long
             in a downtrend at ≥ 4, correlation budget + live-ρ half-sizing above 0.9, per-symbol caps,
@@ -125,7 +125,7 @@
             <button class="btn" onclick="loadNews(true)" data-tip="Re-fetch headlines from all sources now." data-i18n-tip="app:command.newsRefreshTip" data-i18n="app:command.newsRefresh">↻ Refresh</button>
           </div>
         </div>
-        <div class="small" style="color:var(--muted);margin-bottom:12px">
+        <div class="small" style="color:var(--muted);margin-bottom:12px" data-i18n-html="app:command.newsDescHtml">
           Aggregated from the <b>Alpaca News API</b> (Benzinga) plus the <b>CoinDesk</b>,
           <b>Cointelegraph</b>, and <b>Decrypt</b> feeds, deduplicated by headline.
           <b>T1</b> = structural (hack, depeg, enforcement, chain halt) · <b>T2</b> = flow
@@ -158,7 +158,7 @@
             <button class="btn" onclick="loadSocials(true)" data-tip="Re-fetch timelines from all accounts now." data-i18n-tip="app:command.socRefreshTip" data-i18n="app:command.socRefresh">↻ Refresh</button>
           </div>
         </div>
-        <div class="small" style="color:var(--muted);margin-bottom:12px">
+        <div class="small" style="color:var(--muted);margin-bottom:12px" data-i18n-html="app:command.socialsDescHtml">
           Latest original posts (retweets skipped) from curated crypto accounts with
           <b>&gt; 0.5M followers</b>. Account stats (follower counts) refresh <b>live via the
           keyless fxtwitter API</b>; a <b>*</b> marks a static snapshot when that call fails.
@@ -193,7 +193,7 @@
             <button class="btn" onclick="loadGlossary(true)" data-tip="Re-read memory/glossary.md from disk." data-i18n-tip="app:command.glossaryRefreshTip" data-i18n="app:command.newsRefresh">↻ Refresh</button>
           </div>
         </div>
-        <div class="small" style="color:var(--muted);margin-bottom:12px">
+        <div class="small" style="color:var(--muted);margin-bottom:12px" data-i18n-html="app:command.glossaryDescHtml">
           The project's full decoder ring — trading terms, acronyms, and dated notes on every
           indicator, gate, or dashboard feature added. Rendered live from
           <code>memory/glossary.md</code> so it never drifts from the repo when the fetch succeeds;

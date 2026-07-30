@@ -11,7 +11,7 @@
              on first render but re-running applyDomI18n on a language switch
              would reset the span back to the template's static placeholder,
              clobbering the live value. -->
-        <div class="small" style="margin-bottom:14px;color:var(--muted)">
+        <div class="small" style="margin-bottom:14px;color:var(--muted)" data-i18n-html="app:markov.descHtml">
           Each daily return is classified into one of three states using a ±<span id="mkThreshLabel">1.0</span>% band:
           <b style="color:var(--green)">Up</b> (r &gt; +band), <b style="color:var(--muted)">Flat</b> (|r| ≤ band),
           <b style="color:var(--red)">Down</b> (r &lt; −band). The transition matrix shows P(next state | current state) over each lookback window.

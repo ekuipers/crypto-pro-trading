@@ -1,5 +1,20 @@
 # Project: CryptoPro Trader
 
+## v2026-07-30.1 — Multi-language: the deferred long-form prose is translated
+
+Translated everything Trader had left English: the 4 long explainers (Autopilot, News, Socials, Glossary),
+markov's ±band explainer, and all 8 manual section bodies (~850 words). `MANUAL_SECTIONS` now carries a
+`bodyKey` + `html` getter; the prose lives in `client/src/i18n/locales/app/<lang>.json`.
+
+**The live-span blocker was solved, not worked around:** `setDashLang()` dispatches a `lang-changed` event
+after `applyDomI18n()`, and `tabs-markov.js` re-applies `#mkThreshLabel` from it — `data-i18n-html` replaces
+the parent innerHTML and would otherwise reset the live value. Corrected two stale English claims in passing
+(the manual still described the deleted `daily-summary` job and called Scheduled Jobs owner-only).
+
+Verified: app 616 + common 70 keys at full parity × 4, every `data-i18n*` key in the fragments resolves,
+client builds, 520/520 tests pass.
+
+
 ## 2026-07-30 — Roadmap rescan #2 (same day): re-verify in place, and three stale doc claims (docs only)
 
 No code changed; 520/520 tests still pass. The intervening commit was the *previous* rescan, so this pass
