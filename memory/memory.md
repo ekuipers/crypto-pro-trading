@@ -1,5 +1,47 @@
 # Project: CryptoPro Trader
 
+## 2026-07-30 — Roadmap rescan #2 (same day): re-verify in place, and three stale doc claims (docs only)
+
+No code changed; 520/520 tests still pass. The intervening commit was the *previous* rescan, so this pass
+deliberately **re-verified rather than re-ranked** — a re-rank with no new code would be churn dressed up
+as progress. All seven items confirmed still open, each against the code:
+
+- **1** `reports/` does not exist at all (not just the one file); `walkforward_evaluate.py` is gone from
+  `scripts/`. **New:** a *second* false string on the same path — `api-config.js:117` tells the user to
+  "re-run `scripts/walkforward_evaluate.py`". **2** `indicators.js:386` still divides by the window mean.
+  **3** `entrySizing.js:27-28` still sizes on `ATR × ATR_MULTIPLIER`. **4** confirmed sharply: `ta-lib.js`
+  is the **only** `src/js/*` file any test loads, so `autopilot.js`/`edge-insights.js` (order placement,
+  entry gates, FIFO reconciliation) have zero parity coverage. **5** 520/520 green, UI still unexercised.
+  **6** escalation code present (`risk.js:381,394`); still no observed unfilled stop. **7→8** `isJobDue()`
+  unchanged at `cronSchedule.js:26-33`.
+
+**New roadmap item 7 — user-facing copy attributes live behaviour to deleted Python scripts.** Three
+*rendered* strings, not comments: the Command tab's hard-rules compliance panel shows
+`"Policy enforced by scripts/trade.py"` (`tabs-command.js:474`) as a green row; the SCOUT badge tooltip
+(`tabs-signals.js:148`) credits "the Python bot"; plus item 1's banner. In every case **the substance is
+correct and only the attribution is false** — which is precisely why it survives rescans that look for
+broken behaviour. Checked and deliberately excluded: the many stale *code comments* naming
+`run_evaluation.py`/`metrics.py`/`scout.py`, which no user reads.
+
+**Two stale doc claims corrected in place** (not roadmapped — they were wrong, so they got fixed):
+
+- The `CLAUDE.md` hard rule said the trailing HWM is "persisted in `data/positions_state.json`". False for
+  the engine that actually trades: serverless has no persistent disk, and `tenantEngine.js:116-117` injects
+  `loadState: () => state` with a **no-op `saveState`**, the caller writing to the Postgres `trader_state`
+  row. The file is the legacy/CLI path only. Anyone debugging a lost HWM by opening that file is reading a
+  dead artifact. Same fix applied to `README.md`'s trailing-stop and drawdown-gate rules.
+- `README.md` stated the correlation-budget defaults as "4 total, 3 per tier"; `config.json:55,60` has said
+  **7 / 5** — matching `CLAUDE.md`. README was simply wrong on a hard rule.
+
+`memory/glossary.md` needed no change: its walk-forward and HWM entries are already accurate and
+code-free, and this pass introduced no new term. Recording that explicitly so the next pass doesn't
+re-check it or pad the file to satisfy workflow rule 1.
+
+**Lesson:** the last two rescans each found the roadmap understating something (progress, then scope).
+This one found the *surrounding docs* wrong while the roadmap itself held up — a stale hard rule and a
+wrong default sitting in README/CLAUDE.md prose that no test covers. Rescanning the roadmap is not enough;
+the load-bearing rule text needs the same treatment, because nothing else checks it.
+
 ## 2026-07-30 — Roadmap rescan: promote the buried items, reorder by what a fix is worth (docs only)
 
 No code changed; 520/520 tests pass. The three items from the 2026-07-29 rescan were all verified **still
