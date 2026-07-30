@@ -1,5 +1,15 @@
 # Project: CryptoPro Trader
 
+## v2026-07-30.4 — Suite roadmap item 1: Scheduled Jobs no longer claims dry-run
+
+The panel told the user "**Dry-run only** while `CRON_EXECUTE` is unset — no orders are placed until the
+Python/Node parity checkpoint passes", in four languages, while `CRON_EXECUTE=true` in production has it
+placing paper orders on the hour. Replaced across 5 files (`command.html` + `en/nl/fr/es.json:31`) with
+"Scheduled runs place real orders on the Alpaca paper account you connected in Settings", per the Suite
+item's "remove any backend process mentioned" — no engine name, no env var, no parity checkpoint. The
+`command.html:95` HTML comment repeating it was corrected too. **Resolves roadmap item 5.**
+Verified: 520/520 tests, client build clean, all 4 locale files parse.
+
 ## v2026-07-30.3 — Suite roadmap items 1, 2, 4: walk-forward removed, logo, button heights
 
 **Item 4 — walk-forward removed entirely** (user decision via the Suite roadmap). Deleted

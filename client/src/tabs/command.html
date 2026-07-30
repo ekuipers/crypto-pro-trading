@@ -91,18 +91,16 @@
          below is genuinely adjustable without a redeploy — runs natively
          on Vercel Pro's hourly cron, no external pinger needed. Each job
          also has a "Run now" manual trigger.
-         CRON_EXECUTE stays OFF (dry-run only) until the Node/Python parity
-         checkpoint passes — see CLAUDE.md's Node.js port section — so
-         these jobs run read-only today even when scheduled. -->
+         CRON_EXECUTE is `true` in production, so scheduled runs place real
+         (paper) orders — the user-facing copy below must not claim dry-run.
+         See CLAUDE.md's "Cron cutover" section, which is the authority. -->
     <div id="subpage-jobs" class="subpage">
       <section>
         <div class="panel">
           <div class="panel-title" data-i18n="app:command.jobsTitle">☁ Scheduled Jobs</div>
           <div class="small" style="color:var(--muted);margin-bottom:10px" data-i18n-html="app:command.jobsDescHtml">
-            Node engine. An hourly dispatcher checks each job's schedule below and runs it once per UTC day at
-            the chosen hour, or trigger manually with "Run now".
-            <b>Dry-run only</b> while <code>CRON_EXECUTE</code> is unset — no orders are placed until the Python/Node
-            parity checkpoint passes.
+            Each job below runs once per UTC day at the hour you choose, or immediately with "Run now".
+            <b>Scheduled runs place real orders</b> on the Alpaca paper account you connected in Settings.
           </div>
           <div id="cronJobsList" class="small" data-i18n="app:command.jobsLoading">Loading…</div>
         </div>

@@ -28,7 +28,7 @@
     "clearLog": "Borrar",
     "apLogEmpty": "Aún no hay actividad del autopiloto.",
     "jobsTitle": "☁ Tareas programadas",
-    "jobsDescHtml": "Motor Node. Un despachador cada hora comprueba el horario de cada tarea a continuación y la ejecuta una vez por día UTC a la hora elegida, o actívela manualmente con \"Ejecutar ahora\". <b>Solo simulación</b> mientras <code>CRON_EXECUTE</code> no esté definido — no se colocan órdenes hasta que se supere la verificación de paridad Python/Node.",
+    "jobsDescHtml": "Cada tarea a continuación se ejecuta una vez por día UTC a la hora que elijas, o de inmediato con \"Ejecutar ahora\". <b>Las ejecuciones programadas colocan órdenes reales</b> en la cuenta paper de Alpaca que conectaste en Ajustes.",
     "jobsLoading": "Cargando…",
     "newsTitle": "📰 Noticias cripto",
     "newsFilterAll": "Todo",

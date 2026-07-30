@@ -28,7 +28,7 @@
     "clearLog": "Effacer",
     "apLogEmpty": "Aucune activité de l'autopilote pour l'instant.",
     "jobsTitle": "☁ Tâches planifiées",
-    "jobsDescHtml": "Moteur Node. Un répartiteur horaire vérifie la planification de chaque tâche ci-dessous et l'exécute une fois par jour UTC à l'heure choisie, ou déclenchez-la manuellement avec « Exécuter maintenant ». <b>Simulation uniquement</b> tant que <code>CRON_EXECUTE</code> n'est pas défini — aucun ordre n'est passé tant que le contrôle de parité Python/Node n'est pas validé.",
+    "jobsDescHtml": "Chaque tâche ci-dessous s'exécute une fois par jour UTC à l'heure que vous choisissez, ou immédiatement avec « Exécuter maintenant ». <b>Les exécutions planifiées passent de vrais ordres</b> sur le compte Alpaca paper que vous avez connecté dans les Paramètres.",
     "jobsLoading": "Chargement…",
     "newsTitle": "📰 Actualités crypto",
     "newsFilterAll": "Tout",

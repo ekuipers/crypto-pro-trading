@@ -28,7 +28,7 @@
     "clearLog": "Clear",
     "apLogEmpty": "No autopilot activity yet.",
     "jobsTitle": "☁ Scheduled Jobs",
-    "jobsDescHtml": "Node engine. An hourly dispatcher checks each job's schedule below and runs it once per UTC day at the chosen hour, or trigger manually with \"Run now\". <b>Dry-run only</b> while <code>CRON_EXECUTE</code> is unset — no orders are placed until the Python/Node parity checkpoint passes.",
+    "jobsDescHtml": "Each job below runs once per UTC day at the hour you choose, or immediately with \"Run now\". <b>Scheduled runs place real orders</b> on the Alpaca paper account you connected in Settings.",
     "jobsLoading": "Loading…",
     "newsTitle": "📰 Crypto News",
     "newsFilterAll": "All",

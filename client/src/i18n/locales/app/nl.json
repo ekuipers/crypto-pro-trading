@@ -28,7 +28,7 @@
     "clearLog": "Wissen",
     "apLogEmpty": "Nog geen autopilotactiviteit.",
     "jobsTitle": "☁ Geplande taken",
-    "jobsDescHtml": "Node-engine. Een uurlijkse dispatcher controleert het schema van elke taak hieronder en voert deze eenmaal per UTC-dag uit op het gekozen uur, of start handmatig met \"Nu uitvoeren\". <b>Alleen dry-run</b> zolang <code>CRON_EXECUTE</code> niet is ingesteld — er worden geen orders geplaatst totdat de Python/Node-pariteitscontrole is geslaagd.",
+    "jobsDescHtml": "Elke taak hieronder draait eenmaal per UTC-dag op het uur dat je kiest, of direct met \"Nu uitvoeren\". <b>Geplande runs plaatsen echte orders</b> op het Alpaca-paperaccount dat je in Instellingen hebt gekoppeld.",
     "jobsLoading": "Laden…",
     "newsTitle": "📰 Cryptonieuws",
     "newsFilterAll": "Alles",
