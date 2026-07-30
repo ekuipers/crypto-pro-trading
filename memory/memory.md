@@ -1,5 +1,60 @@
 # Project: CryptoPro Trader
 
+## v2026-07-30.3 — Suite roadmap items 1, 2, 4: walk-forward removed, logo, button heights
+
+**Item 4 — walk-forward removed entirely** (user decision via the Suite roadmap). Deleted
+`loadWalkforwardBaseline()` and its call site, the `#wfBaseline` banner in `backtest.html`,
+`STRAT_CFG.wfMaxAgeDays`, and `config.json`'s `walkforward` block. The banner fetched
+`reports/walkforward_latest.json`, written by `scripts/walkforward_evaluate.py` — a Python script deleted
+2026-07-25 — so it always took the not-found branch and told the user the file "is written by the next
+Forward Analysis run", a run that could never happen. **This resolves roadmap item 1** ("either the port
+lands or that message has to stop promising it") by removal rather than by porting, and takes 2 of the 4
+false strings in item 8 with it. Also fixed the matching false claim on the Suite landing page.
+
+**Item 1:** logo to the suite standard 36px header / 18px footer (was 18/9). **Item 2:** new
+`--control-h: 32px` in `variables.css`, pinned on `.btn` and `.theme-btn` — the header row genuinely
+mixed heights (`.btn` ~32px from 13px/normal line-height beside `.theme-btn` ~29px from 15px/line-height 1),
+which is the reported symptom. **Rule 33:** the footer rendered a person's real name — removed from
+`Footer.jsx` and all 4 common locales; the studio span beside it already satisfies rule 3.
+Verified: 520/520 tests, client build clean.
+
+## 2026-07-30 — Roadmap rescan #3: the i18n pass translated a falsehood (docs only)
+
+No code changed in this pass; 520/520 tests re-run green. Unlike rescan #2, **code had changed since the
+last pass** (`7cf54e9`/`97bba64`, the i18n prose commits), so this one re-ranked where the evidence earned
+it rather than re-verifying in place. Items 1–4 confirmed unchanged and keep their positions: `reports/`
+still absent, `indicators.js:386` still mean-baselined, `entrySizing.js` still sizes on `ATR × ATR_MULTIPLIER`
+while exiting at the 4H swing low, and `scoreParity.test.js` still has only three `describe` blocks, all
+scoring.
+
+**The finding: `app:command.jobsDescHtml` tells the user "Dry-run only… no orders are placed until the
+Python/Node parity checkpoint passes."** `CRON_EXECUTE` is `true` in production (`cronRoutes.js:40`), so
+the engine *is* placing paper orders on the hour, and the "Python/Node parity checkpoint" describes a
+migration that finished — there is no Python engine left to reach parity with. Promoted out of the old
+item 7 to **item 5**, ahead of the unverified paths, because unlike the rest of that group the *substance*
+is false, not the attribution, and it is false about whether trading happens at all.
+
+**The lesson worth keeping: translation multiplies stale copy instead of surfacing it.** This string was
+English-only and wrong on 2026-07-29; the i18n pass rendered it into NL/FR/ES on 2026-07-30 without anyone
+reading it for truth, so the fix went from 1 file to 5 (fragment + 4 locales). Same shape as the
+`command.html:95-96` HTML comment that repeats it. Worth a truth-check pass over copy *before* translating
+it, not after.
+
+**Second finding — the "nothing user-facing is English-only" claim (v2026-07-30.1) was false when written**
+and is now corrected in place in CLAUDE.md rather than left to rot. It held for *static markup* only:
+`grep -c "window.t("` is **0** across all 13 `src/js/tabs-*.js`. The scripts *overwrite* the translated
+placeholders — `signals.html`'s `<th>`s render Dutch while `tabs-signals.js:5,8` write "Configure API
+credentials in Settings first." / "Scanning all symbols…" into the body beneath them. That is the same
+class as the `#mkThreshLabel` bug already solved via `lang-changed`, but at ~33 hardcoded `data-tip`
+strings and 28 English `textContent` assignments instead of one span. New **roadmap item 9**. README.md
+was stale in the *opposite* direction (still claimed the 13 tab panels and `manual.js` were untranslated,
+true before `7cf54e9`) — corrected too, so the two files now agree on where the real line sits.
+
+**Third finding — old item 7's inventory was short.** It counted three rendered Python-attributing strings;
+there are **four**. `tabs-command.js:143`'s Scout-chip tooltip credits "the Python bot", and pass #2 caught
+the identical `data-tip` in `tabs-signals.js:148` while missing this one *in a file it was already reading*.
+Method note recorded on the item: grep the whole `data-tip=` surface, not one file.
+
 ## v2026-07-30.2 — Fix: the user manual stayed in one language
 
 Reported: the manual always rendered in Dutch whatever language was selected. `initManualGuide()` renders the

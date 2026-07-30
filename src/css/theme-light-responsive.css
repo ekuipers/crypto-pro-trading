@@ -33,6 +33,11 @@
       font-size:15px;
       line-height:1;
       transition:color .15s, background .15s;
+      /* Suite roadmap item 2: same rendered height as .btn beside it. */
+      min-height:var(--control-h);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
     }
     .theme-btn:hover { color:var(--text); background:var(--border); }
 

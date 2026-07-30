@@ -50,9 +50,7 @@
       partialTpRMultiple:   1,    // risk.partial_tp_r_multiple
       partialTpFraction:    0.5,  // risk.partial_tp_fraction
       sessionFilterEnabled: true, // strategy.session_filter_enabled (ON since 2026-07-10 item 9 — self-guards on sessionMinSample per bucket)
-      sessionMinSample:     20,   // strategy.session_min_sample — min round-trips per bucket
-      // Roadmap 2026-07-10 addition:
-      wfMaxAgeDays:         45    // walkforward.max_baseline_age_days — Backtest-tab staleness warning
+      sessionMinSample:     20    // strategy.session_min_sample — min round-trips per bucket
     };
 
     // Round-trip trade cost as a % of notional (roadmap 2026-07-09 item 1):

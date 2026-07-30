@@ -19,7 +19,6 @@
   },
   "footer": {
     "tagline": "Cockpit autonome de trading spot crypto en paper — confluence de signaux, dimensionnement ATR, ordres à cours limité uniquement, API Alpaca",
-    "creator": "Créateur :",
     "studio": "Studio de développement :",
     "lastModified": "Dernière modification :",
     "version": "Version :",

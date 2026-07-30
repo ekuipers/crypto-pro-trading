@@ -76,48 +76,12 @@
       if (num(rk.partial_tp_fraction)            !== null) STRAT_CFG.partialTpFraction    = rk.partial_tp_fraction;
       if (typeof st.session_filter_enabled === "boolean")  STRAT_CFG.sessionFilterEnabled = st.session_filter_enabled;
       if (num(st.session_min_sample)             !== null) STRAT_CFG.sessionMinSample     = st.session_min_sample;
-      const wf = cfg.walkforward || {};
-      if (num(wf.max_baseline_age_days)          !== null) STRAT_CFG.wfMaxAgeDays         = wf.max_baseline_age_days;
     }
 
-    // ── Walk-forward baseline banner (roadmap 2026-07-10 item 8) ───────────
-    // scripts/walkforward_evaluate.py writes reports/walkforward_latest.json
-    // (stable name — a file:// page cannot list the reports directory).
-    // Shows the baseline date + headline avg Sharpe per timeframe, red when
-    // older than STRAT_CFG.wfMaxAgeDays (config walkforward.max_baseline_age_days).
-    async function loadWalkforwardBaseline() {
-      const el = $("wfBaseline");
-      if (!el) return;
-      let latest = null;
-      for (const path of ["../reports/walkforward_latest.json", "./reports/walkforward_latest.json"]) {
-        try { const r = await fetch(path, {cache: "no-store"}); if (r.ok) { latest = await r.json(); break; } }
-        catch (_) { /* try next path */ }
-      }
-      if (!latest || !latest.generated_utc) {
-        el.style.display = "block";
-        el.style.color = "var(--muted)";
-        el.textContent = "Walk-forward baseline: reports/walkforward_latest.json not found yet — it is written by the next Forward Analysis run.";
-        return;
-      }
-      const m = String(latest.generated_utc).match(/^(\d{4})(\d{2})(\d{2})T/);
-      const genDate = m ? new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00Z`) : null;
-      const ageDays = genDate ? Math.floor((Date.now() - genDate.getTime()) / 86400000) : null;
-      const maxAge  = STRAT_CFG.wfMaxAgeDays || 45;
-      const stale   = ageDays !== null && ageDays > maxAge;
-      const fee     = latest.params && latest.params.fee_bps;
-      const tfBits  = [];
-      for (const [tf, syms] of Object.entries(latest.summary || {})) {
-        const sharpes = Object.values(syms || {}).map(s => s && s.avg_sharpe).filter(v => typeof v === "number");
-        if (sharpes.length) tfBits.push(`${tf} avg Sharpe ${(sharpes.reduce((a,b)=>a+b,0)/sharpes.length).toFixed(2)}`);
-      }
-      el.style.display = "block";
-      el.style.color = stale ? "var(--red)" : "var(--muted)";
-      el.innerHTML = (stale ? "⚠ <b>Walk-forward baseline is stale</b> — " : "🧪 Walk-forward baseline: ")
-        + `${m ? `${m[1]}-${m[2]}-${m[3]}` : latest.generated_utc}`
-        + (ageDays !== null ? ` (${ageDays}d old${stale ? `, max ${maxAge}d — re-run scripts/walkforward_evaluate.py` : ""})` : "")
-        + (fee != null ? ` · fees ${fee} bps/side` : "")
-        + (tfBits.length ? " · " + tfBits.join(" · ") : "");
-    }
+    // Walk-forward removed 2026-07-30 (Suite roadmap item 4). The banner read
+    // reports/walkforward_latest.json, written by scripts/walkforward_evaluate.py
+    // — a Python script deleted 2026-07-25 with the rest of the Python engine,
+    // leaving the banner promising a run that could never happen.
 
     // ── Scout promotions (data/watchlist_dynamic.json) ─────────────────────
     // scripts/scout.py auto-promotes uptrending high-confluence pairs and the

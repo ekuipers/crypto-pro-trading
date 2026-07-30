@@ -12,8 +12,9 @@ export default function Footer() {
       <span className="footer-sep">·</span>
       <span>{t('footer.tagline')}</span>
       <span className="footer-sep">·</span>
-      <span>{t('footer.creator')} <strong>Erik Kuipers</strong></span>
-      <span className="footer-sep">·</span>
+      {/* Personal-name credit removed 2026-07-30 (workflow rule 33 — no person
+          names on web pages). Rule 3's "developer studio as creator name" is
+          satisfied by the studio span below, which was always alongside it. */}
       <span className="footer-studio">
         <img src="/studio-logo.png" alt="" className="footer-logo-icon" />
         {t('footer.studio')} <strong>VibeSoft Studio</strong>

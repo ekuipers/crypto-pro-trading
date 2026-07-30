@@ -34,7 +34,9 @@
     }
 
     .logo-brand { color:var(--blue); }
-    .logo-icon { width:18px; height:18px; border-radius:4px; vertical-align:middle; }
+    /* 36px header / 18px footer is the suite-wide logo standard (Suite roadmap
+       item 1, 2026-07-30) -- see Charts' style.css for why 36 is the ceiling. */
+    .logo-icon { width:36px; height:36px; border-radius:8px; vertical-align:middle; }
 
     .header-right {
       display:flex;
@@ -101,6 +103,11 @@
       cursor:pointer;
       font-size:13px;
       font-weight:750;
+      /* Suite roadmap item 2: same rendered height as .theme-btn beside it. */
+      min-height:var(--control-h);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
     }
 
     .btn:hover {

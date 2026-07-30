@@ -74,10 +74,6 @@
     "streak_throttle_winners": 2,
     "streak_throttle_risk_factor": 0.5
   },
-  "walkforward": {
-    "_comment": "Roadmap 2026-07-10 item 8: the dashboard Backtest tab warns when reports/walkforward_latest.json is older than this.",
-    "max_baseline_age_days": 45
-  },
   "indicators": {
     "ema_fast": 20,
     "ema_slow": 50,

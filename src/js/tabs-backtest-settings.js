@@ -33,7 +33,6 @@
 
     function renderBacktest(c) {
       if (!$("backtestKpis")) return;
-      loadWalkforwardBaseline();   // fire-and-forget baseline banner (item 8)
 
       const L = getSettings().limits;
       const b = getBacktestDefaults();

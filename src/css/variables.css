@@ -13,4 +13,10 @@
       --orange:#f0883e;
       --hover:#222b3a;
       --radius:10px;
+      /* Shared control height (Suite roadmap item 2, 2026-07-30). Buttons and
+         selects that sit on the same row previously derived their height from
+         padding + font-size, so .btn (13px/normal) rendered ~32px next to
+         .theme-btn (15px/line-height 1) at ~29px. Pinning a min-height makes
+         the row height independent of that drift. */
+      --control-h:32px;
     }
