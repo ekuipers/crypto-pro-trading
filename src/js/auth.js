@@ -363,6 +363,16 @@ async function initAuth() {
   renderAccountButton(me.user);
   const btn = $("accountBtn");
   if (btn) btn.addEventListener('click', () => (_authCurrentUser ? openAccountModal(_authCurrentUser) : openSignInModal()));
+
+  // #accountBtn is owned by React (Header.jsx renders it with useTranslation),
+  // but renderAccountButton() overwrites its innerHTML with the signed-in
+  // avatar + username. A language switch makes React re-render the button from
+  // its own vdom, which wipes that back to the "Sign in" label. Re-apply ours
+  // afterwards — deferred a tick so it lands after React's re-render, not
+  // before it. Signed out this is a no-op; signed in it keeps the name.
+  document.addEventListener('lang-changed', () => {
+    setTimeout(() => renderAccountButton(_authCurrentUser), 0);
+  });
 }
 
 initAuth();

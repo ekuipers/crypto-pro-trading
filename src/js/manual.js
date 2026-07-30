@@ -80,7 +80,12 @@ function manualContentHtml(id) {
   return `<h3>${manualTitle(section)}</h3>${section.html}`;
 }
 
+// Which section is on screen, so a language switch can re-render the same one
+// instead of snapping the reader back to Overview.
+let manualActiveId = MANUAL_SECTIONS[0].id;
+
 function manualSelectSection(id) {
+  manualActiveId = id;
   const content = $("manualContent");
   if (content) content.innerHTML = manualContentHtml(id);
   const buttons = document.querySelectorAll("#manualToc .manual-toc-btn");
@@ -123,6 +128,16 @@ function initManualGuide() {
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && panel.classList.contains("open")) toggleManualPanel(false);
+  });
+
+  // The TOC and the section body are written straight into innerHTML and carry
+  // no data-i18n attributes, so applyDomI18n() cannot reach them — without this
+  // they stay frozen in whichever language was active when initManualGuide()
+  // ran at page load. Re-render both, keeping the open section and any active
+  // search filter. (See i18n's setDashLang, which dispatches this event.)
+  document.addEventListener("lang-changed", () => {
+    manualRenderToc(search ? search.value : "");
+    manualSelectSection(manualActiveId);
   });
 }
 

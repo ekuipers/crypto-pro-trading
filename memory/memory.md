@@ -1,5 +1,23 @@
 # Project: CryptoPro Trader
 
+## v2026-07-30.2 — Fix: the user manual stayed in one language
+
+Reported: the manual always rendered in Dutch whatever language was selected. `initManualGuide()` renders the
+TOC and body once at page load, and neither carries `data-i18n` attributes, so `applyDomI18n()` could never
+reach them — they froze at the browser's initial language. Only became visible in v2026-07-30.1: while the
+bodies were English literals they looked static, not stale.
+
+Fixed by subscribing the manual to the `lang-changed` event, re-rendering the TOC and the open section (the
+active id and search filter are preserved). Verified with a headless regression test that drives the real
+`manual.js` against the real locale files from a Dutch start: en/fr/es each re-render and match their locale.
+
+Found and fixed the same class of bug on the account button while checking for siblings: `#accountBtn` is
+rendered by React (`Header.jsx`, `useTranslation`) but `auth.js` overwrites its innerHTML with the signed-in
+avatar + username, so a language switch made React re-render it back to the "Sign in" label and drop the name.
+`auth.js` now re-applies the button on `lang-changed`, deferred a tick so it lands after React's re-render.
+**That one still needs a browser to confirm the ordering** — it is the only part of this fix not covered by
+the headless test.
+
 ## v2026-07-30.1 — Multi-language: the deferred long-form prose is translated
 
 Translated everything Trader had left English: the 4 long explainers (Autopilot, News, Socials, Glossary),
@@ -2596,6 +2614,7 @@ Training's chrome + full 67-module content translation) unchanged — tracked in
 ---
 
 ## lessons
+- When switching any text from a hardcoded English literal to a `t()` lookup, check **who re-renders it**: content written straight into `innerHTML` (no `data-i18n` attributes) is invisible to `applyDomI18n()`, so it freezes at whichever language was active when it was first rendered. A literal masks this — it looks static rather than stale. Anything rendered once at page load (the user manual is the worked example) must subscribe to `lang-changed`.
 - Any `fetch()`/XHR of a same-origin relative local file (config.json, positions_state.json, glossary.md, etc.) in the dashboard's old static HTML file could be silently blocked when the dashboard is opened via `file://` — never rely on it as the *only* source for cross-engine state; prefer deriving the same fact from an HTTPS call (e.g. Alpaca's own API via `apiFetch`) when one is available, and treat the local-file fetch as a best-effort enhancement only.
 - When renaming the project, `grep -ri` the whole repo (not just `CLAUDE.md`) for every prior name variant (e.g. "CryptoPro Dashboard", "Alpaca Crypto Trading Agent") before considering the rename done — `<title>` tags, in-page header labels, footer names, and README H1s are easy to miss and only surface later during an unrelated rules audit.
 - Before implementing anything from a "rescan roadmap"/bug request, run `git fetch origin main` and diff against `origin/main` — automated/scheduled runs can push directly to origin far more often than a local checkout gets pulled, so `git log -3` on a stale local HEAD can look current while actually being many commits behind.
