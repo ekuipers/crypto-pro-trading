@@ -168,8 +168,15 @@ export async function init() {
   // Created identically in all four projects, same precedent as sso_tickets:
   // whichever app cold-starts first creates it, and each app still stands its
   // own database up alone (rule 23). Nothing gates on it yet — phase 4 adds
-  // the requirePlan('pro') middleware. Every column except uid is owned by
-  // Stripe and written only by Suite's billing webhook (phase 3).
+  // the requirePlan('pro') middleware. Every column except uid is owned by the
+  // billing provider and written only by Suite's webhook (phase 3).
+  //
+  // That provider is **Patreon**, decided 2026-07-30 after this table shipped,
+  // which is why `stripe_customer_id` is misnamed — it should be
+  // `patreon_member_id`. Renaming it is a phase-3 job and needs an explicit
+  // `alter table`: `create table if not exists` skips an existing table
+  // wholesale, so changing the name here alone would give a fresh database one
+  // column and the live one another, silently. Nothing reads or writes it yet.
   await q(`create table if not exists subscriptions (
     uid                text primary key references accounts(id) on delete cascade,
     plan               text not null default 'free',
@@ -178,7 +185,7 @@ export async function init() {
     stripe_customer_id text,
     updated_at         timestamptz not null default now()
   )`);
-  // The webhook looks rows up by Stripe customer, not by uid.
+  // The webhook looks rows up by the provider's member id, not by uid.
   await q(`create index if not exists subscriptions_customer_idx on subscriptions(stripe_customer_id)`);
   // Dashboard settings sync (Suite roadmap: save user state — layouts,
   // progress, etc. — in the database so it follows the account across
@@ -475,8 +482,8 @@ const RESERVED_UIDS = new Set([GUEST, 'trader']);
 // are absent because they already have `on delete cascade` FKs to accounts —
 // deleting the account row takes them. (`subscriptions` was added by
 // monetization phase 2 on 2026-07-30 and is cascade-covered by design; the
-// Stripe-side subscription still has to be cancelled through Stripe, which is
-// phase 3's job, not this list's.)
+// pledge itself still has to be cancelled on Patreon, which is phase 3's job,
+// not this list's.)
 //
 // `job_runs` and `trader_credential_audit` ARE listed. Trader's db.js used to
 // document them as audit trails that should outlive an account deletion; the
@@ -619,8 +626,8 @@ export async function purgeExpiredAccounts(graceDays = ACCOUNT_PURGE_GRACE_DAYS)
 // ---- Plan entitlements (monetization phase 2) ------------------------------
 // The single answer to "what is this account entitled to", ported identically
 // to all four projects. 'pro' only while the subscription is active/trialing
-// AND the paid period has not lapsed, so an event we never receive (a Stripe
-// outage, a dropped customer.subscription.deleted) degrades to 'free' rather
+// AND the paid period has not lapsed, so an event we never receive (a missed
+// Patreon pledge webhook, which has no replay guarantee) degrades to 'free' rather
 // than granting Pro forever. A missing row is 'free' — every account that
 // existed before billing keeps working untouched — and so is "no database
 // configured", which keeps this fail-closed.
