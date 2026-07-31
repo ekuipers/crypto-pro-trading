@@ -198,13 +198,25 @@
     // clicks can -- so the guard lives here, not in cronRoutes.js.
     // daily-summary removed 2026-07-29 — it was journal-only and is gone from
     // the product; the server no longer exposes a route for it.
+    // `labelKey`, not `label`: the panel re-renders on `lang-changed`, so the
+    // name has to be looked up per render rather than frozen at load.
     const CRON_JOBS = [
-      { id: "evaluate", label: "Evaluate", touchesState: true },
-      { id: "watchdog", label: "Stop Watchdog", touchesState: true }
+      { id: "evaluate", labelKey: "jobEvaluate", touchesState: true },
+      { id: "watchdog", labelKey: "jobWatchdog", touchesState: true }
     ];
 
+    // Panel-local translator. The other 12 tab scripts are still English-only
+    // (roadmap item 9); this one is translated because its content is what the
+    // 2026-07-30 report was about. Falls back to the English literal so the
+    // panel still reads correctly if i18n has not initialised yet.
+    function cronT(key, fallback) {
+      return (typeof window.t === "function") ? window.t("command." + key, { ns: "app", defaultValue: fallback }) : fallback;
+    }
+
     function cronFmtTime(iso) {
-      if (!iso) return "never";
+      if (!iso) return cronT("jobNever", "never");
+      // Locale stays en-GB on purpose: this is a fixed-width 24h GMT+2 stamp,
+      // not prose, and it must line up across rows in every language.
       return new Date(iso).toLocaleString("en-GB", { timeZone: "Etc/GMT-2", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" }) + " GMT+2";
     }
 
@@ -242,11 +254,11 @@
       let status;
       try {
         const r = await fetch("/api/cron/status");
-        if (r.status === 401) { el.innerHTML = '<span style="color:var(--muted)">Sign in to view and manage your scheduled jobs.</span>'; return; }
+        if (r.status === 401) { el.innerHTML = '<span style="color:var(--muted)">' + cronT("jobsSignIn", "Sign in to view and manage your scheduled jobs.") + '</span>'; return; }
         if (!r.ok) throw new Error("HTTP " + r.status);
         status = await r.json();
       } catch (e) {
-        el.innerHTML = '<span style="color:var(--muted)">Could not load job status.</span>';
+        el.innerHTML = '<span style="color:var(--muted)">' + cronT("jobsLoadFailed", "Could not load job status.") + '</span>';
         return;
       }
       const runsByJob = {};
@@ -259,7 +271,9 @@
       // below is inert -- the dispatcher skips this uid entirely -- so say so
       // rather than letting an enabled-looking toggle imply it will run.
       var notConnected = status.connected === false
-        ? '<div class="warn-banner" style="margin-bottom:10px">No Alpaca credentials connected for this account, so these jobs will not run. Connect them in Settings → Server-Side Trading Engine.</div>'
+        ? '<div class="warn-banner" style="margin-bottom:10px">' +
+            cronT("jobsNoCreds", "No Alpaca credentials connected for this account, so these jobs will not run. Connect them in Settings → Server-Side Trading Engine.") +
+          '</div>'
         : "";
 
       // Local click state counts as "running" immediately, ahead of the
@@ -277,30 +291,34 @@
         const cfg = cfgByJob[j.id] || { enabled: true, hourUtc: 0 };
         const thisRunning = localRunning(j.id) || (run && run.status === "running");
         const elapsedSec = localRunning(j.id) ? Math.floor((Date.now() - _cronLocalRunning[j.id]) / 1000) : null;
-        const statusLabel = thisRunning ? "running…" + (elapsedSec !== null ? " (" + elapsedSec + "s)" : "")
-          : !run ? "never run"
-          : run.status === "ok" ? "OK · " + cronFmtTime(run.finished_at || run.started_at)
-          : "FAILED · " + cronFmtTime(run.finished_at || run.started_at);
+        const statusLabel = thisRunning ? cronT("jobRunning", "running…") + (elapsedSec !== null ? " (" + elapsedSec + "s)" : "")
+          : !run ? cronT("jobNeverRun", "never run")
+          : run.status === "ok" ? cronT("jobOk", "OK") + " · " + cronFmtTime(run.finished_at || run.started_at)
+          : cronT("jobFailed", "FAILED") + " · " + cronFmtTime(run.finished_at || run.started_at);
         const statusColor = thisRunning ? "var(--blue)" : !run ? "var(--muted)" : run.status === "ok" ? "var(--green)" : "var(--red)";
         const blocked = j.touchesState && stateJobRunning && !thisRunning;
         const runNowDisabled = thisRunning || blocked;
-        const runNowTip = thisRunning ? "Already running."
-          : blocked ? "Waiting for Evaluate/Watchdog to finish (they share position state)."
-          : "Trigger this job now (dry-run while CRON_EXECUTE is unset).";
+        // The old "dry-run while CRON_EXECUTE is unset" wording was the same
+        // false claim the panel description was corrected for on 2026-07-30 —
+        // it survived here because it is a tooltip. Scheduled runs place real
+        // orders; see CLAUDE.md's "Cron cutover" section.
+        const runNowTip = thisRunning ? cronT("jobTipRunning", "Already running.")
+          : blocked ? cronT("jobTipBlocked", "Waiting for Evaluate/Watchdog to finish (they share position state).")
+          : cronT("jobTipRun", "Trigger this job now. Scheduled runs place real orders on your connected Alpaca paper account.");
         return '<div class="rule-row">' +
           '<div class="rule-dot" style="background:' + statusColor + '"></div>' +
           '<div style="flex:1">' +
-            '<b>' + j.label + '</b> ' + (thisRunning ? '<span class="spinner" style="margin-right:4px"></span>' : '') +
+            '<b>' + cronT(j.labelKey, j.id === "evaluate" ? "Evaluate" : "Stop Watchdog") + '</b> ' + (thisRunning ? '<span class="spinner" style="margin-right:4px"></span>' : '') +
             '<span class="small" style="color:' + statusColor + '">' + statusLabel + '</span>' +
             (run && run.triggered_by && !thisRunning ? ' <span class="small" style="color:var(--muted)">(' + run.triggered_by + ')</span>' : '') +
           '</div>' +
-          '<label class="small" style="color:var(--muted);margin-right:8px">Daily at ' +
+          '<label class="small" style="color:var(--muted);margin-right:8px">' + cronT("jobDailyAt", "Daily at") + ' ' +
             '<select id="cronHour_' + j.id + '" onchange="cronSaveConfig(\'' + j.id + '\')" style="margin:0 4px">' + cronHourOptions(cfg.hourUtc) + '</select>' +
           '</label>' +
           '<label class="small" style="color:var(--muted);margin-right:10px">' +
-            '<input type="checkbox" id="cronEnabled_' + j.id + '" ' + (cfg.enabled !== false ? "checked" : "") + ' onchange="cronSaveConfig(\'' + j.id + '\')" /> enabled' +
+            '<input type="checkbox" id="cronEnabled_' + j.id + '" ' + (cfg.enabled !== false ? "checked" : "") + ' onchange="cronSaveConfig(\'' + j.id + '\')" /> ' + cronT("jobEnabled", "enabled") +
           '</label>' +
-          '<button class="btn" style="font-size:11px;padding:3px 9px" onclick="cronRunNow(\'' + j.id + '\')" ' + (runNowDisabled ? "disabled" : "") + ' data-tip="' + runNowTip + '">Run now</button>' +
+          '<button class="btn" style="font-size:11px;padding:3px 9px" onclick="cronRunNow(\'' + j.id + '\')" ' + (runNowDisabled ? "disabled" : "") + ' data-tip="' + runNowTip + '">' + cronT("jobRunNow", "Run now") + '</button>' +
         '</div>';
       }).join("");
     }
@@ -337,6 +355,15 @@
       cronStopTickerIfIdle();
       renderCronJobs();
     }
+
+    // Everything this panel renders is written straight into #cronJobsList, so
+    // applyDomI18n() cannot reach it — workflow rule 35. Re-render on a language
+    // switch, but only while the sub-tab is actually open: renderCronJobs()
+    // fetches /api/cron/status, and there is no reason to spend that request on
+    // a panel nobody is looking at.
+    document.addEventListener("lang-changed", function () {
+      if (_commandSub === "jobs") renderCronJobs();
+    });
 
     function renderCommand(c) {
       const L = getSettings().limits;

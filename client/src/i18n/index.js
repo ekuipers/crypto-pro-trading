@@ -46,7 +46,29 @@ window.i18n = i18n;
 
 export function applyDomI18n(root = document) {
   root.querySelectorAll('[data-i18n]').forEach((el) => {
-    el.textContent = i18n.t(el.getAttribute('data-i18n'));
+    // Translate this node only while WE are the last thing that wrote to it.
+    //
+    // 30 of these ids are loading/empty placeholders that a tab script later
+    // replaces with rendered content (#cronJobsList, #scoreDist, #riskAlerts,
+    // #engineCredListEl, …). Without this guard every later pass — i.e. every
+    // language switch — assigned the placeholder straight back over that
+    // content, and since no tab script listens for `lang-changed`, nothing
+    // ever re-rendered: the panel simply went blank-looking and stayed there.
+    // That is workflow rule 39, and it was reported as "Scheduled Jobs will
+    // not load in FR/ES" (2026-07-30).
+    //
+    // Comparing against what we last wrote keeps ordinary chrome (buttons,
+    // labels, headings) re-translating normally, because its text still
+    // matches; a node a script has claimed simply stops being ours. Deliberately
+    // NOT applied to data-i18n-html below: that case — a translated block with
+    // a script-written span nested inside it, e.g. markov's #mkThreshLabel —
+    // is already solved by re-applying on `lang-changed`, which keeps the block
+    // translated instead of freezing it at the language it was claimed in.
+    const applied = el.dataset.i18nApplied;
+    if (applied !== undefined && el.textContent !== applied) return;
+    const next = i18n.t(el.getAttribute('data-i18n'));
+    el.textContent = next;
+    el.dataset.i18nApplied = next;
   });
   root.querySelectorAll('[data-i18n-html]').forEach((el) => {
     el.innerHTML = i18n.t(el.getAttribute('data-i18n-html'));

@@ -1,5 +1,16 @@
 # Project: CryptoPro Trader
 
+## v2026-07-30.6 — Fix: Scheduled Jobs did not load in FR/ES (user report)
+
+`#cronJobsList` carried `data-i18n`, and `applyDomI18n()` assigns `textContent` to every such node —
+so each language switch wrote the "Loading…" placeholder straight back over the rendered schedule,
+and no tab script listens for `lang-changed`, so nothing re-rendered. **30 elements across 11
+fragments had the same defect**; `applyDomI18n()` now only writes a node while its text still matches
+what i18n last wrote there, which fixes all of them without touching the scripts. The panel's own
+content was English in every language (roadmap item 9) — that part is now translated, 16 keys × 4,
+and it re-renders on `lang-changed`. Its "Run now" tooltip still claimed dry-run; corrected.
+Verified: 520/520, build clean, 3 new regression tests for the guard.
+
 ## v2026-07-30.5 — Roadmap rescan: monetization phase 2 + the footer date stopped rotting
 
 Two changes here. **Monetization phase 2** (Suite roadmap item 1): `subscriptions` table +
