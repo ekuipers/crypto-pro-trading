@@ -1,5 +1,38 @@
 # Project: CryptoPro Trader
 
+## v2026-07-31.8 — Browser pass: the whole dashboard verified in all four languages, no defects
+
+**User-verified in the browser, all four suite apps, 2026-07-31.** Every tab, every panel, and language
+switching across EN/NL/FR/ES: **no bugs, no translation errors, no missing labels.** This closes the last
+verification item on this roadmap (old item 5) and the equivalent Suite item.
+
+**What this actually settles, because the distinction has bitten twice:** the automated suite is a
+*static* guarantee — `i18nRuntimeKeys.test.js` proves every key resolves and that all four languages
+define the same set, but a resolving key is not a rendered one. It cannot see a panel that renders the
+right string into the wrong element, a `lang-changed` listener that never fires because its tab id was
+wrong, or a layout that breaks on a longer German-length French string. Those were exactly the failure
+modes the 1,125-key change could have shipped, and the browser is the only thing that could rule them out.
+
+**Specifically confirmed working**, each of which was separately listed as never-exercised:
+
+- The Settings **"☁ Server-Side Trading Engine"** panel end to end — connect / activate / disconnect /
+  save-overrides. This had *never* been clicked through since the multi-tenant conversion.
+- The **Autopilot toggle** and **Settings save**.
+- **Language switching with panels already open** — the method that matters, because loading a page in a
+  language hides the whole class of bug where a script renders *after* the translation pass instead of
+  before it. That is how the 2026-07-30 `applyDomI18n` clobber was found when a green suite had said
+  nothing, so a clean result under that method is worth considerably more than a clean page load.
+
+**Scope note worth keeping honest:** this verifies the build of 2026-07-31, not the codebase forever. It
+is not a standing guarantee — a change to the React shell, `switchTab()`, `tt()`/`onLangChange()`, or any
+new script-rendered panel puts its own path back into "unverified" and should be re-exercised. What it
+does retire is the *backlog item*: there is no longer a known-unexercised UI path, so **do not re-add a
+generic browser click-through item** to either roadmap.
+
+**Left open deliberately:** the stop-escalation confirmation (now item 5). A browser pass cannot close it
+— it needs a live spread to widen past the 0.5% base band so a stop goes 2 cycles unfilled, which is a
+market event, not a UI action. It is the only unverified path left in the project.
+
 ## v2026-07-31.7 — Roadmap item 8 closed: the 12 tab scripts now translate at runtime
 
 **The gap:** `applyDomI18n()` only reaches markup carrying a `data-i18n*` attribute, so it covered the
@@ -53,7 +86,9 @@ key absent from the locales (the English fallback makes a typo look like working
 key and watching it go red — a green test that cannot detect the regression is worthless. It also pins the
 untranslated-by-design set, so rule 22's decision does not read as the next thing to fix.
 
-**Not verified in a browser.** This is a static guarantee, not a rendered one — Suite roadmap item 3's
+~~**Not verified in a browser.**~~ **Superseded the same day — see v2026-07-31.8, which records the user's
+full browser pass across all four apps.** What follows was true when written: this is a static guarantee,
+not a rendered one — Suite roadmap item 3's
 method (switch language with each panel *already open*) is what would confirm it, and is exactly how the
 2026-07-30 `applyDomI18n` clobber was found when a green suite had said nothing.
 
