@@ -29,6 +29,7 @@ export default function Footer() {
       <span className="footer-sep">·</span>
       <span className="footer-disclaimer">{t('footer.disclaimer')}</span>
       <button type="button" className="footer-terms-link" onClick={() => window.openTermsModal()}>{t('footer.terms')}</button>
+      <button type="button" className="footer-terms-link" onClick={() => window.openPrivacyModal()}>{t('footer.privacy')}</button>
       <a className="footer-donate" href="https://patreon.com/vibesoftstudio" target="_blank" rel="noopener">{t('footer.donate')}</a>
     </footer>
   );

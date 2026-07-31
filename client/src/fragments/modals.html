@@ -129,4 +129,39 @@
     </div>
   </div>
 
+  <!-- ══════════════ PRIVACY POLICY MODAL (GDPR Art. 13) ══════════════
+       Static, no network call, same shape as the ToS modal above. Every
+       paragraph is data-i18n-html because the copy carries inline <b>/<code>.
+       Sections are numbered s1..s7 in common/*.json so adding one is a
+       locale-file change plus one <p> here. -->
+  <div id="privacyModalBackdrop" class="modal-backdrop">
+    <div class="modal" style="width:min(640px,100%);max-height:85vh;display:flex;flex-direction:column">
+      <div class="modal-header">
+        <div class="modal-title" data-i18n="modals.privacy.title">Privacy Policy</div>
+        <button class="btn" onclick="closePrivacyModal()">✕</button>
+      </div>
+      <div class="modal-body" style="overflow-y:auto;flex:1;line-height:1.6">
+        <p data-i18n-html="modals.privacy.introHtml"></p>
+        <h4 data-i18n="modals.privacy.s1Title">What we store</h4>
+        <p data-i18n-html="modals.privacy.s1Html"></p>
+        <h4 data-i18n="modals.privacy.s2Title">Why, and on what legal basis</h4>
+        <p data-i18n-html="modals.privacy.s2Html"></p>
+        <h4 data-i18n="modals.privacy.s3Title">Cookies and local storage</h4>
+        <p data-i18n-html="modals.privacy.s3Html"></p>
+        <h4 data-i18n="modals.privacy.s4Title">Who else processes it</h4>
+        <p data-i18n-html="modals.privacy.s4Html"></p>
+        <h4 data-i18n="modals.privacy.s5Title">How long we keep it</h4>
+        <p data-i18n-html="modals.privacy.s5Html"></p>
+        <h4 data-i18n="modals.privacy.s6Title">Your rights</h4>
+        <p data-i18n-html="modals.privacy.s6Html"></p>
+        <h4 data-i18n="modals.privacy.s7Title">Changes</h4>
+        <p data-i18n-html="modals.privacy.s7Html"></p>
+        <p style="font-size:11px;opacity:.7;margin-top:14px" data-i18n="modals.privacy.updated"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closePrivacyModal()" data-i18n="modals.privacy.close">Close</button>
+      </div>
+    </div>
+  </div>
+
   <div id="tooltip"></div>

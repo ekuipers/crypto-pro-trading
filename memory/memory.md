@@ -1,5 +1,21 @@
 # Project: CryptoPro Trader
 
+## v2026-07-31.6 — Privacy: Chart.js self-hosted, privacy policy added
+
+Chart.js came from `cdnjs.cloudflare.com` on every page load, sending each visitor's IP to Cloudflare
+before the app did anything. Now vendored at `src/js/chartjs-4.4.0.umd.min.js` (200 KB, MIT, version in
+the filename so an upgrade is a visible file change) and served by the existing `/js` mount — the same
+pattern `qrcode-lib.js` already used. No external host remains in any Trader HTML.
+
+**Privacy policy added** (`#privacyModalBackdrop` in `modals.html`, open/close in `terms-modal.js`,
+footer button in `Footer.jsx`): 7 sections, EN/NL/FR/ES under `common.modals.privacy`, static, no
+network call. Required by GDPR Art. 13 independently of cookies — Trader stores account data, an
+encrypted Alpaca credential, journal and paper-trading state. The cookie section is specific rather than
+boilerplate because there is exactly one cookie and no tracking at all.
+
+Verified live: `/js/chartjs-4.4.0.umd.min.js` 200s at 200,632 bytes with `application/javascript`, the
+served HTML has zero external hosts, build ships the policy in all four languages, 524/524.
+
 ## v2026-07-31.5 — The re-dating finished: prose and code comments, not just headings
 
 `.4` re-dated the changelog **headings** from 2026-07-30 to 2026-07-31 but left the wrong date inside

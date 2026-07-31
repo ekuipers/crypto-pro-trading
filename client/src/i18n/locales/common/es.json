@@ -24,7 +24,8 @@
     "version": "Versión:",
     "disclaimer": "⚠ Solo paper trading spot: no se colocan órdenes reales. Las claves reales son de solo lectura, a modo informativo.",
     "terms": "Términos de servicio",
-    "donate": "♥ Apoyar"
+    "donate": "♥ Apoyar",
+    "privacy": "Privacidad"
   },
   "nav": {
     "command": "🧭 Comando",
@@ -82,6 +83,26 @@
       "p3": "<b>Sin asesoría financiera.</b> Nada en esta aplicación — incluidas las puntuaciones de señales, entradas de diario, notas de investigación o la agregación de noticias/redes sociales — constituye asesoría de inversión, financiera, legal o fiscal. El rendimiento histórico o simulado mostrado en esta aplicación no es indicativo de resultados futuros.",
       "p4": "<b>Sin garantía.</b> Este software se proporciona «tal cual», sin garantía de ningún tipo, expresa o implícita, incluyendo entre otras la idoneidad para un propósito particular, la exactitud o el funcionamiento ininterrumpido. El creador no es responsable de ninguna pérdida, directa o indirecta, derivada del uso de esta aplicación.",
       "p5": "<b>Tu responsabilidad.</b> Al ejecutar el agente, ajustar los límites de riesgo o conectar credenciales de corretaje, reconoces y aceptas estos riesgos y aceptas que operas según tu propio criterio y bajo tu propio riesgo."
+    },
+    "privacy": {
+      "title": "Política de privacidad",
+      "close": "Cerrar",
+      "updated": "Última actualización: 31 de julio de 2026",
+      "introHtml": "CryptoPro está gestionado por <b>VibeSoft Studio</b> (info@vibesoftstudio.com). Esta política cubre CryptoPro Suite, Charts, Trader y Training, que comparten una cuenta y una base de datos. Explica qué almacenamos, por qué y qué puede hacer usted al respecto.",
+      "s1Title": "Qué almacenamos",
+      "s1Html": "<b>Su cuenta:</b> nombre de usuario, una contraseña cifrada con hash (nunca la contraseña en sí) y —solo si lo activa— un secreto de doble factor. Puede añadir un correo de notificaciones; se guarda, pero todavía no se envía ningún correo.<br><b>Lo que usted crea:</b> listas de seguimiento, diseños y dibujos de gráficos, ajustes, el tema y el idioma elegidos, el progreso del curso y los resultados de los cuestionarios, y el diario de operaciones y el estado de paper trading de Trader.<br><b>Claves del bróker:</b> si conecta Alpaca, sus credenciales de API se cifran antes de guardarse. Trader solo coloca órdenes simuladas.<br>No recopilamos datos de tarjetas de pago ni solicitamos categorías especiales de datos.",
+      "s2Title": "Por qué y con qué base legal",
+      "s2Html": "Para prestar la cuenta y las funciones que ha solicitado (<b>ejecución de un contrato</b>) y para mantener la cuenta segura — sesiones, doble factor opcional y límites de escritura en los cambios de credenciales (<b>interés legítimo</b>). No le perfilamos, no tomamos decisiones automatizadas sobre usted y no usamos sus datos para entrenar nada.",
+      "s3Title": "Cookies y almacenamiento local",
+      "s3Html": "<b>Una sola cookie.</b> <code>cps_session</code> se establece únicamente al iniciar sesión. Es HttpOnly, SameSite=Lax, Secure en producción y válida 30 días o hasta que cierre sesión. Identifica su sesión y nada más.<br><b>El almacenamiento local</b> guarda sus preferencias en su dispositivo — tema, idioma, última pestaña abierta, listas de seguimiento y, en Trader, las claves de API que introdujo.<br><b>Sin analítica, sin publicidad, sin píxeles de seguimiento, sin contenido incrustado de redes sociales y sin cookies de terceros.</b> Las fuentes y las bibliotecas de gráficos se sirven desde nuestros propios servidores, así que abrir una página no le indica a nadie más que usted estuvo aquí.",
+      "s4Title": "Quién más los trata",
+      "s4Html": "<b>Alojamiento:</b> Vercel. <b>Base de datos:</b> Supabase. Ambos tratan los datos únicamente siguiendo nuestras instrucciones. Si conecta Alpaca, las solicitudes van a Alpaca con sus propias claves. No se vende, alquila ni comparte nada con fines publicitarios.",
+      "s5Title": "Cuánto tiempo los conservamos",
+      "s5Html": "Mientras exista su cuenta. Eliminar la cuenta (Cuenta → Danger zone) cierra de inmediato todas las sesiones y bloquea el acceso en toda la suite; después, los datos se borran definitivamente a los 30 días. Las sesiones caducan por sí solas a los 30 días.",
+      "s6Title": "Sus derechos",
+      "s6Html": "Puede solicitar acceso, rectificación, supresión, limitación, oposición o una copia portátil de sus datos — y puede eliminar su cuenta usted mismo en cualquier momento, sin pedírnoslo. Para lo demás: info@vibesoftstudio.com. También tiene derecho a presentar una reclamación ante su autoridad nacional de protección de datos (en los Países Bajos, la Autoriteit Persoonsgegevens).",
+      "s7Title": "Cambios",
+      "s7Html": "Si esta política cambia, la fecha anterior cambia con ella. Los cambios importantes se anunciarán en la aplicación."
     }
   }
 }

@@ -24,7 +24,8 @@
     "version": "Version:",
     "disclaimer": "⚠ Paper spot trading only — no live orders are placed. Live keys are read-only, for insights.",
     "terms": "Terms of Service",
-    "donate": "♥ Support"
+    "donate": "♥ Support",
+    "privacy": "Privacy"
   },
   "nav": {
     "command": "🧭 Command",
@@ -82,6 +83,26 @@
       "p3": "<b>No financial advice.</b> Nothing in this application — including signal scores, journal entries, research notes, or news/socials aggregation — constitutes investment, financial, legal, or tax advice. Historical or simulated performance shown in this app is not indicative of future results.",
       "p4": "<b>No warranty.</b> This software is provided \"as is\", without warranty of any kind, express or implied, including but not limited to fitness for a particular purpose, accuracy, or uninterrupted operation. The creator is not liable for any losses, direct or indirect, arising from use of this application.",
       "p5": "<b>Your responsibility.</b> By running the agent, adjusting risk limits, or connecting brokerage credentials, you acknowledge and accept these risks and agree that you are trading at your own discretion and risk."
+    },
+    "privacy": {
+      "title": "Privacy Policy",
+      "close": "Close",
+      "updated": "Last updated: 31 July 2026",
+      "introHtml": "CryptoPro is operated by <b>VibeSoft Studio</b> (info@vibesoftstudio.com). This policy covers CryptoPro Suite, Charts, Trader and Training, which share one account and one database. It explains what we store, why, and what you can do about it.",
+      "s1Title": "What we store",
+      "s1Html": "<b>Your account:</b> username, a hashed password (never the password itself), and — only if you switch it on — a two-factor secret. You may add a notification email; it is stored but nothing sends email yet.<br><b>What you create:</b> watchlists, chart layouts and drawings, settings, your chosen theme and language, course progress and quiz results, and Trader's trading journal and paper-trading state.<br><b>Broker keys:</b> if you connect Alpaca, your API credentials are encrypted before they are stored. Trader places paper orders only.<br>We do not collect payment card details, and we do not ask for special-category data.",
+      "s2Title": "Why, and on what legal basis",
+      "s2Html": "To provide the account and the features you asked for (<b>performance of a contract</b>), and to keep the account secure — sessions, optional two-factor, and write limits on credential changes (<b>legitimate interest</b>). We do not profile you, we do not make automated decisions about you, and we do not use your data to train anything.",
+      "s3Title": "Cookies and local storage",
+      "s3Html": "<b>One cookie.</b> <code>cps_session</code> is set only when you sign in. It is HttpOnly, SameSite=Lax, Secure in production, and valid for 30 days or until you sign out. It identifies your session and nothing else.<br><b>Local storage</b> keeps your own preferences on your device — theme, language, last open tab, watchlists, and in Trader the API keys you entered.<br><b>No analytics, no advertising, no tracking pixels, no social media embeds and no third-party cookies.</b> Fonts and chart libraries are served from our own servers, so opening a page does not tell anyone else that you were here.",
+      "s4Title": "Who else processes it",
+      "s4Html": "<b>Hosting:</b> Vercel. <b>Database:</b> Supabase. Both process data on our instructions only. If you connect Alpaca, requests go to Alpaca using your own keys. Nothing is sold, rented, or shared for advertising.",
+      "s5Title": "How long we keep it",
+      "s5Html": "For as long as your account exists. Deleting your account (Account → Danger zone) ends every session immediately and blocks sign-in across the whole suite; the data is then permanently erased after 30 days. Sign-in sessions expire after 30 days on their own.",
+      "s6Title": "Your rights",
+      "s6Html": "You can ask for access, correction, erasure, restriction, objection, or a portable copy of your data — and you can delete your account yourself at any time, without asking us. Write to info@vibesoftstudio.com for anything else. You also have the right to complain to your national data protection authority (in the Netherlands, the Autoriteit Persoonsgegevens).",
+      "s7Title": "Changes",
+      "s7Html": "If this policy changes, the date above changes with it. Material changes will be announced in the app."
     }
   }
 }
