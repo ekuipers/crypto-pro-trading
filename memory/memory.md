@@ -1,6 +1,15 @@
 # Project: CryptoPro Trader
 
-## v2026-07-30.7 — subscriptions: contract step (legacy column dropped, index UNIQUE)
+## v2026-07-31.4 — Footer version derived from memory.md; entries re-dated
+
+The footer's version was left manual when the "Last modified" date was automated, on the reasoning
+that it tracks `memory.md` rather than builds. It then drifted twice in one day (shipped `.5` while
+`memory.md` was at `.7`), so `vite.config.js` now reads the newest `## vX` heading and injects it as
+`__APP_VERSION__`. Also re-dated this session's entries — `.5`/`.6`/`.7` were written as 2026-07-30
+while the commits are 2026-07-31, so they are now `v2026-07-31.1`/`.2`/`.3`. Verified: build injects
+`v2026-07-31.3` and today's date; 524/524.
+
+## v2026-07-31.3 — subscriptions: contract step (legacy column dropped, index UNIQUE)
 
 Second half of the Patreon rename, ported identically to all four projects. `stripe_customer_id` is
 dropped from the live database and from `init()`; `subscriptions_customer_idx` is now UNIQUE on
@@ -8,7 +17,7 @@ dropped from the live database and from `init()`; `subscriptions_customer_idx` i
 Verified live — a duplicate member id is rejected (23505) while free accounts keep NULL and coexist.
 Verified: 524/524, all four `db.js` import clean, `init()` idempotent across two runs.
 
-## v2026-07-30.6 — Fix: Scheduled Jobs did not load in FR/ES (user report)
+## v2026-07-31.2 — Fix: Scheduled Jobs did not load in FR/ES (user report)
 
 `#cronJobsList` carried `data-i18n`, and `applyDomI18n()` assigns `textContent` to every such node —
 so each language switch wrote the "Loading…" placeholder straight back over the rendered schedule,
@@ -20,7 +29,7 @@ and it re-renders on `lang-changed`. Its "Run now" tooltip still claimed dry-run
 Verified: 524/524, build clean, 4 new regression tests for the guard, **and confirmed by the user in
 the browser** — translations render correctly and the Scheduled Jobs panel loads in every language.
 
-## v2026-07-30.5 — Roadmap rescan: monetization phase 2 + the footer date stopped rotting
+## v2026-07-31.1 — Roadmap rescan: monetization phase 2 + the footer date stopped rotting
 
 Two changes here. **Monetization phase 2** (Suite roadmap item 1): `subscriptions` table +
 `getPlan(uid)` in `src/db.js`, identical in all four projects, cascade-covered by the account purge
