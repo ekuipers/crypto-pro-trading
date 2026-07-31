@@ -164,6 +164,22 @@ export async function init() {
     used       boolean not null default false
   )`);
   await q(`create index if not exists sso_tickets_expires_idx on sso_tickets(expires_at)`);
+  // ---- Monetization phase 2 (Suite roadmap item 1): plan entitlements ----
+  // Created identically in all four projects, same precedent as sso_tickets:
+  // whichever app cold-starts first creates it, and each app still stands its
+  // own database up alone (rule 23). Nothing gates on it yet — phase 4 adds
+  // the requirePlan('pro') middleware. Every column except uid is owned by
+  // Stripe and written only by Suite's billing webhook (phase 3).
+  await q(`create table if not exists subscriptions (
+    uid                text primary key references accounts(id) on delete cascade,
+    plan               text not null default 'free',
+    status             text,
+    current_period_end timestamptz,
+    stripe_customer_id text,
+    updated_at         timestamptz not null default now()
+  )`);
+  // The webhook looks rows up by Stripe customer, not by uid.
+  await q(`create index if not exists subscriptions_customer_idx on subscriptions(stripe_customer_id)`);
   // Dashboard settings sync (Suite roadmap: save user state — layouts,
   // progress, etc. — in the database so it follows the account across
   // devices/browsers). Same generic uid+name→jsonb shape CryptoPro Charts
@@ -455,9 +471,12 @@ const RESERVED_UIDS = new Set([GUEST, 'trader']);
 //
 // NOT listed, deliberately: `klines`, `market_events`, `market_status_cache`
 // and `glossary` hold no per-user data. `sessions`, `sso_tickets`,
-// `trader_alpaca_credentials` and `trader_strategy_config` are absent because
-// they already have `on delete cascade` FKs to accounts — deleting the account
-// row takes them.
+// `subscriptions`, `trader_alpaca_credentials` and `trader_strategy_config`
+// are absent because they already have `on delete cascade` FKs to accounts —
+// deleting the account row takes them. (`subscriptions` was added by
+// monetization phase 2 on 2026-07-30 and is cascade-covered by design; the
+// Stripe-side subscription still has to be cancelled through Stripe, which is
+// phase 3's job, not this list's.)
 //
 // `job_runs` and `trader_credential_audit` ARE listed. Trader's db.js used to
 // document them as audit trails that should outlive an account deletion; the
@@ -596,6 +615,28 @@ export async function purgeExpiredAccounts(graceDays = ACCOUNT_PURGE_GRACE_DAYS)
   return { due: due.length, purged, failed };
 }
 
+
+// ---- Plan entitlements (monetization phase 2) ------------------------------
+// The single answer to "what is this account entitled to", ported identically
+// to all four projects. 'pro' only while the subscription is active/trialing
+// AND the paid period has not lapsed, so an event we never receive (a Stripe
+// outage, a dropped customer.subscription.deleted) degrades to 'free' rather
+// than granting Pro forever. A missing row is 'free' — every account that
+// existed before billing keeps working untouched — and so is "no database
+// configured", which keeps this fail-closed.
+export async function getPlan(uid) {
+  if (!uid) throw new TypeError('getPlan requires a uid');
+  if (!dbEnabled()) return 'free';
+  const { rows } = await q(
+    'select plan, status, current_period_end from subscriptions where uid = $1',
+    [String(uid).toLowerCase()],
+  );
+  const row = rows[0];
+  if (!row || row.plan !== 'pro') return 'free';
+  if (row.status !== 'active' && row.status !== 'trialing') return 'free';
+  if (row.current_period_end && new Date(row.current_period_end).getTime() <= Date.now()) return 'free';
+  return 'pro';
+}
 
 // ---- Sessions --------------------------------------------------------------
 export async function createSession(sid, uid, expiresAtMs) {

@@ -93,3 +93,5 @@ architecture and hard rules live in `CLAUDE.md`.
 | Daily drawdown gate | If portfolio equity drops ≥3% vs day-open equity, capital preservation mode activates: all new entries blocked, existing stops tighten to 3%. Resets at midnight UTC |
 | Over-cap trim | Position value > cap% of equity → sell excess to bring back to cap. No signal gate; always fires |
 | Under-cap top-up | Position value < cap% → buy to close the gap, subject to signal gate (score ≥ 3) and regime gate (no downtrend) |
+| Plan (Free / Pro) | Subscription tier an account holds. Pro counts only while the subscription is active or trialing and the paid period has not lapsed; anything else, including no subscription at all, is Free. Nothing in this app is gated on it yet |
+| Entitlement | What a plan actually unlocks. Only features that live on our own server can be enforced — anything computed in the browser against public data cannot be |

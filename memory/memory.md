@@ -1,5 +1,16 @@
 # Project: CryptoPro Trader
 
+## v2026-07-30.5 — Roadmap rescan: monetization phase 2 + the footer date stopped rotting
+
+Two changes here. **Monetization phase 2** (Suite roadmap item 1): `subscriptions` table +
+`getPlan(uid)` in `src/db.js`, identical in all four projects, cascade-covered by the account purge
+(noted in `USER_DATA_TABLES`' "not listed" comment). Nothing gates on it yet, so there is no
+new-code-on-old-schema risk — the table appears on the next deploy's cold start. **The footer's
+"Last modified" date is now stamped at build time** via a new `__BUILD_DATE__` define in
+`client/vite.config.js`; it was a literal in `Footer.jsx` and was already a day stale, as was the
+version string beside it (bumped to this entry). Verified: 520/520, build clean, date present in
+the bundle.
+
 ## v2026-07-30.4 — Suite roadmap item 1: Scheduled Jobs no longer claims dry-run
 
 The panel told the user "**Dry-run only** while `CRON_EXECUTE` is unset — no orders are placed until the

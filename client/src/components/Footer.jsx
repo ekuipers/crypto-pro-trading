@@ -20,9 +20,11 @@ export default function Footer() {
         {t('footer.studio')} <strong>VibeSoft Studio</strong>
       </span>
       <span className="footer-sep">·</span>
-      <span>{t('footer.lastModified')} <strong>2026-07-29</strong></span>
+      {/* Stamped at build time by vite.config.js's __BUILD_DATE__ define —
+          it used to be a literal here and went stale between deploys. */}
+      <span>{t('footer.lastModified')} <strong>{__BUILD_DATE__}</strong></span>
       <span className="footer-sep">·</span>
-      <span>{t('footer.version')} <strong>v2026-07-29.6</strong></span>
+      <span>{t('footer.version')} <strong>v2026-07-30.5</strong></span>
       <span className="footer-sep">·</span>
       <span className="footer-disclaimer">{t('footer.disclaimer')}</span>
       <button type="button" className="footer-terms-link" onClick={() => window.openTermsModal()}>{t('footer.terms')}</button>
