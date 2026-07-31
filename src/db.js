@@ -169,24 +169,55 @@ export async function init() {
   // whichever app cold-starts first creates it, and each app still stands its
   // own database up alone (rule 23). Nothing gates on it yet — phase 4 adds
   // the requirePlan('pro') middleware. Every column except uid is owned by the
-  // billing provider and written only by Suite's webhook (phase 3).
-  //
-  // That provider is **Patreon**, decided 2026-07-30 after this table shipped,
-  // which is why `stripe_customer_id` is misnamed — it should be
-  // `patreon_member_id`. Renaming it is a phase-3 job and needs an explicit
-  // `alter table`: `create table if not exists` skips an existing table
-  // wholesale, so changing the name here alone would give a fresh database one
-  // column and the live one another, silently. Nothing reads or writes it yet.
+  // billing provider — Patreon — and written only by Suite's webhook (phase 3).
   await q(`create table if not exists subscriptions (
     uid                text primary key references accounts(id) on delete cascade,
     plan               text not null default 'free',
     status             text,
     current_period_end timestamptz,
-    stripe_customer_id text,
+    patreon_member_id  text,
     updated_at         timestamptz not null default now()
   )`);
-  // The webhook looks rows up by the provider's member id, not by uid.
-  await q(`create index if not exists subscriptions_customer_idx on subscriptions(stripe_customer_id)`);
+  // ---- Migration 2026-07-30: stripe_customer_id -> patreon_member_id -------
+  // The column shipped hours earlier under the old name, before billing moved
+  // to Patreon. `create table if not exists` above skips an existing table
+  // wholesale, so without this an already-created database would keep the old
+  // name while a fresh one got the new — diverging silently.
+  //
+  // EXPAND/CONTRACT, and the expand half is the whole point. **`create index
+  // if not exists` still resolves its column list before it checks the index
+  // name**, so the moment `stripe_customer_id` disappears, any build still
+  // carrying the old `create index … (stripe_customer_id)` throws in init() —
+  // verified against the live database, not assumed. Renaming alone therefore
+  // breaks every currently-deployed build the instant it cold-starts. This is
+  // the same deploy-window hazard as the `job_runs_running_uidx` resurrection
+  // in Phase 4, from the other direction. So: rename where the old name is all
+  // that exists, then guarantee BOTH columns are present for as long as a build
+  // referencing the old one can still start. Dropping the legacy column is the
+  // contract half — a separate, later step, safe only once no such build
+  // remains. Zero data risk either way: nothing has ever written this column.
+  await q(`do $$
+    begin
+      if exists (select 1 from information_schema.columns
+                 where table_name = 'subscriptions' and column_name = 'stripe_customer_id')
+      and not exists (select 1 from information_schema.columns
+                 where table_name = 'subscriptions' and column_name = 'patreon_member_id')
+      then
+        alter table subscriptions rename column stripe_customer_id to patreon_member_id;
+      end if;
+    end $$`);
+  await q(`alter table subscriptions add column if not exists patreon_member_id text`);
+  await q(`alter table subscriptions add column if not exists stripe_customer_id text`); // vestigial — drop in the contract step
+  // The webhook looks rows up by the provider's member id, not by uid. The
+  // index keeps its old, provider-neutral name so that an older build's own
+  // `create index if not exists` sees the name and no-ops instead of trying to
+  // build a second one.
+  //
+  // Phase 3 makes this UNIQUE (one patron must not be able to grant Pro to many
+  // accounts). Not here: uniqueness means dropping and recreating the index,
+  // which is exactly the kind of window this migration just proved is real.
+  // Do it as its own step once this one is confirmed serving.
+  await q(`create index if not exists subscriptions_customer_idx on subscriptions(patreon_member_id)`);
   // Dashboard settings sync (Suite roadmap: save user state — layouts,
   // progress, etc. — in the database so it follows the account across
   // devices/browsers). Same generic uid+name→jsonb shape CryptoPro Charts
