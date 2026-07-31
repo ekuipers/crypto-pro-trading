@@ -907,17 +907,39 @@ export async function getLastRunAtByUid(job) {
 }
 
 // ---- Glossary (Suite roadmap: DB-backed instead of file-loaded) -----------
-export async function getGlossary() {
-  const { rows } = await q(`select content, updated_at from glossary where id = 'trader'`);
+//
+// Per-language rows land in the SAME table under a suffixed id: 'trader' is
+// English, 'trader:nl' | 'trader:fr' | 'trader:es' are the translations.
+//
+// That is deliberate, and it is why this shipped with **no schema migration**.
+// A composite `(id, lang)` primary key would have been the tidier modelling
+// choice, but it breaks the direction this project has already been bitten in:
+// an OLD build cold-starting during a deploy window re-runs its own init() and
+// its own queries. The old putGlossary does `on conflict (id)`, which has no
+// matching unique constraint once the key is composite, so its boot sync would
+// throw; the old getGlossary does `where id = 'trader'` and would start
+// matching several rows and return an arbitrary language via rows[0]. With the
+// suffix scheme an old build reads and writes exactly the row it always did,
+// and simply never sees the other three. See CLAUDE.md's migration rule.
+export const GLOSSARY_BASE_ID = 'trader';
+
+/** Row id for a language. English keeps the bare, pre-existing id. */
+export function glossaryId(lang) {
+  return !lang || lang === 'en' ? GLOSSARY_BASE_ID : `${GLOSSARY_BASE_ID}:${lang}`;
+}
+
+export async function getGlossary(lang) {
+  const { rows } = await q(`select content, updated_at from glossary where id = $1`, [glossaryId(lang)]);
   return rows[0] ? { content: rows[0].content, updatedAt: rows[0].updated_at } : null;
 }
-/** Upserts the single shared glossary row; only writes when content actually changed. */
-export async function putGlossary(content) {
+
+/** Upserts one language's glossary row; only writes when content actually changed. */
+export async function putGlossary(content, lang) {
   await q(
-    `insert into glossary (id, content, updated_at) values ('trader', $1, now())
+    `insert into glossary (id, content, updated_at) values ($2, $1, now())
      on conflict (id) do update set content = excluded.content, updated_at = now()
      where glossary.content is distinct from excluded.content`,
-    [content],
+    [content, glossaryId(lang)],
   );
 }
 

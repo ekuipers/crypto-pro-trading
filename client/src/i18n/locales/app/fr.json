@@ -1171,5 +1171,10 @@
     "riskNoteLow": "Volatilité plus faible — une taille de position légèrement plus large est acceptable.",
     "rtFetching": "Récupération de 6 mois de bougies pour les 10 symboles… cela peut prendre un moment.",
     "rtErrorCheckSettings": "Erreur — vérifiez les paramètres"
+  },
+  "glossary": {
+    "rtLive": "En direct depuis la base de données",
+    "rtLangFallback": "En direct depuis la base de données — affichage en anglais, le glossaire {{lang}} n'est pas encore synchronisé.",
+    "rtOffline": "Affichage de la référence anglaise intégrée — /api/glossary n'a pas répondu (serveur injoignable, ou base de données pas encore configurée) ; cliquez sur ↻ Actualiser pour réessayer."
   }
 }

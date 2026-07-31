@@ -1,5 +1,57 @@
 # Project: CryptoPro Trader
 
+## v2026-07-31.9 — Glossary translated: the last untranslated content in the suite
+
+The Glossary tab was the final exception (Suite roadmap item 2). It is DB-backed, so translating it was a
+storage problem as much as a copy problem: `server.js` syncs `memory/glossary.md` into Postgres on boot
+and `/api/glossary` serves that row.
+
+**Shipped with no schema migration, deliberately.** Per-language rows share the existing table under a
+suffixed id — `'trader'` stays English, `'trader:nl'|:fr|:es'` are the translations. A composite
+`(id, lang)` primary key was the tidier model and was rejected: it breaks in the direction this project
+has already been bitten (CLAUDE.md's migration rule). An **old build** cold-starting during a deploy
+window re-runs its own queries — its `putGlossary` does `on conflict (id)`, which has no matching unique
+constraint once the key is composite, so its boot sync would throw; its `getGlossary` does
+`where id = 'trader'`, which would start matching four rows and return an arbitrary language via
+`rows[0]`. With the suffix scheme an old build reads and writes exactly the row it always did and never
+sees the others. `glossaryId()` keeps the no-arg signature, and a test pins that.
+
+**Translations are stored verbatim; only English is section-extracted.** `extractGlossarySections()`
+matches the two *English* `##` headings, so running a translated file through it yields `""` and the tab
+would silently fall back to English. Keeping the translated files serve-ready (just the two sections)
+means their headings translate too. There is a test asserting extraction *does* return `""` for them, so
+nobody "tidies up" the sync branch by extracting all four.
+
+**Term column is the key and stays English in all four files**; only the definitions translate. Terms are
+the lookup handle — a user sees `ATR` or `Trailing stop` in the dashboard and searches for it here — and
+the abbreviations are untranslated by design anyway (Suite rule 22). It also makes drift exactly
+detectable, which matters more than it sounds: if someone adds an English term and forgets the other
+three, nothing breaks, the build stays green, and the Dutch reader simply never learns the term exists.
+`src/glossaryParity.test.js` fails on that, on reordering, and on definitions left verbatim English.
+82 terms × 4 languages, verified equal.
+
+**Three factual errors found and fixed in the English source while translating**, because copying them
+into four languages was not defensible — the same reasoning as roadmap item 7:
+
+- **"Hard cap | Position capped at 5% of total equity"** — wrong. Caps are per symbol: BTC 30%, ETH 15%,
+  ADA/SOL 10%, DOGE 8%, LTC/DOT 6%, rest 5%. 5% is only the default. `ATR sizing` repeated the error.
+  Notably the *offline fallback* in `tabs-glossary.js` had it right, so the DB copy was the wrong one.
+- **"Morning brief | Scheduled 7 AM task: eval + journal block + dashboard summary"** — describes
+  something that does not exist. The journal block went with `daily-summary` on 2026-07-29, and the hour
+  is user-chosen, not 07:00. Replaced with a `Scheduled run` entry describing what actually happens,
+  including that it places real orders and is separate from Autopilot.
+
+**Client:** the cache is now per language (a switch must refetch, or the tab keeps serving the previous
+language), the panel re-renders on `lang-changed` while its sub-tab is open, and the status line is
+translated. When a translation row has not synced the server falls back to English and the status line
+*says so* — "showing English, the NL glossary hasn't synced yet" — rather than letting the tab look
+inexplicably untranslated. The offline fallback snapshot stays English on purpose and now labels itself
+as such; four copies in the bundle would cost every user bytes on every load for a degraded edge case.
+
+**Verified end-to-end against a running server**, not just in tests: all four languages return their own
+content from Postgres (`en` 12,105 chars, `nl` 14,755, `fr` 15,452, `es` 15,448) and an unknown
+`?lang=xx` falls back to English. 536/536, build clean.
+
 ## v2026-07-31.8 — Browser pass: the whole dashboard verified in all four languages, no defects
 
 **User-verified in the browser, all four suite apps, 2026-07-31.** Every tab, every panel, and language

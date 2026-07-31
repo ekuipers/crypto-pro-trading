@@ -1171,5 +1171,10 @@
     "riskNoteLow": "Menor volatilidad — es aceptable un tamaño de posición algo mayor.",
     "rtFetching": "Obteniendo 6 meses de velas para los 10 símbolos… puede tardar un momento.",
     "rtErrorCheckSettings": "Error — comprueba los ajustes"
+  },
+  "glossary": {
+    "rtLive": "En directo desde la base de datos",
+    "rtLangFallback": "En directo desde la base de datos — se muestra en inglés, el glosario en {{lang}} aún no se ha sincronizado.",
+    "rtOffline": "Se muestra la referencia integrada en inglés — /api/glossary no respondió (servidor inaccesible, o la base de datos aún no está configurada); pulsa ↻ Actualizar para reintentar."
   }
 }

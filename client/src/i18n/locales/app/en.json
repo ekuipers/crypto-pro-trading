@@ -1171,5 +1171,10 @@
     "riskNoteLow": "Lower volatility — slightly wider position size acceptable.",
     "rtFetching": "Fetching 6-month bars for all 10 symbols… this may take a moment.",
     "rtErrorCheckSettings": "Error — check settings"
+  },
+  "glossary": {
+    "rtLive": "Live from database",
+    "rtLangFallback": "Live from database — showing English, the {{lang}} glossary hasn't synced yet.",
+    "rtOffline": "Showing the built-in English reference — /api/glossary didn't respond (server unreachable, or the database isn't configured yet); hit ↻ Refresh to retry."
   }
 }

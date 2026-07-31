@@ -87,8 +87,17 @@ if (!cryptoEnabled()) {
 }
 
 // Suite roadmap: glossary served from the database instead of a file — see
-// src/glossaryRoutes.js. memory/glossary.md stays the git-tracked edit
-// source; it's synced into Postgres below, after db.init() succeeds.
+// src/glossaryRoutes.js. These stay the git-tracked edit sources; they are
+// synced into Postgres below, after db.init() succeeds, one row per language.
+// Suite rule 20 applies: adding or reworking a term means editing all four,
+// and src/glossaryParity.test.js fails the build if they drift apart.
+export const GLOSSARY_SOURCES = [
+  ['en', 'glossary.md'],
+  ['nl', 'glossary.nl.md'],
+  ['fr', 'glossary.fr.md'],
+  ['es', 'glossary.es.md'],
+];
+
 installGlossaryRoutes(app);
 
 // Dashboard settings sync (Suite roadmap: save user state in the database so
@@ -130,17 +139,31 @@ app.get('/', (req, res) => {
 db.init()
   .then(async (ok) => {
     if (!ok) return;
-    // Sync the git-tracked source file into Postgres on every boot so the DB
-    // row never drifts from whatever was last committed (cheap no-op write
+    // Sync the git-tracked source files into Postgres on every boot so the DB
+    // rows never drift from whatever was last committed (cheap no-op write
     // when content is unchanged — see db.putGlossary's `is distinct from`
-    // guard). Only the "Acronyms & Abbreviations" and "Trading Terms"
-    // sections are kept — the rest of the file is a dated implementation
-    // changelog, not glossary content (user correction, 2026-07-24).
-    try {
-      const raw = readFileSync(join(__dirname, 'memory', 'glossary.md'), 'utf8');
-      await db.putGlossary(extractGlossarySections(raw));
-    } catch (e) {
-      console.error('[glossary] startup sync failed:', e?.message || e);
+    // guard).
+    //
+    // English comes from memory/glossary.md, of which only the "Acronyms &
+    // Abbreviations" and "Trading Terms" sections are kept — the rest of that
+    // file is a dated implementation changelog, not glossary content (user
+    // correction, 2026-07-24).
+    //
+    // The translations are separate, already-serve-ready files holding just
+    // those two sections, so they are stored verbatim. That is why they are
+    // not run through extractGlossarySections(): it matches the two *English*
+    // level-2 headings, so a translated heading would extract to "" and the
+    // tab would silently fall back to English. Keeping them extraction-free
+    // means the headings can be translated like everything else.
+    for (const [lang, file] of GLOSSARY_SOURCES) {
+      try {
+        const raw = readFileSync(join(__dirname, 'memory', file), 'utf8');
+        await db.putGlossary(lang === 'en' ? extractGlossarySections(raw) : raw.trim(), lang);
+      } catch (e) {
+        // Per language: a missing or unreadable translation must not stop the
+        // others (or English) from syncing.
+        console.error(`[glossary] startup sync failed for ${lang}:`, e?.message || e);
+      }
     }
   })
   .catch(e => console.error('[db] init failed:', e?.message || e))

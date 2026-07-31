@@ -13,9 +13,17 @@
     // silently stuck on the small hardcoded fallback below.
     let _glossaryMd = "";
     let _glossaryFetchedAt = 0;
-    let _glossaryLive = false;   // true once a real fetch of memory/glossary.md succeeds
+    let _glossaryLive = false;   // true once a real fetch of the glossary succeeds
+    let _glossaryLang = null;    // language the cached copy is in
+    let _glossaryServedLang = null;  // language the server actually returned
     const GLOSSARY_CACHE_MS = 5 * 60 * 1000;
 
+    // Deliberately English-only, and the status line says so. This is the
+    // last-resort snapshot for when the server cannot be reached at all;
+    // carrying four copies of it in the bundle to cover an offline edge case
+    // would cost every user bytes on every load to translate a screen that
+    // already announces itself as a degraded fallback.
+    //
     // Built-in fallback used when the live fetch fails — most browsers (Chrome
     // especially) block fetch()/XHR of a local sibling file when the dashboard
     // is opened directly via file://, with no workaround available from page
@@ -120,26 +128,65 @@
     async function loadGlossary(force) {
       const list = $("glossaryList");
       if (!list) return;
-      if (!force && _glossaryMd && Date.now() - _glossaryFetchedAt < GLOSSARY_CACHE_MS) {
+      const lang = ttLang();
+      // The cache is per language: a language switch must refetch even inside
+      // the TTL, otherwise the tab keeps serving the previous language's copy.
+      const fresh = _glossaryMd && _glossaryLang === lang &&
+        Date.now() - _glossaryFetchedAt < GLOSSARY_CACHE_MS;
+      if (!force && fresh) {
         renderGlossary();
         return;
       }
       const st = $("glossaryStatus");
-      if (st) st.textContent = "Loading…";
-      const data = await fetchLocalJson(["/api/glossary"]);
+      if (st) st.textContent = tt("rtc", "loading", "Loading…");
+      const data = await fetchLocalJson(["/api/glossary?lang=" + encodeURIComponent(lang)]);
       const md = data && data.content;
       _glossaryLive = !!md;
       _glossaryMd = md || GLOSSARY_FALLBACK_MD;
+      _glossaryLang = lang;
+      _glossaryServedLang = (data && data.lang) || null;
       _glossaryFetchedAt = Date.now();
-      if (st) {
-        st.textContent = _glossaryLive
-          ? "Live from database"
-          : "Showing built-in reference — /api/glossary didn't respond (server unreachable, or the " +
-            "database isn't configured yet); hit ↻ Refresh to retry.";
-        st.style.color = _glossaryLive ? "var(--muted)" : "var(--yellow)";
-      }
+      renderGlossaryStatus();
       renderGlossary();
     }
+
+    // Split out so a language switch can re-label the status line without
+    // refetching, and so the offline-fallback warning is itself translated.
+    function renderGlossaryStatus() {
+      const st = $("glossaryStatus");
+      if (!st) return;
+      if (!_glossaryLive) {
+        st.textContent = tt("glossary", "rtOffline",
+          "Showing the built-in English reference — /api/glossary didn't respond (server unreachable, " +
+          "or the database isn't configured yet); hit ↻ Refresh to retry.");
+        st.style.color = "var(--yellow)";
+        return;
+      }
+      // The server falls back to English when a translation row hasn't synced
+      // yet. Say so rather than letting the tab look untranslated for no
+      // visible reason — the honest message is the difference between "this
+      // is broken" and "this one language is still catching up".
+      if (_glossaryServedLang && _glossaryServedLang !== _glossaryLang) {
+        st.textContent = tt("glossary", "rtLangFallback",
+          "Live from database — showing English, the {{lang}} glossary hasn't synced yet.",
+          { lang: (_glossaryLang || "").toUpperCase() });
+        st.style.color = "var(--yellow)";
+        return;
+      }
+      st.textContent = tt("glossary", "rtLive", "Live from database");
+      st.style.color = "var(--muted)";
+    }
+
+    // #glossaryList and #glossaryStatus are script-written, so applyDomI18n()
+    // cannot reach them — and unlike every other tab the *content itself* is
+    // per language, so this refetches rather than just re-rendering. Gated on
+    // the sub-tab being open, same as the Scheduled Jobs panel: there is no
+    // reason to spend a request on a panel nobody is looking at, and nav.js
+    // calls loadGlossary() on open anyway, which will see the language change
+    // through the per-language cache check.
+    onLangChange("command", function () {
+      if (_commandSub === "glossary") loadGlossary();
+    });
 
     function renderGlossary() {
       const list = $("glossaryList");

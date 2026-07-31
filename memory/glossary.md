@@ -5,6 +5,15 @@ concepts for a user to understand while trading, not a developer/implementation
 reference. Implementation notes and the dated changelog live in `memory/memory.md`;
 architecture and hard rules live in `CLAUDE.md`.
 
+> **This file has three siblings: `glossary.nl.md`, `glossary.fr.md`, `glossary.es.md`.**
+> Adding, renaming or reworking a term here means editing all four (Suite rule 20) —
+> `src/glossaryParity.test.js` fails the build if they drift. Two conventions to keep:
+> the **Term column stays English in every file** (it is the lookup key, and the
+> abbreviations are untranslated by design), and only the definition columns are
+> translated. Only the `## Acronyms & Abbreviations` and `## Trading Terms` sections
+> of *this* file are served — the rest is a dated changelog — whereas the translated
+> files hold just those two sections and are served verbatim.
+
 ---
 
 ## Acronyms & Abbreviations
@@ -67,8 +76,8 @@ architecture and hard rules live in `CLAUDE.md`.
 | Accumulation | Wyckoff buy zone: range after downtrend, look for SoS |
 | Distribution | Wyckoff exit zone: range after uptrend, do not add positions |
 | Regime (daily) | last_close > 50-day SMA AND 20-day SMA > 50-day SMA = uptrend |
-| Hard cap | Position capped at 5% of total equity; enforced in `src/trade.js` |
-| ATR sizing | 1% risk rule: qty = (equity×1%) / (ATR×1.5), capped at 5% equity. The 1% is **nominal** — the position actually exits at the 4H swing low, which is typically 6–9× further away than the sizing distance, so a losing trade can cost well over 1% of equity |
+| Hard cap | The largest share of equity a single symbol may occupy, enforced on every order. It is **per symbol, not one number**: BTC 30%, ETH 15%, ADA/SOL 10%, DOGE 8%, LTC/DOT 6%, LINK/AVAX/AAVE 5%, and 5% for anything else |
+| ATR sizing | 1% risk rule: qty = (equity×1%) / (ATR×1.5), then capped by that symbol's hard cap. The 1% is **nominal** — the position actually exits at the 4H swing low, which is typically 6–9× further away than the sizing distance, so a losing trade can cost well over 1% of equity |
 | Nominal risk | A risk-per-trade figure that comes from the distance used to *size* the position, when the position is *exited* at a different distance. The stated percentage is then a label, not a measured loss |
 | Walk-forward test | Repeatedly training on one slice of history and testing on the next unseen slice, to check a strategy holds up out-of-sample. Unlike the replay harness it simulates fills and profit/loss — so it, not net R:R, is what shows whether a signal actually makes money. **This project has no working walk-forward test today**, which is why the Backtest tab's baseline banner reports a missing file |
 | Limit order | Only order type used; price ≤ ask + 0.2% |
@@ -78,7 +87,7 @@ architecture and hard rules live in `CLAUDE.md`.
 | Geometry vs edge | Net R:R describes the shape of a trade (reward relative to risk); it says nothing about whether the entry signal picks direction. A 2:1 reward-to-risk at a 30% win rate still loses money |
 | Paper spot trading | Simulated spot trades only; Alpaca paper environment (no futures support yet) |
 | Read-only mode | Live Alpaca credentials show account/positions/quotes but can never place or cancel an order |
-| Morning brief | Scheduled 7 AM task: eval + journal block + dashboard summary |
+| Scheduled run | An evaluation the server performs on its own, once per UTC day at the hour you pick in Command → Scheduled Jobs. It places real orders on your connected paper account, so it is not a preview. Separate from Autopilot, which only runs while a browser tab is open |
 | Daily regime | Computed from 90-day daily bars: SMA-20 vs SMA-50 vs last close |
 | Vol ratio | Current bar volume / 20-bar average volume. Scored only when at least 10 of those 20 baseline bars actually traded — Alpaca's 15-min crypto tape is 64–92% empty for the alts, and a mostly-empty baseline makes the ratio a coin flip on trade arrival rather than a measure of participation. Too sparse ⇒ n/a, worth 0, never a penalty or a bonus |
 | Live R:R | Real-time risk-to-reward: `(target − current) / (current − stop)` using −5% stop, +10% target |

@@ -1171,5 +1171,10 @@
     "riskNoteLow": "Lagere volatiliteit — een iets ruimere positiegrootte is acceptabel.",
     "rtFetching": "6 maanden aan bars ophalen voor alle 10 symbolen… dit kan even duren.",
     "rtErrorCheckSettings": "Fout — controleer je instellingen"
+  },
+  "glossary": {
+    "rtLive": "Live uit de database",
+    "rtLangFallback": "Live uit de database — Engels wordt getoond, de {{lang}}-woordenlijst is nog niet gesynchroniseerd.",
+    "rtOffline": "De ingebouwde Engelse naslag wordt getoond — /api/glossary reageerde niet (server onbereikbaar, of de database is nog niet ingesteld); klik op ↻ Vernieuwen om het opnieuw te proberen."
   }
 }
