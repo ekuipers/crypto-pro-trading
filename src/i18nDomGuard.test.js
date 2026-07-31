@@ -1,5 +1,5 @@
 // ============================================================
-// I18N DOM GUARD — regression tests for the 2026-07-30 user report
+// I18N DOM GUARD — regression tests for the user report fixed 2026-07-31
 // ("Scheduled Jobs will not load when choosing FR or ES").
 // ------------------------------------------------------------
 // `applyDomI18n()` (client/src/i18n/index.js) assigns textContent to every

@@ -55,7 +55,7 @@ export function applyDomI18n(root = document) {
     // content, and since no tab script listens for `lang-changed`, nothing
     // ever re-rendered: the panel simply went blank-looking and stayed there.
     // That is workflow rule 39, and it was reported as "Scheduled Jobs will
-    // not load in FR/ES" (2026-07-30).
+    // not load in FR/ES" (fixed 2026-07-31).
     //
     // Comparing against what we last wrote keeps ordinary chrome (buttons,
     // labels, headings) re-translating normally, because its text still

@@ -1,5 +1,35 @@
 # Project: CryptoPro Trader
 
+## v2026-07-31.5 — The re-dating finished: prose and code comments, not just headings
+
+`.4` re-dated the changelog **headings** from 2026-07-30 to 2026-07-31 but left the wrong date inside
+entry bodies, `CLAUDE.md` annotations and code comments — a half-fix that would have read as
+authoritative. Swept them by diffing every commit made today and keeping only the lines that were
+*added* today, then judging each against the commit log rather than search-and-replacing: a line
+written today may legitimately cite 2026-07-30, and several do. **Corrected** (all "today's work
+labelled yesterday"): the roadmap header's "last cleaned" date, roadmap item 5's suite re-run and
+"Narrowed" dates, the `applyDomI18n` standing rule's fix date, the plan-entitlements date, `db.js`'s
+two migration comments in **all four** projects, `vite.config.js`, `i18n/index.js`,
+`i18nDomGuard.test.js`, and the two `docs/dashboard_layout.md` rows. **Deliberately left at
+2026-07-30** because the events really were yesterday's: the walk-forward removal, the browser
+i18n click-through, the "third roadmap rescan" correction (there genuinely were three that day), the
+Scheduled Jobs *description* fix that the tooltip fix later echoed, the personal-name credit removal,
+Charts' i18n Phase 2, and Suite's shadowing bug **introduction** (introduced 07-30 by the i18n pass,
+fixed 07-31 — both dates correct as written).
+
+Three real errors surfaced while checking rather than assuming. (1) Two figures had been derived from
+the wrong date and were themselves wrong: the footer literal was "a day stale" (actually **two** —
+it read 2026-07-29) and Suite's landing-page literal "8 days stale" (actually **nine** — it read
+2026-07-22, confirmed out of git rather than recomputed from memory). (2) Today's roadmap cleanup
+renumbered Trader's items, leaving `CLAUDE.md` and `tabs-command.js` pointing at "roadmap item 9" for
+what is now **item 8**; both fixed. Historical changelog rows keep their era's numbering on purpose.
+(3) `docs/dashboard_layout.md` had **no row at all** for the `__APP_VERSION__` change (`.4` recorded
+it only in `memory.md`, though it is a frontend change), and the row above it still asserted the
+version "stays manual" — a claim reversed hours later. Row added, claim corrected in place.
+
+Verified: 524/524, Suite 2/2, Charts 35/35; the added-today sweep re-run over the working tree
+returns only the intentional 2026-07-30 references listed above.
+
 ## v2026-07-31.4 — Footer version derived from memory.md; entries re-dated
 
 The footer's version was left manual when the "Last modified" date was automated, on the reasoning

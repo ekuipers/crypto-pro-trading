@@ -20,7 +20,7 @@ function readMemoryVersion() {
 export default defineConfig({
   plugins: [react()],
   // Footer.jsx's "Last modified" date was a literal in the JSX that had to be
-  // bumped by hand, and was already a day stale when the 2026-07-30 roadmap
+  // bumped by hand, and was already two days stale when the 2026-07-31 roadmap
   // rescan found it. Stamp the build instead — the footer then can't disagree
   // with what is deployed. (Suite does the same thing server-side, off the
   // deployment artifacts' mtime, because it has no bundler.)

@@ -206,8 +206,8 @@
     ];
 
     // Panel-local translator. The other 12 tab scripts are still English-only
-    // (roadmap item 9); this one is translated because its content is what the
-    // 2026-07-30 report was about. Falls back to the English literal so the
+    // (roadmap item 8); this one is translated because its content is what the
+    // FR/ES report was about. Falls back to the English literal so the
     // panel still reads correctly if i18n has not initialised yet.
     function cronT(key, fallback) {
       return (typeof window.t === "function") ? window.t("command." + key, { ns: "app", defaultValue: fallback }) : fallback;

@@ -178,7 +178,7 @@ export async function init() {
     patreon_member_id  text,
     updated_at         timestamptz not null default now()
   )`);
-  // ---- Migration 2026-07-30: stripe_customer_id -> patreon_member_id -------
+  // ---- Migration 2026-07-31: stripe_customer_id -> patreon_member_id -------
   // The column shipped hours earlier under the old name, before billing moved
   // to Patreon. `create table if not exists` above skips an existing table
   // wholesale, so without this an already-created database would keep the old
@@ -528,7 +528,7 @@ const RESERVED_UIDS = new Set([GUEST, 'trader']);
 // `subscriptions`, `trader_alpaca_credentials` and `trader_strategy_config`
 // are absent because they already have `on delete cascade` FKs to accounts —
 // deleting the account row takes them. (`subscriptions` was added by
-// monetization phase 2 on 2026-07-30 and is cascade-covered by design; the
+// monetization phase 2 on 2026-07-31 and is cascade-covered by design; the
 // pledge itself still has to be cancelled on Patreon, which is phase 3's job,
 // not this list's.)
 //
