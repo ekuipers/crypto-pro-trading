@@ -22,7 +22,7 @@
 
     async function ggDataFetch(path) {
       const s = getSettings();
-      if (!s.apiKey || !s.apiSecret) throw new Error("Configure your Alpaca API keys in Settings first.");
+      if (!s.apiKey || !s.apiSecret) throw new Error(tt("rtc", "needCreds", "Configure API credentials in Settings first."));
       const r = await fetch(GG_DATA_BASE + path, { headers: getHeaders() });
       if (!r.ok) throw new Error(r.status + " " + r.statusText + " — " + path);
       return r.json();
@@ -35,7 +35,7 @@
     // symbols worth of data.
     async function ggFetchBarsAllPages(symbols, timeframe, start, limitPerSym) {
       const s = getSettings();
-      if (!s.apiKey || !s.apiSecret) throw new Error("Configure your Alpaca API keys in Settings first.");
+      if (!s.apiKey || !s.apiSecret) throw new Error(tt("rtc", "needCreds", "Configure API credentials in Settings first."));
       const enc = symbols.map(x => encodeURIComponent(x)).join(",");
       const allBars = {};
       let pageToken = null;
@@ -247,50 +247,50 @@
       const signals = [];
 
       // 1. 24h gap magnitude
-      if      (gap24h >  0.08) { score += 2;    signals.push({ l: `Bullish gap +${(gap24h*100).toFixed(1)}% (strong)`,  v: "+2"  }); }
-      else if (gap24h >  0.03) { score += 1;    signals.push({ l: `Bullish gap +${(gap24h*100).toFixed(1)}% (moderate)`, v: "+1"  }); }
-      else if (gap24h < -0.08) { score -= 2;    signals.push({ l: `Bearish gap ${(gap24h*100).toFixed(1)}% (strong)`,   v: "−2"  }); }
-      else if (gap24h < -0.03) { score -= 1;    signals.push({ l: `Bearish gap ${(gap24h*100).toFixed(1)}% (moderate)`, v: "−1"  }); }
-      else                     {                signals.push({ l: `Flat move ${(gap24h*100).toFixed(1)}%`,               v: "0"   }); }
+      if      (gap24h >  0.08) { score += 2;    signals.push({ k: "sigGapBullStrong", p: { pct: (gap24h*100).toFixed(1) }, v: "+2"  }); }
+      else if (gap24h >  0.03) { score += 1;    signals.push({ k: "sigGapBullMod", p: { pct: (gap24h*100).toFixed(1) }, v: "+1"  }); }
+      else if (gap24h < -0.08) { score -= 2;    signals.push({ k: "sigGapBearStrong", p: { pct: (gap24h*100).toFixed(1) }, v: "−2"  }); }
+      else if (gap24h < -0.03) { score -= 1;    signals.push({ k: "sigGapBearMod", p: { pct: (gap24h*100).toFixed(1) }, v: "−1"  }); }
+      else                     {                signals.push({ k: "sigGapFlat", p: { pct: (gap24h*100).toFixed(1) }, v: "0"   }); }
 
       // 2. Volume
-      if      (volRatio >= 2.0) { score += 2;   signals.push({ l: `Volume ${volRatio.toFixed(1)}× avg (very strong)`,  v: "+2"  }); }
-      else if (volRatio >= 1.3) { score += 1;   signals.push({ l: `Volume ${volRatio.toFixed(1)}× avg (above avg)`,    v: "+1"  }); }
-      else if (volRatio < 0.7)  { score -= 1;   signals.push({ l: `Volume ${volRatio.toFixed(1)}× avg (weak)`,         v: "−1"  }); }
-      else                      {               signals.push({ l: `Volume ${volRatio.toFixed(1)}× avg (normal)`,        v: "0"   }); }
+      if      (volRatio >= 2.0) { score += 2;   signals.push({ k: "sigVolVeryStrong", p: { x: volRatio.toFixed(1) }, v: "+2"  }); }
+      else if (volRatio >= 1.3) { score += 1;   signals.push({ k: "sigVolAbove", p: { x: volRatio.toFixed(1) }, v: "+1"  }); }
+      else if (volRatio < 0.7)  { score -= 1;   signals.push({ k: "sigVolWeak", p: { x: volRatio.toFixed(1) }, v: "−1"  }); }
+      else                      {               signals.push({ k: "sigVolNormal", p: { x: volRatio.toFixed(1) }, v: "0"   }); }
 
       // 3. Daily regime
-      if      (dailyRegime === "uptrend")   { score += 1; signals.push({ l: "Daily uptrend (20 EMA > 50 EMA)",    v: "+1" }); }
-      else if (dailyRegime === "downtrend") { score -= 1; signals.push({ l: "Daily downtrend (20 EMA < 50 EMA)",  v: "−1" }); }
-      else                                  {             signals.push({ l: "Daily mixed / sideways",             v: "0"  }); }
+      if      (dailyRegime === "uptrend")   { score += 1; signals.push({ k: "sigDailyUp",    v: "+1" }); }
+      else if (dailyRegime === "downtrend") { score -= 1; signals.push({ k: "sigDailyDown",  v: "−1" }); }
+      else                                  {             signals.push({ k: "sigDailyMixed", v: "0"  }); }
 
       // 4. 4H regime
-      if      (h4Regime === "bullish") { score += 1; signals.push({ l: "4H bullish (EMA20 > EMA50)", v: "+1" }); }
-      else if (h4Regime === "bearish") { score -= 1; signals.push({ l: "4H bearish (EMA20 < EMA50)", v: "−1" }); }
-      else                             {             signals.push({ l: "4H mixed",                   v: "0"  }); }
+      if      (h4Regime === "bullish") { score += 1; signals.push({ k: "sig4hBull", v: "+1" }); }
+      else if (h4Regime === "bearish") { score -= 1; signals.push({ k: "sig4hBear", v: "−1" }); }
+      else                             {             signals.push({ k: "sig4hMixed", v: "0"  }); }
 
       // 5. RSI
       if (rsi !== null) {
-        if      (rsi > 50 && rsi < 70) { score += 0.5; signals.push({ l: `RSI ${rsi.toFixed(0)} — bullish range`,  v: "+0.5" }); }
-        else if (rsi >= 70)             { score -= 0.5; signals.push({ l: `RSI ${rsi.toFixed(0)} — overbought`,     v: "−0.5" }); }
-        else if (rsi < 30)              { score += 0.5; signals.push({ l: `RSI ${rsi.toFixed(0)} — oversold bounce`,v: "+0.5" }); }
-        else                            {               signals.push({ l: `RSI ${rsi.toFixed(0)} — neutral`,        v: "0"    }); }
+        if      (rsi > 50 && rsi < 70) { score += 0.5; signals.push({ k: "sigRsiBull", p: { rsi: rsi.toFixed(0) }, v: "+0.5" }); }
+        else if (rsi >= 70)             { score -= 0.5; signals.push({ k: "sigRsiOverbought", p: { rsi: rsi.toFixed(0) }, v: "−0.5" }); }
+        else if (rsi < 30)              { score += 0.5; signals.push({ k: "sigRsiOversold", p: { rsi: rsi.toFixed(0) }, v: "+0.5" }); }
+        else                            {               signals.push({ k: "sigRsiNeutral", p: { rsi: rsi.toFixed(0) }, v: "0"    }); }
       }
 
       // 6. Range position
-      if      (rangePos > 0.85) { score += 1;   signals.push({ l: "Near 6M high — breakout zone",         v: "+1"  }); }
-      else if (rangePos < 0.15) { score += 0.5; signals.push({ l: "Near 6M low — mean-reversion possible", v: "+0.5" }); }
-      else                      {               signals.push({ l: `Mid-range (${(rangePos*100).toFixed(0)}% of 6M span)`, v: "0" }); }
+      if      (rangePos > 0.85) { score += 1;   signals.push({ k: "sigRangeHigh", v: "+1"  }); }
+      else if (rangePos < 0.15) { score += 0.5; signals.push({ k: "sigRangeLow", v: "+0.5" }); }
+      else                      {               signals.push({ k: "sigRangeMid", p: { pct: (rangePos*100).toFixed(0) }, v: "0" }); }
 
       // ── Derived ratings ─────────────────────────────────────────────────
       const catalystQuality = Math.abs(gap24h) > 0.08 && volRatio > 1.5 ? "Strong"
         : Math.abs(gap24h) > 0.04 || volRatio > 1.3 ? "Moderate" : "Weak";
 
-      const catalystNote = catalystQuality === "Strong"
-        ? `Large ${gap24h>0?"positive":"negative"} move (${(gap24h*100).toFixed(1)}%) on ${volRatio.toFixed(1)}× volume — genuine catalyst likely. Check news links below.`
-        : catalystQuality === "Moderate"
-        ? `${(gap24h*100).toFixed(1)}% 24h move — moderate catalyst signal. Confirm with news before trading.`
-        : `Small move (${(gap24h*100).toFixed(1)}%) — weak or no catalyst. Primarily technical noise.`;
+      // Key + params rather than prose: ggRenderCards() resolves it, so the
+      // analysis object carries no language.
+      const catalystNoteKey = catalystQuality === "Strong" ? "catStrong"
+        : catalystQuality === "Moderate" ? "catModerate" : "catWeak";
+      const catalystNoteP = { pct: (gap24h*100).toFixed(1), x: volRatio.toFixed(1), dir: gap24h > 0 ? "up" : "down" };
 
       const mktInfo = GG_MARKET_INFO[symbol] || { capTier:"Unknown", capLabel:"?", supplyRisk:"Medium", inflation:"Unknown" };
 
@@ -304,48 +304,49 @@
 
       // ── Trade plan ──────────────────────────────────────────────────────
       const stopDist = atr ? atr * 1.5 : current * 0.03;
-      let strategy, entry, stopLoss, target1, target2, sizing, riskNote;
+      let strategyKey, entryKey, entryP, stopLoss, target1, target2, sizingKey, riskNoteKey;
 
       const nearestRes = keyLevels.find(l => l.type === "resistance" && l.price > current);
       const nearestSup = keyLevels.find(l => l.type === "support"    && l.price < current);
 
       if (gap24h > 0 && score >= 3 && dailyRegime !== "downtrend") {
-        strategy  = rangePos > 0.8 ? "Momentum Continuation" : "Dip Buy off VWAP";
-        entry     = rangePos > 0.8
-          ? `Pullback or consolidation at ~${ggFmtP(current * 0.990)}; reclaim triggers continuation`
-          : `VWAP hold at ~${ggFmtP(current * 0.992)} with 15-min ORB confirmation above open`;
-        stopLoss  = ggFmtP(current - stopDist);
-        target1   = nearestRes ? ggFmtP(nearestRes.price) : ggFmtP(current * 1.05);
-        target2   = ggFmtP(current * 1.10);
-        sizing    = mktInfo.capTier === "Small" ? "⚠ Reduce to 50% normal — small cap" : "Standard ATR-based sizing";
-        riskNote  = "Key risk: gap fade if volume dries up at open. Honor stop.";
+        strategyKey = rangePos > 0.8 ? "stratMomentum" : "stratDipBuy";
+        entryKey    = rangePos > 0.8 ? "entryPullback" : "entryVwapHold";
+        entryP      = { p1: ggFmtP(current * (rangePos > 0.8 ? 0.990 : 0.992)) };
+        stopLoss    = ggFmtP(current - stopDist);
+        target1     = nearestRes ? ggFmtP(nearestRes.price) : ggFmtP(current * 1.05);
+        target2     = ggFmtP(current * 1.10);
+        sizingKey   = mktInfo.capTier === "Small" ? "sizeSmallCap" : "sizeStandard";
+        riskNoteKey = "riskGapFade";
       } else if (gap24h < 0 && score <= -3) {
-        strategy  = "Fade / Short (Mean Reversion)";
-        entry     = `VWAP rejection at ~${ggFmtP(current * 1.008)} or failed breakout of open`;
-        stopLoss  = ggFmtP(current + stopDist);
-        target1   = nearestSup ? ggFmtP(nearestSup.price) : ggFmtP(current * 0.95);
-        target2   = ggFmtP(current * 0.90);
-        sizing    = "50% size — fading crypto carries gap-squeeze risk";
-        riskNote  = "Key risk: gap-and-go squeeze. Use tight stop above entry candle high.";
+        strategyKey = "stratFade";
+        entryKey    = "entryVwapReject";
+        entryP      = { p1: ggFmtP(current * 1.008) };
+        stopLoss    = ggFmtP(current + stopDist);
+        target1     = nearestSup ? ggFmtP(nearestSup.price) : ggFmtP(current * 0.95);
+        target2     = ggFmtP(current * 0.90);
+        sizingKey   = "sizeFade";
+        riskNoteKey = "riskSqueeze";
       } else {
-        strategy  = "Opening Range Breakout (ORB)";
-        entry     = `5-min ORB above ${ggFmtP(current * 1.003)} (long) or below ${ggFmtP(current * 0.997)} (short)`;
-        stopLoss  = `${ggFmtP(current * 0.97)} (long) / ${ggFmtP(current * 1.03)} (short)`;
-        target1   = ggFmtP(current * 1.04);
-        target2   = ggFmtP(current * 1.08);
-        sizing    = "Half-size until breakout direction confirmed with volume";
-        riskNote  = "Key risk: false breakout in low-conviction environment. Wait for strong close outside range.";
+        strategyKey = "stratOrb";
+        entryKey    = "entryOrb";
+        entryP      = { p1: ggFmtP(current * 1.003), p2: ggFmtP(current * 0.997) };
+        stopLoss    = ggFmtP(current * 0.97) + " (" + tt("gapgo", "long", "long") + ") / " + ggFmtP(current * 1.03) + " (" + tt("gapgo", "short", "short") + ")";
+        target1     = ggFmtP(current * 1.04);
+        target2     = ggFmtP(current * 1.08);
+        sizingKey   = "sizeOrb";
+        riskNoteKey = "riskFalseBreakout";
       }
 
       const avoidFlag = (dailyRegime === "downtrend" && gap24h < -0.02) || (score < -2);
 
       return {
-        symbol, current, gap24h, score, catalystQuality, catalystNote,
+        symbol, current, gap24h, score, catalystQuality, catalystNoteKey, catalystNoteP,
         mktInfo, ggLikelihood, riskRating, rsi, atr, atrPct,
         bb, macd, volRatio, dailyRegime, h4Regime,
         rangeHigh, rangeLow, rangePos, keyLevels, gapHistory,
-        signals, strategy, entry, stopLoss, target1, target2,
-        sizing, riskNote, avoidFlag, last20d, last50d
+        signals, strategyKey, entryKey, entryP, stopLoss, target1, target2,
+        sizingKey, riskNoteKey, avoidFlag, last20d, last50d
       };
     }
 
@@ -360,9 +361,19 @@
 
     // ── Render ────────────────────────────────────────────────────────────
 
+    // Rating words are DATA in the analysis object (catC/ggC/riskC index their
+    // colour maps by the English value), so they are translated only here.
+    function ggRating(v) {
+      if (!v) return "";
+      return tt("gapgo", "rating" + String(v).replace(/[^A-Za-z]/g, ""), v);
+    }
+
+    // Cached so a language switch can re-render without re-fetching bars.
+    let _ggLastAnalyses = [];
+
     function ggRenderCards(analyses) {
       const cont = $("ggContainer");
-      if (!analyses.length) { cont.innerHTML = '<div class="placeholder">No data available.</div>'; return; }
+      if (!analyses.length) { cont.innerHTML = '<div class="placeholder">' + tt("rtc", "noData", "No data available.") + '</div>'; return; }
 
       const pill = (label, color) => `<span class="pill ${color}">${label}</span>`;
       const catC  = { Strong:"green", Moderate:"yellow", Weak:"muted" };
@@ -402,7 +413,7 @@
           const isP = s.v.startsWith("+") && s.v !== "+0";
           const isN = s.v.startsWith("−") || s.v.startsWith("-");
           return `<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0">
-            <span style="color:var(--muted)">${s.l}</span>
+            <span style="color:var(--muted)">${escapeHtml(tt("gapgo", s.k, s.k, s.p || {}))}</span>
             <span style="font-weight:900;color:${isP?"var(--green)":isN?"var(--red)":"var(--muted)"}">${s.v}</span>
           </div>`;
         }).join("");
@@ -420,16 +431,16 @@
       <span class="symbol" style="font-size:20px">${tvLink(a.symbol)}</span>
       <span class="mono" style="font-size:15px">${ggFmtP(a.current)}</span>
       ${pill(gapSign + gapPct + "% 24h", gapC)}
-      ${pill("Vol " + a.volRatio.toFixed(1) + "×", a.volRatio >= 1.5 ? "green" : a.volRatio >= 1.0 ? "yellow" : "muted")}
-      ${a.avoidFlag ? pill("⚠ AVOID", "red") : ""}
+      ${pill(tt("gapgo", "pillVol", "Vol {{x}}×", { x: a.volRatio.toFixed(1) }), a.volRatio >= 1.5 ? "green" : a.volRatio >= 1.0 ? "yellow" : "muted")}
+      ${a.avoidFlag ? pill("⚠ " + tt("gapgo", "pillAvoid", "AVOID"), "red") : ""}
     </div>
     <div style="display:flex;gap:16px;align-items:flex-start">
       <div style="text-align:right">
-        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px">Signal</div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px">${escapeHtml(tt("gapgo", "lblSignal", "Signal"))}</div>
         <div style="font-size:20px;font-weight:800;color:${ssColor}">${ssText}</div>
       </div>
       <div style="text-align:right">
-        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px">Conviction</div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px">${escapeHtml(tt("gapgo", "lblConviction", "Conviction"))}</div>
         <div style="font-size:26px;font-weight:950;color:${scColor}">${a.score>=0?"+":""}${a.score.toFixed(1)}</div>
         <div class="gg-score-bar" style="width:110px;margin-left:auto">
           <div class="gg-score-fill" style="width:${fillW}%;background:${fillColor}"></div>
@@ -442,39 +453,39 @@
 
     <!-- CATALYST -->
     <div class="gg-section">
-      <div class="gg-section-title">📰 Catalyst</div>
-      <div style="font-size:12px;margin-bottom:8px;line-height:1.5">${a.catalystNote}</div>
+      <div class="gg-section-title">📰 ${escapeHtml(tt("gapgo", "secCatalyst", "Catalyst"))}</div>
+      <div style="font-size:12px;margin-bottom:8px;line-height:1.5">${escapeHtml(tt("gapgo", a.catalystNoteKey, a.catalystNoteKey, Object.assign({}, a.catalystNoteP, { dirWord: tt("gapgo", "dir" + (a.catalystNoteP && a.catalystNoteP.dir === "up" ? "Up" : "Down"), "") })))}</div>
       <div style="margin-bottom:8px">${newsLinks}</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">${pill("Catalyst: " + a.catalystQuality, catC[a.catalystQuality] || "muted")}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${pill(tt("gapgo", "pillCatalyst", "Catalyst: {{v}}", { v: ggRating(a.catalystQuality) }), catC[a.catalystQuality] || "muted")}</div>
     </div>
 
     <!-- SUPPLY & WHALE RISK -->
     <div class="gg-section">
-      <div class="gg-section-title">🏦 Market Cap &amp; Supply Risk</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:3px">Cap tier: <strong style="color:var(--text)">${a.mktInfo.capTier} (${a.mktInfo.capLabel})</strong></div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Inflation: <strong style="color:var(--text)">${a.mktInfo.inflation}</strong></div>
+      <div class="gg-section-title">🏦 ${escapeHtml(tt("gapgo", "secSupply", "Market Cap & Supply Risk"))}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:3px">${escapeHtml(tt("gapgo", "lblCapTier", "Cap tier:"))} <strong style="color:var(--text)">${ggRating(a.mktInfo.capTier)} (${a.mktInfo.capLabel})</strong></div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${escapeHtml(tt("gapgo", "lblInflation", "Inflation:"))} <strong style="color:var(--text)">${ggRating(a.mktInfo.inflation)}</strong></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
-        ${pill("Supply Risk: " + a.mktInfo.supplyRisk, { Low:"green", Medium:"yellow", High:"red" }[a.mktInfo.supplyRisk] || "muted")}
-        ${pill(a.mktInfo.capTier + " Cap", ["Mega","Large"].includes(a.mktInfo.capTier) ? "green" : a.mktInfo.capTier === "Mid" ? "yellow" : "red")}
+        ${pill(tt("gapgo", "pillSupplyRisk", "Supply Risk: {{v}}", { v: ggRating(a.mktInfo.supplyRisk) }), { Low:"green", Medium:"yellow", High:"red" }[a.mktInfo.supplyRisk] || "muted")}
+        ${pill(tt("gapgo", "pillCap", "{{v}} Cap", { v: ggRating(a.mktInfo.capTier) }), ["Mega","Large"].includes(a.mktInfo.capTier) ? "green" : a.mktInfo.capTier === "Mid" ? "yellow" : "red")}
       </div>
     </div>
 
     <!-- GAP & GO LIKELIHOOD -->
     <div class="gg-section">
-      <div class="gg-section-title">🚀 Gap &amp; Go Likelihood</div>
+      <div class="gg-section-title">🚀 ${escapeHtml(tt("gapgo", "secLikelihood", "Gap & Go Likelihood"))}</div>
       <div style="margin-bottom:10px">${sigHtml}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
-        ${pill("Likelihood: " + a.ggLikelihood, ggC[a.ggLikelihood] || "muted")}
-        ${pill("Daily: " + a.dailyRegime, regC[a.dailyRegime] || "muted")}
-        ${pill("4H: " + a.h4Regime, regC[a.h4Regime] || "muted")}
+        ${pill(tt("gapgo", "pillLikelihood", "Likelihood: {{v}}", { v: ggRating(a.ggLikelihood) }), ggC[a.ggLikelihood] || "muted")}
+        ${pill(tt("gapgo", "pillDaily", "Daily: {{v}}", { v: ttRegime(a.dailyRegime) }), regC[a.dailyRegime] || "muted")}
+        ${pill(tt("gapgo", "pill4h", "4H: {{v}}", { v: ggRating(a.h4Regime) }), regC[a.h4Regime] || "muted")}
       </div>
     </div>
 
     <!-- 6-MONTH RANGE -->
     <div class="gg-section">
-      <div class="gg-section-title">📊 6-Month Range Position</div>
+      <div class="gg-section-title">📊 ${escapeHtml(tt("gapgo", "secRange", "6-Month Range Position"))}</div>
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:2px">
-        <span>6M Low</span><span>Current (${rPct}%)</span><span>6M High</span>
+        <span>${escapeHtml(tt("gapgo", "lbl6mLow", "6M Low"))}</span><span>${escapeHtml(tt("gapgo", "lblCurrent", "Current ({{pct}}%)", { pct: rPct }))}</span><span>${escapeHtml(tt("gapgo", "lbl6mHigh", "6M High"))}</span>
       </div>
       <div class="gg-range-bar">
         <div class="gg-range-cursor" style="left:${rPct}%"></div>
@@ -484,71 +495,71 @@
         <span style="color:var(--blue)">${ggFmtP(a.current)}</span>
         <span style="color:var(--red)">${ggFmtP(a.rangeHigh)}</span>
       </div>
-      ${pill(a.rangePos > 0.8 ? "Near 6M High — Breakout Zone" : a.rangePos < 0.2 ? "Near 6M Low — Oversold" : "Mid-Range", a.rangePos > 0.8 ? "green" : a.rangePos < 0.2 ? "yellow" : "muted")}
+      ${pill(a.rangePos > 0.8 ? tt("gapgo", "pillNearHigh", "Near 6M High — Breakout Zone") : a.rangePos < 0.2 ? tt("gapgo", "pillNearLow", "Near 6M Low — Oversold") : tt("gapgo", "pillMidRange", "Mid-Range"), a.rangePos > 0.8 ? "green" : a.rangePos < 0.2 ? "yellow" : "muted")}
     </div>
 
     <!-- KEY LEVELS -->
     <div class="gg-section">
-      <div class="gg-section-title">🎯 Daily Chart Key Levels</div>
-      ${levelsHtml || '<div style="color:var(--muted);font-size:12px">Insufficient data for level detection.</div>'}
+      <div class="gg-section-title">🎯 ${escapeHtml(tt("gapgo", "secLevels", "Daily Chart Key Levels"))}</div>
+      ${levelsHtml || '<div style="color:var(--muted);font-size:12px">' + escapeHtml(tt("gapgo", "rtNoLevels", "Insufficient data for level detection.")) + '</div>'}
     </div>
 
     <!-- HISTORICAL GAP BEHAVIOR -->
     <div class="gg-section">
-      <div class="gg-section-title">📜 Historical Gap Behavior (6M)</div>
+      <div class="gg-section-title">📜 ${escapeHtml(tt("gapgo", "secHistory", "Historical Gap Behavior (6M)"))}</div>
       ${a.gapHistory.count > 0 ? `
-        <div style="font-size:12px;color:var(--muted);margin-bottom:3px">${a.gapHistory.count} significant moves (&gt;3%) in last 6M</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:3px">Gap-and-Go rate: <strong style="color:${a.gapHistory.gapGoRate>0.6?"var(--green)":a.gapHistory.gapGoRate>0.4?"var(--yellow)":"var(--red)"}">${(a.gapHistory.gapGoRate*100).toFixed(0)}%</strong></div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Avg intraday move on gap days: <strong style="color:var(--text)">${(a.gapHistory.avgIntraday*100).toFixed(1)}%</strong></div>
-        ${pill(a.gapHistory.gapGoRate>0.6?"Tends to Gap &amp; Go":a.gapHistory.gapGoRate>0.4?"Mixed — ORB recommended":"Tends to Fade",
+        <div style="font-size:12px;color:var(--muted);margin-bottom:3px">${escapeHtml(tt("gapgo", "rtSignificantMoves", "{{n}} significant moves (>3%) in last 6M", { n: a.gapHistory.count }))}</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:3px">${escapeHtml(tt("gapgo", "lblGapGoRate", "Gap-and-Go rate:"))} <strong style="color:${a.gapHistory.gapGoRate>0.6?"var(--green)":a.gapHistory.gapGoRate>0.4?"var(--yellow)":"var(--red)"}">${(a.gapHistory.gapGoRate*100).toFixed(0)}%</strong></div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">${escapeHtml(tt("gapgo", "lblAvgIntraday", "Avg intraday move on gap days:"))} <strong style="color:var(--text)">${(a.gapHistory.avgIntraday*100).toFixed(1)}%</strong></div>
+        ${pill(a.gapHistory.gapGoRate>0.6?tt("gapgo", "pillTendsGapGo", "Tends to Gap &amp; Go"):a.gapHistory.gapGoRate>0.4?tt("gapgo", "pillMixedOrb", "Mixed — ORB recommended"):tt("gapgo", "pillTendsFade", "Tends to Fade"),
           a.gapHistory.gapGoRate>0.6?"green":a.gapHistory.gapGoRate>0.4?"yellow":"red")}
-      ` : '<div style="font-size:12px;color:var(--muted)">Insufficient historical data for gap pattern analysis.</div>'}
+      ` : '<div style="font-size:12px;color:var(--muted)">' + escapeHtml(tt("gapgo", "rtNoHistory", "Insufficient historical data for gap pattern analysis.")) + '</div>'}
     </div>
 
     <!-- TRADE PLAN (full width) -->
     <div class="gg-section gg-section-wide">
-      <div class="gg-section-title">⚡ Trade Plan</div>
+      <div class="gg-section-title">⚡ ${escapeHtml(tt("gapgo", "secPlan", "Trade Plan"))}</div>
       <div class="gg-plan-grid">
         <div>
-          <div class="gg-plan-item-label">Strategy</div>
-          <div style="font-weight:900;color:var(--blue)">${a.strategy}</div>
+          <div class="gg-plan-item-label">${escapeHtml(tt("gapgo", "lblStrategy", "Strategy"))}</div>
+          <div style="font-weight:900;color:var(--blue)">${escapeHtml(tt("gapgo", a.strategyKey, a.strategyKey))}</div>
         </div>
         <div>
-          <div class="gg-plan-item-label">Ideal Entry</div>
-          <div style="font-size:12px;line-height:1.45">${a.entry}</div>
+          <div class="gg-plan-item-label">${escapeHtml(tt("gapgo", "lblEntry", "Ideal Entry"))}</div>
+          <div style="font-size:12px;line-height:1.45">${escapeHtml(tt("gapgo", a.entryKey, a.entryKey, a.entryP || {}))}</div>
         </div>
         <div>
-          <div class="gg-plan-item-label">Stop Loss</div>
+          <div class="gg-plan-item-label">${escapeHtml(tt("gapgo", "lblStopLoss", "Stop Loss"))}</div>
           <div class="mono" style="color:var(--red)">${a.stopLoss}</div>
         </div>
         <div>
-          <div class="gg-plan-item-label">Target 1</div>
+          <div class="gg-plan-item-label">${escapeHtml(tt("gapgo", "lblTarget1", "Target 1"))}</div>
           <div class="mono" style="color:var(--green)">${a.target1}</div>
         </div>
         <div>
-          <div class="gg-plan-item-label">Target 2</div>
+          <div class="gg-plan-item-label">${escapeHtml(tt("gapgo", "lblTarget2", "Target 2"))}</div>
           <div class="mono" style="color:var(--green)">${a.target2}</div>
         </div>
         <div>
-          <div class="gg-plan-item-label">Position Sizing</div>
-          <div style="font-size:12px;color:var(--yellow)">${a.sizing}</div>
+          <div class="gg-plan-item-label">${escapeHtml(tt("gapgo", "lblSizing", "Position Sizing"))}</div>
+          <div style="font-size:12px;color:var(--yellow)">${escapeHtml(tt("gapgo", a.sizingKey, a.sizingKey))}</div>
         </div>
       </div>
-      ${a.riskNote ? `<div style="margin-top:10px;font-size:11px;color:var(--muted);font-style:italic">${a.riskNote}</div>` : ""}
+      ${a.riskNoteKey ? `<div style="margin-top:10px;font-size:11px;color:var(--muted);font-style:italic">${escapeHtml(tt("gapgo", a.riskNoteKey, a.riskNoteKey))}</div>` : ""}
     </div>
 
     <!-- RISK RATING -->
     <div class="gg-section gg-section-wide" style="border-bottom:none">
-      <div class="gg-section-title">⚠ Risk Rating</div>
+      <div class="gg-section-title">⚠ ${escapeHtml(tt("gapgo", "secRisk", "Risk Rating"))}</div>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        ${pill("Overall Risk: " + a.riskRating, riskC[a.riskRating] || "muted")}
-        ${a.atr ? `<span style="font-size:12px;color:var(--muted)">ATR: <span class="mono">${ggFmtP(a.atr)}</span> (${(a.atrPct*100).toFixed(1)}% daily)</span>` : ""}
+        ${pill(tt("gapgo", "pillOverallRisk", "Overall Risk: {{v}}", { v: ggRating(a.riskRating) }), riskC[a.riskRating] || "muted")}
+        ${a.atr ? `<span style="font-size:12px;color:var(--muted)">ATR: <span class="mono">${ggFmtP(a.atr)}</span> ${escapeHtml(tt("gapgo", "rtAtrDaily", "({{pct}}% daily)", { pct: (a.atrPct*100).toFixed(1) }))}</span>` : ""}
         ${a.rsi !== null ? `<span style="font-size:12px;color:var(--muted)">RSI: <span class="mono">${a.rsi.toFixed(1)}</span></span>` : ""}
         <span style="font-size:12px;color:var(--muted)">
-          ${a.riskRating==="Very High"?"⛔ Extreme volatility — size down significantly or skip entirely."
-            :a.riskRating==="High"?"⚠ High volatility — strict ATR sizing, honor stops immediately."
-            :a.riskRating==="Medium"?"Standard ATR-based sizing appropriate."
-            :"Lower volatility — slightly wider position size acceptable."}
+          ${escapeHtml(a.riskRating==="Very High"?tt("gapgo", "riskNoteVeryHigh", "⛔ Extreme volatility — size down significantly or skip entirely.")
+            :a.riskRating==="High"?tt("gapgo", "riskNoteHigh", "⚠ High volatility — strict ATR sizing, honor stops immediately.")
+            :a.riskRating==="Medium"?tt("gapgo", "riskNoteMedium", "Standard ATR-based sizing appropriate.")
+            :tt("gapgo", "riskNoteLow", "Lower volatility — slightly wider position size acceptable."))}
         </span>
       </div>
     </div>
@@ -566,12 +577,12 @@
       const cont = $("ggContainer");
       const upd  = $("ggLastUpdated");
       if (!cont) return;
-      cont.innerHTML = '<div class="placeholder" style="padding:40px">⏳ Fetching 6-month bars for all 10 symbols… this may take a moment.</div>';
-      if (upd) upd.textContent = "Loading…";
+      cont.innerHTML = '<div class="placeholder" style="padding:40px">⏳ ' + escapeHtml(tt("gapgo", "rtFetching", "Fetching 6-month bars for all 10 symbols… this may take a moment.")) + '</div>';
+      if (upd) upd.textContent = tt("rtc", "loading", "Loading…");
 
       try {
         const s = getSettings();
-        if (!s.apiKey || !s.apiSecret) throw new Error("Configure Alpaca API keys in Settings first.");
+        if (!s.apiKey || !s.apiSecret) throw new Error(tt("rtc", "needCreds", "Configure API credentials in Settings first."));
 
         const dailyStart  = new Date(Date.now() - 185 * 86400000).toISOString().slice(0, 10);
         const hourlyStart = new Date(Date.now() -   9 * 86400000).toISOString().slice(0, 10);
@@ -612,11 +623,19 @@
           return sb - sa;
         });
 
+        _ggLastAnalyses = analyses;
         ggRenderCards(analyses);
-        if (upd) upd.textContent = "Last updated: " + new Date().toLocaleTimeString();
+        if (upd) upd.textContent = tt("market", "rtMoLastUpdated", "Last updated: {{when}}", { when: new Date().toLocaleTimeString(ttLang()) });
 
       } catch (e) {
         cont.innerHTML = `<div class="placeholder" style="color:var(--red);padding:40px">❌ ${e.message}</div>`;
-        if (upd) upd.textContent = "Error — check settings";
+        if (upd) upd.textContent = tt("gapgo", "rtErrorCheckSettings", "Error — check settings");
       }
     }
+
+    // #ggContainer is script-written. ggRenderCards() is pure in the cached
+    // analyses (ggAnalyze now stores i18n keys, not prose), so a language
+    // switch costs no Alpaca call.
+    onLangChange("market", function () {
+      if (_ggLastAnalyses.length) ggRenderCards(_ggLastAnalyses);
+    });

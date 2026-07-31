@@ -8,7 +8,14 @@
     const MK_SYMBOLS   = ["BTC/USD", "ETH/USD"];
     const MK_INTERVALS = [30, 60, 90, 180, 365];
     const MK_THRESH    = 0.01;                 // ±1% daily-return band
-    const MK_STATES    = ["Up", "Flat", "Down"];
+    const MK_STATES    = ["Up", "Flat", "Down"];   // stable ids — see mkState()
+
+    // Rendered form of an MK_STATES entry. The array itself stays English
+    // because mkClassify()/mkBuild() index it and the daily-journal copy keys
+    // off it; only the display string is localised.
+    function mkState(i) {
+      return tt("markov", "rtState" + MK_STATES[i], MK_STATES[i]);
+    }
 
     function mkClassify(ret) {
       if (ret >  MK_THRESH) return 0;          // Up
@@ -61,33 +68,33 @@
       for (let i = 0; i < 3; i++) {
         let cells = "";
         for (let j = 0; j < 3; j++) cells += mkCell(m.P[i][j], j);
-        rows += `<tr><td>${MK_STATES[i]}</td>${cells}<td class="right small">${m.rowSums[i]}</td></tr>`;
+        rows += `<tr><td>${mkState(i)}</td>${cells}<td class="right small">${m.rowSums[i]}</td></tr>`;
       }
       return `<table class="mk-matrix" style="width:100%;font-size:12px"><thead><tr>
-          <th style="text-align:left">from \\ to</th>
-          <th class="right">Up</th><th class="right">Flat</th><th class="right">Down</th><th class="right">n</th>
+          <th style="text-align:left">${escapeHtml(tt("markov", "rtFromTo", "from \\ to"))}</th>
+          <th class="right">${mkState(0)}</th><th class="right">${mkState(1)}</th><th class="right">${mkState(2)}</th><th class="right">n</th>
         </tr></thead><tbody>${rows}</tbody></table>`;
     }
 
     function mkIntervalCard(days, m) {
       if (!m || m.n < 3) {
-        return `<div class="panel"><div class="panel-title">${days}-Day Window</div>
-          <div class="small" style="color:var(--muted)">Insufficient data (${m ? m.n : 0} transitions).</div></div>`;
+        return `<div class="panel"><div class="panel-title">${escapeHtml(tt("markov", "rtWindowTitle", "{{days}}-Day Window", { days }))}</div>
+          <div class="small" style="color:var(--muted)">${escapeHtml(tt("markov", "rtInsufficient", "Insufficient data ({{n}} transitions).", { n: m ? m.n : 0 }))}</div></div>`;
       }
       const nd = m.nextDist;
       const fcIdx = nd.indexOf(Math.max(...nd));
-      const fc = MK_STATES[fcIdx];
+      const fc = mkState(fcIdx);
       const fcColor = fcIdx === 0 ? "var(--green)" : fcIdx === 2 ? "var(--red)" : "var(--muted)";
       return `
         <div class="panel">
-          <div class="panel-title">${days}-Day Window · ${m.n} transitions</div>
+          <div class="panel-title">${escapeHtml(tt("markov", "rtWindowTitleN", "{{days}}-Day Window · {{n}} transitions", { days, n: m.n }))}</div>
           ${mkMatrixTable(m)}
           <div class="small" style="margin-top:9px;line-height:1.8">
-            Current state: <b>${MK_STATES[m.currentState]}</b><br>
-            Next-day forecast: <b style="color:${fcColor}">${fc}</b>
+            ${escapeHtml(tt("markov", "rtCurrentState", "Current state:"))} <b>${mkState(m.currentState)}</b><br>
+            ${escapeHtml(tt("markov", "rtForecast", "Next-day forecast:"))} <b style="color:${fcColor}">${fc}</b>
             <span style="color:var(--muted)">(↑${(nd[0]*100).toFixed(0)}% · →${(nd[1]*100).toFixed(0)}% · ↓${(nd[2]*100).toFixed(0)}%)</span><br>
-            Stationary: <span style="color:var(--muted)">↑${(m.pi[0]*100).toFixed(0)}% · →${(m.pi[1]*100).toFixed(0)}% · ↓${(m.pi[2]*100).toFixed(0)}%</span><br>
-            Mean daily return: <b style="color:${m.meanRet >= 0 ? 'var(--green)' : 'var(--red)'}">${(m.meanRet*100).toFixed(2)}%</b>
+            ${escapeHtml(tt("markov", "rtStationary", "Stationary:"))} <span style="color:var(--muted)">↑${(m.pi[0]*100).toFixed(0)}% · →${(m.pi[1]*100).toFixed(0)}% · ↓${(m.pi[2]*100).toFixed(0)}%</span><br>
+            ${escapeHtml(tt("markov", "rtMeanReturn", "Mean daily return:"))} <b style="color:${m.meanRet >= 0 ? 'var(--green)' : 'var(--red)'}">${(m.meanRet*100).toFixed(2)}%</b>
           </div>
         </div>`;
     }
@@ -101,20 +108,26 @@
     }
     document.addEventListener("lang-changed", mkApplyThreshLabel);
 
+    // The matrices, forecasts and KPIs above are script-written, so they need a
+    // re-render on top of the threshold-label fix-up.
+    onLangChange("markov", function () {
+      if ($("markovContent") && $("markovContent").children.length) loadMarkov();
+    });
+
     async function loadMarkov() {
       const s = getSettings();
       mkApplyThreshLabel();
       if (!s.apiKey || !s.apiSecret) {
-        $("markovContent").innerHTML = '<div class="placeholder">Configure API credentials in Settings first.</div>';
+        $("markovContent").innerHTML = '<div class="placeholder">' + tt("rtc", "needCreds", "Configure API credentials in Settings first.") + '</div>';
         return;
       }
-      $("markovContent").innerHTML = '<div class="placeholder">Fetching daily bars…</div>';
-      $("markovKpis").innerHTML = kpi("Status", "Computing…", "Fetching daily bars from Alpaca");
+      $("markovContent").innerHTML = '<div class="placeholder">' + tt("markov", "rtFetching", "Fetching daily bars…") + '</div>';
+      $("markovKpis").innerHTML = kpi("Status", tt("markov", "rtComputing", "Computing…"), tt("markov", "rtFetchingSub", "Fetching daily bars from Alpaca"));
 
       const maxDays = Math.max(...MK_INTERVALS);
       const bars = await fetchBars(MK_SYMBOLS, "1Day", maxDays + 5);
       if (!bars) {
-        $("markovContent").innerHTML = '<div class="placeholder">Failed to fetch bars. Check API keys / network.</div>';
+        $("markovContent").innerHTML = '<div class="placeholder">' + tt("markov", "rtFetchFailed", "Failed to fetch bars. Check API keys / network.") + '</div>';
         $("markovKpis").innerHTML = "";
         return;
       }
@@ -130,19 +143,21 @@
         const m90 = models[90];
         if (m90 && m90.n >= 3) {
           const up = m90.nextDist[0] * 100;
-          kpis.push(kpi(sym + " next-day ↑ (90d)", up.toFixed(0) + "%",
-            "from " + MK_STATES[m90.currentState] + " state", up >= 50 ? "good" : ""));
+          // Dynamic label (symbol-prefixed) -- kpi() looks it up in `tiles`,
+          // misses, and falls back to what is passed, so pass it translated.
+          kpis.push(kpi(tt("markov", "rtKpiLabel", "{{sym}} next-day ↑ (90d)", { sym }), up.toFixed(0) + "%",
+            tt("markov", "rtKpiSub", "from {{state}} state", { state: mkState(m90.currentState) }), up >= 50 ? "good" : ""));
         }
 
         let cards = "";
         MK_INTERVALS.forEach(d => cards += mkIntervalCard(d, models[d]));
-        html += `<div class="section-title" style="margin-top:18px">${tvLink(sym)} <span class="small" style="color:var(--muted)">— ${closes.length} daily bars</span></div>
+        html += `<div class="section-title" style="margin-top:18px">${tvLink(sym)} <span class="small" style="color:var(--muted)">— ${escapeHtml(tt("markov", "rtDailyBars", "{{n}} daily bars", { n: closes.length }))}</span></div>
           <div class="grid-3">${cards}</div>`;
       }
 
       $("markovKpis").innerHTML = kpis.join("");
       $("markovContent").innerHTML = html;
-      $("markovLastUpdated").textContent = "Last updated: " + new Date().toLocaleString();
+      $("markovLastUpdated").textContent = tt("markov", "rtLastUpdated", "Last updated: {{when}}", { when: new Date().toLocaleString(ttLang()) });
     }
 
     // Shared 6-point Score Distribution tile — used by both the Signals tab

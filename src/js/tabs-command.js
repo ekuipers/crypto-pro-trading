@@ -136,11 +136,19 @@
       try {
         const p = await loadScoutPromotions();
         if (!p || !p.symbols.length) { el.style.display = "none"; el.innerHTML = ""; return; }
-        const age = p.ageHours !== null ? `${fmt(p.ageHours, 1)}h old` : "age unknown";
-        const state = p.fresh ? `fresh · ${age}` : `STALE · ${age} > ${_scoutTtlHours}h TTL — excluded from scans`;
+        const age = p.ageHours !== null
+          ? cmdT("scoutAgeOld", "{{h}}h old", { h: fmt(p.ageHours, 1) })
+          : cmdT("scoutAgeUnknown", "age unknown");
+        const state = p.fresh
+          ? cmdT("scoutFresh", "fresh · {{age}}", { age })
+          : cmdT("scoutStale", "STALE · {{age}} > {{ttl}}h TTL — excluded from scans", { age, ttl: _scoutTtlHours });
         const col = p.fresh ? "var(--blue)" : "var(--muted)";
         el.style.display = "block";
-        el.innerHTML = `<span style="border:1px solid var(--border);border-radius:12px;padding:3px 10px;color:${col}" data-tip="Universe-scout promotions from data/watchlist_dynamic.json — the Python bot merges these into every evaluation; fresh promotions are also merged into the dashboard Signals scan and Autopilot.">🔭 Scout: ${p.symbols.map(s => tvLink(s)).join(", ")} <span style="color:var(--muted)">(${state})</span></span>`;
+        // Engine attribution corrected (roadmap item 7c): the merge and the
+        // behaviour described are right, but "the Python bot" has not existed
+        // since the Node cutover. Sibling of the SCOUT badge in tabs-signals.js.
+        const tip = cmdT("scoutChipTip", "Universe-scout promotions from data/watchlist_dynamic.json — the engine merges these into every evaluation; fresh promotions are also merged into the dashboard Signals scan and Autopilot.");
+        el.innerHTML = `<span style="border:1px solid var(--border);border-radius:12px;padding:3px 10px;color:${col}" data-tip="${escapeHtml(tip)}">🔭 ${escapeHtml(cmdT("scoutLabel", "Scout:"))} ${p.symbols.map(s => tvLink(s)).join(", ")} <span style="color:var(--muted)">(${escapeHtml(state)})</span></span>`;
       } catch (e) { el.style.display = "none"; }
     }
 
@@ -205,13 +213,15 @@
       { id: "watchdog", labelKey: "jobWatchdog", touchesState: true }
     ];
 
-    // Panel-local translator. The other 12 tab scripts are still English-only
-    // (roadmap item 8); this one is translated because its content is what the
-    // FR/ES report was about. Falls back to the English literal so the
-    // panel still reads correctly if i18n has not initialised yet.
-    function cronT(key, fallback) {
-      return (typeof window.t === "function") ? window.t("command." + key, { ns: "app", defaultValue: fallback }) : fallback;
+    // Command-tab translator. This predates the shared tt() in utils.js (it was
+    // the worked example the rest of roadmap item 8 was copied from) and is kept
+    // because ~40 call sites in this file use the short form; it is now just
+    // tt() bound to the "command" namespace. `cronT` stays as an alias so the
+    // Scheduled Jobs panel's existing calls keep reading naturally.
+    function cmdT(key, fallback, vars) {
+      return tt("command", key, fallback, vars);
     }
+    const cronT = cmdT;
 
     function cronFmtTime(iso) {
       if (!iso) return cronT("jobNever", "never");
@@ -471,34 +481,43 @@
 
         const hRules = [
           {
-            label: "Cash reserve ≥ 20%",
-            value: fmt(c.cashPct,1) + "% cash ($" + fmt(c.cash) + ")",
+            label: cmdT("hrCashLabel", "Cash reserve ≥ 20%"),
+            value: cmdT("hrCashValue", "{{pct}}% cash (${{amt}})", { pct: fmt(c.cashPct,1), amt: fmt(c.cash) }),
             level: c.cashPct < 20 ? "red" : c.cashPct < 25 ? "yellow" : "green",
-            note:  c.cashPct < 20 ? "⚠ BREACH — no new entries allowed" : "OK"
+            note:  c.cashPct < 20 ? cmdT("hrCashBreach", "⚠ BREACH — no new entries allowed") : cmdT("hrOk", "OK")
           },
           {
-            label: "Daily loss ≤ " + L.maxDailyLossPct + "%",
-            value: pct(c.dayPct) + " today (" + plSign(c.dayPL) + ")",
+            label: cmdT("hrDailyLossLabel", "Daily loss ≤ {{pct}}%", { pct: L.maxDailyLossPct }),
+            value: cmdT("hrDailyLossValue", "{{pct}} today ({{pl}})", { pct: pct(c.dayPct), pl: plSign(c.dayPL) }),
             level: c.dayPct <= -L.maxDailyLossPct ? "red" : c.dayPct <= -L.warningDailyLossPct ? "yellow" : "green",
-            note:  c.dayPct <= -L.maxDailyLossPct ? "⚠ STOP TRADING — daily limit hit" : "OK"
+            note:  c.dayPct <= -L.maxDailyLossPct ? cmdT("hrDailyLossBreach", "⚠ STOP TRADING — daily limit hit") : cmdT("hrOk", "OK")
           },
           {
-            label: "Open risk ≤ " + L.maxOpenRiskPct + "% equity",
-            value: fmt(c.assumedOpenRiskPct,2) + "% ($" + fmt(c.assumedOpenRisk) + ")",
+            label: cmdT("hrOpenRiskLabel", "Open risk ≤ {{pct}}% equity", { pct: L.maxOpenRiskPct }),
+            value: cmdT("hrOpenRiskValue", "{{pct}}% (${{amt}})", { pct: fmt(c.assumedOpenRiskPct,2), amt: fmt(c.assumedOpenRisk) }),
             level: c.assumedOpenRiskPct >= L.maxOpenRiskPct ? "red" : c.assumedOpenRiskPct >= L.warningOpenRiskPct ? "yellow" : "green",
-            note:  c.assumedOpenRiskPct >= L.maxOpenRiskPct ? "⚠ BREACH — reduce exposure" : "OK"
+            note:  c.assumedOpenRiskPct >= L.maxOpenRiskPct ? cmdT("hrOpenRiskBreach", "⚠ BREACH — reduce exposure") : cmdT("hrOk", "OK")
           },
           {
-            label: "Stop-loss (4H swing low)",
-            value: atStop.length ? atStop.length + " position(s) ≥ 5% underwater" : nearStop.length ? nearStop.length + " position(s) ≥ 3% underwater" : "All positions clear",
+            label: cmdT("hrStopLabel", "Stop-loss (4H swing low)"),
+            value: atStop.length ? cmdT("hrStopDeep", "{{n}} position(s) ≥ 5% underwater", { n: atStop.length })
+                 : nearStop.length ? cmdT("hrStopNear", "{{n}} position(s) ≥ 3% underwater", { n: nearStop.length })
+                 : cmdT("hrStopClear", "All positions clear"),
             level: atStop.length ? "red" : nearStop.length ? "yellow" : "green",
-            note:  atStop.length ? "⚠ Deep loss — verify 4H swing-low stop" : nearStop.length ? "⚠ Monitor — approaching likely 4H range low" : "OK — stop is the previous 4H range low (≤8% cap)"
+            note:  atStop.length ? cmdT("hrStopDeepNote", "⚠ Deep loss — verify 4H swing-low stop")
+                 : nearStop.length ? cmdT("hrStopNearNote", "⚠ Monitor — approaching likely 4H range low")
+                 : cmdT("hrStopOkNote", "OK — stop is the previous 4H range low (≤8% cap)")
           },
           {
-            label: "Limit orders only",
-            value: c.openOrders.length + " open order(s)",
+            label: cmdT("hrLimitLabel", "Limit orders only"),
+            value: cmdT("hrLimitValue", "{{n}} open order(s)", { n: c.openOrders.length }),
             level: "green",
-            note:  "Policy enforced by scripts/trade.py"
+            // Enforcer attribution corrected (roadmap item 7a): the policy IS
+            // enforced, but by src/trade.js + alpacaClient.js's
+            // assertPaperTrading() -- scripts/trade.py has not existed since the
+            // Node cutover, and a compliance panel is the worst place to cite a
+            // file that is not there.
+            note:  cmdT("hrLimitNote", "Policy enforced in the order layer — every order goes through the limit-order path")
           }
         ];
 

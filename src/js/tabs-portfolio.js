@@ -115,7 +115,7 @@ async function portLoadPortfolioChart(period, timeframe) {
   if (portPortfolioChartInst) portPortfolioChartInst.destroy();
   portPortfolioChartInst = new Chart(ctx, {
     type: "line",
-    data: { labels, datasets: [{ label: "Portfolio Value", data: eq, borderColor: lineClr, backgroundColor: grad, fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 }] },
+    data: { labels, datasets: [{ label: tt("port", "rtChartSeries", "Portfolio Value"), data: eq, borderColor: lineClr, backgroundColor: grad, fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 }] },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { color: "rgba(48,54,61,.5)" }, ticks: { color: "#8b949e", maxTicksLimit: 8, maxRotation: 0 } }, y: { position: "right", grid: { color: "rgba(48,54,61,.5)" }, ticks: { color: "#8b949e", callback: v => "$" + fmt(v, 0) } } } }
   });
 }
@@ -143,7 +143,7 @@ function portRenderPositions() {
   const tbody = $("portPositionsBody");
   const data = applySort(portRawPositions, portPosSort.key, portPosSort.dir);
   if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="placeholder">No open positions</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="placeholder">' + tt("perf", "rtNoPositions", "No open positions") + '</td></tr>';
     return;
   }
   tbody.innerHTML = data.map(p => {
@@ -168,9 +168,9 @@ function portRenderPositions() {
       <td class="right ${plClass(dayPL)}">${plSign(dayPL)}</td>
       <td><div class="trade-actions">
         ${isShort
-          ? `<button class="trade-close-btn" onclick="openTradeModal('${orderSym}','${sym}','buy','${Math.abs(qty)}',${current})">Buy / Cover</button>`
-          : `<button class="trade-action-btn" onclick="openTradeModal('${orderSym}','${sym}','buy','',${current})">Buy</button>
-             <button class="trade-close-btn" onclick="openTradeModal('${orderSym}','${sym}','sell','${qty}',${current})">Sell / Close</button>`
+          ? `<button class="trade-close-btn" onclick="openTradeModal('${orderSym}','${sym}','buy','${Math.abs(qty)}',${current})">${tt("perf", "rtCoverBtn", "Buy / Cover")}</button>`
+          : `<button class="trade-action-btn" onclick="openTradeModal('${orderSym}','${sym}','buy','',${current})">${tt("perf", "rtBuyBtn", "Buy")}</button>
+             <button class="trade-close-btn" onclick="openTradeModal('${orderSym}','${sym}','sell','${qty}',${current})">${tt("perf", "rtSellBtn", "Sell / Close")}</button>`
         }
       </div></td>
     </tr>`;
@@ -344,18 +344,18 @@ function portScoreBar(score) {
 function portActionChip(score, dailyRegime) {
   const down = dailyRegime === "downtrend";
   if (!down && score >= SIGNAL_BUY_SCORE)  return `<span class="chip chip-green">BUY ≥3.5</span>`;
-  if (!down && score >= SIGNAL_HALF_SCORE)  return `<span class="chip chip-yellow">½ BUY 2.5</span>`;
-  if (down && score >= SIGNAL_DOWNTREND_LONG_SCORE)  return `<span class="chip chip-yellow">½ C-Trend ≥4</span>`;
-  if (down && score >= SIGNAL_HALF_SCORE)   return `<span class="chip chip-red">Regime Block</span>`;
+  if (!down && score >= SIGNAL_HALF_SCORE)  return `<span class="chip chip-yellow">½ BUY 2.5</span>`;   // action code — untranslated (rule 22)
+  if (down && score >= SIGNAL_DOWNTREND_LONG_SCORE)  return `<span class="chip chip-yellow">${tt("vocab", "pillCounterTrend", "½ C-Trend")} ≥4</span>`;
+  if (down && score >= SIGNAL_HALF_SCORE)   return `<span class="chip chip-red">${tt("port", "rtChipRegimeBlock", "Regime Block")}</span>`;
   if (down && score <= -4)  return `<span class="chip chip-red">SHORT ≤−4</span>`;
   if (score <= -2)          return `<span class="chip chip-red">TA SELL</span>`;
   return `<span class="chip chip-muted">HOLD</span>`;
 }
 function portRegimeChip(r) {
-  if (r==="uptrend")   return `<span class="chip chip-green">uptrend</span>`;
-  if (r==="downtrend") return `<span class="chip chip-red">downtrend</span>`;
-  if (r==="mixed")     return `<span class="chip chip-yellow">mixed</span>`;
-  return `<span class="chip chip-muted">n/a</span>`;
+  if (r==="uptrend")   return `<span class="chip chip-green">${ttRegime("uptrend")}</span>`;
+  if (r==="downtrend") return `<span class="chip chip-red">${ttRegime("downtrend")}</span>`;
+  if (r==="mixed")     return `<span class="chip chip-yellow">${ttRegime("mixed")}</span>`;
+  return `<span class="chip chip-muted">${tt("rtc", "na", "n/a")}</span>`;
 }
 
 // ── Port Dist: sort & render ──
@@ -375,7 +375,7 @@ function portRenderDistTable() {
     if (va < vb) return -dir; if (va > vb) return dir; return 0;
   });
   $("portDistTableBody").innerHTML = !data.length
-    ? `<tr><td colspan="8" class="placeholder">No open positions</td></tr>`
+    ? `<tr><td colspan="8" class="placeholder">${tt("perf", "rtNoPositions", "No open positions")}</td></tr>`
     : data.map(p => {
         const mv = parseFloat(p.market_value), pctV = equity ? mv / equity * 100 : 0;
         const qty = parseFloat(p.qty), entry = parseFloat(p.avg_entry_price);
@@ -414,12 +414,12 @@ function portRenderDistCap() {
     const { sym, curPct, capPct, headroom, utilPct, isOver, hasPos } = item;
     const barFill = isOver ? `background:var(--red);width:100%` : `background:var(--green);width:${Math.min(utilPct, 100).toFixed(1)}%`;
     const badge = !hasPos
-      ? `<span style="color:var(--muted);font-size:12px">No position</span>`
+      ? `<span style="color:var(--muted);font-size:12px">${tt("port", "rtNoPosition", "No position")}</span>`
       : isOver
-        ? `<span class="port-status-badge" style="background:rgba(248,81,73,.15);color:var(--red)">⚠ Over Cap</span>`
+        ? `<span class="port-status-badge" style="background:rgba(248,81,73,.15);color:var(--red)">⚠ ${tt("port", "rtOverCap", "Over Cap")}</span>`
         : utilPct >= 80
-          ? `<span class="port-status-badge" style="background:rgba(210,153,34,.15);color:var(--yellow)">Near Cap</span>`
-          : `<span class="port-status-badge" style="background:rgba(63,185,80,.15);color:var(--green)">OK</span>`;
+          ? `<span class="port-status-badge" style="background:rgba(210,153,34,.15);color:var(--yellow)">${tt("port", "rtNearCap", "Near Cap")}</span>`
+          : `<span class="port-status-badge" style="background:rgba(63,185,80,.15);color:var(--green)">${tt("port", "rtCapOk", "OK")}</span>`;
     return `<tr>
       <td><span class="symbol">${tvLink(sym)}</span></td>
       <td class="right" style="font-weight:${hasPos ? 700 : 400};color:${!hasPos ? "var(--muted)" : "var(--text)"}">${hasPos ? fmt(curPct, 1) + "%" : "–"}</td>
@@ -429,7 +429,7 @@ function portRenderDistCap() {
         <div style="height:8px;border-radius:4px;background:var(--surface2);overflow:hidden;position:relative">
           <div style="height:100%;border-radius:4px;position:absolute;top:0;left:0;${barFill}"></div>
         </div>
-        ${hasPos ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${utilPct.toFixed(0)}% of cap used</div>` : ""}
+        ${hasPos ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${tt("port", "rtCapUsed", "{{pct}}% of cap used", { pct: utilPct.toFixed(0) })}</div>` : ""}
       </td>
       <td>${badge}</td>
     </tr>`;
@@ -468,7 +468,7 @@ async function portLoadDist() {
       $("portDistLargestPct").textContent = "";
     }
     const sorted = [...positions].sort((a, b) => parseFloat(b.market_value) - parseFloat(a.market_value));
-    const chartLabels = [...sorted.map(p => toSlash(p.symbol)), "Cash"];
+    const chartLabels = [...sorted.map(p => toSlash(p.symbol)), tt("port", "rtCashSlice", "Cash")];
     const chartValues = [...sorted.map(p => parseFloat(p.market_value)), cash];
     const chartColors = sorted.map((_, i) => DIST_COLORS[i % (DIST_COLORS.length - 1)]);
     chartColors.push(DIST_COLORS[DIST_COLORS.length - 1]);
@@ -538,3 +538,14 @@ setInterval(function() {
   else if (activeTab === "port-dist") portLoadDist();
 }, 60000);
 
+
+// The Portfolio tables, chips and donut labels above are script-written, so
+// applyDomI18n() cannot reach them. Both sub-tabs re-render from their cached
+// raw data -- no Alpaca call for a language switch.
+onLangChange("port-overview", function () {
+  if (portRawPositions.length) portRenderPositions();
+});
+
+onLangChange("port-dist", function () {
+  if (typeof portLoadDist === "function") portLoadDist();
+});

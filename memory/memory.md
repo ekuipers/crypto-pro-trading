@@ -1,5 +1,62 @@
 # Project: CryptoPro Trader
 
+## v2026-07-31.7 — Roadmap item 8 closed: the 12 tab scripts now translate at runtime
+
+**The gap:** `applyDomI18n()` only reaches markup carrying a `data-i18n*` attribute, so it covered the
+static fragments and nothing else. Everything the 13 `tabs-*.js` scripts rendered at runtime — table
+bodies, KPI tiles, status text, ~33 tooltips — was hardcoded English, and it *overwrote* the translated
+placeholders underneath. `grep -c "window.t("` was **0** for 12 of the 13. Now closed.
+
+**Mechanism** (`src/js/utils.js`): a shared `tt(ns, key, fallback, vars)` — the generalisation of
+`tabs-command.js`'s panel-local `cronT`, which stays as an alias over it — plus `onLangChange(tabs, fn)`,
+which gates the re-render on `activeTab` so a language switch never spends an Alpaca call on a tab nobody
+is looking at. Every `tt()` keeps the old English literal as its fallback, so a failed locale fetch
+degrades to readable English rather than to raw keys.
+
+**Three traps worth remembering, because each would have shipped silently:**
+
+- **`kpi()` looks up `TILE_TIPS` by the English label.** Translating at the ~80 call sites would have made
+  `TILE_TIPS[<translated>]` undefined and blanked *every* tile tooltip in NL/FR/ES. Translation happens
+  **inside** `kpi()` instead: callers still pass English, which stays both the lookup key and the fallback.
+- **`ta-lib.js` returns `"uptrend"`/`"rising"` as *data*,** and `src/scoreParity.test.js` diffs those
+  strings against the engine's `signalScore()`. Translating at source would fail parity against the thing
+  that actually trades. They are translated only at render, via `ttRegime`/`ttTrendWord`/`ttAdxLabel`.
+- **`tabs-gapgo.js` baked rendered prose into its analysis object.** `ggAnalyze()` now stores i18n keys +
+  params (`{k, p}`, `strategyKey`, `entryP`, …), so the analysis carries no language *and* a language
+  switch re-renders from cache instead of re-fetching 6 months of bars for 10 symbols. `tabs-market.js`
+  needed the same treatment: its scanner row renderer was hoisted out of `loadMarketSignals()` into
+  `msRenderRows()` so the switch doesn't re-scan ~100 symbols across three timeframes.
+
+**Also:** weekday/month names now come from `Intl` in the active language (`ttWeekdays`/`ttMonthLabel`)
+rather than hardcoded arrays — calendar data, not copy. The GMT+2 job stamps in `tabs-command.js`
+deliberately stay `en-GB`, because that column is fixed-width and must keep aligning.
+
+**Scope closed alongside it:** `port-overview.html`'s `#portPosCount` was listed as an exception; it took
+one line — put `data-i18n` on the label's *own* span so the count is a sibling `applyDomI18n()` never
+touches. Glossary tab content remains untranslated by explicit earlier decision. Action codes (BUY/HALF/
+BEAR/HOLD, Golden/Death cross) stay untranslated per Suite rule 22, but now route through `vocab` keys so
+the decision is visible in the locale files rather than implied by silence.
+
+**Roadmap item 7 closed in the same pass** — all three stale strings were ones this change was already
+rewriting, and copying a known-false claim into four languages was not defensible: the Command tab's
+hard-rules compliance panel no longer cites `scripts/trade.py` as the enforcer (the policy *is* enforced,
+by `src/trade.js` + `alpacaClient.js`'s `assertPaperTrading()`), and the SCOUT badge and Scout chip no
+longer attribute trading to "the Python bot". Stale *code comments* naming Python files remain and stay
+out of scope.
+
+**Numbers:** 1,125 locale keys × 4 languages (24 namespaces; `rtc` holds the strings several tabs share so
+rule 20 stays one edit). 352 literal `tt()` calls. Suite **530/530** (524 + 6 new), build green.
+
+**Pinned by `src/i18nRuntimeKeys.test.js`**, which fails on the two ways this regresses silently: a `tt()`
+key absent from the locales (the English fallback makes a typo look like working code) and a key added to
+`en.json` but not the other three (i18next falls back to `en`). Verified it actually fails by deleting a
+key and watching it go red — a green test that cannot detect the regression is worthless. It also pins the
+untranslated-by-design set, so rule 22's decision does not read as the next thing to fix.
+
+**Not verified in a browser.** This is a static guarantee, not a rendered one — Suite roadmap item 3's
+method (switch language with each panel *already open*) is what would confirm it, and is exactly how the
+2026-07-30 `applyDomI18n` clobber was found when a green suite had said nothing.
+
 ## v2026-07-31.6 — Privacy: Chart.js self-hosted, privacy policy added
 
 Chart.js came from `cdnjs.cloudflare.com` on every page load, sending each visitor's IP to Cloudflare

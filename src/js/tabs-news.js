@@ -110,7 +110,7 @@
         return;
       }
       const st = $("newsStatus");
-      if (st) st.textContent = "fetching…";
+      if (st) st.textContent = tt("news", "rtFetching", "fetching…");
       const results = await Promise.allSettled(
         [newsFetchAlpaca()].concat(NEWS_RSS_FEEDS.map(f => newsFetchRss(f))));
       const names = ["Alpaca/Benzinga"].concat(NEWS_RSS_FEEDS.map(f => f.name));
@@ -144,20 +144,24 @@
         const at = _newsFetchedAt
           ? new Date(_newsFetchedAt).toLocaleTimeString("en-GB", { timeZone: "Etc/GMT-2", hour: "2-digit", minute: "2-digit" }) + " GMT+2"
           : "–";
-        st.textContent = _newsItems.length + " headlines · " + srcCount + " sources · " +
-          _newsItems.filter(it => it.tier).length + " key · fetched " + at +
+        st.textContent = tt("news", "rtStatus",
+          "{{n}} headlines · {{sources}} sources · {{key}} key · fetched {{at}}",
+          { n: _newsItems.length, sources: srcCount,
+            key: _newsItems.filter(it => it.tier).length, at }) +
           (_newsErrors.length ? " · ⚠ " + _newsErrors.join(" · ") : "");
       }
       if (!items.length) {
         list.innerHTML = '<div class="small" style="color:var(--muted)">' +
-          (_newsItems.length ? "No T1/T2 catalyst headlines right now." : "No news loaded — check API keys or hit ↻ Refresh.") + "</div>";
+          (_newsItems.length
+            ? tt("news", "rtNoCatalysts", "No T1/T2 catalyst headlines right now.")
+            : tt("news", "rtNoNews", "No news loaded — check API keys or hit ↻ Refresh.")) + "</div>";
         return;
       }
       list.innerHTML = items.map(it => {
-        const when = new Date(it.t).toLocaleString("en-GB",
+        const when = new Date(it.t).toLocaleString(ttLang(),
           { timeZone: "Etc/GMT-2", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
-        const badge = it.tier === "T1" ? '<span class="news-badge news-t1" data-tip="Structural catalyst — flag positions for close, block new entries in the symbol until resolved.">T1</span>'
-                    : it.tier === "T2" ? '<span class="news-badge news-t2" data-tip="Flow catalyst — downsize or skip borderline entries, tighten attention on stops.">T2</span>'
+        const badge = it.tier === "T1" ? '<span class="news-badge news-t1" data-tip="' + escapeHtml(tt("news", "rtT1Tip", "Structural catalyst — flag positions for close, block new entries in the symbol until resolved.")) + '">T1</span>'
+                    : it.tier === "T2" ? '<span class="news-badge news-t2" data-tip="' + escapeHtml(tt("news", "rtT2Tip", "Flow catalyst — downsize or skip borderline entries, tighten attention on stops.")) + '">T2</span>'
                     : "";
         const headline = it.url
           ? '<a class="news-headline" href="' + escapeHtml(it.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(it.title) + "</a>"
@@ -170,3 +174,10 @@
                ' <span class="news-src">— ' + escapeHtml(it.source) + "</span>" + syms + "</div></div>";
       }).join("");
     }
+
+    // #newsList / #newsStatus are script-written. News lives under the Command
+    // tab's News sub-tab; re-render from the cache -- loadNews() without `force`
+    // reuses items younger than NEWS_CACHE_MS, so this costs no network call.
+    onLangChange("command", function () {
+      if (_newsItems.length) renderNews();
+    });

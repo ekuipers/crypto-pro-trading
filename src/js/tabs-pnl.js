@@ -9,11 +9,11 @@
     async function loadPnl() {
       const s = getSettings();
       if (!s.apiKey || !s.apiSecret) {
-        $("pnlTradeBody").innerHTML = '<tr><td colspan="7" class="placeholder">Configure API credentials in Settings first.</td></tr>';
+        $("pnlTradeBody").innerHTML = '<tr><td colspan="7" class="placeholder">' + tt("rtc", "needCreds", "Configure API credentials in Settings first.") + '</td></tr>';
         return;
       }
-      $("pnlKpis").innerHTML = kpi("Status", "Loading…", "Fetching trade activities");
-      $("pnlTradeBody").innerHTML = '<tr><td colspan="7" class="placeholder">Fetching activities…</td></tr>';
+      $("pnlKpis").innerHTML = kpi("Status", tt("rtc", "loading", "Loading…"), tt("pnl", "rtFetchingActivities", "Fetching trade activities"));
+      $("pnlTradeBody").innerHTML = '<tr><td colspan="7" class="placeholder">' + tt("pnl", "rtFetchingShort", "Fetching activities…") + '</td></tr>';
 
       try {
         // Full paginated FILL history — was capped at the last 100 fills, which
@@ -28,12 +28,12 @@
         _pnlTradeRows = stats.tradeRows; // most recent first
 
         $("pnlKpis").innerHTML = [
-          kpi("Total Realized P&L", plSign(totalPnl), "FIFO matched fills", plClass(totalPnl) === "pos" ? "pos" : "neg"),
+          kpi("Total Realized P&L", plSign(totalPnl), tt("pnl", "rtKpiTotalSub", "FIFO matched fills"), plClass(totalPnl) === "pos" ? "pos" : "neg"),
           kpi("Win Rate", winRate !== null ? fmt(winRate, 1) + "%" : "–", `${wins}W / ${losses}L`, winRate >= 50 ? "pos" : "neg"),
-          kpi("Profit Factor", profitFactor !== null ? fmt(profitFactor, 2) : "–", "Gross wins / gross losses", profitFactor >= 1 ? "pos" : "neg"),
-          kpi("Avg Win", avgWin !== null ? "$" + fmt(avgWin) : "–", "Average winning trade", "pos"),
-          kpi("Avg Loss", avgLoss !== null ? "-$" + fmt(avgLoss) : "–", "Average losing trade", "neg"),
-          kpi("Total Fills", String(_pnlActivities.length), "Loaded from Alpaca activities")
+          kpi("Profit Factor", profitFactor !== null ? fmt(profitFactor, 2) : "–", tt("pnl", "rtKpiPfSub", "Gross wins / gross losses"), profitFactor >= 1 ? "pos" : "neg"),
+          kpi("Avg Win", avgWin !== null ? "$" + fmt(avgWin) : "–", tt("pnl", "rtKpiAvgWinSub", "Average winning trade"), "pos"),
+          kpi("Avg Loss", avgLoss !== null ? "-$" + fmt(avgLoss) : "–", tt("pnl", "rtKpiAvgLossSub", "Average losing trade"), "neg"),
+          kpi("Total Fills", String(_pnlActivities.length), tt("pnl", "rtKpiFillsSub", "Loaded from Alpaca activities"))
         ].join("");
 
         // Render P&L calendar heatmap
@@ -67,11 +67,11 @@
             </tr>`;
           }).join("");
         if ($("pnlBySymbolBody")) {
-          $("pnlBySymbolBody").innerHTML = symRows || '<tr><td colspan="8" class="placeholder">No realized P&amp;L data.</td></tr>';
+          $("pnlBySymbolBody").innerHTML = symRows || '<tr><td colspan="8" class="placeholder">' + escapeHtml(tt("pnl", "rtNoRealized", "No realized P&L data.")) + '</td></tr>';
         }
 
         // ── Day-of-week analysis ──────────────────────────────────────────
-        const DOW_LABELS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+        const DOW_LABELS = ttWeekdays("short");
         const dowData = {};
         _pnlTradeRows.filter(t => t.pnl !== null && t.date).forEach(t => {
           const dow = new Date(t.date + "T12:00:00Z").getDay();
@@ -109,11 +109,11 @@
               <td><span style="color:var(--muted)">${t.status}</span></td>
             </tr>
           `).join("")
-          : '<tr><td colspan="7" class="placeholder">No fill activities found.</td></tr>';
+          : '<tr><td colspan="7" class="placeholder">' + tt("pnl", "rtNoFills", "No fill activities found.") + '</td></tr>';
 
       } catch(e) {
-        $("pnlKpis").innerHTML = kpi("Error", e.message, "Failed to load P&L data");
-        $("pnlTradeBody").innerHTML = `<tr><td colspan="7" class="placeholder">Error: ${e.message}</td></tr>`;
+        $("pnlKpis").innerHTML = kpi("Error", e.message, tt("pnl", "rtLoadFailed", "Failed to load P&L data"));
+        $("pnlTradeBody").innerHTML = `<tr><td colspan="7" class="placeholder">${escapeHtml(tt("rtc", "error", "Error: {{msg}}", { msg: e.message }))}</td></tr>`;
       }
     }
 
@@ -126,7 +126,7 @@
       });
 
       if (!Object.keys(byDate).length) {
-        $("pnlCalendar").innerHTML = '<div class="small">No realized P&L data to display.</div>';
+        $("pnlCalendar").innerHTML = '<div class="small">' + escapeHtml(tt("pnl", "rtNoCalendarData", "No realized P&L data to display.")) + '</div>';
         return;
       }
 
@@ -141,14 +141,14 @@
       const maxAbs = Math.max(...Object.values(byDate).map(Math.abs), 1);
 
       const html = months.map(({ year, month }) => {
-        const monthName = new Date(year, month, 1).toLocaleString("default", { month: "short", year: "numeric" });
+        const monthName = ttMonthLabel(year, month);
         const firstDay = new Date(year, month, 1).getDay();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
 
         let cells = '<div class="small" style="margin-bottom:4px;color:var(--muted)">' + monthName + '</div>';
         cells += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">';
         // Day headers
-        ["S","M","T","W","T","F","S"].forEach(d => {
+        ttWeekdays("narrow").forEach(d => {
           cells += `<div style="text-align:center;font-size:9px;color:var(--muted);padding:1px">${d}</div>`;
         });
         // Empty cells before first day
@@ -177,9 +177,14 @@
           ${html}
           <div style="margin-top:8px;display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);width:100%">
             <span>P&L:</span>
-            <span style="background:rgba(63,185,80,.4);width:12px;height:12px;border-radius:2px;display:inline-block"></span>Gain
-            <span style="background:rgba(248,81,73,.4);width:12px;height:12px;border-radius:2px;display:inline-block"></span>Loss
+            <span style="background:rgba(63,185,80,.4);width:12px;height:12px;border-radius:2px;display:inline-block"></span>${escapeHtml(tt("pnl", "rtLegendGain", "Gain"))}
+            <span style="background:rgba(248,81,73,.4);width:12px;height:12px;border-radius:2px;display:inline-block"></span>${escapeHtml(tt("pnl", "rtLegendLoss", "Loss"))}
           </div>
         </div>
       `;
     }
+
+    // Script-written panels (#pnlKpis, #pnlTradeBody, #pnlCalendar, #dowBody).
+    onLangChange("analytics", function () {
+      if (_pnlTradeRows && _pnlTradeRows.length) loadPnl();
+    });

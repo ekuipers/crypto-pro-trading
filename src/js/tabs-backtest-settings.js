@@ -49,21 +49,23 @@
       const profitFactorLive = fs.profitFactor != null ? fs.profitFactor : null;
 
       function metricStatus(live, expected, higherIsBetter) {
-        if (live == null || isNaN(live)) return ["yellow", "Need data"];
+        if (live == null || isNaN(live)) return ["yellow", tt("backtest", "rtNeedData", "Need data")];
         const ok = higherIsBetter ? live >= expected : live <= expected;
         const warn = higherIsBetter ? live >= expected * 0.75 : live <= expected * 1.25;
 
-        if (ok) return ["green", "Within expectation"];
-        if (warn) return ["yellow", "Slight deviation"];
-        return ["red", "Material deviation"];
+        if (ok) return ["green", tt("backtest", "rtWithinExpectation", "Within expectation")];
+        if (warn) return ["yellow", tt("backtest", "rtSlightDeviation", "Slight deviation")];
+        return ["red", tt("backtest", "rtMaterialDeviation", "Material deviation")];
       }
 
+      // Metric names are rendered labels; the comparison logic keys off the
+      // numeric columns, not r[0], so translating here is safe.
       const rows = [
-        ["Sharpe", liveSharpe, b.expectedSharpe, true, fmt(liveSharpe,2), fmt(b.expectedSharpe,2)],
-        ["Max Drawdown %", liveMaxDD, b.expectedMaxDrawdownPct, false, fmt(liveMaxDD,2) + "%", fmt(b.expectedMaxDrawdownPct,2) + "%"],
-        ["Win Rate %", liveWinRate, b.expectedWinRatePct, true, liveWinRate == null ? "n/a" : fmt(liveWinRate,1) + "%", fmt(b.expectedWinRatePct,1) + "%"],
-        ["Profit Factor", profitFactorLive, b.expectedProfitFactor, true, profitFactorLive == null ? "n/a" : fmt(profitFactorLive,2), fmt(b.expectedProfitFactor,2)],
-        ["Avg Daily Return %", avgDaily, b.expectedAvgDailyReturnPct, true, fmt(avgDaily,3) + "%", fmt(b.expectedAvgDailyReturnPct,3) + "%"]
+        [tt("backtest", "rtMetricSharpe", "Sharpe"), liveSharpe, b.expectedSharpe, true, fmt(liveSharpe,2), fmt(b.expectedSharpe,2)],
+        [tt("backtest", "rtMetricMaxDd", "Max Drawdown %"), liveMaxDD, b.expectedMaxDrawdownPct, false, fmt(liveMaxDD,2) + "%", fmt(b.expectedMaxDrawdownPct,2) + "%"],
+        [tt("backtest", "rtMetricWinRate", "Win Rate %"), liveWinRate, b.expectedWinRatePct, true, liveWinRate == null ? tt("rtc", "na", "n/a") : fmt(liveWinRate,1) + "%", fmt(b.expectedWinRatePct,1) + "%"],
+        [tt("backtest", "rtMetricProfitFactor", "Profit Factor"), profitFactorLive, b.expectedProfitFactor, true, profitFactorLive == null ? tt("rtc", "na", "n/a") : fmt(profitFactorLive,2), fmt(b.expectedProfitFactor,2)],
+        [tt("backtest", "rtMetricAvgDaily", "Avg Daily Return %"), avgDaily, b.expectedAvgDailyReturnPct, true, fmt(avgDaily,3) + "%", fmt(b.expectedAvgDailyReturnPct,3) + "%"]
       ];
 
       const redCount = rows.filter(r => metricStatus(r[1],r[2],r[3])[0] === "red").length;
@@ -72,12 +74,12 @@
       const health = redCount ? "RED" : yellowCount ? "ORANGE" : "GREEN";
 
       $("backtestKpis").innerHTML = [
-        kpi("Strategy Health", health, "Live vs expected metrics", redCount ? "neg" : yellowCount ? "" : "pos"),
-        kpi("Live Sharpe", fmt(liveSharpe,2), "Risk-adjusted live performance"),
-        kpi("Live Max DD", fmt(liveMaxDD,2) + "%", "Loaded account history", "neg"),
-        kpi("Avg Daily Return", fmt(avgDaily,3) + "%", "Loaded account history", avgDaily >= 0 ? "pos" : "neg"),
-        kpi("Win Rate", liveWinRate == null ? "n/a" : fmt(liveWinRate,1) + "%", `${fs.wins || 0}W / ${fs.losses || 0}L (FIFO)`, liveWinRate != null && liveWinRate >= 50 ? "pos" : "neg"),
-        kpi("Profit Factor", profitFactorLive == null ? "n/a" : fmt(profitFactorLive,2), `${closedTrades} closed trades`, profitFactorLive != null && profitFactorLive >= 1 ? "pos" : "neg")
+        kpi("Strategy Health", tt("backtest", "rtHealth" + health.charAt(0) + health.slice(1).toLowerCase(), health), tt("backtest", "rtKpiHealthSub", "Live vs expected metrics"), redCount ? "neg" : yellowCount ? "" : "pos"),
+        kpi("Live Sharpe", fmt(liveSharpe,2), tt("backtest", "rtKpiSharpeSub", "Risk-adjusted live performance")),
+        kpi("Live Max DD", fmt(liveMaxDD,2) + "%", tt("backtest", "rtKpiHistorySub", "Loaded account history"), "neg"),
+        kpi("Avg Daily Return", fmt(avgDaily,3) + "%", tt("backtest", "rtKpiHistorySub", "Loaded account history"), avgDaily >= 0 ? "pos" : "neg"),
+        kpi("Win Rate", liveWinRate == null ? tt("rtc", "na", "n/a") : fmt(liveWinRate,1) + "%", tt("backtest", "rtKpiWinRateSub", "{{w}}W / {{l}}L (FIFO)", { w: fs.wins || 0, l: fs.losses || 0 }), liveWinRate != null && liveWinRate >= 50 ? "pos" : "neg"),
+        kpi("Profit Factor", profitFactorLive == null ? tt("rtc", "na", "n/a") : fmt(profitFactorLive,2), tt("backtest", "rtKpiClosedSub", "{{n}} closed trades", { n: closedTrades }), profitFactorLive != null && profitFactorLive >= 1 ? "pos" : "neg")
       ].join("");
 
       $("backtestCompareBody").innerHTML = rows.map(r => {
@@ -116,7 +118,7 @@
       $("setMaxPositionsPerTier").value = s.limits.maxPositionsPerTier;
 
       renderWatchlistTags();
-      $("lastUpdated").textContent = "Settings loaded";
+      $("lastUpdated").textContent = tt("settings", "rtLoaded", "Settings loaded");
     }
 
     function saveSettings() {
@@ -153,13 +155,19 @@
       if (typeof scheduleSettingsSync === "function") scheduleSettingsSync();
       renderMode();
       if (typeof updateScanBtnLabel === "function") updateScanBtnLabel();
-      $("lastUpdated").textContent = "Settings saved";
-      alert("Settings saved. Mode and position limits sync to your account when signed in — API keys/secrets always stay in this browser only.");
+      $("lastUpdated").textContent = tt("settings", "rtSaved", "Settings saved");
+      alert(tt("settings", "rtSavedAlert", "Settings saved. Mode and position limits sync to your account when signed in — API keys/secrets always stay in this browser only."));
     }
 
     function clearSettings() {
-      if (!confirm("Clear saved API settings?")) return;
+      if (!confirm(tt("settings", "rtClearConfirm", "Clear saved API settings?"))) return;
       localStorage.removeItem("proDashboardSettings");
       loadSettingsForm();
       renderMode();
     }
+
+    // #backtestKpis / #backtestCompareBody are script-written. renderBacktest()
+    // works off the already-loaded context, so this costs no network call.
+    onLangChange("backtest", function () {
+      if (lastContext) renderBacktest(lastContext);
+    });

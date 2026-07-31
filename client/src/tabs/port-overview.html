@@ -37,15 +37,13 @@
       </section>
 
       <!-- Open Positions -->
-      <!-- NOTE: the section title's "(<span id="portPosCount">)" is left
-           untranslated as a template — tabs-portfolio.js writes the live
-           count into that span via textContent after load, and re-running
-           applyDomI18n on a language switch would otherwise reset it to the
-           static placeholder. Only the static "Open Positions" word would
-           need translation but splitting it out from the count would change
-           this file's structure more than this pass warrants; see report. -->
+      <!-- The label carries data-i18n on its OWN span, not on the .section-title:
+           tabs-portfolio.js writes the live count into #portPosCount, and
+           applyDomI18n() assigns textContent, so translating the parent would
+           wipe the count on every language switch. As siblings, the label keeps
+           re-translating and the count is never i18n's to touch. -->
       <section>
-        <div class="section-title">Open Positions (<span id="portPosCount">–</span>)</div>
+        <div class="section-title"><span data-i18n="app:portOverview.positionsTitle">Open Positions</span> (<span id="portPosCount">–</span>)</div>
         <div class="table-wrap">
           <table>
             <thead id="portPosHead"><tr>

@@ -150,7 +150,7 @@
         return;
       }
       const st = $("socStatus");
-      if (st) st.textContent = "fetching " + SOC_ACCOUNTS.length + " accounts…";
+      if (st) st.textContent = tt("socials", "rtFetching", "fetching {{n}} accounts…", { n: SOC_ACCOUNTS.length });
       // Timelines (Nitter mirrors, flaky) and live stats (fxtwitter, reliable)
       // fetched in parallel; each account degrades independently.
       const [results, statRes] = await Promise.all([
@@ -209,10 +209,16 @@
           const dead = !(a.h in _socAcctStats);
           const live = _socLiveStats[a.h];
           const via = _socAcctVia[a.h];
-          const tip = escapeHtml(a.name) + " — " + socFollowersLabel(socFollowersM(a)) +
-            " followers (" + (live ? "live via fxtwitter" + (live.tweets ? ", " + Math.round(live.tweets / 1000) + "k tweets total" : "") : "static snapshot") +
-            "; curated >0.5M list)" +
-            (dead ? " — X mirrors blocked, no Telegram mirror" : via === "tg" ? " — posts via official Telegram mirror" : "");
+          const srcPart = live
+            ? tt("socials", "rtChipLive", "live via fxtwitter") +
+              (live.tweets ? tt("socials", "rtChipTweets", ", {{k}}k tweets total", { k: Math.round(live.tweets / 1000) }) : "")
+            : tt("socials", "rtChipStatic", "static snapshot");
+          const statePart = dead
+            ? tt("socials", "rtChipDead", " — X mirrors blocked, no Telegram mirror")
+            : via === "tg" ? tt("socials", "rtChipTg", " — posts via official Telegram mirror") : "";
+          const tip = escapeHtml(tt("socials", "rtChipTip",
+            "{{name}} — {{followers}} followers ({{src}}; curated >0.5M list){{state}}",
+            { name: a.name, followers: socFollowersLabel(socFollowersM(a)), src: srcPart, state: statePart }));
           return '<span class="soc-acct' + (dead ? " soc-dead" : "") + '" data-tip="' + tip + '"><b>@' +
             escapeHtml(a.h) + '</b><span class="soc-followers">' + socFollowersLabel(socFollowersM(a)) +
             (live ? "" : "*") + "</span>" + (dead ? "✕" : (n || 0) + (via === "tg" ? " tg" : " tw")) + "</span>";
@@ -227,26 +233,28 @@
         const at = _socFetchedAt
           ? new Date(_socFetchedAt).toLocaleTimeString("en-GB", { timeZone: "Etc/GMT-2", hour: "2-digit", minute: "2-digit" }) + " GMT+2"
           : "–";
-        st.textContent = _socItems.length + " posts · " + reachable + "/" + SOC_ACCOUNTS.length +
-          " timelines · stats live for " + liveCount + "/" + SOC_ACCOUNTS.length +
-          " · reach ≈ " + Math.round(reachM) + "M followers · " +
-          _socItems.filter(it => it.tier).length + " key · fetched " + at;
+        st.textContent = tt("socials", "rtStatus",
+          "{{posts}} posts · {{reachable}}/{{total}} timelines · stats live for {{live}}/{{total}} · reach ≈ {{reach}}M followers · {{key}} key · fetched {{at}}",
+          { posts: _socItems.length, reachable, total: SOC_ACCOUNTS.length, live: liveCount,
+            reach: Math.round(reachM), key: _socItems.filter(it => it.tier).length, at });
       }
       if (!items.length) {
         list.innerHTML = '<div class="small" style="color:var(--muted)">' +
-          (_socItems.length ? "No T1/T2 catalyst posts right now."
-            : "No posts loaded — X has no keyless API and every public Nitter mirror is " +
-              "confirmed dead (checked 2026-07-13), so only accounts with an official " +
-              "Telegram mirror (Binance, Watcher.Guru, Whale Alert, Cointelegraph) " +
-              "currently deliver posts. Live account stats above still refresh via fxtwitter; " +
-              "hit ↻ Refresh to retry all sources.") + "</div>";
+          (_socItems.length
+            ? tt("socials", "rtNoCatalysts", "No T1/T2 catalyst posts right now.")
+            : tt("socials", "rtNoPosts",
+                "No posts loaded — X has no keyless API and every public Nitter mirror is " +
+                "confirmed dead (checked 2026-07-13), so only accounts with an official " +
+                "Telegram mirror (Binance, Watcher.Guru, Whale Alert, Cointelegraph) " +
+                "currently deliver posts. Live account stats above still refresh via fxtwitter; " +
+                "hit ↻ Refresh to retry all sources.")) + "</div>";
         return;
       }
       list.innerHTML = items.map(it => {
-        const when = new Date(it.t).toLocaleString("en-GB",
+        const when = new Date(it.t).toLocaleString(ttLang(),
           { timeZone: "Etc/GMT-2", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
-        const badge = it.tier === "T1" ? '<span class="news-badge news-t1" data-tip="Structural catalyst — flag positions for close, block new entries in the symbol until resolved.">T1</span>'
-                    : it.tier === "T2" ? '<span class="news-badge news-t2" data-tip="Flow catalyst — downsize or skip borderline entries, tighten attention on stops.">T2</span>'
+        const badge = it.tier === "T1" ? '<span class="news-badge news-t1" data-tip="' + escapeHtml(tt("news", "rtT1Tip", "Structural catalyst — flag positions for close, block new entries in the symbol until resolved.")) + '">T1</span>'
+                    : it.tier === "T2" ? '<span class="news-badge news-t2" data-tip="' + escapeHtml(tt("news", "rtT2Tip", "Flow catalyst — downsize or skip borderline entries, tighten attention on stops.")) + '">T2</span>'
                     : "";
         const text = it.url
           ? '<a class="news-headline" href="' + escapeHtml(it.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(it.text) + "</a>"
@@ -261,3 +269,9 @@
                (it.via === "tg" ? " · TG" : "") + "</span>" + syms + "</div></div>";
       }).join("");
     }
+
+    // #socList / #socStatus / #socAccts are script-written. Socials is a Command
+    // sub-tab; renderSocials() works off the cache, so this costs no network call.
+    onLangChange("command", function () {
+      if (_socItems.length) renderSocials();
+    });

@@ -136,10 +136,10 @@
         return '<span style="color:var(--muted);font-size:11px">–</span>';
       }
       return '<div class="trade-actions">' +
-        '<button class="trade-action-btn" style="font-size:10px" data-tip="Open a paper BUY ticket for ' + displaySym + '" ' +
-          'onclick="openTradeModal(\'' + orderSym + '\',\'' + row.sym + '\',\'buy\',\'\',' + price + ')">Buy</button>' +
-        '<button class="trade-close-btn" style="font-size:10px;margin-left:4px" data-tip="Open a paper SELL ticket for ' + displaySym + '" ' +
-          'onclick="openTradeModal(\'' + orderSym + '\',\'' + row.sym + '\',\'sell\',\'\',' + price + ')">Sell</button>' +
+        '<button class="trade-action-btn" style="font-size:10px" data-tip="' + escapeHtml(tt("market", "rtBuyTip", "Open a paper BUY ticket for {{sym}}", { sym: displaySym })) + '" ' +
+          'onclick="openTradeModal(\'' + orderSym + '\',\'' + row.sym + '\',\'buy\',\'\',' + price + ')">' + tt("market", "rtBuyBtn", "Buy") + '</button>' +
+        '<button class="trade-close-btn" style="font-size:10px;margin-left:4px" data-tip="' + escapeHtml(tt("market", "rtSellTip", "Open a paper SELL ticket for {{sym}}", { sym: displaySym })) + '" ' +
+          'onclick="openTradeModal(\'' + orderSym + '\',\'' + row.sym + '\',\'sell\',\'\',' + price + ')">' + tt("market", "rtSellBtn", "Sell") + '</button>' +
         '</div>';
     }
 
@@ -170,18 +170,18 @@
       const s = getSettings();
       if (!s.apiKey || !s.apiSecret) {
         document.getElementById("moTableBody").innerHTML =
-          '<tr><td colspan="10" class="placeholder">Configure API credentials in Settings first.</td></tr>';
+          '<tr><td colspan="10" class="placeholder">' + tt("rtc", "needCreds", "Configure API credentials in Settings first.") + '</td></tr>';
         return;
       }
       const universe = usdPairsOnly(await getCryptoUniverse());
       const maxSyms  = Math.max(1, Math.round(s.limits.maxSignalSymbols || universe.length));
       const MO_SYMBOLS = universe.slice(0, maxSyms);
       document.getElementById("moTableBody").innerHTML =
-        '<tr><td colspan="10" class="placeholder">Fetching market data for ' + MO_SYMBOLS.length + ' symbols…</td></tr>';
+        '<tr><td colspan="10" class="placeholder">' + tt("market", "rtMoFetching", "Fetching market data for {{n}} symbols…", { n: MO_SYMBOLS.length }) + '</td></tr>';
       const upd = document.getElementById("moLastUpdated");
       const kEl = document.getElementById("moKpis");
-      if (upd) upd.textContent = "Loading…";
-      if (kEl) kEl.innerHTML  = kpi("Status", "Loading…", "Fetching snapshots + daily bars");
+      if (upd) upd.textContent = tt("rtc", "loading", "Loading…");
+      if (kEl) kEl.innerHTML  = kpi("Status", tt("rtc", "loading", "Loading…"), tt("market", "rtMoFetchingSub", "Fetching snapshots + daily bars"));
 
       try {
         const [snaps, dailyBars] = await Promise.all([
@@ -222,23 +222,23 @@
         const sorted    = withData.slice().sort(function(a,b){ return b.chg24h - a.chg24h; });
         const top1 = sorted[0], bot1 = sorted[sorted.length-1];
         if (kEl) kEl.innerHTML =
-          kpi("Advancing", advancing + " / " + withData.length, "Coins up 24h", advancing/withData.length > 0.6 ? "pos" : advancing/withData.length < 0.4 ? "neg" : "") +
-          kpi("Declining",  declining  + " / " + withData.length, "Coins down 24h") +
-          kpi("Avg 24h %",  (avgChg >= 0 ? "+" : "") + fmt(avgChg,2) + "%", "Equal-weight avg", avgChg >= 0 ? "pos" : "neg") +
-          kpi("Best 24h",   top1 ? top1.sym + " +" + fmt(top1.chg24h,2) + "%" : "–", "Top performer", "pos") +
-          kpi("Worst 24h",  bot1 ? bot1.sym + " " + fmt(bot1.chg24h,2) + "%" : "–", "Bottom performer", "neg");
+          kpi("Advancing", advancing + " / " + withData.length, tt("market", "rtKpiAdvSub", "Coins up 24h"), advancing/withData.length > 0.6 ? "pos" : advancing/withData.length < 0.4 ? "neg" : "") +
+          kpi("Declining",  declining  + " / " + withData.length, tt("market", "rtKpiDecSub", "Coins down 24h")) +
+          kpi("Avg 24h %",  (avgChg >= 0 ? "+" : "") + fmt(avgChg,2) + "%", tt("market", "rtKpiAvgSub", "Equal-weight avg"), avgChg >= 0 ? "pos" : "neg") +
+          kpi("Best 24h",   top1 ? top1.sym + " +" + fmt(top1.chg24h,2) + "%" : "–", tt("market", "rtKpiBestSub", "Top performer"), "pos") +
+          kpi("Worst 24h",  bot1 ? bot1.sym + " " + fmt(bot1.chg24h,2) + "%" : "–", tt("market", "rtKpiWorstSub", "Bottom performer"), "neg");
 
         moApplySort();
         renderMoHeatmap(rows.filter(function(r){ return r.chg24h !== null; }));
         const moCappedNote = maxSyms > universe.length
-          ? " · showing all " + universe.length + " tradable USD pairs (Max Symbols " + maxSyms + " exceeds the universe)"
+          ? tt("market", "rtMoCapped", " · showing all {{n}} tradable USD pairs (Max Symbols {{max}} exceeds the universe)", { n: universe.length, max: maxSyms })
           : "";
-        if (upd) upd.textContent = "Last updated: " + new Date().toLocaleTimeString() + moCappedNote;
+        if (upd) upd.textContent = tt("market", "rtMoLastUpdated", "Last updated: {{when}}", { when: new Date().toLocaleTimeString(ttLang()) }) + moCappedNote;
 
       } catch(e) {
         document.getElementById("moTableBody").innerHTML =
           '<tr><td colspan="10" style="color:var(--red);padding:16px">❌ ' + e.message + "</td></tr>";
-        if (upd) upd.textContent = "Error";
+        if (upd) upd.textContent = tt("market", "rtStatusError", "Error");
         console.error("loadMarketOverview:", e);
       }
     }
@@ -382,7 +382,7 @@
       const s = getSettings();
       if (!s.apiKey || !s.apiSecret) {
         document.getElementById("msTableBody").innerHTML =
-          '<tr><td colspan="14" class="placeholder">Configure API credentials in Settings first.</td></tr>';
+          '<tr><td colspan="14" class="placeholder">' + tt("rtc", "needCreds", "Configure API credentials in Settings first.") + '</td></tr>';
         return;
       }
       const universe = usdPairsOnly(await getCryptoUniverse());
@@ -390,11 +390,11 @@
       const SCAN_SYMBOLS = universe.slice(0, maxSyms);
       updateScanBtnLabel();
       document.getElementById("msTableBody").innerHTML =
-        '<tr><td colspan="14" class="placeholder">Scanning ' + SCAN_SYMBOLS.length + ' symbols — fetching 15-min, 4H and daily bars… this may take a moment.</td></tr>';
+        '<tr><td colspan="14" class="placeholder">' + tt("market", "rtMsScanning", "Scanning {{n}} symbols — fetching 15-min, 4H and daily bars… this may take a moment.", { n: SCAN_SYMBOLS.length }) + '</td></tr>';
       const upd = document.getElementById("msLastUpdated");
       const kEl = document.getElementById("msKpis");
-      if (upd) upd.textContent = "Loading…";
-      if (kEl) kEl.innerHTML  = kpi("Status","Scanning…","Fetching multi-timeframe bars");
+      if (upd) upd.textContent = tt("rtc", "loading", "Loading…");
+      if (kEl) kEl.innerHTML  = kpi("Status", tt("rtc", "scanningShort", "Scanning…"), tt("market", "rtMsFetchingSub", "Fetching multi-timeframe bars"));
 
       try {
         const [bars15, bars4h, barsD] = await Promise.all([
@@ -436,7 +436,7 @@
           const livePrice = snap && snap.latestTrade ? snap.latestTrade.p : (b15.length ? b15[b15.length-1].c : null);
 
           if (b15.length < STRAT_CFG.minBarsForSignal) {
-            rows.push({ sym, score:null, error: b15.length ? "Insufficient bars (" + b15.length + ")" : "Not available on Alpaca", livePrice });
+            rows.push({ sym, score:null, error: b15.length ? tt("market", "rtInsufficientBarsN", "Insufficient bars ({{n}})", { n: b15.length }) : tt("market", "rtNotOnAlpaca", "Not available on Alpaca"), livePrice });
             continue;
           }
           const res = calcSignalScore(b15, b4h, bD);
@@ -452,76 +452,13 @@
         const sells = valid.filter(function(r){ return r.score <= -3; }).length;
         const avgSc = valid.length ? valid.reduce(function(s,r){ return s+r.score; },0) / valid.length : 0;
         if (kEl) kEl.innerHTML =
-          kpi("BUY Signals", buys,  "Score >= 3.5", buys > 0 ? "pos" : "") +
-          kpi("Half-Size",   halfs, "Score 2.5–3.4") +
-          kpi("HOLD",        holds, "Score -2 to +2") +
-          kpi("BEAR/Avoid", sells, "Score <= -3 (bearish — shorts unsupported on spot)", sells > 0 ? "neg" : "") +
-          kpi("Avg Score",   (avgSc >= 0 ? "+" : "") + fmt(avgSc,1), "Market breadth", avgSc >= 2 ? "pos" : avgSc <= -1 ? "neg" : "");
+          kpi("BUY Signals", buys,  tt("market", "rtKpiBuySub", "Score >= 3.5"), buys > 0 ? "pos" : "") +
+          kpi("Half-Size",   halfs, tt("market", "rtKpiHalfSub", "Score 2.5–3.4")) +
+          kpi("HOLD",        holds, tt("market", "rtKpiHoldSub", "Score -2 to +2")) +
+          kpi("BEAR/Avoid", sells, tt("market", "rtKpiBearSub", "Score <= -3 (bearish — shorts unsupported on spot)"), sells > 0 ? "neg" : "") +
+          kpi("Avg Score",   (avgSc >= 0 ? "+" : "") + fmt(avgSc,1), tt("market", "rtKpiBreadthSub", "Market breadth"), avgSc >= 2 ? "pos" : avgSc <= -1 ? "neg" : "");
 
-        // Score bar renderer
-        function scoreBar(sc) {
-          if (sc === null) return "–";
-          const pct   = Math.min(Math.abs(sc), 6) / 6 * 100;
-          const color = sc >= SIGNAL_BUY_SCORE ? "#3fb950" : sc >= SIGNAL_HALF_SCORE ? "#d29922" : sc <= 0 ? "#f85149" : "#58a6ff";
-          return '<span style="display:inline-flex;align-items:center;gap:5px">' +
-            '<span style="width:44px;height:6px;border-radius:3px;background:rgba(255,255,255,.1);display:inline-block">' +
-            '<span style="display:block;height:100%;width:' + pct + '%;background:' + color + ';border-radius:3px"></span></span>' +
-            '<b style="color:' + color + '">' + (sc > 0 ? "+" : "") + sc + "</b></span>";
-        }
-
-        function msActionPill(row) {
-          if (row.score === null) return pill("muted","N/A");
-          const msDown = row.dailyRegime === "downtrend";
-          if (!msDown && row.score >= SIGNAL_BUY_SCORE)  return pill("green","BUY");
-          if (!msDown && row.score >= SIGNAL_HALF_SCORE) return pill("yellow","HALF");   // 2.5–3.49 = half-size
-          if (msDown && row.score >= SIGNAL_DOWNTREND_LONG_SCORE) return pill("yellow","½ C-Trend");
-          if (msDown && row.score >= SIGNAL_HALF_SCORE)  return pill("muted","Blocked");
-          if (msDown && row.score <= -3)  return pill("red","BEAR");    // informational — shorts unsupported on Alpaca spot
-          return pill("muted","HOLD");
-        }
-
-        document.getElementById("msTableBody").innerHTML = rows.map(function(row) {
-          const info = symbolInfo(row.sym);
-          if (row.error) {
-            return '<tr data-unavailable="1">' +
-              '<td style="color:var(--muted);font-size:12px">#' + info.rank + "</td>" +
-              '<td>' + tvLink(row.sym) + "</td>" +
-              '<td class="right mono" style="color:var(--muted)">' + moFmtPrice(row.livePrice) + "</td>" +
-              '<td colspan="11" style="color:var(--muted);font-size:12px">' + row.error + "</td>" +
-              "</tr>";
-          }
-          const emaLabel = row.ema20 > row.ema50 ? "Golden" : "Death";
-          const emaCls   = row.ema20 > row.ema50 ? "pos" : "neg";
-          const r4hLabel = row.ema4h_20 > row.ema4h_50 ? "Golden" : "Death";
-          const r4hCls   = row.ema4h_20 > row.ema4h_50 ? "pos" : "neg";
-          const regCls   = row.dailyRegime === "uptrend" ? "pos" : row.dailyRegime === "downtrend" ? "neg" : "";
-          const prevSc   = _msPrevScores[row.sym];
-          const trendHtml = prevSc === undefined ? '<span class="trend-flat">–</span>'
-            : row.score > prevSc ? '<span class="trend-up">↑</span>'
-            : row.score < prevSc ? '<span class="trend-down">↓</span>'
-            : '<span class="trend-flat">→</span>';
-          const macdSig = (row.signals && row.signals.macd) || "";
-          const macdCls = macdSig.includes("+") ? "pos" : "neg";
-          const volSig  = (row.signals && row.signals.volume) || "";
-          const volCls  = volSig.includes("+") ? "pos" : volSig.includes("−") ? "neg" : "";
-          const pbFmt   = (row.bb_pb !== undefined && row.bb_pb !== null) ? fmt(row.bb_pb,2) : "–";
-          return "<tr>" +
-            '<td style="color:var(--muted);font-size:12px">#' + info.rank + "</td>" +
-            '<td>' + tvLink(row.sym) + "</td>" +
-            '<td class="right mono">' + moFmtPrice(row.livePrice || row.lastClose) + "</td>" +
-            '<td class="right">' + scoreBar(row.score) + "</td>" +
-            "<td>" + trendHtml + "</td>" +
-            '<td class="' + emaCls + '">' + emaLabel + "</td>" +
-            '<td class="right">' + (row.rsi !== undefined ? fmt(row.rsi,1) : "–") + "</td>" +
-            '<td class="' + macdCls + '">' + (macdSig.split("(")[0].replace(/[^a-zA-Z ]/g,"").trim() || "–") + "</td>" +
-            '<td class="right">' + pbFmt + "</td>" +
-            '<td class="' + volCls + '">' + (volSig.split("(")[0].replace(/[^a-zA-Z ]/g,"").trim() || "–") + "</td>" +
-            '<td class="' + r4hCls + '">' + r4hLabel + "</td>" +
-            '<td class="' + regCls + '">' + (row.dailyRegime || "–") + "</td>" +
-            "<td>" + msActionPill(row) + "</td>" +
-            '<td id="mswl-' + row.sym.replace("/","") + '">' + msWatchlistCell(row) + "</td>" +
-            "</tr>";
-        }).join("");
+        msRenderRows(rows);
 
         _msLastRows = rows;   // cached so watchlist add/remove can re-render cells without a rescan
 
@@ -545,22 +482,22 @@
                   tvLink(r.sym) +
                   '<span style="color:var(--muted);font-size:11px;flex:1">' + (inf.name||"") + "</span>" +
                   '<span style="color:var(--green);font-weight:800">+' + r.score + "</span>" +
-                  '<span style="color:var(--muted);font-size:11px">' + (r.dailyRegime||"") + "</span>" +
+                  '<span style="color:var(--muted);font-size:11px">' + (r.dailyRegime ? ttRegime(r.dailyRegime) : "") + "</span>" +
                   "</div>";
               }).join("")
-            : '<span style="color:var(--muted)">No BUY setups currently — market breadth weak.</span>';
+            : '<span style="color:var(--muted)">' + tt("market", "rtNoBuySetups", "No BUY setups currently — market breadth weak.") + '</span>';
         }
 
         const cappedNote = maxSyms > universe.length
-          ? " · Max Symbols (" + maxSyms + ") exceeds the " + universe.length + " tradable USD pairs Alpaca offers — scanning all available"
+          ? tt("market", "rtMsCapped", " · Max Symbols ({{max}}) exceeds the {{n}} tradable USD pairs Alpaca offers — scanning all available", { max: maxSyms, n: universe.length })
           : "";
-        if (upd) upd.textContent = "Last scanned: " + new Date().toLocaleTimeString() +
-          " · " + valid.length + "/" + SCAN_SYMBOLS.length + " symbols analysed" + cappedNote;
+        if (upd) upd.textContent = tt("market", "rtMsLastScanned", "Last scanned: {{when}} · {{n}}/{{total}} symbols analysed",
+          { when: new Date().toLocaleTimeString(ttLang()), n: valid.length, total: SCAN_SYMBOLS.length }) + cappedNote;
 
       } catch(e) {
         document.getElementById("msTableBody").innerHTML =
           '<tr><td colspan="14" style="color:var(--red);padding:16px">❌ ' + e.message + "</td></tr>";
-        if (upd) upd.textContent = "Error";
+        if (upd) upd.textContent = tt("market", "rtStatusError", "Error");
         console.error("loadMarketSignals:", e);
       }
     }
@@ -572,7 +509,7 @@
       document.querySelectorAll("#msTableBody tr[data-unavailable]").forEach(function(tr) {
         tr.style.display = _msHideUnavailable ? "none" : "";
       });
-      if (btn) btn.textContent = _msHideUnavailable ? "👁 Show All" : "👁 Hide Unavailable";
+      if (btn) btn.textContent = _msHideUnavailable ? tt("market", "rtShowAll", "👁 Show All") : tt("market", "rtHideUnavailable", "👁 Hide Unavailable");
     }
 
     // ── Market Signals per-symbol watchlist control (roadmap item 1) ──────────
@@ -585,13 +522,13 @@
       const hasPos = _msOpenPosSyms.has(row.sym);
       const full   = getWatchlist().length >= WL_MAX;
       if (!inWl && row.score >= SIGNAL_BUY_SCORE) {
-        if (full) return '<span class="small" style="color:var(--muted)" title="Watchlist full (' + WL_MAX + ')">full</span>';
-        return '<button class="trade-action-btn" onclick="msAddWatch(\'' + row.sym + '\')" title="Score ≥ buy signal — add to watchlist">+ Watch</button>';
+        if (full) return '<span class="small" style="color:var(--muted)" title="' + escapeHtml(tt("market", "rtWlFullTitle", "Watchlist full ({{max}})", { max: WL_MAX })) + '">' + tt("market", "rtWlFull", "full") + '</span>';
+        return '<button class="trade-action-btn" onclick="msAddWatch(\'' + row.sym + '\')" title="' + escapeHtml(tt("market", "rtWlAddTitle", "Score ≥ buy signal — add to watchlist")) + '">' + tt("market", "rtWlAdd", "+ Watch") + '</button>';
       }
       if (inWl && row.score <= -2 && !hasPos) {
-        return '<button class="trade-close-btn" onclick="msRemoveWatch(\'' + row.sym + '\')" title="Sell signal & no open position — remove from watchlist">– Unwatch</button>';
+        return '<button class="trade-close-btn" onclick="msRemoveWatch(\'' + row.sym + '\')" title="' + escapeHtml(tt("market", "rtWlRemoveTitle", "Sell signal & no open position — remove from watchlist")) + '">' + tt("market", "rtWlRemove", "– Unwatch") + '</button>';
       }
-      if (inWl) return '<span class="small" style="color:var(--green)">✓ watched</span>';
+      if (inWl) return '<span class="small" style="color:var(--green)">✓ ' + tt("market", "rtWlWatched", "watched") + '</span>';
       return '<span style="color:var(--muted)">–</span>';
     }
 
@@ -606,7 +543,7 @@
     function msAddWatch(sym) {
       const wl = getWatchlist();
       if (wl.includes(sym)) { renderMsWatchlistCells(); return; }
-      if (wl.length >= WL_MAX) { alert("Maximum " + WL_MAX + " symbols allowed."); return; }
+      if (wl.length >= WL_MAX) { alert(tt("market", "rtWlMaxAlert", "Maximum {{max}} symbols allowed.", { max: WL_MAX })); return; }
       wl.push(sym);
       saveWatchlistData(wl);
       renderWatchlistTags();        // keep the Settings tag editor in sync
@@ -619,3 +556,82 @@
       renderWatchlistTags();
       renderMsWatchlistCells();
     }
+
+    // Market Scanner row renderer, hoisted out of loadMarketSignals() so a
+    // language switch re-renders from the _msLastRows cache rather than
+    // re-scanning ~100 symbols across three timeframes. Pure in `rows` plus
+    // _msPrevScores/_msOpenPosSyms, both module-level.
+    function msRenderRows(rows) {
+    // Score bar renderer
+    function scoreBar(sc) {
+      if (sc === null) return "–";
+      const pct   = Math.min(Math.abs(sc), 6) / 6 * 100;
+      const color = sc >= SIGNAL_BUY_SCORE ? "#3fb950" : sc >= SIGNAL_HALF_SCORE ? "#d29922" : sc <= 0 ? "#f85149" : "#58a6ff";
+      return '<span style="display:inline-flex;align-items:center;gap:5px">' +
+        '<span style="width:44px;height:6px;border-radius:3px;background:rgba(255,255,255,.1);display:inline-block">' +
+        '<span style="display:block;height:100%;width:' + pct + '%;background:' + color + ';border-radius:3px"></span></span>' +
+        '<b style="color:' + color + '">' + (sc > 0 ? "+" : "") + sc + "</b></span>";
+    }
+
+    function msActionPill(row) {
+      if (row.score === null) return pill("muted", tt("rtc", "na", "n/a"));
+      const msDown = row.dailyRegime === "downtrend";
+      if (!msDown && row.score >= SIGNAL_BUY_SCORE)  return pill("green", tt("vocab", "pillBuy", "BUY"));
+      if (!msDown && row.score >= SIGNAL_HALF_SCORE) return pill("yellow", tt("vocab", "pillHalf", "HALF"));   // 2.5–3.49 = half-size
+      if (msDown && row.score >= SIGNAL_DOWNTREND_LONG_SCORE) return pill("yellow", tt("vocab", "pillCounterTrend", "½ C-Trend"));
+      if (msDown && row.score >= SIGNAL_HALF_SCORE)  return pill("muted", tt("vocab", "pillBlocked", "Blocked"));
+      if (msDown && row.score <= -3)  return pill("red", tt("vocab", "pillBear", "BEAR"));    // informational — shorts unsupported on Alpaca spot
+      return pill("muted", tt("vocab", "pillHold", "HOLD"));
+    }
+
+    document.getElementById("msTableBody").innerHTML = rows.map(function(row) {
+      const info = symbolInfo(row.sym);
+      if (row.error) {
+        return '<tr data-unavailable="1">' +
+          '<td style="color:var(--muted);font-size:12px">#' + info.rank + "</td>" +
+          '<td>' + tvLink(row.sym) + "</td>" +
+          '<td class="right mono" style="color:var(--muted)">' + moFmtPrice(row.livePrice) + "</td>" +
+          '<td colspan="11" style="color:var(--muted);font-size:12px">' + row.error + "</td>" +
+          "</tr>";
+      }
+      const emaLabel = row.ema20 > row.ema50 ? tt("vocab", "crossGolden", "Golden") : tt("vocab", "crossDeath", "Death");
+      const emaCls   = row.ema20 > row.ema50 ? "pos" : "neg";
+      const r4hLabel = row.ema4h_20 > row.ema4h_50 ? tt("vocab", "crossGolden", "Golden") : tt("vocab", "crossDeath", "Death");
+      const r4hCls   = row.ema4h_20 > row.ema4h_50 ? "pos" : "neg";
+      const regCls   = row.dailyRegime === "uptrend" ? "pos" : row.dailyRegime === "downtrend" ? "neg" : "";
+      const prevSc   = _msPrevScores[row.sym];
+      const trendHtml = prevSc === undefined ? '<span class="trend-flat">–</span>'
+        : row.score > prevSc ? '<span class="trend-up">↑</span>'
+        : row.score < prevSc ? '<span class="trend-down">↓</span>'
+        : '<span class="trend-flat">→</span>';
+      const macdSig = (row.signals && row.signals.macd) || "";
+      const macdCls = macdSig.includes("+") ? "pos" : "neg";
+      const volSig  = (row.signals && row.signals.volume) || "";
+      const volCls  = volSig.includes("+") ? "pos" : volSig.includes("−") ? "neg" : "";
+      const pbFmt   = (row.bb_pb !== undefined && row.bb_pb !== null) ? fmt(row.bb_pb,2) : "–";
+      return "<tr>" +
+        '<td style="color:var(--muted);font-size:12px">#' + info.rank + "</td>" +
+        '<td>' + tvLink(row.sym) + "</td>" +
+        '<td class="right mono">' + moFmtPrice(row.livePrice || row.lastClose) + "</td>" +
+        '<td class="right">' + scoreBar(row.score) + "</td>" +
+        "<td>" + trendHtml + "</td>" +
+        '<td class="' + emaCls + '">' + emaLabel + "</td>" +
+        '<td class="right">' + (row.rsi !== undefined ? fmt(row.rsi,1) : "–") + "</td>" +
+        '<td class="' + macdCls + '">' + (macdSig.split("(")[0].replace(/[^a-zA-Z ]/g,"").trim() || "–") + "</td>" +
+        '<td class="right">' + pbFmt + "</td>" +
+        '<td class="' + volCls + '">' + (volSig.split("(")[0].replace(/[^a-zA-Z ]/g,"").trim() || "–") + "</td>" +
+        '<td class="' + r4hCls + '">' + r4hLabel + "</td>" +
+        '<td class="' + regCls + '">' + (row.dailyRegime ? ttRegime(row.dailyRegime) : "–") + "</td>" +
+        "<td>" + msActionPill(row) + "</td>" +
+        '<td id="mswl-' + row.sym.replace("/","") + '">' + msWatchlistCell(row) + "</td>" +
+        "</tr>";
+    }).join("");
+    }
+
+    // #moTableBody / #msTableBody and their KPI strips are script-written.
+    // Both re-render from cached rows -- moApplySort() and the _msLastRows
+    // cache -- so a language switch costs no Alpaca call.
+    onLangChange("market", function () {
+      if (_moData && _moData.length) moApplySort();
+      if (_msLastRows && _msLastRows.length) msRenderRows(_msLastRows);
+    });

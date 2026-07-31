@@ -12,28 +12,30 @@
       "1Hour": { exec: "1Hour", trend: "4Hour", regime: "1Day"  }
     };
 
+    // Same pill vocabulary as tabs-signals.js — shared `vocab` keys, so the
+    // two tables cannot drift apart in one language and not another.
     function scalpActionPill(row) {
-      if (row.score === null) return pill("muted", "Error");
+      if (row.score === null) return pill("muted", tt("vocab", "pillError", "Error"));
       const down = row.dailyRegime === "downtrend";
-      if (!down && row.score >= SIGNAL_BUY_SCORE)  return pill("green", "BUY");
-      if (!down && row.score >= SIGNAL_HALF_SCORE) return pill("yellow", "HALF");
-      if (down && row.score >= SIGNAL_DOWNTREND_LONG_SCORE) return pill("yellow", "½ C-Trend");
-      if (down && row.score >= SIGNAL_HALF_SCORE)  return pill("muted", "Blocked");
-      if (down && row.score <= -3) return pill("red", "BEAR");
-      return pill("muted", "HOLD");
+      if (!down && row.score >= SIGNAL_BUY_SCORE)  return pill("green", tt("vocab", "pillBuy", "BUY"));
+      if (!down && row.score >= SIGNAL_HALF_SCORE) return pill("yellow", tt("vocab", "pillHalf", "HALF"));
+      if (down && row.score >= SIGNAL_DOWNTREND_LONG_SCORE) return pill("yellow", tt("vocab", "pillCounterTrend", "½ C-Trend"));
+      if (down && row.score >= SIGNAL_HALF_SCORE)  return pill("muted", tt("vocab", "pillBlocked", "Blocked"));
+      if (down && row.score <= -3) return pill("red", tt("vocab", "pillBear", "BEAR"));
+      return pill("muted", tt("vocab", "pillHold", "HOLD"));
     }
 
     async function loadScalp() {
       const s = getSettings();
       if (!s.apiKey || !s.apiSecret) {
-        $("scalpBody").innerHTML = '<tr><td colspan="12" class="placeholder">Configure API credentials in Settings first.</td></tr>';
+        $("scalpBody").innerHTML = '<tr><td colspan="12" class="placeholder">' + tt("rtc", "needCreds", "Configure API credentials in Settings first.") + '</td></tr>';
         return;
       }
       const tf  = ($("scalpTf") || {}).value || "15Min";
       const map = SCALP_TF_MAP[tf] || SCALP_TF_MAP["15Min"];
       const SYMBOLS = getWatchlist();
-      $("scalpBody").innerHTML = '<tr><td colspan="12" class="placeholder">Scanning ' + SYMBOLS.length + ' symbols on ' + tf + '…</td></tr>';
-      $("scalpKpis").innerHTML = kpi("Status", "Scanning…", "Fetching " + map.exec + " / " + map.trend + " / " + map.regime + " bars");
+      $("scalpBody").innerHTML = '<tr><td colspan="12" class="placeholder">' + tt("scalp", "rtScanning", "Scanning {{n}} symbols on {{tf}}…", { n: SYMBOLS.length, tf }) + '</td></tr>';
+      $("scalpKpis").innerHTML = kpi("Status", tt("rtc", "scanningShort", "Scanning…"), tt("scalp", "rtFetchingBars", "Fetching {{exec}} / {{trend}} / {{regime}} bars", { exec: map.exec, trend: map.trend, regime: map.regime }));
 
       try {
         const [bExec, bTrend, bReg, snaps] = await Promise.all([
@@ -43,7 +45,7 @@
           fetchSnapshotsInBatches(SYMBOLS).catch(() => ({}))   // live bid/ask (item 1)
         ]);
         if (!bExec) {
-          $("scalpBody").innerHTML = '<tr><td colspan="12" class="placeholder">Error fetching bars — check API credentials.</td></tr>';
+          $("scalpBody").innerHTML = '<tr><td colspan="12" class="placeholder">' + tt("rtc", "barsError", "Error fetching bars — check API credentials.") + '</td></tr>';
           return;
         }
 
@@ -53,7 +55,7 @@
           const e = (bExec[sym]  || bExec[alp]  || []).map(b => ({ c: b.c, h: b.h, l: b.l, v: b.v }));
           const t = (bTrend[sym] || bTrend[alp] || []).map(b => ({ c: b.c, h: b.h, l: b.l, v: b.v }));
           const r = (bReg[sym]   || bReg[alp]   || []).map(b => ({ c: b.c, h: b.h, l: b.l, v: b.v }));
-          if (e.length < STRAT_CFG.minBarsForSignal) { rows.push({ sym, score: null, error: "Insufficient bars" }); continue; }
+          if (e.length < STRAT_CFG.minBarsForSignal) { rows.push({ sym, score: null, error: tt("rtc", "insufficientBars", "Insufficient bars") }); continue; }
           const res = calcSignalScore(e, t, r);
           scores.push(res.score);
           // Informational ADX/OBV on the exec timeframe (display-only — parity exemption)
@@ -80,15 +82,15 @@
         const halfs = valid.filter(r => r.score >= SIGNAL_HALF_SCORE && r.score < SIGNAL_BUY_SCORE).length;
         const avg   = valid.length ? valid.reduce((a, r) => a + r.score, 0) / valid.length : 0;
         $("scalpKpis").innerHTML =
-          kpi("Timeframe", tf, "exec " + map.exec + " · trend " + map.trend + " · regime " + map.regime) +
-          kpi("BUY / Half", buys + " / " + halfs, "Score ≥ 3.5 full · ≥ 2.5 half", buys > 0 ? "pos" : "") +
-          kpi("Avg Score", (avg >= 0 ? "+" : "") + fmt(avg, 1), "Breadth across watchlist", avg >= 2 ? "pos" : avg <= -1 ? "neg" : "");
+          kpi("Timeframe", tf, tt("scalp", "rtKpiTfSub", "exec {{exec}} · trend {{trend}} · regime {{regime}}", { exec: map.exec, trend: map.trend, regime: map.regime })) +
+          kpi("BUY / Half", buys + " / " + halfs, tt("scalp", "rtKpiBuySub", "Score ≥ 3.5 full · ≥ 2.5 half"), buys > 0 ? "pos" : "") +
+          kpi("Avg Score", (avg >= 0 ? "+" : "") + fmt(avg, 1), tt("scalp", "rtKpiAvgSub", "Breadth across watchlist"), avg >= 2 ? "pos" : avg <= -1 ? "neg" : "");
 
         renderScoreDist("scalpScoreDist", scores);
 
         $("scalpBody").innerHTML = rows.map(row => {
           if (row.score === null) {
-            return '<tr><td><span class="symbol">' + tvLink(row.sym) + '</span></td><td colspan="11" class="placeholder">' + (row.error || "n/a") + '</td></tr>';
+            return '<tr><td><span class="symbol">' + tvLink(row.sym) + '</span></td><td colspan="11" class="placeholder">' + (row.error || tt("rtc", "na", "n/a")) + '</td></tr>';
           }
           const orderSym = row.sym.replace("/", "");
           const price    = row.lastClose;
@@ -98,8 +100,8 @@
           const canBuy   = price && ((!down && sc >= SIGNAL_HALF_SCORE) || (down && sc >= SIGNAL_DOWNTREND_LONG_SCORE));
           const tradeCell = price
             ? '<div class="trade-actions">' +
-                (canBuy ? '<button class="trade-action-btn" style="font-size:10px" data-tip="Open a paper BUY ticket" onclick="openTradeModal(\'' + orderSym + '\',\'' + row.sym + '\',\'buy\',\'\',' + price + ')">Buy</button>' : '') +
-                '<button class="trade-close-btn" style="font-size:10px;margin-left:4px" data-tip="Open a paper SELL ticket" onclick="openTradeModal(\'' + orderSym + '\',\'' + row.sym + '\',\'sell\',\'\',' + price + ')">Sell</button>' +
+                (canBuy ? '<button class="trade-action-btn" style="font-size:10px" data-tip="' + escapeHtml(tt("scalp", "rtBuyTip", "Open a paper BUY ticket")) + '" onclick="openTradeModal(\'' + orderSym + '\',\'' + row.sym + '\',\'buy\',\'\',' + price + ')">' + tt("scalp", "rtBuyBtn", "Buy") + '</button>' : '') +
+                '<button class="trade-close-btn" style="font-size:10px;margin-left:4px" data-tip="' + escapeHtml(tt("scalp", "rtSellTip", "Open a paper SELL ticket")) + '" onclick="openTradeModal(\'' + orderSym + '\',\'' + row.sym + '\',\'sell\',\'\',' + price + ')">' + tt("scalp", "rtSellBtn", "Sell") + '</button>' +
               '</div>'
             : '<span class="small" style="color:var(--muted)">–</span>';
           // Spread + scalp-viability cells (item 1c)
@@ -107,10 +109,10 @@
             ? '<span class="' + (row.spreadPct > 0.3 ? "neg" : "") + '">' + fmt(row.spreadPct, 2) + '%</span>'
             : '<span style="color:var(--muted)">–</span>';
           const viaCell = row.viable === null
-            ? '<span style="color:var(--muted)" data-tip="No BB-upper target above price — viability not computable.">–</span>'
+            ? '<span style="color:var(--muted)" data-tip="' + escapeHtml(tt("scalp", "rtViableNone", "No BB-upper target above price — viability not computable.")) + '">–</span>'
             : row.viable
-              ? '<span class="pos" data-tip="Target distance ' + fmt(row.targetDistPct, 2) + '% ≥ 2× round-trip cost ' + fmt(row.costPct, 2) + '%.">✓ viable</span>'
-              : '<span class="neg" style="font-weight:700" data-tip="Target distance ' + fmt(row.targetDistPct, 2) + '% &lt; 2× round-trip cost ' + fmt(row.costPct, 2) + '% — fees + spread eat this scalp’s edge.">⚠ costly</span>';
+              ? '<span class="pos" data-tip="' + escapeHtml(tt("scalp", "rtViableYes", "Target distance {{dist}}% ≥ 2× round-trip cost {{cost}}%.", { dist: fmt(row.targetDistPct, 2), cost: fmt(row.costPct, 2) })) + '">✓ ' + tt("scalp", "rtViableYesLabel", "viable") + '</span>'
+              : '<span class="neg" style="font-weight:700" data-tip="' + escapeHtml(tt("scalp", "rtViableNo", "Target distance {{dist}}% < 2× round-trip cost {{cost}}% — fees + spread eat this scalp’s edge.", { dist: fmt(row.targetDistPct, 2), cost: fmt(row.costPct, 2) })) + '">⚠ ' + tt("scalp", "rtViableNoLabel", "costly") + '</span>';
           return '<tr>' +
             '<td><span class="symbol">' + tvLink(row.sym) + '</span></td>' +
             '<td class="right mono">' + (price ? fmtPrice(price) : "–") + '</td>' +
@@ -119,14 +121,20 @@
             '<td>' + scalpActionPill(row) + '</td>' +
             '<td class="right mono">' + (row.rsi != null ? fmt(row.rsi, 1) : "–") + '</td>' +
             '<td class="right mono">' + (row.atr != null ? fmt(row.atr, row.atr < 1 ? 5 : 2) : "–") + '</td>' +
-            '<td class="right mono" data-tip="ADX(14): ' + adxLabel(row.adxVal) + ' — informational, not scored">' + (row.adxVal != null ? fmt(row.adxVal, 1) : "–") + '</td>' +
-            '<td class="small ' + (row.obvVal === "rising" ? "pos" : row.obvVal === "falling" ? "neg" : "") + '" data-tip="OBV 20-bar volume-flow trend — informational, not scored">' + (row.obvVal || "–") + '</td>' +
-            '<td class="small">' + (row.dailyRegime || "n/a") + '</td>' +
+            '<td class="right mono" data-tip="' + escapeHtml(tt("rtc", "adxTip", "ADX(14): {{label}} — informational, not scored", { label: ttAdxLabel(row.adxVal) })) + '">' + (row.adxVal != null ? fmt(row.adxVal, 1) : "–") + '</td>' +
+            '<td class="small ' + (row.obvVal === "rising" ? "pos" : row.obvVal === "falling" ? "neg" : "") + '" data-tip="' + escapeHtml(tt("rtc", "obvTip", "OBV 20-bar volume-flow trend — informational, not scored")) + '">' + ttTrendWord(row.obvVal) + '</td>' +
+            '<td class="small">' + (row.dailyRegime ? ttRegime(row.dailyRegime) : tt("rtc", "na", "n/a")) + '</td>' +
             '<td>' + viaCell + '</td>' +
             '<td>' + tradeCell + '</td>' +
           '</tr>';
         }).join("");
       } catch (e) {
-        $("scalpBody").innerHTML = '<tr><td colspan="12" class="placeholder">Scan failed: ' + e.message + '</td></tr>';
+        $("scalpBody").innerHTML = '<tr><td colspan="12" class="placeholder">' + escapeHtml(tt("rtc", "scanFailed", "Scan failed: {{msg}}", { msg: e.message })) + '</td></tr>';
       }
     }
+
+    // #scalpBody / #scalpKpis are script-written, so applyDomI18n() cannot
+    // reach them. Gated on activeTab by onLangChange().
+    onLangChange("scalp", function () {
+      if ($("scalpBody") && $("scalpBody").children.length) loadScalp();
+    });
