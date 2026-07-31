@@ -1,5 +1,13 @@
 # Project: CryptoPro Trader
 
+## v2026-07-30.7 — subscriptions: contract step (legacy column dropped, index UNIQUE)
+
+Second half of the Patreon rename, ported identically to all four projects. `stripe_customer_id` is
+dropped from the live database and from `init()`; `subscriptions_customer_idx` is now UNIQUE on
+`patreon_member_id`, so the database refuses to let one Patreon member grant Pro to several accounts.
+Verified live — a duplicate member id is rejected (23505) while free accounts keep NULL and coexist.
+Verified: 524/524, all four `db.js` import clean, `init()` idempotent across two runs.
+
 ## v2026-07-30.6 — Fix: Scheduled Jobs did not load in FR/ES (user report)
 
 `#cronJobsList` carried `data-i18n`, and `applyDomI18n()` assigns `textContent` to every such node —

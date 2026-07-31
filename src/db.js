@@ -184,18 +184,20 @@ export async function init() {
   // wholesale, so without this an already-created database would keep the old
   // name while a fresh one got the new — diverging silently.
   //
-  // EXPAND/CONTRACT, and the expand half is the whole point. **`create index
-  // if not exists` still resolves its column list before it checks the index
-  // name**, so the moment `stripe_customer_id` disappears, any build still
-  // carrying the old `create index … (stripe_customer_id)` throws in init() —
-  // verified against the live database, not assumed. Renaming alone therefore
-  // breaks every currently-deployed build the instant it cold-starts. This is
-  // the same deploy-window hazard as the `job_runs_running_uidx` resurrection
-  // in Phase 4, from the other direction. So: rename where the old name is all
-  // that exists, then guarantee BOTH columns are present for as long as a build
-  // referencing the old one can still start. Dropping the legacy column is the
-  // contract half — a separate, later step, safe only once no such build
-  // remains. Zero data risk either way: nothing has ever written this column.
+  // Done expand/contract, because the bare rename does not work: **`create
+  // index if not exists` resolves its column list before it checks the index
+  // name**, so the moment `stripe_customer_id` disappeared, any build still
+  // carrying the old `create index … (stripe_customer_id)` threw in init() —
+  // measured against the live database, not assumed. This is the same
+  // deploy-window hazard as the `job_runs_running_uidx` resurrection in Phase 4,
+  // from the other direction. The expand step therefore kept BOTH columns while
+  // such builds could still cold-start.
+  //
+  // **Contract step, same day:** the vestigial column is now dropped and this
+  // is the whole migration. Keep the rename guarded below anyway — it is what a
+  // database created by a pre-rename build still needs, and it costs one
+  // catalogue lookup per cold start. Zero data risk throughout: nothing has
+  // ever written this column, and the table has no rows.
   await q(`do $$
     begin
       if exists (select 1 from information_schema.columns
@@ -207,17 +209,31 @@ export async function init() {
       end if;
     end $$`);
   await q(`alter table subscriptions add column if not exists patreon_member_id text`);
-  await q(`alter table subscriptions add column if not exists stripe_customer_id text`); // vestigial — drop in the contract step
-  // The webhook looks rows up by the provider's member id, not by uid. The
-  // index keeps its old, provider-neutral name so that an older build's own
-  // `create index if not exists` sees the name and no-ops instead of trying to
-  // build a second one.
+  await q(`alter table subscriptions drop column if exists stripe_customer_id`);
+  // ---- One patron, one account -------------------------------------------
+  // UNIQUE so a single Patreon member cannot be linked to several CryptoPro
+  // accounts and hand Pro to all of them (Suite roadmap, phase 3). Postgres
+  // permits many NULLs under a unique index, which is exactly right here: every
+  // free account leaves this column NULL and only linked patrons are
+  // constrained.
   //
-  // Phase 3 makes this UNIQUE (one patron must not be able to grant Pro to many
-  // accounts). Not here: uniqueness means dropping and recreating the index,
-  // which is exactly the kind of window this migration just proved is real.
-  // Do it as its own step once this one is confirmed serving.
-  await q(`create index if not exists subscriptions_customer_idx on subscriptions(patreon_member_id)`);
+  // `create unique index if not exists` would silently keep a pre-existing
+  // NON-unique index of the same name, so the upgrade has to be an explicit
+  // drop — guarded on `indisunique` so it happens once, not on every start. The
+  // name is deliberately unchanged and provider-neutral: a build still running
+  // `create index if not exists subscriptions_customer_idx` finds the name and
+  // no-ops, instead of building a second, non-unique index alongside this one.
+  await q(`do $$
+    begin
+      if exists (select 1 from pg_class where relname = 'subscriptions_customer_idx')
+      and not exists (select 1 from pg_index i
+                      join pg_class c on c.oid = i.indexrelid
+                      where c.relname = 'subscriptions_customer_idx' and i.indisunique)
+      then
+        drop index subscriptions_customer_idx;
+      end if;
+    end $$`);
+  await q(`create unique index if not exists subscriptions_customer_idx on subscriptions(patreon_member_id)`);
   // Dashboard settings sync (Suite roadmap: save user state — layouts,
   // progress, etc. — in the database so it follows the account across
   // devices/browsers). Same generic uid+name→jsonb shape CryptoPro Charts
