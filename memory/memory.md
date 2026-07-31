@@ -9,7 +9,8 @@ fragments had the same defect**; `applyDomI18n()` now only writes a node while i
 what i18n last wrote there, which fixes all of them without touching the scripts. The panel's own
 content was English in every language (roadmap item 9) — that part is now translated, 16 keys × 4,
 and it re-renders on `lang-changed`. Its "Run now" tooltip still claimed dry-run; corrected.
-Verified: 520/520, build clean, 3 new regression tests for the guard.
+Verified: 524/524, build clean, 4 new regression tests for the guard, **and confirmed by the user in
+the browser** — translations render correctly and the Scheduled Jobs panel loads in every language.
 
 ## v2026-07-30.5 — Roadmap rescan: monetization phase 2 + the footer date stopped rotting
 
