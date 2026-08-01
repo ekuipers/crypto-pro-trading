@@ -52,6 +52,16 @@ as such; four copies in the bundle would cost every user bytes on every load for
 content from Postgres (`en` 12,105 chars, `nl` 14,755, `fr` 15,452, `es` 15,448) and an unknown
 `?lang=xx` falls back to English. 536/536, build clean.
 
+**Browser-confirmed by the user (2026-07-31):** the Glossary tab renders the correct translation per
+language. That covers the path that matters — switching language and getting the right content back —
+and completes the v2026-07-31.8 browser pass, which predated this change.
+
+**Still unexercised, deliberately recorded:** the English-fallback branch, where a translation row has
+not synced and the status line reports "showing English, the NL glossary hasn't synced yet". It cannot be
+triggered locally once all four rows sync, which is exactly why it is written to degrade loudly rather
+than silently. If it is ever seen in the wild, the message is the thing to check — a *silent* fallback
+here would look identical to a translation that simply never happened.
+
 ## v2026-07-31.8 — Browser pass: the whole dashboard verified in all four languages, no defects
 
 **User-verified in the browser, all four suite apps, 2026-07-31.** Every tab, every panel, and language
