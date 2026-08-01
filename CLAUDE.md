@@ -1,146 +1,273 @@
 # CryptoPro Trader
-Description: Professional cryptocurrency trading & analytics platform. 
-Creator: [name removed].
-Year: 2026
 
-> **Detail archive:** this file was compacted 2026-07-19. The complete pre-compaction text (full
-> hard-rule tables with config keys, bug histories, dashboard tab specs, Node-port table, parity
-> checklist) lives in **`memory/claude_md_archive.md`** — consult it before changing anything below.
+Professional cryptocurrency trading & analytics platform. Autonomous paper-crypto agent on Alpaca plus a
+React/Vite dashboard. Crypto trades 24/7 — no weekday/market-clock gate. All times GMT+2.
 
-# Workflow rules
-> Master rules shared across all CryptoPro sub-projects: [CryptoPro Suite CLAUDE.md](https://github.com/[username]/crypto-pro-suite/blob/main/CLAUDE.md)
+**Master workflow rules:** [CryptoPro Suite CLAUDE.md](../CryptoPro%20Suite/CLAUDE.md).
+**Open work:** [ROADMAP.md](ROADMAP.md).
+**Trading method:** read `skills/crypto-trader/SKILL.md` before evaluating any trade. `skills/crypto-catalysts`
+is the news-severity ladder — defensive only, it never justifies an entry.
 
-1. **Standing rule:** after every change (code, dashboard, config) update `CLAUDE.md`, `README.md`, `memory/memory.md`, `memory/glossary.md` (terms and acronyms, no mention of code like .js scripts), and for frontend changes update `docs/dashboard_layout.md`. No exceptions.
-2. Backend cron jobs should be user bound. Resulting reports should be stored related to the user in the database. Every user can then manage their own schedules set via the front end in Command center/Scheduled Jobs.
+Project-specific rules:
 
-## Roadmap
+1. Keep `README.md`, `memory/glossary.md` (+ its three translations) and `docs/dashboard_layout.md` in step
+   with behaviour changes. The glossary is served to users; the layout doc is a design reference.
+2. Cron jobs are user-bound — reports are stored per user, and each account manages its own schedule in
+   Command → Scheduled Jobs.
 
-> Open items only — resolved ones are logged in `memory/memory.md` (Suite rule 5). Last cleaned 2026-07-31,
-> after that day's second rescan closed the two user-facing-quality items (old 7, the stale Python
-> attributions, and old 8, the untranslated tab scripts — both in `memory.md` v2026-07-31.7) and the
-> user's full browser pass closed old 5. Ordered by what a change would be worth: 1–3 decide whether the
-> strategy has an edge at all, 4 is a correctness gap that has already produced shipped bugs, 5 is an
-> unverified path, 6 is a limitation nobody has hit yet.
->
-> **Nothing user-facing is open any more.** Every remaining item needs a measurement tool that does not
-> exist yet (1–3), test coverage (4), or a market event (5). **Do not re-add a browser click-through
-> item** — the whole dashboard, all four languages, was verified by the user in the browser on
-> 2026-07-31; see `memory.md` v2026-07-31.8 for exactly what that covered.
+## Hosting & build
 
-1. **Whether the 6-point score predicts direction has never been tested.** The top item, because it gates
-   every other strategy question — and it has no tool behind it: `scripts/replay.mjs` measures score and gate
-   distributions with **no fills and no P&L**. The consequence is concrete: the 4H-execution finding (mean net
-   R:R **2.01** vs production's **−0.12**, `memory/memory.md` 2026-07-29) **cannot be acted on**, because net
-   R:R is geometry, not edge — 2:1 at a 30% win rate still loses. Walk-forward was removed rather than ported
-   on 2026-07-30 (user decision), so nothing in the project answers this today. Building a validator with fills
-   and P&L is a new piece of work, not a restoration of what was deleted.
-2. **Volume signal 5 is still mean-baselined and therefore skew-biased on every symbol and every timeframe** (`src/indicators.js`'s `volumeRatio()` divides by the mean of the previous 20 bars). Crypto volume is right-skewed, so −0.5 fires ~3× more often than +1 even on BTC/ETH 4H. Recommended direction is **4H volume with a median baseline** (4H is 0–16% empty on all ten symbols vs 64–92% on 15-min), which fixes sparsity *and* skew everywhere instead of on two symbols. **Do not tune `MIN_TRADED_BARS`** — no value works; it acts as a per-symbol on/off switch (pass rates BTC/ETH 100%, SOL 78%, AVAX 11%, LINK 4%, LTC/DOGE 0%). Measure with `scripts/replay.mjs` before shipping.
-3. **The sizing stop and the exit stop are different numbers, so "risk = equity × 1%" is nominal, not real.** `src/entrySizing.js:27-28` sizes on `1.5 × ATR` of the *execution* timeframe (measured 0.45–0.96%) while the position actually exits at the **4H swing low** (`src/risk.js`'s `swingLowStopPrice()`, up to 8% below entry — 6.46% measured). That is a **6–9× divergence**: realized risk per trade can be many multiples of the intended 1%. Ranked #3 by the 2026-07-29 research pass and never promoted to the roadmap; the hard-rules section below has only ever noted it parenthetically. Fixing it means picking one stop as the sizing input (the exit stop is the honest choice) — a real strategy change, so measure it first.
-4. **`src/scoreParity.test.js` pins only the 6-point score — not order placement, not the entry gates, not reconciliation.** Both 2026-07-29 both-engines bugs (the stop-escalation clamp that made stops unfillable, and the R:R gate that failed open on exactly the setups it exists to catch) lived in that uncovered area, and the `reconcile.js` ↔ `edge-insights.js`'s `apReconcileFromFills()` FIFO pair is still enforced by prose in this file alone. Extend the parity test to cover the limit-band/clamp math and the entry-gate decision, rather than re-verifying by hand.
-5. **The stop-escalation fix is deployed but has never been observed against a real unfilled stop.** The next stop-loss that goes 2 cycles unfilled is the confirmation that the 0.5%→0.8% widening now actually reaches an order. **This is the only unverified path left, and a browser pass cannot close it** — it needs a live spread to widen past the base band, which is a market event, not a UI action. Do not fold it into a future click-through item.
-6. **Sub-daily cron cadence not supported.** `src/cronSchedule.js`'s `isJobDue()` takes a single `hourUtc` and gates on "hasn't run today" (`cronSchedule.js:26-33`) — it cannot express "every N hours" without a design change (an array of hours, or a repeat-interval field per job). Blocks running `watchdog` (or anything) more than once/day. **No one has asked for this**; it is listed so the limitation isn't rediscovered as a bug.
+- **Live trading engine = Node.js via Vercel Cron (`/api/cron/dispatch`)** — the only engine. No Python, no
+  GitHub Actions. There is no backtester: walk-forward was removed, not ported.
+- **Dashboard** = React/Vite shell (`client/`) + ~30 classic-global `src/js/*.js` + 10 `src/css/*.css`.
+  `server.js` serves `client/dist`, so `npm run build` before `npm start`. Vercel only — no `file://`.
+- **`client/` is its own npm project, not a workspace.** Root build runs
+  `npm --prefix client install && npm --prefix client run build` — the `install` half matters, or a fresh
+  clone (Vercel) has no `vite`/`react`.
+- React owns only the shell chrome; vanilla `switchTab()` owns all tab switching and loaders.
+- **Postgres via `CRYPTOPROTRADER_POSTGRES_URL[_NON_POOLING]`.** All environments share one Supabase
+  database (Suite rule 8), so accounts are already shared suite-wide. Auth/SSO/2FA live in `src/auth.js` +
+  `src/db.js` + `src/totp.js`; `src/js/auth.js` is the client half, registered in `scriptLoader.js`'s
+  `SCRIPT_ORDER`.
+- **No third-party asset hosts** (Suite rule 26). Chart.js and `qrcode-lib.js` are vendored under `src/js/`
+  with the version in the filename. No Trader HTML references an external host — keep it that way.
+- The footer's date is build-stamped by `client/vite.config.js`'s `__BUILD_DATE__`; never type it.
+
+## Cron engine
+
+- **Two jobs: `evaluate` and `watchdog`.** Both touch `trader_state`.
+- `src/cronRoutes.js` exposes `GET/POST /api/cron/evaluate|watchdog` and `GET /api/cron/dispatch`.
+  **`GET` is the Vercel Cron contract** — requires the `CRON_SECRET` bearer header and runs for *every*
+  tenant. **`POST` is the dashboard "Run now"** — requires a session and runs for *that caller's uid only*,
+  rate-limited per uid.
+- State and journal persist to Postgres (`trader_state` / `trader_journal`) because serverless has no
+  local disk. `job_runs` is the audit trail and the concurrency lock — one `status='running'` row per job,
+  enforced by a partial unique index.
+- **Adjustable schedule:** `vercel.json` runs the dispatcher hourly (`0 * * * *`); it reads each job's
+  `hour_utc` from `cron_config` and fires once that UTC hour arrives and it hasn't run today
+  (`src/cronSchedule.js`'s `isJobDue()`). The individual `/api/cron/<job>` routes run unconditionally when
+  hit directly — `hour_utc` gates the dispatcher only.
+- **`CRON_EXECUTE=true` in production** — scheduled runs place real (paper) orders. This line is the
+  authority; the Scheduled Jobs panel deliberately names no engine or env var so it cannot contradict it.
+- `cron_config` is keyed `(uid, job)` — every account has its own schedule.
 
 ## Multi-tenant engine — standing rules
 
-> The conversion itself is done (all 6 phases, 2026-07-24 → 2026-07-29; detail in `memory/memory.md`, design
-> in `memory/project-trader-multitenant-plan.md`). What follows is **not history** — breaking any of it stops
-> the engine or crosses accounts.
+Breaking any of these stops the engine or crosses accounts.
 
-- **`TRADER_CREDENTIALS_ENC_KEY` is set for Production ONLY, deliberately.** Preview/Development aren't used, and having no key there is the correct fail-closed state — those environments answer `configured: false` and 503 every credential write rather than storing anything. **Do not "fix" that by adding keys there.** If Preview/Dev are ever used, each needs its own *different* value: all environments share one database, so a shared key would let any preview build decrypt production credentials. There is **no key-rotation path** — changing a key orphans every credential encrypted under it.
-- **Always re-check `GET /api/alpaca-credentials` → `configured` before assuming credentials can be stored.** `false` means either unset for that environment *or* set but not decoding to exactly 32 bytes (`Buffer.from(x,'base64')` silently drops invalid characters, so a mangled paste reads as "not configured" rather than erroring). The 2026-07-28 outage was Vercel **shared** variables that existed but had never been *connected to the project* — the docs had recorded the step as verified a day earlier.
-- **All environments share one Supabase database, so isolation is per-*row* (`(uid, mode)` upsert), not per environment.** Outside Production always sign in as a throwaway test account, never the real one (`vercel dev` hits the production DB). `key_fp`/`KeyMismatch` make a violation legible instead of a silent engine stop; they do not prevent it.
-- **After any future schema migration, re-run it once the new build is confirmed serving.** An old build cold-starting during the deploy window re-runs its `init()` and *resurrects* dropped legacy indexes (Phase 4 hit this with `job_runs_running_uidx`, restoring a `(job)`-only lock next to the `(uid, job)` one). Migrate *before* deploying, too: new-code-on-old-schema makes evaluate run on `EMPTY_STATE()` and place orders blind, whereas old-code-on-new-schema fails at `startJobRun` before any order.
-- **Every `db.js` engine accessor takes the uid first and throws `TypeError` if it's missing** — no silent default, which would read or overwrite another tenant's positions. `ENGINE_UID` fails closed rather than falling back to a sentinel whose empty state reads as "no open positions".
-- **`CONFIG_SPEC` (`src/userConfig.js`) is where the hard rules below are enforced against user JSON**, and the resolver **re-validates on every read** — an out-of-bound or locked value written straight into `trader_strategy_config` still never reaches a trading decision. Shorts, the streak throttle, and every ships-OFF flag are **locked** (not settable), which is why `assertNotShipped()` can keep checking only the compiled config. `PUT /api/strategy-config` is deliberately stricter than the read path: it rejects invalid input outright, where the engine merges `clean` and drops bad keys so one stale value can't stop a running engine.
-- **`src/tenantEngine.js` is the single answer to "which account are we trading".** `tenantDeps()` injects **every** call individually — modules that don't read `deps.client` would otherwise stay on the legacy env-var account. A tenant with no or unreadable credential is **skipped with a reason, never run on the env-var account**.
-- **Step-up auth guards *losing* access, not *adding* a key.** `stepUpRequired()` demands the account password on **delete** always and on **replace** only when overwriting the credential the engine is currently trading with; **connect**/**activate** never require it, because that would put a password wall on the one step every new user must clear. A session holder can therefore connect and activate their own credential — known and accepted. Failed attempts spend a write-limit token, so the 20/hour/uid budget is also the password-guessing ceiling.
+- **`TRADER_CREDENTIALS_ENC_KEY` is Production-only, deliberately.** Preview/Dev having no key is the
+  correct fail-closed state — they answer `configured: false` and 503 every credential write. **Do not
+  "fix" this by adding keys there.** If Preview/Dev are ever used they need *different* values: all
+  environments share one database, so a shared key would let a preview build decrypt production
+  credentials. There is **no key-rotation path** — changing a key orphans every credential under it.
+- **Check `GET /api/alpaca-credentials` → `configured` before assuming credentials can be stored.** `false`
+  means unset *or* not decoding to exactly 32 bytes — `Buffer.from(x,'base64')` silently drops invalid
+  characters, so a mangled paste reads as "not configured" rather than erroring. A Vercel variable can also
+  exist but never have been *connected to the project*.
+- **Isolation is per-row (`(uid, mode)` upsert), not per environment.** Outside Production always sign in
+  as a throwaway account — `vercel dev` hits the production database. `key_fp`/`KeyMismatch` make a
+  violation legible; they do not prevent it.
+- **Migrate before deploying, and re-run the migration once the new build is confirmed serving.** An old
+  build cold-starting during the deploy window re-runs its `init()` and *resurrects* dropped legacy
+  indexes. Direction matters: new-code-on-old-schema makes evaluate run on `EMPTY_STATE()` and place orders
+  blind; old-code-on-new-schema fails at `startJobRun` before any order.
+- **Every `db.js` engine accessor takes the uid first and throws `TypeError` if missing** — no silent
+  default, which would read or overwrite another tenant's positions.
+- **`CONFIG_SPEC` (`src/userConfig.js`) enforces the hard rules against user JSON, and the resolver
+  re-validates on every read** — an out-of-bound or locked value written straight into
+  `trader_strategy_config` still never reaches a trading decision. Shorts, the streak throttle and every
+  ships-OFF flag are **locked**, which is why `assertNotShipped()` need only check the compiled config.
+  `PUT /api/strategy-config` is deliberately stricter than the read path: it rejects invalid input, where
+  the engine merges `clean` and drops bad keys so one stale value can't stop a running engine.
+- **`src/tenantEngine.js` is the single answer to "which account are we trading".** `tenantDeps()` injects
+  **every** call individually — modules that don't read `deps.client` would otherwise stay on the legacy
+  env-var account. A tenant with no or unreadable credential is **skipped with a reason, never run on the
+  env-var account.**
+- **Step-up auth guards *losing* access, not *adding* a key.** The account password is required on
+  **delete** always, and on **replace** only when overwriting the credential the engine is trading with.
+  **Connect and activate never require it** — that would put a password wall on the one step every new user
+  must clear. Failed attempts spend a write-limit token, so the 20/hour/uid budget is also the
+  password-guessing ceiling.
 - The legacy env-var path stays functional indefinitely as an instant rollback.
+
+## Hard rules — never break
+
+- **Paper trading only; live Alpaca access is read-only** (Suite rule 23, EU MiCA). Reads stay open on live
+  credentials so the dashboard still shows insights; placement and cancellation are paper-only. Enforced in
+  two places, both failing closed on an unknown base URL: `alpacaClient.js`'s `assertPaperTrading()`
+  (hostname must be exactly `paper-api.alpaca.markets`) and `api-config.js`'s `assertPaperTrading()` in the
+  dashboard. Header shows a 🔒 badge while Live is selected.
+- **Preserve ≥20% cash.** Per-symbol caps (`config.json › portfolio_caps.caps`, % of equity): BTC 30,
+  ETH 15, ADA/SOL 10, DOGE 8, LTC/DOT 6, LINK/AVAX/AAVE 5, default 5.
+- **Limit orders only** — ≤0.2% from ask; **0.5% base for stops, widening to 0.8% after 2 unfilled
+  cycles**, clamped to the band edge, never self-rejected. **All orders go through `src/trade.js`**; direct
+  API calls are forbidden. Stop dedup: check `getOpenOrders`, cancel-replace wider after 2 cycles.
+  - **The clamp ceiling is the *escalated* band (`MAX_STOP_LOSS_BAND_PCT`), not the base one.** Clamping
+    back to 0.5% erases the widening by construction and makes stops unfillable whenever the real spread
+    exceeds the base band — which it does (AVAX and LTC have both measured >0.57%). `risk.js` stays the
+    authority on which band applies at a given cycle, since `placeOrder` sees a price, not a cycle count.
+- **Long stop = previous 4H swing low** (20 bars, ≤8% below entry; fallback −5%). Short stop = +5% adverse.
+  Trailing stop arms at +2.5% profit and trails 3% below HWM. **Never move a stop away from entry.**
+  - **HWM persistence is Postgres, not a file.** `src/positionState.js`'s `STATE_FILE` is the legacy/CLI
+    path only — the serverless engine injects a no-op `saveState` and the caller persists to `trader_state`.
+    Debugging a stale HWM by opening that file means reading an artifact of a path that no longer trades.
+- **Partial TP at +1R:** sell 50%, remaining stop → breakeven (effective stop = max(swing low, breakeven)).
+  Stale exit: >48h held, trail never armed, score <2.5. Rotation at full budget: candidate ≥4.0 and ≥2.0
+  above the weakest holding ≤0 → swap, max 1/cycle.
+- **Correlation budget: 7 total / 5 per tier** (Tier-1 = BTC, ETH). Gates entries only.
+- **Net R:R entry gate: <1.0 blocks, <1.5 half-size** (target = BB upper minus round-trip cost, itself
+  2×25 bps + spread).
+  - **The gate FAILS CLOSED.** `netRr()` returns `null` when either leg is missing; skipping the check on
+    null inverts the gate, because `target` is null precisely when the ask is at or **above** the BB upper
+    band — the most extended setups, exactly what the gate exists to catch. A null `entryStop` must block
+    too. Both causes are named separately in the reason string.
+- **Streak throttle (ACTIVE):** 3 straight losing round-trips OR 7-day drawdown ≥5% → risk ×0.5; releases
+  after 2 winners AND drawdown <2.5%.
+- **Score gates:** long ≥3.5 full / ≥2.5 half (daily not downtrend); counter-trend half-long ≥4.0 in a
+  downtrend; TA sell at ≤−2. **Shorts disabled** (Alpaca spot); cover logic stays at ≥+2 / +5% stop.
+- **ATR sizing:** risk = equity×1%, stop dist = 1.5×ATR, qty = risk/dist, hard-capped by the symbol cap.
+  **The 1% is nominal** — the position exits at the 4H swing low, 6–9× further away, so a loss can cost
+  well over 1% of equity. See ROADMAP.md.
+- **Ships-OFF flags**, guarded by `assertNotShipped()`: chandelier trail, pyramiding, conviction sizing,
+  measured-move target, maker-first entries, breadth gate. The session-edge filter is **ON** (half-size in
+  negative-expectancy GMT+2 buckets, ≥20-sample guard).
+
+## Method
+
+Top-down: daily regime (last vs SMA50 + SMA20 vs SMA50) → 4H structure (EMA20/50, the primary trend
+filter) → 15-min execution. Only trade with the 4H *and* daily trend. Wyckoff: accumulation/mark-up =
+long; distribution/mark-down = take profit or stay flat.
+
+The **6-point Signal Confluence score** (`src/evaluateSymbol.js` + `src/indicators.js`) is EMA cross, MACD
+histogram, RSI, Bollinger %b, volume ratio, 4H regime.
+
+## Engine ↔ dashboard parity — the recurring bug class
+
+The engine (`src/*.js`, Node) and the dashboard (`src/js/*.js`, browser) each implement the same logic.
+Divergence between them has produced repeated shipped bugs, so:
+
+- **`calcSignalScore()` (dashboard) and `signalScore()` (engine) must stay identical.**
+  `src/scoreParity.test.js` enforces this — extend it rather than re-verifying by hand. It covers
+  EMA seeding + dead zone, MACD partial credits, RSI rising rule, thresholds (3.5/2.5/4.0 — never
+  `=== 3`), BB population std-dev, the volume sparse-tape guard, daily-regime SMA rule, bar completeness
+  and recency, annualization 365, min 60 bars.
+- **`MIN_TRADED_BARS` is mirrored in three places** — `config.json › indicators.min_traded_bars` is the
+  source of truth, and `indicators.js` (deliberately config-free) and `ta-lib.js` (needs a value before
+  config loads) each carry a literal. `scoreParity.test.js` fails if they drift.
+- **Reconciliation parity:** the FIFO/flatness/dust-tolerance logic exists in both
+  `src/js/edge-insights.js`'s `apReconcileFromFills()` (browser Autopilot) and `src/reconcile.js` (engine).
+  **Any fix must be applied to both** — this pair is not yet covered by a test.
+- **ADX/OBV are informational only** — never fold them into the score.
+- **Never revert the FILL fetch to a single page.** Realized P&L must use `edgeFetchAllFills()` everywhere,
+  so P&L and Backtest-vs-Live agree via `computeFifoStats()`.
+
+## Measurement tools
+
+- **`scripts/replay.mjs`** — drives the real `evaluateSymbol` over a sliding window of historical bars and
+  reports score distribution, gate crossings, net-R:R stats and which gate decided each window. **Use it
+  for any scoring or gating change; a single live scan is not a measurement.** Two fidelity rules make it
+  trustworthy: higher-timeframe bars align by **timestamp, not index** (index alignment leaks future regime
+  into every window), and `spreadPct` is **required with no default** because it feeds round-trip cost and
+  therefore the R:R gate. **Not a backtester** — no fills, no P&L.
+- **`scripts/compareTimeframes.mjs`** — compares execution timeframe / stop / target configurations over the
+  **same wall-clock window**, since equal bar counts compare two market regimes rather than two timeframes.
+  It self-checks against the engine's own `decision.netRr` and refuses to be trusted if that drifts.
+- **Net R:R is geometry, not edge.** 2:1 at a 30% win rate still loses. Nothing in the project currently
+  measures whether the score predicts direction — see ROADMAP.md item 1.
+
+## Multi-language (EN/NL/FR/ES)
+
+`client/src/i18n/` initialises i18next before render and also exposes a plain `window.t()` plus
+`applyDomI18n(root)`, which walks `data-i18n`/`-html`/`-placeholder`/`-title`/`-tip` attributes — one
+mechanism for both the JSX shell and the classic scripts. Language persists to `localStorage.dashLang` and
+syncs via `/api/session`.
+
+Runtime-rendered content goes through **`tt(ns, key, fallback, vars)`** in `utils.js` (24 namespaces,
+1,125 keys × 4 languages) and re-renders on `lang-changed` via **`onLangChange(tabs, fn)`**, which gates on
+`activeTab` so a switch never spends an Alpaca call on a hidden tab. Every `tt()` keeps its English literal
+as the fallback, so a failed locale fetch degrades to readable English rather than raw keys.
+
+**Five traps, each of which fails silently:**
+
+- **Translate inside `kpi()`, never at its ~80 call sites.** It looks up `TILE_TIPS` by the English label,
+  so a translated label blanks every tile tooltip in NL/FR/ES.
+- **Never translate a value `ta-lib.js` or the engine emits as data** (`"uptrend"`, `"rising"`, the gap-go
+  ratings). `scoreParity.test.js` diffs those strings and the colour maps index by them. Translate at render
+  only: `ttRegime` / `ttTrendWord` / `ttAdxLabel` / `ggRating`.
+- **A panel that caches rendered prose cannot re-render into a new language.** Cache i18n keys + params, not
+  sentences — `ggAnalyze()` and `msRenderRows()` are the worked examples. Do the same for any panel whose
+  loader is expensive.
+- **`applyDomI18n()` owns a `[data-i18n]` node only until a script writes to it.** It assigns `textContent`,
+  so placeholders a tab script later replaces were being wiped on every switch. It now records what it last
+  wrote (`dataset.i18nApplied`) and skips nodes whose text no longer matches. **Do not "fix" a wiped panel
+  by removing its `data-i18n`** — the placeholder should stay translated until the script renders. Pinned by
+  `src/i18nDomGuard.test.js`.
+- **A `data-i18n-html` block containing a script-written span must re-apply that value on `lang-changed`** —
+  the block's innerHTML is replaced wholesale, resetting the nested value to its static placeholder
+  (`tabs-markov.js`'s `#mkThreshLabel` is the example). This is distinct from the clobber above.
+
+**Untranslated by design** (Suite rule 22): indicator abbreviations, the action codes BUY/HALF/BEAR/HOLD,
+and Golden/Death cross. They route through `vocab` keys anyway so the decision is visible in the locale
+files. Also English on purpose: the *offline* glossary snapshot in `tabs-glossary.js` (a degraded fallback —
+four bundled copies would cost every user bytes on every load) and the glossary's Term column.
+
+Weekday and month names come from `Intl` in the active language (`ttWeekdays`, `ttMonthLabel`). The GMT+2
+job stamps in `tabs-command.js` deliberately stay `en-GB` — that column is fixed-width and must keep
+aligning.
+
+`src/i18nRuntimeKeys.test.js` pins the two silent failure modes: a `tt()` key missing from the locales, and
+a key in `en.json` but not the other three. Extend it rather than checking by hand.
+
+## Glossary — per-language rows in the database
+
+`server.js` syncs four files (`memory/glossary.md` + `glossary.{nl,fr,es}.md`) into one row each on every
+boot; `GET /api/glossary?lang=` serves them. **These four files are load-bearing — do not move or rename
+them.** Three rules:
+
+- **Rows share one table under a suffixed id** (`'trader'` = English, `'trader:nl'` etc.) with **no schema
+  migration**. A composite `(id, lang)` key is tidier and was rejected: an old build cold-starting mid-deploy
+  still runs `on conflict (id)` (no matching constraint → its boot sync throws) and `where id = 'trader'`
+  (matches four rows, returns an arbitrary language).
+- **Only English is section-extracted.** `extractGlossarySections()` matches the two *English* `##`
+  headings, so a translated file run through it yields `""` and the tab silently falls back to English. The
+  translations are serve-ready by design; a test asserts extraction returns `""` for them.
+- **The Term column is the key and stays English in all four files**; only definitions translate. It is the
+  lookup handle (users search for what the dashboard shows, e.g. `ATR`). **Adding a term means editing all
+  four files** — `src/glossaryParity.test.js` fails on missing terms, reordering, or a definition left
+  verbatim English.
+
+## Dashboard
+
+Left-sidebar nav (Command / Trade / Portfolio / Analysis / Settings) with hash deep links and
+`localStorage.lastTab`. Command hosts the Autopilot loop plus News/Socials/Glossary/Scheduled Jobs
+sub-tabs. Settings persist to `localStorage`, seeded from `config.json`.
+
+- **Autopilot is a third, intentionally independent trading loop.** It runs only while a browser tab is
+  open, reacting faster when the user is watching; the cron engine covers the gaps. Its orders are tagged
+  `client_order_id` `ap-`, it is always OFF on page load, and the kill switch cancels all orders.
+  `GET /api/trader-state` is **session-scoped** — the row holds one tenant's positions, so guests get the
+  committed-file fallback — and lets Autopilot merge the cron engine's HWM/partial-TP/entry-time state
+  regardless of which engine last acted.
+- **Settings sync** (`src/js/settings-sync.js`) mirrors theme, last tab, watchlist, backtest defaults and
+  the non-secret dashboard settings to Postgres via `/api/session`; server wins when it has data.
+  **Deliberately local-only: Alpaca API keys/secrets and all `autopilotXxx` runtime keys.**
+- **Account deletion** — the Danger zone soft-deletes the caller's own account; a soft delete blocks
+  sign-in **suite-wide** instantly, and Suite's daily cron purges after 30 days. `db.js`'s
+  `USER_DATA_TABLES` is the purge inventory (Suite rule 28). `job_runs` and `trader_credential_audit` are
+  hard-deleted.
+- **Privacy policy** states there is exactly one cookie and no tracking of any kind — a factual claim about
+  this codebase, so anything adding storage, a processor or a retention change must update it (Suite rule
+  27). Footer also carries a trading-risk disclaimer and a Terms of Service modal.
+- **Plan entitlements:** `getPlan(uid)` and the `subscriptions` table exist, but **nothing in this project
+  gates on them yet.**
+
+## Modules
+
+- `src/scout.js` — promotes ≤3 uptrending high-confluence `*/USD` pairs (score ≥4) into
+  `data/watchlist_dynamic.json` (TTL 6h, merged when `scout.enabled`). Analysis-only.
+- `.claude/agents/market-researcher.md` — research/verification subagent; **invoke after every strategy
+  change**. Writes reports to `data/market_research/`; never trades or edits code.
 
 ## Bugs
 
-None open.
-
-## Hosting & frontend
-- Live trading engine = Node.js via Vercel Cron (`/api/cron/dispatch`) — the only trading engine; no Python, no GitHub Actions anywhere in this project. Walk-forward backtesting was **removed** 2026-07-30 (Suite roadmap item 4) — never ported, now deleted; see roadmap item 1 for what that leaves unmeasured.
-- Dashboard = React/Vite shell (`client/`) + 30 unchanged classic-global `src/js/*.js` files + 10 `src/css/*.css`. `server.js` serves `client/dist` (`npm run build` first, then `npm start`/`npm run dev`). No `file://` or GitHub Pages; Vercel works.
-- `client/` is its own npm project, not an npm workspace — root `npm run build` runs `npm --prefix client install && npm --prefix client run build` (not just `... run build`) so a fresh clone (Vercel) installs `client/`'s own `vite`/`react` deps before building.
-- React owns only the shell chrome; vanilla `switchTab()` owns all tab switching/loaders. **Browser click-through verified by the user 2026-07-31** — every tab, the Autopilot toggle, Settings save, the Settings engine panel (connect / activate / disconnect / save-overrides) and language switching in all four languages, with no bugs, missing labels or translation errors found. Details: archive › Dashboard. That verification describes the build of that date; it is not a standing guarantee, so a change to the shell, `switchTab()` or the i18n helpers should be re-exercised rather than assumed.
-- **Auth / SSO:** `src/auth.js` + `src/db.js` + `src/totp.js` (ported from CryptoPro Charts/Suite) add a `👤 Sign in` header button — username/password + optional TOTP 2FA, accounts/sessions in Postgres. `db.js`'s `CONN_VARS` now prefers `CRYPTOPROTRADER_POSTGRES_URL[_NON_POOLING]`, with `DBCRYPTOCHARTS_*`/`trading_*` kept only as rollback fallbacks — the Vercel Supabase integration issues per-project-prefixed vars that all resolve to the **same** Supabase project, so accounts are already shared suite-wide with no further dashboard step (confirmed 2026-07-24 by diffing this project's `.env` against Charts'; see `.env.example`). Corollary worth remembering: local, Preview and Production all talk to that one database. Client: `src/js/auth.js` (classic script, added to `client/src/scriptLoader.js`'s `SCRIPT_ORDER`) + `#authModalBackdrop` in `client/src/fragments/modals.html`. The "Enable 2FA" modal renders a scannable QR image (`src/js/qrcode-lib.js`, vendored `qrcode-generator` — MIT, pure JS, no CDN) alongside the raw secret text. The account modal also has a "Notification email" field (`accounts.notification_email`, `POST /api/auth/notification-email`) — captured and persisted only, nothing sends a notification anywhere yet.
-- **User manual:** `📖 Help` button (`❓`, `client/src/components/Header.jsx`, next to the theme toggle) opens `#manualPanel` — an off-canvas panel that unfolds from the left (`src/css/manual.css`, `.manual-overlay.open`). Content is a static `MANUAL_SECTIONS` array in `src/js/manual.js` (classic global script) covering every tab group plus Account/sign-in and keyboard shortcuts, with a left-rail TOC and a live search box filtering by title/body. No markdown fetch, no network call.
-- **Multi-language support — EN/NL/FR/ES (full-suite plan in `memory/i18n-suite-plan.md`):** `client/src/i18n/` adds `i18next` + `react-i18next`, initialized in `main.jsx` before the app renders. The ~30 classic-global `src/js/*.js` dashboard scripts and the raw-HTML tab/modal fragments (`dangerouslySetInnerHTML`) can't use React hooks, so `i18n/index.js` also exposes a plain `window.t()` and a generic `applyDomI18n(root)` that walks `data-i18n`/`data-i18n-html`/`data-i18n-placeholder`/`data-i18n-title`/`data-i18n-tip` attributes — one mechanism covers both the JSX shell and the static markup. A language switcher (🇬🇧/NL/FR/ES `<select>`, styled as `.theme-btn`) sits in the header next to the theme toggle; the choice persists to `localStorage`'s `dashLang` key, which `settings-sync.js`'s `SETTINGS_SYNC_KEYS` already round-trips through `/api/session` (same server-wins pattern as theme/last-tab). Covers: Header/Footer/Nav, the trade/journal/manual/terms modals (`common` namespace), and all 13 tab HTML fragments' subnav buttons, section/panel/chart titles, period/filter buttons, table column headers + tooltips, and loading/empty-state placeholders (`app` namespace).
-- **Runtime-rendered content is translated too, since 2026-07-31 (old roadmap item 8, closed).** The `tabs-*.js` scripts render through **`tt(ns, key, fallback, vars)`** in `utils.js` — one shared helper, 24 namespaces, 1,125 keys × 4 languages — and re-render on `lang-changed` via **`onLangChange(tabs, fn)`**, which gates on `activeTab` so a switch never spends an Alpaca call on a tab nobody is looking at. Every `tt()` keeps the old English literal as its fallback, so a failed locale fetch degrades to readable English, not raw keys. **Three rules that are not obvious and each of which would break something silently:**
-  - **Translate inside `kpi()`, never at its ~80 call sites.** `kpi()` looks up `TILE_TIPS` by the English label, so a translated label makes the lookup `undefined` and blanks every tile tooltip in NL/FR/ES. Callers pass English; it is both the lookup key and the fallback.
-  - **Never translate a value `ta-lib.js`/the engine emits as data** (`"uptrend"`, `"rising"`, the gap-go rating words). `src/scoreParity.test.js` diffs those strings against `signalScore()`, and the colour maps index by them. Translate at render only — `ttRegime` / `ttTrendWord` / `ttAdxLabel` / `ggRating`.
-  - **A panel that caches rendered prose cannot re-render into a new language.** `ggAnalyze()` stores i18n keys + params rather than sentences, and `tabs-market.js`'s scanner rows were hoisted into `msRenderRows()`, so neither has to re-fetch to switch language. Do the same for any new panel whose loader is expensive.
-- **Weekday/month names come from `Intl` in the active language** (`ttWeekdays`, `ttMonthLabel`) — calendar data, not copy. The GMT+2 job stamps in `tabs-command.js` deliberately stay `en-GB`: that column is fixed-width and must keep aligning across languages.
-- **Untranslated by design:** indicator abbreviations, and the action codes BUY/HALF/BEAR/HOLD plus Golden/Death cross — identical on every trading platform (Suite rule 22). They route through `vocab` keys anyway so the decision is visible in the locale files, and `i18nRuntimeKeys.test.js` asserts all four languages keep them identical. **Nothing user-facing is English-only any more (2026-07-31)** — `#portPosCount` and the Glossary tab, the last two exceptions, are both closed. `#portPosCount`'s label carries `data-i18n` on its own span so the script-written count is a sibling `applyDomI18n()` never touches. Two things still are English on purpose and say so: the *offline* glossary snapshot in `tabs-glossary.js` (a degraded fallback; four bundled copies would cost every user bytes on every load), and the Term column of the glossary itself (see below).
-- **The Glossary is per-language in the database, and its storage scheme is load-bearing.** `server.js` syncs four files — `memory/glossary.md` (English) and `glossary.{nl,fr,es}.md` — into one row each; `GET /api/glossary?lang=` serves them. Three rules:
-  - **Rows share the existing table under a suffixed id** (`'trader'` = English, `'trader:nl'` etc.) and there is **no schema migration**. A composite `(id, lang)` key is tidier and was rejected: an old build cold-starting mid-deploy still runs `on conflict (id)` (no matching constraint once the key is composite → its boot sync throws) and `where id = 'trader'` (would match four rows and return an arbitrary language). `glossaryId()` keeps the no-arg signature; `glossaryParity.test.js` pins it.
-  - **Only English is section-extracted.** `extractGlossarySections()` matches the two *English* `##` headings, so a translated file run through it yields `""` and the tab silently falls back to English. The translations are serve-ready by design so their headings translate too — there is a test asserting extraction returns `""` for them, precisely so nobody "simplifies" the sync branch by extracting all four.
-  - **The Term column is the key and stays English in all four files**; only definitions translate. It is the lookup handle (users search for what the dashboard shows them, e.g. `ATR`), the abbreviations are untranslated anyway, and it makes drift exactly detectable — `glossaryParity.test.js` fails if the four files disagree on terms, on their order, or if a definition is still verbatim English. **Adding a term means editing all four files** (Suite rule 20).
-- **`src/i18nRuntimeKeys.test.js` pins the two silent failure modes:** a `tt()` key missing from the locales (the English fallback makes a typo look like working code) and a key in `en.json` but not the other three (i18next falls back to `en`). Extend it rather than re-checking by hand.
-- **Long-form prose is translated too:** the 4 explainers (Autopilot, News, Socials, Glossary — `app:command.*DescHtml`), `markov.html`'s band explainer (`app:markov.descHtml`), and all 8 `manual.js` section **bodies** (`app:manual.body<Section>`; `MANUAL_SECTIONS` holds `bodyKey` + an `html` getter, so editing a section means editing all four locale files).
-- **The live-DOM-span problem was solved rather than avoided:** `setDashLang()` dispatches **`lang-changed`** after `applyDomI18n()`, and `tabs-markov.js` listens for it to re-write `#mkThreshLabel` — `data-i18n-html` replaces the parent's innerHTML and would otherwise reset a nested live value to its static placeholder. **Any future `data-i18n-html` block containing a script-written span must do the same.** (This is distinct from the plain `[data-i18n]` clobber, which the `dataset.i18nApplied` guard below handles generally.)
-- Two stale English claims were corrected while translating rather than carried over: the manual described the deleted `daily-summary` cron job and called Scheduled Jobs owner-only. Full remaining scope (Charts/Suite/Mobile port, Training chrome + full course-content translation) tracked in `memory/i18n-suite-plan.md`.
-- **Account deletion (Suite roadmap, shipped 2026-07-29):** the account modal's Danger zone soft-deletes the caller's own account (`POST /api/auth/delete-account` — password + exact username + 2FA when enabled). Ported identically to all four projects; the admin/restore/purge side lives in Suite only. Two-stage: soft delete kills every session and blocks sign-in **suite-wide** instantly (`currentUser()` and `/api/auth/login` now reject both `deletedAt` **and** `isBlocked` — this app never enforced `isBlocked` before, so a blocked account could still sign in here), then Suite's daily cron purges after 30 days. `db.js`'s `USER_DATA_TABLES` is the suite-wide purge inventory and **must be updated whenever a new per-user table is added anywhere in the suite** — nine tables have no FK to `accounts`, so a cascade alone erases almost nothing. **`job_runs` and `trader_credential_audit` are hard-deleted** (user decision 2026-07-29), overriding the earlier "audit trails outlive the account" design note in `db.js`, which was corrected in the same change.
-- **`applyDomI18n()` only owns a `[data-i18n]` node until a script writes to it (fixed 2026-07-31, user-reported).** It assigns `textContent`, so the 30 loading/empty placeholders that tab scripts later replace were being overwritten with the placeholder on **every language switch** — and since no `tabs-*.js` listens for `lang-changed`, nothing re-rendered: the panel just looked broken. Reported as "Scheduled Jobs will not load in FR/ES". The helper now records what it last wrote (`dataset.i18nApplied`) and skips a node whose text no longer matches, so chrome keeps re-translating and script-owned nodes are left alone. **Do not "fix" a wiped panel by removing its `data-i18n`** — the placeholder should stay translated for the moments before the script renders. **Not applied to `data-i18n-html`**, where a translated block wraps a script-written span: there the `lang-changed` re-apply is right, because the block itself must keep translating. Pinned by `src/i18nDomGuard.test.js`.
-- **Plan entitlements (Suite monetization phase 2, 2026-07-31):** `db.js` gains a `subscriptions` table (`uid` PK → `accounts`, cascade-deleted, so it is deliberately *not* in `USER_DATA_TABLES`) and `getPlan(uid)`, ported identically to all four projects. **`patreon_member_id` carries a UNIQUE index** — one Patreon member cannot be linked to several accounts, enforced by the database rather than by the link route; free accounts leave it NULL and Postgres allows many NULLs under a unique index. A link attempt that collides surfaces as `23505`, which phase 3's route must handle rather than leak. `getPlan` answers `'pro'` only while status is active/trialing **and** `current_period_end` is still in the future — a webhook that never arrives therefore degrades to `'free'` rather than granting Pro forever — and a missing row or an unconfigured database is `'free'`. **Nothing in this project gates on it yet**; the `requirePlan('pro')` middleware is Suite roadmap phase 4, and which tier Trader itself belongs to is still an open user decision. Because no code reads the table, an old build cold-starting before the migration is harmless here.
-- **The footer's "Last modified" date is build-stamped, not typed** — `client/vite.config.js` defines `__BUILD_DATE__` and `Footer.jsx` renders it. It was a literal and went stale between deploys. The version string next to it stays manual on purpose: it tracks `memory/memory.md` entries, not builds.
-- **No third-party asset hosts (2026-07-31, Suite rule 26).** Chart.js was loaded from `cdnjs.cloudflare.com` and is now vendored at `src/js/chartjs-4.4.0.umd.min.js`, served by `server.js`'s existing `/js` mount — same pattern as `qrcode-lib.js`. **No Trader HTML references an external host any more**; keep it that way rather than reaching for a CDN. Version lives in the filename so an upgrade is a visible file change.
-- **Privacy policy (GDPR Art. 13):** footer button next to Terms of Service opens `#privacyModalBackdrop` (`client/src/fragments/modals.html`); `openPrivacyModal()`/`closePrivacyModal()` sit in `src/js/terms-modal.js` beside the ToS pair. Seven sections under `common.modals.privacy`, EN/NL/FR/ES, static, no network call. **It states there is exactly one cookie and no tracking of any kind** — that is a factual claim about this codebase, so anything that adds storage, a processor, or a retention change must update it (Suite rule 27).
-- **Cross-project SSO ticket:** `db.createSsoTicket`/`consumeSsoTicket` + a `POST /api/auth/sso-ticket` route and an `?sso=<token>` consume middleware in `src/auth.js` (single-use, 60s TTL) let this app accept an auto-sign-in handoff from a sibling CryptoPro app — same shared `sso_tickets` table, ported identically to Charts/Training/Suite. Suite's landing page is the only issuer today; this app only consumes.
-
-## Cron cutover (Suite roadmap, "For Trader only" — COMPLETE)
-- **Two jobs only: `evaluate` and `watchdog`.** `daily-summary` was deleted entirely on 2026-07-29 (user decision) — it was journal-only, so nothing about how the engine trades changed; what is gone is the closing daily equity/realized-P&L journal block, by cron *and* by hand. Detail: `memory/memory.md` v2026-07-29.2.
-- `src/cronRoutes.js` (`GET/POST /api/cron/evaluate|watchdog`, plus `GET /api/cron/dispatch`) runs the Node engine as Vercel Cron-triggered serverless functions. `GET` (the Vercel Cron contract) requires the `CRON_SECRET` bearer header and runs the job for **every** tenant; `POST` (dashboard "Run now") requires a signed-in session and runs it for **that caller's own** uid only, rate-limited per uid — see `.env.example`. State/journal persist to Postgres (`trader_state`/`trader_journal` tables in `src/db.js`) since a serverless function has no persistent local disk; `job_runs` is the audit trail + concurrency lock (one `status='running'` row per job, DB-enforced via a partial unique index).
-- **Adjustable schedule:** a single dispatcher (`/api/cron/dispatch`) reads each job's dashboard-configured `hour_utc` from `cron_config` and only runs it once that UTC hour arrives and it hasn't already run today (`src/cronSchedule.js`'s `isJobDue()`, unit-tested). The individual `/api/cron/<job>` routes are untouched and still run immediately/unconditionally when hit directly (manual trigger or direct bearer call) — `hour_utc` only gates the dispatcher.
-- This project is on **Vercel Pro** — `vercel.json`'s cron runs `/api/cron/dispatch` natively every hour (`0 * * * *`).
-- **`CRON_EXECUTE` is live in production** (set `true` on Vercel) — the Node engine places real (paper) orders on schedule. The Scheduled Jobs panel said the opposite in all four languages until 2026-07-30; it now says scheduled runs place real orders (roadmap item 5, resolved). Its copy deliberately names no engine, env var or checkpoint, so this line stays the authority on *why* without the panel being able to contradict it.
-- Command tab's "☁ Scheduled Jobs" panel (any signed-in account, its own jobs only, `/api/cron/status`) shows last-run status per job, a per-job enabled toggle, an hour-of-day selector (UTC) for the adjustable schedule, and a manual "Run now" trigger. Since Phase 4, `cron_config` is keyed `(uid, job)` — **each account has its own schedule**, and `updated_by_uid` records who last wrote the row.
-
-# Trading agent
-Autonomous paper-crypto agent on Alpaca. Crypto trades 24/7 — no weekday/market-clock gate. All times GMT+2.
-**Always read `skills/crypto-trader/SKILL.md` before evaluating any trade.** Other skill: `crypto-catalysts` (news severity ladder — defensive only, never justifies an entry).
-
-## Schedule
-Live schedule is the Vercel Pro hourly dispatcher (see "Cron cutover" above) — `cron_config`'s per-job `hour_utc`, dashboard-adjustable via the Scheduled Jobs panel.
-
-## Hard rules — never break (full table + config keys: archive › Hard Rules)
-- **Paper trading only — live Alpaca access is read-only** (Suite workflow rule 23, EU MiCA). Reads (account, positions, orders, quotes) stay open on live credentials so the dashboard keeps showing insights; order placement and cancellation are paper-only. Enforced in two places, both fail closed on an unknown/unset base URL: `src/alpacaClient.js`'s `assertPaperTrading()` (guards `placeOrder`/`cancelOrder`/`cancelAllOrders`, keyed on `isPaperTradingUrl(baseUrl)` — hostname must be exactly `paper-api.alpaca.markets`; `trade.js`'s `BASE_URL` defaults to that host when `APCA_BASE_URL` is unset) and the dashboard's `api-config.js` `assertPaperTrading()` (guards `apiPost`/`apiDelete`, keyed on `getSettings().mode === "live"`). Autopilot already refused live mode. Header shows a 🔒 read-only badge (`#modeReadOnly`) while Live is selected.
-- Preserve ≥20% cash. Per-symbol caps (`config.json › portfolio_caps.caps`, % of equity): BTC 30, ETH 15, ADA/SOL 10, DOGE 8, LTC/DOT 6, LINK/AVAX/AAVE 5, default 5.
-- **Limit orders only** (≤0.2% from ask; **0.5% base for stops, widening to 0.8% after 2 unfilled cycles**, clamped to band edge, never self-rejected). **All orders via `src/trade.js`** — direct API calls forbidden. Stop dedup: check `getOpenOrders`, cancel-replace wider after 2 cycles.
-  - **The clamp ceiling is the escalated band, not the base one (fixed 2026-07-29 — it was a no-op before).** `alpacaClient.js` clamped every stop-loss limit back to the base 0.5%, so `risk.js`'s 0.5%→0.8% widening at cycle ≥2 was erased **by construction** and `STOP_LOSS_ESCALATION_EXTRA_PCT` could never reach an order — the "cancel-replace wider after 2 cycles" rule above did not function in the engine. It has always worked in the dashboard (`autopilot.js`'s `escBand` is unclamped), so this was also an engine/dashboard divergence on one documented rule. **This was not cosmetic:** measured spreads on 2026-07-29 were AVAX 0.570–0.577% and LTC 0.586% — *wider than the 0.5% base band* — so a stop-loss sell at `ask × 0.995` sat above the bid and could never cross. Those stops were not executable. `MAX_STOP_LOSS_BAND_PCT` (= base + escalation) is now the ceiling; `risk.js` remains the authority on which band applies at a given cycle, since `placeOrder` sees a price and not a cycle count. `CONFIG_SPEC`'s `STOP_LOSS_ESCALATION_EXTRA_PCT` bound was tightened 0.01 → 0.005 in the same change, so the absolute ceiling a user override can reach is **1.0%** from ask.
-- Long stop = previous 4H swing low (20 bars, ≤8% below entry; fallback −5%). Short stop = +5% adverse. Trailing stop arms at +2.5% profit, trails 3% below HWM. Never move a stop away from entry.
-  - **HWM persistence is Postgres, not a file — corrected 2026-07-30, this rule had said `data/positions_state.json` since before the serverless cutover.** That path (`src/positionState.js`'s `STATE_FILE`) is the **legacy/CLI path only**. The engine that actually trades runs serverless and has no persistent local disk: `src/tenantEngine.js:116-117` injects `loadState: () => state` and a **no-op `saveState`**, and the caller persists the result to the `trader_state` row once `main()` resolves. Anyone debugging a lost or stale HWM by opening the file is reading a stale artifact of a path that no longer trades.
-- Partial TP at +1R: sell 50%, remaining stop → breakeven (effective stop = max(swing low, breakeven)). Stale exit: >48h held, trail never armed, score <2.5. Rotation at full budget: candidate ≥4.0 and ≥2.0 above weakest holding ≤0 → swap, max 1/cycle.
-- Correlation budget: **7 total / 5 per tier** (Tier-1 = BTC, ETH; Tier-2 = rest). BUDGET EXCEEDED warning when positions exceed it (budget gates entries only). Net R:R entry gate: <1.0 block, <1.5 half-size (target BB-upper minus round-trip cost = 2×25 bps + spread).
-  - **The gate FAILS CLOSED (fixed 2026-07-29 — it used to fail open, inverted).** `netRr()` returns `null` when either leg is missing, and both `evaluateSymbol.js` and the dashboard `autopilot.js` then *skipped the check entirely*. That inverted the gate: `target` is null precisely when the ask is at or **above** the BB upper band, so the most extended setups — exactly what the gate exists to catch — sailed through unchecked while ordinary setups were tested. A null `entryStop` (too few 4H lows, or a swing low above entry) skipped it too, entering with an unmeasurable risk leg. Both now **block**, with the two causes named separately in the reason string. The word "soft" was dropped from this rule deliberately. Note this was a **both-engines** bug, like the stop-escalation one — the engine/dashboard divergence class is not confined to scoring, and `src/scoreParity.test.js` does not yet cover order-placement or entry-gate logic (**roadmap item 4**).
-- Streak throttle (**ACTIVE**): 3 straight losing round-trips OR 7-day drawdown ≥5% → risk ×0.5; releases after 2 winners AND drawdown <2.5%.
-- Score gates: long ≥3.5 full / ≥2.5 half (daily not downtrend); counter-trend half-long ≥4.0 in a downtrend. TA sell at ≤−2. **Shorts disabled** (Alpaca spot; cover logic stays at ≥+2 / +5% stop).
-- ATR sizing: risk = equity×1%; stop dist = 1.5×ATR; qty = risk/dist; hard-capped by symbol cap. **The exit stop is the 4H swing low, not this distance, so realized risk per trade runs 6–9× the intended 1% — the rule is nominal. This is roadmap item 3, not a footnote.**
-- Ships-OFF flags — never enable without reading archive detail (`assertNotShipped()` guards the Node side): chandelier trail, pyramiding, conviction sizing, measured-move target, maker-first entries, breadth gate. Session-edge filter is **ON** (half-size in negative-expectancy GMT+2 buckets, ≥20-sample guard).
-
-## Method
-- Top-down: daily regime (last vs SMA50 + SMA20 vs SMA50) → 4H structure (EMA20/50 = primary trend filter) → 15-min execution. Only trade with the 4H + daily trend. Wyckoff awareness: accumulation/mark-up = long; distribution/mark-down = take profit / stay flat.
-- 6-point Signal Confluence score (auto-computed by `src/evaluateSymbol.js`/`src/indicators.js`): EMA cross, MACD histogram, RSI, Bollinger %b, volume ratio, 4H regime. Full table, entry/cover rules, decision checklist, sizing examples, common mistakes: archive.
-
-## Modules
-- `src/scout.js` — promotes ≤3 uptrending high-confluence `*/USD` pairs (score ≥4) into `data/watchlist_dynamic.json` (TTL 6h, merged when `scout.enabled`). Analysis-only.
-- `.claude/agents/market-researcher.md` — research/verification subagent; **invoke after every strategy change**; writes reports to `data/market_research/`; never trades or edits code.
-
-## Dashboard (details: archive › Dashboard + `docs/dashboard_layout.md`)
-- Left-sidebar nav (Command / Trade / Portfolio / Analysis / Settings), hash deep links + `localStorage.lastTab`. Command hosts the Autopilot loop (always OFF on page load; its orders tagged `client_order_id` `ap-`; kill switch cancels all orders) plus News/Socials/Glossary sub-tabs. Settings persist to `localStorage`, seeded from `config.json` (load-only fallback).
-- **Autopilot is a third, intentionally-independent trading loop, by design.** It coexists with the cron dispatcher: Autopilot only runs while a browser tab is open, reacting faster when the user is watching; the always-on cron engine covers the gaps (overnight, asleep, browser closed). `GET /api/trader-state` (`src/cronRoutes.js`, **session-scoped** since Phase 5 — the row holds one tenant's positions, so guests get the committed-file fallback instead) returns the caller's Postgres `trader_state` row so Autopilot's cross-engine HWM/partial-TP/entry-time merge (`src/js/autopilot.js`, `src/js/tabs-command.js`'s split-HWM warning) always sees the cron engine's latest state regardless of which one last acted.
-- **☁ Scheduled Jobs sub-tab:** Any signed-in account, showing **its own** jobs (Phase 5; was owner-only). A banner appears when the account has no active Alpaca credential, because its schedule is inert until then — the dispatcher only visits accounts that are tenants. Shows last-run status/time per job (evaluate/watchdog — `daily-summary` deleted 2026-07-29) from `/api/cron/status`, a per-job enabled toggle, an hour-of-day (UTC) schedule selector, and a "Run now" manual trigger with a live "running… (Ns)" progress indicator. Evaluate/Watchdog mutually disable each other's "Run now" button while either is in flight (both touch `trader_state`) — with `daily-summary` gone, every remaining job touches state, so that guard now covers the whole panel.
-- **Footer disclaimer + Terms of Service:** the footer carries a trading-risk disclaimer (paper by default; live trading can incur real losses, at the user's own risk) and a "Terms of Service" link opening a static in-app modal (`src/js/terms-modal.js`, `#termsModalBackdrop` in `modals.html`) — no financial advice, no warranty, user accepts risk when enabling live trading. No network call.
-- **Settings sync:** `src/js/settings-sync.js` mirrors theme, last tab, watchlist, backtest-form defaults, and the non-secret parts of dashboard settings (mode, position limits) to Postgres (`layouts` table, one row per account keyed by `db.SESSION_NAME`, via `/api/session` GET/PUT) so they follow the signed-in account across devices/browsers — server wins whenever it has data. **Deliberately excluded, stays local-only:** Alpaca API key/secret (paper and live) and all `autopilotXxx` runtime keys (HWM, partial-TP, entry time, order age).
-- **Scoring invariants:** `calcSignalScore()` (dashboard) and `src/indicators.js`'s `signalScore()` (engine) must stay identical to each other. On any indicator change, verify: EMA seeding + ±0.05% dead zone, MACD NaN-stripped signal line + partial credits, RSI rising rule, thresholds 3.5/2.5/4.0 (never `=== 3`), BB population std-dev, volume window excl. current bar, **volume sparse-tape guard (`MIN_TRADED_BARS` = 10, must match on both sides — pinned by `src/scoreParity.test.js`)**, daily-regime SMA rule, ATR sizing, bar completeness (`end = now − 1 bar`) and recency, annualization **365**, min **60** bars, `STRAT_CFG` seeded from `config.json`, trade-economics function pairs.
-- **Volume component only scores when the tape is real (2026-07-29).** Alpaca's 15-min crypto tape is 64–92% empty for the alts (LTC 92%, DOGE 80%, DOT 75%) versus 2% BTC / 9% ETH, which collapses the 20-bar baseline mean and turned `volumeRatio` into a near-binary readout of "did a trade land in the last bucket": measured 0.000 on five watchlist symbols (scored thin, −0.5) and 58×/80×/126× on three others (scored above-average, +1) **in the same scan** — LTC's 126× was one trade after nineteen empty buckets. AVAX read −0.5 in one scan and +1 minutes later. That was 1.5 points of swing on a 6-point score with gates at 3.5/2.5, driven by trade arrival rather than participation. `volumeRatio` now returns `null` (scored n/a, worth 0, never ±) unless ≥10 of the 20 baseline bars traded. **Only this component was affected** — those same bars carry genuine quote-derived OHLC (zero consecutive-identical closes, no `o==h==l==c` fills, closes still moving 0.15–0.19%/bar) and 4H/daily volume is 0–16% empty, so the price indicators, the regime filters and the swing-low stop source were never in question. **Live effect, replayed over 140 evaluation points per symbol (1,400 total) by the market-researcher pass, not the single scan the first write-up of this used:** average score **+0.18**, positive on **every** symbol and negative on none; ≥2.5 crossings 62→67 (**+8%**), ≥3.5 crossings 11→6 (**−45%**) — i.e. more, smaller entries. SOL's and AVAX's mean scores *rose* (+0.04, +0.14); the "−1.0" in the original write-up was a single-scan artifact and is corrected here. The reason the guard is net-positive: on the 15-min tape signal 5 reads −0.5 on 68–86% of bars and +1 on only 10–23%, so removing it removes a net negative.
-- **Numerator guard added 2026-07-29 — the second half of the fix.** `volumeRatio` also returns `null` when the **measured bar itself had no trades**: `0 / anything` is 0, which the caller scored −0.5, but zero trades is an absence of observation, not a reading of "maximally thin". Distinct from a small-but-real volume, which is genuine thinness and still scores −0.5. This was the half the baseline guard left unfixed — ETH measured `0.00x → thin, −0.5` with 19/20 baseline bars traded, i.e. the artifact surviving on a symbol dense enough to pass the first check. **Replay-measured over 3,410 windows before shipping** (`scripts/replay.mjs`): mean score **+0.039**, positive on every watchlist symbol and negative on none, 7.7% of windows changed, ≥2.5 gate crossings **191 → 202** — predicted, then confirmed post-merge. The two n/a causes are labelled separately in the journal ("current bar had no trades" vs "only N/20 baseline bars traded").
-- **Still open on volume (→ roadmap item 2): the mean baseline is skew-biased on every symbol and timeframe, including daily.** Crypto volume is right-skewed, so signal 5 fires −0.5 roughly 3× more often than +1 even on BTC/ETH 4H; a **median** baseline centres it near 45/45. **Do not tune `MIN_TRADED_BARS`** — no value works: it behaves as a per-symbol on/off switch (pass rates BTC/ETH 100%, SOL 78%, AVAX 11%, LINK 4%, LTC/DOGE 0%), and SOL at 78% is *new* instability, flipping scored↔n/a about one scan in four. Recommended direction is **4H volume with a median baseline** (4H is 0–16% empty on all ten, zero-numerator 0–15%), which fixes sparsity *and* skew everywhere instead of on two symbols. `config.json › indicators.min_traded_bars` is now the single source of truth; `indicators.js` (a deliberately config-free pure module) and `ta-lib.js` (needs a value before config.json loads) each carry a mirroring literal, and `scoreParity.test.js` fails if any of the three drift.
-- **`scripts/replay.mjs` + `src/replay.js` — measure a scoring/gating change BEFORE shipping it.** Drives the real `evaluateSymbol` across a sliding window of historical bars and reports score distribution, gate crossings, net-R:R stats, and a bucketed tally of *which gate decided each window*. Built 2026-07-29 after four strategy changes shipped in one day on single-scan evidence and one of them shipped with a wrong published figure as a direct result. **Not a backtester** — no fills, no P&L; that is the separate follow-up that also retires the Backtest tab's stale banner. Fidelity rules that make it trustworthy: higher-timeframe bars are aligned by **timestamp not index** (index alignment leaks future regime into every window — pinned by a test), and `spreadPct` is a **required** parameter with no default because it feeds round-trip cost and therefore the R:R gate. Baseline 2026-07-29 (3,410 windows, 0.58% spread): 191 windows cleared the ≥2.5 score gate, **180 of those were then blocked by R:R**, 6 entries — i.e. the R:R gate does ~97% of the rejecting, and 139 of 179 evaluated net-R:R values are negative. **Use it for any future scoring change; a single live scan is not a measurement.** `--timeframe`/`--htf` shift the execution and higher-timeframe slots together (`15Min`/`4Hour` = production, `4Hour`/`1Day` = the 4H proposal).
-- **`scripts/compareTimeframes.mjs`** answers "which execution timeframe, which stop, which target" by replaying each configuration over the **same wall-clock window** — bar counts are derived from `--days`, because the first attempt at this compared 400 bars of each, i.e. 4 days of 15-min against 66 days of 4H, which is two market regimes rather than two timeframes. It **self-checks against the engine's own `decision.netRr`** on the cells the engine computes (1,556 compared, 0 mismatched as of 2026-07-29) and refuses to be trusted if the re-derivation has drifted. Findings recorded in `memory/memory.md` (2026-07-29): production's 15-min-execution/4H-stop pairing yields mean net R:R **−0.12** with 1% clearing the gate, **85% of candidates having a negative reward leg regardless of stop choice**; **4H execution with a matched 4H stop yields mean 2.01, 32% clearing the gate and 30% clearing full size**. **Net R:R is geometry, not edge** — 2:1 at a 30% win rate still loses, and whether the score predicts direction at 4H is untested until a walk-forward evaluator with fills and P&L exists.
-- **`src/scoreParity.test.js` is the first test to actually enforce the dashboard↔engine identity rule**, which had lived only as prose here while the two implementations sat in different module systems. It evaluates `src/js/ta-lib.js` in a `vm` context (it loads standalone) and diffs the **full 6-point score** across 200 seeded random markets, the data-sufficiency edges, and the real Alpaca tape-density range — `fixture()` is the translator, since `calcSignalScore` takes bar objects while `signalScore` takes parallel arrays. Any new indicator work should extend this file rather than re-verify by hand.
-- **EMA-cross bar threshold is `slow + 1` = 51 on both sides (fixed 2026-07-29).** The parity test's first run caught a real divergence: `emaArr()` yields a value at exactly 50 bars, so the dashboard scored ±1 on signal 1 **and** signal 6 where the engine's `emaCrossState()` (which requires 51) scored `n/a` — up to **2 points** of disagreement on short history, reachable via `fill4hFallback()`'s synthetic 4H series and newly-listed symbols. The dashboard was moved to match the engine (`EMA_CROSS_MIN_BARS`), because at exactly 50 bars an EMA-50 is still just its SMA seed with no exponential character, and because the engine is what trades on the cron. Engine behaviour is unchanged — `evaluateSymbol` already enforced `MIN_BARS` 60.
-- **Reconciliation parity:** `reconcilePositionsFromFills()`-equivalent logic exists in `src/js/edge-insights.js`'s `apReconcileFromFills()` (browser Autopilot — places real orders independently whenever toggled on) and `src/reconcile.js` (Node cron/dispatch engine). Any fix to the FIFO/flatness/dust-tolerance logic must be applied to both.
-- ADX/OBV are informational only — never fold into the score. Never revert the FILL fetch to a single page — realized P&L must use `edgeFetchAllFills()` everywhere (P&L, Backtest vs Live all agree via `computeFifoStats()`).
+_None open._
