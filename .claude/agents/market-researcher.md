@@ -31,10 +31,10 @@ spot crypto, USD pairs). Cover:
 
 - **Market regime**: For the watchlist symbols, determine the daily and 4H
   regime (trend, Wyckoff phase, volatility level via ATR). Use Alpaca market
-  data directly (`curl` against Alpaca's REST API with the `.env` credentials —
-  see `skills/hourly-research-SKILL.md` for the exact endpoints) or a local
-  dry-run of the Node evaluator (`node src/runEvaluation.js`) — never raw
-  order endpoints. Supplement with web research for macro/news catalysts.
+  data directly (`curl` against Alpaca's REST API with the `.env` credentials)
+  or a local dry-run of the Node evaluator (`node src/runEvaluation.js`) —
+  never raw order endpoints. Supplement with web research for macro/news
+  catalysts.
 - **Strategy fit**: Does the 6-point Signal Confluence system suit the
   current regime? E.g. mean-reversion signals (BB %b, RSI oversold) in
   strong trends, or trend signals in chop. Flag mismatches.

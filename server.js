@@ -3,9 +3,9 @@
 // build` -> `vite build`), plus its CSS/JS served from src/css and src/js
 // (30 classic, non-module scripts the React shell loads dynamically after
 // mount — see client/src/scriptLoader.js), and remaining static assets
-// (favicons, dashboard_layout.md) from /docs. The live trading engine itself
-// is still 100% Python, run via GitHub Actions cron (scripts/*.py) — this
-// server has no trading logic, just the dashboard frontend + a health check.
+// (favicons, dashboard_layout.md) from /docs. It also hosts the live trading
+// engine: src/cronRoutes.js runs evaluate/watchdog as Vercel Cron-triggered
+// serverless functions. See CLAUDE.md "Cron engine".
 import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -63,20 +63,17 @@ app.use((err, req, res, next) => {
 // Postgres database as the rest of CryptoPro Suite. See src/db.js.
 installAuthRoutes(app);
 
-// Cron cutover (Suite roadmap, "For Trader only") — Vercel Cron (or a
-// manual dashboard trigger) drives the Node evaluation/watchdog/daily-
-// summary engines instead of GitHub Actions. See src/cronRoutes.js.
+// Vercel Cron (or a manual dashboard trigger) drives the evaluate and
+// watchdog engines. See src/cronRoutes.js.
 installCronRoutes(app);
 
-// Multi-tenant conversion Phase 2 (Suite roadmap: per-user cron schedules /
-// "truly multi-tenant") — each signed-in account stores its own Alpaca API
-// credentials, encrypted at rest with TRADER_CREDENTIALS_ENC_KEY. Storage and
-// management only for now; the cron dispatcher still uses the shared env-var
-// account until Phase 5. See src/credentialsRoutes.js.
+// Each signed-in account stores its own Alpaca API credentials, encrypted at
+// rest with TRADER_CREDENTIALS_ENC_KEY, and the dispatcher runs per tenant.
+// See src/credentialsRoutes.js and CLAUDE.md "Multi-tenant engine".
 installCredentialsRoutes(app);
 
-// Multi-tenant conversion Phase 6 — the write surface for the Phase 3 per-user
-// strategy/risk overrides the Settings JSON editor edits. Validates against
+// The write surface for the per-user strategy/risk overrides the Settings JSON
+// editor edits. Validates against
 // CONFIG_SPEC and rejects, where the engine's read path merely drops bad keys.
 // See src/strategyConfigRoutes.js.
 installStrategyConfigRoutes(app);
@@ -145,9 +142,8 @@ db.init()
     // guard).
     //
     // English comes from memory/glossary.md, of which only the "Acronyms &
-    // Abbreviations" and "Trading Terms" sections are kept — the rest of that
-    // file is a dated implementation changelog, not glossary content (user
-    // correction, 2026-07-24).
+    // Abbreviations" and "Trading Terms" sections are kept — the file also
+    // carries a header block for editors, which is not glossary content.
     //
     // The translations are separate, already-serve-ready files holding just
     // those two sections, so they are stored verbatim. That is why they are

@@ -1,6 +1,6 @@
 // src/tenantEngine.js
 //
-// Multi-tenant conversion Phase 5 (memory/project-trader-multitenant-plan.md):
+// Multi-tenant engine (see CLAUDE.md "Multi-tenant engine — standing rules"):
 // turns a uid into everything one scheduled run needs — that user's Alpaca
 // client, that user's resolved strategy config, and the Postgres-backed state
 // and journal deps bound to their own rows.

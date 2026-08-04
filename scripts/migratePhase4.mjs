@@ -1,6 +1,6 @@
 // scripts/migratePhase4.mjs
 //
-// Multi-tenant conversion Phase 4 (memory/project-trader-multitenant-plan.md):
+// Multi-tenant conversion, per-uid backfill (see CLAUDE.md):
 // re-keys the four single-tenant engine tables by uid and attributes the
 // existing rows to the current owner.
 //

@@ -4,7 +4,7 @@
 // Node evaluation/watchdog engines — the Suite roadmap item
 // (Trader only) to replace the GitHub Actions Python cron workflows with an
 // "unattended process orchestrated via the front end". See
-// memory/memory.md v2026-07-21.3 for the full analysis this implements.
+// CLAUDE.md "Cron engine" for the contract this implements.
 //
 // A Vercel serverless function has no persistent local disk across
 // invocations, so runEvaluation.js/stopWatchdog.js's default
@@ -24,7 +24,7 @@
 //
 // CRON_EXECUTE gates real order placement, same shape as the CLI's
 // `--execute` flag, and defaults OFF. Per the existing cutover checkpoint
-// (memory/claude_md_archive.md "Node.js port"), this must stay false until
+// (see CLAUDE.md "Cron engine"), this must stay false until
 // the three parity gates (fixture parity, >=24h shadow-run parity, state
 // round-trip) have actually been run -- do not flip it on trust alone.
 import crypto from "node:crypto";

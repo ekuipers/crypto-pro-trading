@@ -1,6 +1,6 @@
 // Pulls just the stable reference sections out of memory/glossary.md — the
 // user only wants "Acronyms & Abbreviations" and "Trading Terms" served as
-// the glossary, not the ~30 dated changelog sections that make up the rest
+// the glossary, not the header block that precedes them
 // of the file (implementation-detail notes on specific features/bugs, not
 // glossary terms). memory/glossary.md itself is untouched — this only
 // affects what gets synced into the database / served over /api/glossary.

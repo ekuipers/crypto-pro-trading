@@ -14,7 +14,7 @@
     //   - Alpaca API key/secret (paper and live) — live trading credentials;
     //     writing these to the shared Supabase DB is a materially different
     //     security posture than syncing UI preferences, scoped out on
-    //     purpose (see memory/memory.md).
+    //     purpose.
     //   - autopilotXxx keys — live Autopilot runtime bookkeeping (HWM,
     //     partial-TP state, entry time, order age, day-open, log). Autopilot
     //     is deliberately always OFF on page load; syncing this across

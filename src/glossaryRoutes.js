@@ -1,14 +1,13 @@
 // ============================================================
-// Glossary route — Suite roadmap: "Add glossary to the database instead of
-// loading it from a file." Only the "Acronyms & Abbreviations" and "Trading
-// Terms" sections of memory/glossary.md are served — the rest of that file
-// is a dated implementation changelog, not glossary content (user
-// correction, 2026-07-24). memory/glossary.md remains the git-tracked
-// source in full (server.js extracts + syncs just those sections into
-// Postgres on boot); this route serves the DB row so it works in
-// production, where server.js never statically exposes memory/. Falls back
-// to reading the file straight off disk (same extraction) for local dev
-// without a DB configured. Read-only reference data — no auth needed.
+// Glossary route. Serves one row per language out of Postgres, which
+// server.js syncs from memory/glossary{,.nl,.fr,.es}.md on every boot — those
+// four files stay the git-tracked edit source. Only English is section-
+// extracted (the file carries an editors' header block that is not glossary
+// content); the translations are already serve-ready.
+//
+// This route exists because server.js deliberately does not statically expose
+// memory/. Falls back to reading the file off disk for local dev without a
+// database. Read-only reference data — no auth needed.
 // ============================================================
 import { readFile } from 'fs/promises';
 import { fileURLToPath } from 'url';

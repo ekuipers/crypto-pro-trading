@@ -2,8 +2,7 @@
 
 Trading-term reference for the dashboard's 📖 Glossary tab — acronyms and trading
 concepts for a user to understand while trading, not a developer/implementation
-reference. Implementation notes and the dated changelog live in `memory/memory.md`;
-architecture and hard rules live in `CLAUDE.md`.
+reference. Architecture and hard rules live in `CLAUDE.md`; `git log` is the history.
 
 > **This file has three siblings: `glossary.nl.md`, `glossary.fr.md`, `glossary.es.md`.**
 > Adding, renaming or reworking a term here means editing all four (Suite rule 20) —
@@ -11,8 +10,8 @@ architecture and hard rules live in `CLAUDE.md`.
 > the **Term column stays English in every file** (it is the lookup key, and the
 > abbreviations are untranslated by design), and only the definition columns are
 > translated. Only the `## Acronyms & Abbreviations` and `## Trading Terms` sections
-> of *this* file are served — the rest is a dated changelog — whereas the translated
-> files hold just those two sections and are served verbatim.
+> of *this* file are served (the header block above is stripped); the translated files
+> hold just those two sections and are served verbatim.
 
 ---
 

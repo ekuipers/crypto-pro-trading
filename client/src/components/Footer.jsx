@@ -21,7 +21,7 @@ export default function Footer() {
       </span>
       <span className="footer-sep">·</span>
       {/* Both stamped at build time by vite.config.js — the date from the build,
-          the version from memory.md's newest heading. They were literals here
+          both stamps from the build date. They were literals here
           and each went stale within a day of being typed. */}
       <span>{t('footer.lastModified')} <strong>{__BUILD_DATE__}</strong></span>
       <span className="footer-sep">·</span>

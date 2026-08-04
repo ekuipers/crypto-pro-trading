@@ -1,7 +1,7 @@
 // ============================================================
 // CREDENTIALS ROUTES — per-user Alpaca API keys (multi-tenant Phase 2)
 // ------------------------------------------------------------
-// See memory/project-trader-multitenant-plan.md. Lets each signed-in Suite
+// See CLAUDE.md "Multi-tenant engine". Lets each signed-in Suite
 // account connect its OWN Alpaca credentials for the server-side engine,
 // instead of every scheduled run using the one shared APCA_* env-var account.
 //

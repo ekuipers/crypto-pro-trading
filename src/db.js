@@ -256,7 +256,7 @@ export async function init() {
   // persistent local disk across invocations, so positions_state.json and
   // journal/*.md move here.
   //
-  // Multi-tenant Phase 4 (memory/project-trader-multitenant-plan.md): all four
+  // Multi-tenant, per-uid keying: all four
   // of these tables are now keyed by uid. The DDL below is the *target* shape,
   // which a fresh database gets directly. An existing single-tenant database is
   // reshaped by scripts/migratePhase4.mjs, which must be run BEFORE deploying
@@ -302,8 +302,7 @@ export async function init() {
   // Partial unique index backing the concurrency lock: at most one 'running'
   // row per (job, uid) at the database level, so startJobRun's insert can be
   // atomic (ON CONFLICT DO NOTHING) instead of a check-then-insert that two
-  // near-simultaneous requests could both pass (security review finding,
-  // 2026-07-21 — see memory/memory.md).
+  // near-simultaneous requests could both pass (security review finding).
   //
   // The uid is part of the key as of Phase 4: on the old (job)-only index two
   // different users' evaluate runs would contend for one lock and block each
@@ -334,19 +333,16 @@ export async function init() {
   // stays the git-tracked, human/AI-edited source in full (Trader CLAUDE.md
   // workflow rule 2 still applies to it), but server.js extracts just the
   // "Acronyms & Abbreviations" + "Trading Terms" sections (src/glossaryExtract.js)
-  // and syncs that into this row on every boot — the rest of the file is a
-  // dated implementation changelog, not glossary content (user correction,
-  // 2026-07-24). This also fixes a latent production bug: server.js never
-  // statically served memory/, so the live Glossary tab was silently falling
-  // back to the small hardcoded GLOSSARY_FALLBACK_MD snapshot instead of the
-  // real file.
+  // and syncs that into this row on every boot. server.js deliberately does
+  // not statically serve memory/, which is why the tab reads /api/glossary
+  // rather than fetching the file.
   await q(`create table if not exists glossary (
     id         text primary key default 'trader',
     content    text not null,
     updated_at timestamptz not null default now()
   )`);
 
-  // Multi-tenant conversion Phase 2 (memory/project-trader-multitenant-plan.md):
+  // Per-user Alpaca credentials:
   // per-user Alpaca credentials so the server-side engine can eventually run
   // one schedule per account instead of one shared env-var account.
   // `ciphertext` is an AES-256-GCM envelope (src/secretsCrypto.js) — a

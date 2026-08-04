@@ -1,7 +1,7 @@
 // ============================================================
 // SECRETS CRYPTO — AES-256-GCM envelope for at-rest Alpaca credentials
 // ------------------------------------------------------------
-// Multi-tenant conversion Phase 2 (see memory/project-trader-multitenant-plan.md).
+// Per-user credential encryption (see CLAUDE.md "Multi-tenant engine — standing rules").
 // Each user connects their own Alpaca key/secret; those land in Postgres
 // (trader_alpaca_credentials.ciphertext) and must not be readable by anyone
 // with a database dump alone.

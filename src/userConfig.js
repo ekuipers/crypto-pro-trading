@@ -1,6 +1,6 @@
 // src/userConfig.js
 //
-// Multi-tenant conversion Phase 3 (memory/project-trader-multitenant-plan.md):
+// Per-user strategy config (see CLAUDE.md "Multi-tenant engine — standing rules"):
 // per-user strategy/risk configuration.
 //
 // The engine's tunables used to exist only as module-level constants in
