@@ -100,6 +100,62 @@ export async function currentUid(req) {
   const user = await currentUser(req);
   return user?.id || db.GUEST;
 }
+// ---- Plan gating (monetization phase 4) ------------------------------------
+// Entitlement has two independent sources and either one grants access:
+//
+//   - `accounts.role`, set by an admin via Suite's POST /api/admin/users/:uid/role.
+//     'admin' must pass or an admin cannot see the features they support users
+//     on; 'pro' is the manual comp grant, and checking only getPlan() would
+//     make that existing admin control silently do nothing.
+//   - `subscriptions.plan` via db.getPlan(), the Patreon-driven path. It
+//     already fails closed on its own — missing row, non-active status, lapsed
+//     period and "no database configured" all read as 'free'.
+//
+// Status codes are deliberately three, not one: 401 (not signed in) and 402
+// (signed in, not entitled) are different fixes for the user, and the client
+// turns only the 402 into the upgrade prompt. An unexpected failure is 503,
+// never 402 — telling a paying subscriber to upgrade because a query blipped
+// is worse than telling them to retry. All three deny access.
+//
+// Uses currentUser(), not currentUid(): currentUid() falls back to db.GUEST for
+// signed-out callers, which must never be treated as an account to price.
+// The decision itself, kept pure so it can be tested without a live Postgres
+// or a session cookie (same reason as credentialsRoutes.js's validators).
+// Returns null to allow, or the HTTP status to deny with.
+export function planGateStatus(user, actualPlan, wanted = 'pro') {
+  if (!user) return 401;
+  if (user.role === 'admin' || user.role === wanted) return null;
+  if (actualPlan === wanted) return null;
+  return 402;
+}
+
+export function requirePlan(plan = 'pro') {
+  return async (req, res, next) => {
+    let user;
+    try {
+      user = await currentUser(req);
+    } catch (e) {
+      console.error('[auth] requirePlan lookup failed:', e?.message || e);
+      return res.status(503).json({ error: 'plan_check_unavailable' });
+    }
+    // Resolved only when the cheap role check cannot already decide it, so a
+    // signed-out caller never costs a query.
+    let actual = null;
+    if (user && user.role !== 'admin' && user.role !== plan) {
+      try {
+        actual = await db.getPlan(user.id);
+      } catch (e) {
+        console.error('[auth] requirePlan getPlan failed:', e?.message || e);
+        return res.status(503).json({ error: 'plan_check_unavailable' });
+      }
+    }
+    const denied = planGateStatus(user, actual, plan);
+    if (denied === 401) return res.status(401).json({ error: 'Sign in required' });
+    if (denied) return res.status(denied).json({ error: 'upgrade_required' });
+    return next();
+  };
+}
+
 
 /**
  * Step-up authentication: proves the person holding this session also knows

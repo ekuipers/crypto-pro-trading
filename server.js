@@ -10,7 +10,7 @@ import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
-import { installAuthRoutes, currentUid } from './src/auth.js';
+import { installAuthRoutes, currentUid, requirePlan } from './src/auth.js';
 import { installCronRoutes } from './src/cronRoutes.js';
 import { installCredentialsRoutes } from './src/credentialsRoutes.js';
 import { installStrategyConfigRoutes } from './src/strategyConfigRoutes.js';
@@ -62,6 +62,26 @@ app.use((err, req, res, next) => {
 // Multi-user auth (SSO) — accounts & sessions persist in the same Supabase
 // Postgres database as the rest of CryptoPro Suite. See src/db.js.
 installAuthRoutes(app);
+
+// ---- Pro entitlement gate (monetization phase 4) ---------------------------
+// Trader is a Pro-tier project: the whole surface is server-backed and every
+// tenant costs Alpaca calls and function time. Mounted before the route
+// installers below, since Express runs middleware in declaration order.
+//
+// `/api/cron` is split by METHOD, not by path, and this is load-bearing:
+// **GET is the Vercel Cron machine contract** — authenticated by the
+// CRON_SECRET bearer header, with no session and no uid — so plan-gating it
+// would 401 the scheduler and stop the engine outright. POST is the dashboard
+// "Run now" for the calling user, and PUT writes that user's schedule; both are
+// session-scoped and are gated.
+//
+// Left open deliberately: /api/glossary (served to users, and public content),
+// plus /api/health, /api/me, /api/session and the auth routes.
+app.use('/api/cron', (req, res, next) => {
+  if (req.method === 'GET') return next();
+  return requirePlan('pro')(req, res, next);
+});
+app.use(['/api/alpaca-credentials', '/api/strategy-config', '/api/trader-state'], requirePlan('pro'));
 
 // Vercel Cron (or a manual dashboard trigger) drives the evaluate and
 // watchdog engines. See src/cronRoutes.js.

@@ -456,6 +456,10 @@ function toAccount(r) {
     createdAt: r.created_at, lastLogin: r.last_login,
     totpSecret: r.totp_secret, totpEnabled: !!r.totp_enabled,
     notificationEmail: r.notification_email,
+    // Suite owns the admin UI that writes this, but the accounts table is
+    // shared, so every project must read it or requirePlan() can never see an
+    // admin or a manually-granted 'pro'.
+    role: r.role || 'free',
     isBlocked: !!r.is_blocked,
     deletedAt: r.deleted_at || null,
     deletedBy: r.deleted_by || null,

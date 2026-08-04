@@ -5,7 +5,7 @@ A fully automated crypto trading agent running on Alpaca. The agent evaluates pr
 when a score threshold is met, and journals every decision.
 
 **Node.js + React, deployed on Vercel with a Supabase (Postgres) database.** The Node engine
-(`src/`, 520-test `node --test` suite via `npm test`) is the sole trading engine, running as
+(`src/`, 545-test `node --test` suite via `npm test`) is the sole trading engine, running as
 Vercel Cron-triggered HTTP endpoints (`src/cronRoutes.js` + `vercel.json`, `CRON_EXECUTE=true`).
 There is no Python and no CI/CD workflow anywhere in this project. Walk-forward backtesting was
 removed outright on 2026-07-30 (Suite roadmap item 4), taking the Backtest tab's baseline banner

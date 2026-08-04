@@ -258,8 +258,21 @@ sub-tabs. Settings persist to `localStorage`, seeded from `config.json`.
 - **Privacy policy** states there is exactly one cookie and no tracking of any kind — a factual claim about
   this codebase, so anything adding storage, a processor or a retention change must update it (Suite rule
   27). Footer also carries a trading-risk disclaimer and a Terms of Service modal.
-- **Plan entitlements:** `getPlan(uid)` and the `subscriptions` table exist, but **nothing in this project
-  gates on them yet.**
+- **Plan entitlements — Trader is a Pro-tier project.** `requirePlan('pro')` (`src/auth.js`) gates
+  `/api/alpaca-credentials`, `/api/strategy-config`, `/api/trader-state` and the session-scoped half of
+  `/api/cron`, mounted in `server.js` as path prefixes *before* the route installers so sub-paths are
+  covered by construction. Entitlement comes from **either** `accounts.role` (`admin`, or a manually
+  granted `pro`) **or** `getPlan(uid)` — checking only `getPlan()` would lock admins out and make Suite's
+  role grant do nothing. Denials are 401 (signed out) / 402 `upgrade_required` (not entitled) /
+  **503 on an unexpected failure, never 402** — a paying user must not be told to upgrade because a query
+  blipped. The decision is pure in `planGateStatus()` and pinned by `src/planGate.test.js`.
+  - **`/api/cron` is gated by METHOD, and this is load-bearing.** **GET is never plan-gated** — it is the
+    Vercel Cron contract, authenticated by the `CRON_SECRET` bearer with no session and no uid, so gating
+    it would 401 the scheduler and stop the engine outright. POST ("Run now") and PUT (schedule) are
+    session-scoped and are gated.
+  - **The gate stops the API, not the work.** The dispatcher still runs *every* tenant's cron regardless of
+    plan, so a free tenant still costs Alpaca calls and function time. Entitlement has not reached the
+    engine yet — see Suite's ROADMAP.
 
 ## Modules
 
