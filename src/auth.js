@@ -50,14 +50,27 @@ function parseCookies(req) {
   }
   return out;
 }
+// Domain=.cryptoprosuite.com (production only — localhost has no subdomains
+// to share) is what makes SSO actually work on a cold entry: without it, each
+// app's cookie only ever lives on its own subdomain, so a bookmark straight
+// into this app shows whatever session was last set here directly, not
+// whatever's currently signed in on Suite or a sibling app. The ticket relay
+// (?sso=) only bridges accounts at the moment of a click; it can't retroactively
+// apply to a request that never carried one. All four hosts are subdomains of
+// (or, for Suite, exactly) cryptoprosuite.com, so all four can validly set this.
 function setCookie(res, name, value, maxAgeMs) {
   const bits = [`${name}=${encodeURIComponent(value)}`, 'Path=/', 'HttpOnly', 'SameSite=Lax'];
   if (maxAgeMs != null) bits.push(`Max-Age=${Math.floor(maxAgeMs / 1000)}`);
-  if (process.env.NODE_ENV === 'production') bits.push('Secure');
+  if (process.env.NODE_ENV === 'production') bits.push('Secure', 'Domain=.cryptoprosuite.com');
   res.setHeader('Set-Cookie', bits.join('; '));
 }
 function clearCookie(res, name) {
-  res.setHeader('Set-Cookie', `${name}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+  const bits = [`${name}=`, 'Path=/', 'HttpOnly', 'SameSite=Lax', 'Max-Age=0'];
+  // Must match Domain exactly, or this sets a second, narrower-scoped cookie
+  // instead of clearing the wide one — the browser keys a Set-Cookie's target
+  // by name+domain+path, not name alone.
+  if (process.env.NODE_ENV === 'production') bits.push('Domain=.cryptoprosuite.com');
+  res.setHeader('Set-Cookie', bits.join('; '));
 }
 
 const token = (bytes = 24) => crypto.randomBytes(bytes).toString('hex');

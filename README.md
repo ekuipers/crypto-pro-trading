@@ -124,11 +124,12 @@ Deletion asks for your password, your exact username, and your 2FA code when ena
 immediately (you are signed out everywhere and can no longer sign in) but is **reversible by an
 administrator for 30 days**; after that a scheduled job in CryptoPro Suite erases the data permanently.
 
-Signing in on the CryptoPro Suite landing page and clicking through to this dashboard also signs you in
-here automatically — a short-lived, single-use `?sso=` ticket in the URL is redeemed for a local session
-and stripped from the address bar. The account modal's **Switch app** row does the same thing in reverse:
-it mints a ticket for whichever sibling app (Suite, Charts, Training) you pick and signs you in there too,
-so the same account follows you in either direction.
+The session cookie is shared across the whole suite (`Domain=.cryptoprosuite.com` in production), so
+signing in on any CryptoPro app signs you in here too — including opening this dashboard cold from a
+bookmark, not just clicking through from another app. On top of that, Suite's landing page and every
+app's account modal **Switch app** row also mint a short-lived, single-use `?sso=` ticket before
+navigating, which is what actually carries you over on the `.vercel.app` fallback domains (they don't
+share the `cryptoprosuite.com` cookie) and gives an instant handoff even before the shared cookie exists.
 
 ### 6. Scheduled jobs via Vercel Cron (live paper engine)
 
