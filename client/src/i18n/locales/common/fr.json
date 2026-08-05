@@ -25,7 +25,8 @@
     "disclaimer": "⚠ Paper trading spot uniquement — aucun ordre réel n'est passé. Les clés réelles sont en lecture seule, à titre informatif.",
     "terms": "Conditions d'utilisation",
     "donate": "♥ Soutenir",
-    "privacy": "Confidentialité"
+    "privacy": "Confidentialité",
+    "plans": "Abonnements"
   },
   "nav": {
     "command": "🧭 Commande",
@@ -103,6 +104,25 @@
       "s6Html": "Vous pouvez demander l'accès, la rectification, l'effacement, la limitation, l'opposition ou une copie portable de vos données — et vous pouvez supprimer votre compte vous-même à tout moment, sans nous le demander. Pour le reste : info@vibesoftstudio.com. Vous avez également le droit d'introduire une réclamation auprès de votre autorité nationale de protection des données (aux Pays-Bas, l'Autoriteit Persoonsgegevens).",
       "s7Title": "Modifications",
       "s7Html": "Si cette politique change, la date ci-dessus change avec elle. Les modifications importantes seront annoncées dans l'application."
+    },
+    "plans": {
+      "title": "CryptoPro Pro",
+      "close": "Fermer",
+      "subtitle": "Un seul abonnement débloque le moteur de trading autonome ici et les fonctionnalités Pro dans Charts et Training — le même compte fonctionne partout.",
+      "currentPro": "Vous êtes Pro — merci de soutenir CryptoPro.",
+      "freeTitle": "Gratuit",
+      "freePrice": "0 €",
+      "free1": "Parcourez le tableau de bord et apprenez la méthode de confluence des signaux",
+      "free2": "Consultez le glossaire et la documentation de la méthode de trading",
+      "proTitle": "Pro",
+      "proPrice": "9,99 €",
+      "proPricePeriod": "/mois",
+      "pro1": "Connectez votre propre compte Alpaca paper trading",
+      "pro2": "Le moteur de paper trading autonome 24/7, selon un planning que vous contrôlez",
+      "pro3": "Configuration de la stratégie, Autopilot, journal et aperçus du portefeuille",
+      "upgradeBtn": "Passer à Pro",
+      "connectBtn": "Déjà mécène ? Connectez votre compte",
+      "manageBtn": "Gérer sur Patreon"
     }
   }
 }

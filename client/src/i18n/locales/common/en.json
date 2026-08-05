@@ -25,7 +25,8 @@
     "disclaimer": "⚠ Paper spot trading only — no live orders are placed. Live keys are read-only, for insights.",
     "terms": "Terms of Service",
     "donate": "♥ Support",
-    "privacy": "Privacy"
+    "privacy": "Privacy",
+    "plans": "Plans"
   },
   "nav": {
     "command": "🧭 Command",
@@ -103,6 +104,25 @@
       "s6Html": "You can ask for access, correction, erasure, restriction, objection, or a portable copy of your data — and you can delete your account yourself at any time, without asking us. Write to info@vibesoftstudio.com for anything else. You also have the right to complain to your national data protection authority (in the Netherlands, the Autoriteit Persoonsgegevens).",
       "s7Title": "Changes",
       "s7Html": "If this policy changes, the date above changes with it. Material changes will be announced in the app."
+    },
+    "plans": {
+      "title": "CryptoPro Pro",
+      "close": "Close",
+      "subtitle": "One subscription unlocks the autonomous trading engine here and the Pro features across Charts and Training — the same account works everywhere.",
+      "currentPro": "You're on Pro — thank you for supporting CryptoPro.",
+      "freeTitle": "Free",
+      "freePrice": "€0",
+      "free1": "Browse the dashboard and learn the signal-confluence method",
+      "free2": "Read the glossary and the trading-method docs",
+      "proTitle": "Pro",
+      "proPrice": "€9.99",
+      "proPricePeriod": "/month",
+      "pro1": "Connect your own Alpaca paper account",
+      "pro2": "The autonomous 24/7 paper-trading engine, on a schedule you control",
+      "pro3": "Strategy configuration, Autopilot, journal and portfolio insights",
+      "upgradeBtn": "Upgrade to Pro",
+      "connectBtn": "Already a patron? Connect your account",
+      "manageBtn": "Manage on Patreon"
     }
   }
 }

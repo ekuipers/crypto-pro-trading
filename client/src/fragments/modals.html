@@ -164,4 +164,45 @@
     </div>
   </div>
 
+  <!-- ══════════════ PLANS MODAL (Suite roadmap monetization phase 5) ══════════════
+       Free/Pro feature bullets are static data-i18n, same as Terms/Privacy above.
+       Only #plansCurrentBadge and #plansCta are script-rendered, by plans-modal.js,
+       because they depend on the caller's plan (fetched from /api/me) — everything
+       else here never changes at runtime. -->
+  <div id="plansModalBackdrop" class="modal-backdrop">
+    <div class="modal" style="width:min(640px,100%);max-height:85vh;display:flex;flex-direction:column">
+      <div class="modal-header">
+        <div class="modal-title" data-i18n="modals.plans.title">CryptoPro Pro</div>
+        <button class="btn" onclick="closePlansModal()">✕</button>
+      </div>
+      <div class="modal-body" style="overflow-y:auto;flex:1;line-height:1.6">
+        <p data-i18n="modals.plans.subtitle">One subscription unlocks the autonomous trading engine here and the Pro features across Charts and Training — the same account works everywhere.</p>
+        <div id="plansCurrentBadge" style="display:none"></div>
+        <div class="plans-grid">
+          <div class="plan-card">
+            <h3 data-i18n="modals.plans.freeTitle">Free</h3>
+            <div class="plan-price" data-i18n="modals.plans.freePrice">€0</div>
+            <ul class="plan-features">
+              <li data-i18n="modals.plans.free1">Browse the dashboard and learn the signal-confluence method</li>
+              <li data-i18n="modals.plans.free2">Read the glossary and the trading-method docs</li>
+            </ul>
+          </div>
+          <div class="plan-card plan-card-pro">
+            <h3 data-i18n="modals.plans.proTitle">Pro</h3>
+            <div class="plan-price"><span data-i18n="modals.plans.proPrice">€9.99</span><span class="plan-price-period" data-i18n="modals.plans.proPricePeriod">/month</span></div>
+            <ul class="plan-features">
+              <li data-i18n="modals.plans.pro1">Connect your own Alpaca paper account</li>
+              <li data-i18n="modals.plans.pro2">The autonomous 24/7 paper-trading engine, on a schedule you control</li>
+              <li data-i18n="modals.plans.pro3">Strategy configuration, Autopilot, journal and portfolio insights</li>
+            </ul>
+            <div id="plansCta" class="plan-cta"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closePlansModal()" data-i18n="modals.plans.close">Close</button>
+      </div>
+    </div>
+  </div>
+
   <div id="tooltip"></div>

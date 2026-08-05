@@ -25,7 +25,8 @@
     "disclaimer": "⚠ Alleen paper spot trading — er worden geen live orders geplaatst. Live sleutels zijn alleen-lezen, voor inzichten.",
     "terms": "Gebruiksvoorwaarden",
     "donate": "♥ Steun ons",
-    "privacy": "Privacy"
+    "privacy": "Privacy",
+    "plans": "Abonnementen"
   },
   "nav": {
     "command": "🧭 Commando",
@@ -103,6 +104,25 @@
       "s6Html": "U kunt inzage, correctie, verwijdering, beperking, bezwaar of een overdraagbare kopie van uw gegevens vragen — en u kunt uw account op elk moment zelf verwijderen, zonder het ons te vragen. Voor al het andere: info@vibesoftstudio.com. U hebt ook het recht een klacht in te dienen bij uw nationale toezichthouder (in Nederland de Autoriteit Persoonsgegevens).",
       "s7Title": "Wijzigingen",
       "s7Html": "Als dit beleid verandert, verandert de datum hierboven mee. Wezenlijke wijzigingen worden in de app aangekondigd."
+    },
+    "plans": {
+      "title": "CryptoPro Pro",
+      "close": "Sluiten",
+      "subtitle": "Eén abonnement ontgrendelt de autonome trading engine hier en de Pro-functies in Charts en Training — hetzelfde account werkt overal.",
+      "currentPro": "Je hebt Pro — bedankt voor je steun aan CryptoPro.",
+      "freeTitle": "Gratis",
+      "freePrice": "€0",
+      "free1": "Bekijk het dashboard en leer de signal-confluence methode",
+      "free2": "Lees de woordenlijst en de handelsmethode-documentatie",
+      "proTitle": "Pro",
+      "proPrice": "€9,99",
+      "proPricePeriod": "/maand",
+      "pro1": "Koppel je eigen Alpaca paper-account",
+      "pro2": "De autonome 24/7 paper-trading engine, op een schema dat jij bepaalt",
+      "pro3": "Strategieconfiguratie, Autopilot, journal en portfolio-inzichten",
+      "upgradeBtn": "Upgrade naar Pro",
+      "connectBtn": "Al patron? Koppel je account",
+      "manageBtn": "Beheren op Patreon"
     }
   }
 }

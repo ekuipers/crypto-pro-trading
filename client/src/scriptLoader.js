@@ -42,6 +42,7 @@ export const SCRIPT_ORDER = [
   'settings-engine.js',
   'manual.js',
   'terms-modal.js',
+  'plans-modal.js',
   'main.js',
 ];
 

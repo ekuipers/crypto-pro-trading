@@ -25,7 +25,8 @@
     "disclaimer": "⚠ Solo paper trading spot: no se colocan órdenes reales. Las claves reales son de solo lectura, a modo informativo.",
     "terms": "Términos de servicio",
     "donate": "♥ Apoyar",
-    "privacy": "Privacidad"
+    "privacy": "Privacidad",
+    "plans": "Planes"
   },
   "nav": {
     "command": "🧭 Comando",
@@ -103,6 +104,25 @@
       "s6Html": "Puede solicitar acceso, rectificación, supresión, limitación, oposición o una copia portátil de sus datos — y puede eliminar su cuenta usted mismo en cualquier momento, sin pedírnoslo. Para lo demás: info@vibesoftstudio.com. También tiene derecho a presentar una reclamación ante su autoridad nacional de protección de datos (en los Países Bajos, la Autoriteit Persoonsgegevens).",
       "s7Title": "Cambios",
       "s7Html": "Si esta política cambia, la fecha anterior cambia con ella. Los cambios importantes se anunciarán en la aplicación."
+    },
+    "plans": {
+      "title": "CryptoPro Pro",
+      "close": "Cerrar",
+      "subtitle": "Una sola suscripción desbloquea el motor de trading autónomo aquí y las funciones Pro en Charts y Training — la misma cuenta funciona en todas partes.",
+      "currentPro": "Tienes Pro — gracias por apoyar a CryptoPro.",
+      "freeTitle": "Gratis",
+      "freePrice": "0 €",
+      "free1": "Explora el panel y aprende el método de confluencia de señales",
+      "free2": "Lee el glosario y la documentación del método de trading",
+      "proTitle": "Pro",
+      "proPrice": "9,99 €",
+      "proPricePeriod": "/mes",
+      "pro1": "Conecta tu propia cuenta de Alpaca en modo paper",
+      "pro2": "El motor de paper trading autónomo 24/7, con un horario que tú controlas",
+      "pro3": "Configuración de estrategia, Autopilot, diario e información de cartera",
+      "upgradeBtn": "Mejorar a Pro",
+      "connectBtn": "¿Ya eres mecenas? Conecta tu cuenta",
+      "manageBtn": "Gestionar en Patreon"
     }
   }
 }

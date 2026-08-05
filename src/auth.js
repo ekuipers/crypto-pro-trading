@@ -244,7 +244,18 @@ export function installAuthRoutes(app) {
 
   app.get('/api/me', async (req, res) => {
     const user = await currentUser(req);
-    res.json({ user: user ? publicUser(user) : null });
+    if (!user) return res.json({ user: null });
+    // Same shortcut as requirePlan()/planGateStatus(): role grants first (free
+    // for a signed-in caller), subscriptions.plan only when neither applies.
+    // Feeds the Plans modal's free-vs-Pro CTA — a getPlan() hiccup here must
+    // not break sign-in, so it degrades to 'free' rather than failing the request.
+    let plan = 'free';
+    if (user.role === 'admin' || user.role === 'pro') {
+      plan = 'pro';
+    } else {
+      try { plan = await db.getPlan(user.id); } catch (e) { console.error('[auth] /api/me getPlan failed:', e?.message || e); }
+    }
+    res.json({ user: { ...publicUser(user), plan } });
   });
 
   app.post('/api/auth/register', async (req, res) => {
