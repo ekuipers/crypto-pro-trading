@@ -104,6 +104,10 @@ function renderAccountButton(user) {
   // out or free) — a footer link alone wasn't visible enough (2026-08-05).
   const upgradeBtn = $("upgradeBtn");
   if (upgradeBtn) upgradeBtn.style.display = user?.plan === 'pro' ? 'none' : '';
+  // Pro-tier indicator (Suite roadmap item 1, 2026-08-05): swap the header
+  // logo for the gold PRO badge art once the caller's plan is known.
+  const logo = $("brandLogo");
+  if (logo) logo.src = user?.plan === 'pro' ? '/cryptoprosuite-tier-pro.png' : '/favicon.svg';
 }
 
 // One form, two explicit actions — "Create account" and "Sign in" both submit

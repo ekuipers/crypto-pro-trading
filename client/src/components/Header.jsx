@@ -9,7 +9,7 @@ export default function Header() {
   return (
     <header>
       <div className="logo">
-        <img src="/favicon.svg" alt="CryptoPro Trader logo" className="logo-icon" />
+        <img id="brandLogo" src="/favicon.svg" alt="CryptoPro Trader logo" className="logo-icon" />
         <span className="logo-brand">CryptoPro</span> Trader
       </div>
 
