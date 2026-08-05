@@ -707,6 +707,8 @@
     "engineNotConfigured": "Le stockage des identifiants côté serveur n'est pas configuré sur ce déploiement ; les identifiants ne peuvent pas être enregistrés.",
     "engineSignIn": "Connectez-vous pour associer des identifiants au moteur de trading côté serveur.",
     "engineSignInSave": "Connectez-vous pour enregistrer les réglages de stratégie.",
+    "engineProRequired": "Le moteur de trading côté serveur est une fonctionnalité Pro — passez à Pro pour associer des identifiants et exécuter des tâches planifiées.",
+    "engineUpgradeBtn": "Passer à Pro",
     "engineNeedBoth": "Saisissez l'identifiant de clé API et le secret.",
     "engineNoAudit": "Aucune modification enregistrée pour l'instant.",
     "engineSaved": "Enregistré.",

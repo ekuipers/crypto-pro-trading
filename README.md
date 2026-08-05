@@ -88,6 +88,9 @@ scheduled jobs — which run whether or not this browser is open. That panel is 
 per-account strategy overrides as JSON. Connecting a key there is what makes your account a tenant of the
 scheduled engine; the browser fields above never are. See *Per-user Alpaca credentials* below.
 
+This panel is a **Pro** feature. A free signed-in account sees a "Pro feature" banner with an Upgrade to
+Pro button instead of the credential form — the browser-only fields above stay free for everyone.
+
 > **Safety:** pointing `APCA_BASE_URL` (or the dashboard's mode selector) at live does not enable live
 > trading — it makes the connection read-only. Orders can only be placed against
 > `https://paper-api.alpaca.markets`. Confirm the connectivity check above and a paper order round-trip

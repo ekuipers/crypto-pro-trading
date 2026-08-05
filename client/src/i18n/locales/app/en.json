@@ -707,6 +707,8 @@
     "engineNotConfigured": "Server-side credential storage is not configured on this deployment, so credentials cannot be saved.",
     "engineSignIn": "Sign in to connect credentials for the server-side trading engine.",
     "engineSignInSave": "Sign in to save strategy overrides.",
+    "engineProRequired": "The server-side trading engine is a Pro feature — upgrade to connect credentials and run scheduled jobs.",
+    "engineUpgradeBtn": "Upgrade to Pro",
     "engineNeedBoth": "Enter both the API key id and the secret.",
     "engineNoAudit": "No changes recorded yet.",
     "engineSaved": "Saved.",

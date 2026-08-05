@@ -707,6 +707,8 @@
     "engineNotConfigured": "Server-side sleutelopslag is niet geconfigureerd op deze deployment, dus sleutels kunnen niet worden opgeslagen.",
     "engineSignIn": "Meld je aan om sleutels te koppelen voor de server-side handelsengine.",
     "engineSignInSave": "Meld je aan om strategie-aanpassingen op te slaan.",
+    "engineProRequired": "De server-side handelsengine is een Pro-functie — upgrade om sleutels te koppelen en geplande taken uit te voeren.",
+    "engineUpgradeBtn": "Upgraden naar Pro",
     "engineNeedBoth": "Vul zowel de API-sleutel-ID als het geheim in.",
     "engineNoAudit": "Nog geen wijzigingen vastgelegd.",
     "engineSaved": "Opgeslagen.",

@@ -95,6 +95,20 @@
       esc(text) + (lis ? '<ul class="engine-errors">' + lis + "</ul>" : "") + "</div>";
   }
 
+  // requirePlan('pro') answers every route here with a bare
+  // {error:'upgrade_required'} 402 — without this, that raw string would
+  // otherwise reach the generic error banner verbatim (see afterCredentialChange
+  // and engineSaveConfig/engineResetConfig below).
+  function proRequiredBanner(el) {
+    if (!el) return;
+    el.innerHTML = '<div class="warn-banner" style="margin-bottom:10px">' +
+      "<div>" + esc(tr("app:settings.engineProRequired",
+        "The server-side trading engine is a Pro feature — upgrade to connect credentials and run scheduled jobs.")) + "</div>" +
+      '<button class="btn btn-green" style="margin-top:8px" onclick="window.openPlansModal()">' +
+        esc(tr("app:settings.engineUpgradeBtn", "Upgrade to Pro")) + "</button>" +
+      "</div>";
+  }
+
   // ---- Step-up password prompt -------------------------------------------
   // Shown only when the server answers 401 {stepUp:true}. The password is
   // typed into a masked field, sent once with the retried request, and never
@@ -178,6 +192,7 @@
   function afterCredentialChange(res) {
     if (!res) return;
     var status = $("engineStatusEl");
+    if (res.status === 402) { proRequiredBanner(status); return; }
     if (!res.ok) {
       banner(status, "err", (res.data && res.data.error) || "Request failed");
       return;
@@ -339,6 +354,23 @@
         if (auditEl) auditEl.innerHTML = "";
         return;
       }
+      // A signed-in free account — same shape as the 401 branch above, but
+      // with an upgrade CTA instead of a sign-in prompt. cfg shares the same
+      // requirePlan('pro') gate so it 402s together with cred; no need to
+      // check it separately.
+      if (cred.status === 402) {
+        proRequiredBanner(statusEl);
+        if (listEl) listEl.innerHTML = "";
+        var auditEl2 = $("engineAuditEl");
+        if (auditEl2) auditEl2.innerHTML = "";
+        var editorEl = $("engineConfigEditor");
+        if (editorEl) editorEl.value = "";
+        var keyListEl = $("engineKeyListEl");
+        if (keyListEl) keyListEl.innerHTML = "";
+        var configMsgEl = $("engineConfigMsgEl");
+        if (configMsgEl) configMsgEl.innerHTML = "";
+        return;
+      }
       if (!cred.ok) {
         banner(statusEl, "err", (cred.data && cred.data.error) || "Could not load credentials");
         if (listEl) listEl.innerHTML = "";
@@ -423,6 +455,7 @@
         banner(msgEl, "err", tr("app:settings.engineSignInSave", "Sign in to save strategy overrides."));
         return;
       }
+      if (res.status === 402) { proRequiredBanner(msgEl); return; }
       if (!res.ok) {
         // The server is the authority on what is allowed — show its per-key
         // reasons verbatim rather than paraphrasing them here, so the two can
@@ -440,6 +473,7 @@
     if (!window.confirm(tr("app:settings.engineConfirmReset",
       "Reset all strategy overrides back to the shipped defaults?"))) return;
     api(CONFIG_URL, { method: "DELETE" }).then(function (res) {
+      if (res.status === 402) { proRequiredBanner(msgEl); return; }
       if (!res.ok) {
         banner(msgEl, "err", (res.data && res.data.error) || "Could not reset");
         return;

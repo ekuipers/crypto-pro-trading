@@ -273,6 +273,14 @@ sub-tabs. Settings persist to `localStorage`, seeded from `config.json`.
   - **The gate stops the API, not the work.** The dispatcher still runs *every* tenant's cron regardless of
     plan, so a free tenant still costs Alpaca calls and function time. Entitlement has not reached the
     engine yet — see ROADMAP.md item 7 for the Trader-side change, Suite's ROADMAP for the decision.
+  - **`settings-engine.js` (fixed 2026-08-05) must show `proRequiredBanner()` on a 402, never let it fall
+    through.** Every catch/callback on the credentials + strategy-config panel echoed `res.data.error`
+    verbatim, which is the server's bare `upgrade_required` string, not copy meant for a user — a free
+    account saw that literal string in the status banner instead of an explanation. `engineRefresh()`,
+    `afterCredentialChange()`, `engineSaveConfig()` and `engineResetConfig()` all check `status === 402`
+    before the generic error path. `trader-state`'s two client reads (`tabs-command.js`, `autopilot.js`)
+    were left alone — both are best-effort HWM merges already wrapped to degrade silently on any failure,
+    not a panel a free user looks at.
 
 ## Modules
 

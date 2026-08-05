@@ -707,6 +707,8 @@
     "engineNotConfigured": "El almacenamiento de credenciales en el servidor no está configurado en este despliegue, así que no se pueden guardar.",
     "engineSignIn": "Inicia sesión para conectar credenciales al motor de trading del servidor.",
     "engineSignInSave": "Inicia sesión para guardar los ajustes de estrategia.",
+    "engineProRequired": "El motor de trading del servidor es una función Pro — actualiza para conectar credenciales y ejecutar tareas programadas.",
+    "engineUpgradeBtn": "Actualizar a Pro",
     "engineNeedBoth": "Introduce tanto el ID de la clave API como el secreto.",
     "engineNoAudit": "Todavía no hay cambios registrados.",
     "engineSaved": "Guardado.",
