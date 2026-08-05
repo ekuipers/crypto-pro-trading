@@ -100,6 +100,10 @@ function renderAccountButton(user) {
     btn.innerHTML = window.t('header.signIn');
     btn.title = window.t('app:auth.signInTitleAttr');
   }
+  // Hide once we know the caller is Pro; default visible otherwise (signed
+  // out or free) — a footer link alone wasn't visible enough (2026-08-05).
+  const upgradeBtn = $("upgradeBtn");
+  if (upgradeBtn) upgradeBtn.style.display = user?.plan === 'pro' ? 'none' : '';
 }
 
 // One form, two explicit actions — "Create account" and "Sign in" both submit

@@ -63,6 +63,12 @@ export default function Header() {
         </select>
         <button className="theme-btn" id="helpBtn" title={t('header.helpTitle')}>❓</button>
         <button className="theme-btn" id="themeBtn" onClick={() => window.toggleTheme()} title={t('header.themeTitle')}>🌙</button>
+        {/* Hidden until src/js/auth.js's initAuth() knows the caller's plan
+            (hidden for Pro, shown otherwise) — a footer link alone wasn't
+            visible enough to attract an upgrade (2026-08-05). */}
+        <button id="upgradeBtn" className="btn btn-green" onClick={() => window.openPlansModal()} style={{ display: 'none' }}>
+          ⭐ {t('header.upgradeBtn')}
+        </button>
         <button id="accountBtn" className="btn acct-btn" title={t('header.signIn')}>{t('header.signIn')}</button>
         <button className="btn btn-green" onClick={() => window.openSettings()}>{t('header.settings')}</button>
       </div>
