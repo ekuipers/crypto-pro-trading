@@ -5,8 +5,8 @@ Open items only; completed ones are deleted, not archived (Suite rule 5). Scan t
 
 **Nothing user-facing is open.** Items 1–3 decide whether the strategy has an edge at all, 4 is a
 correctness gap that has already shipped bugs twice, 5 needs a market event, 6 is a limitation nobody has
-hit. **Do not add a browser click-through item** — the whole dashboard, all four languages, was verified in
-the browser and found clean.
+hit, 7 is the Trader half of a Suite monetization gap. **Do not add a browser click-through item** — the
+whole dashboard, all four languages, was verified in the browser and found clean.
 
 ## 1. Whether the 6-point score predicts direction has never been tested
 
@@ -47,7 +47,12 @@ stop-escalation clamp that made stops unfillable, and the R:R gate that failed o
 it exists to catch), and the `reconcile.js` ↔ `apReconcileFromFills()` FIFO pair is still enforced by prose
 alone.
 
-Extend the parity test to cover the limit-band/clamp math and the entry-gate decision.
+**The engine half is covered; the browser half is the gap.** `src/trade.test.js` already pins the clamp and
+the 2-cycle escalation ceiling, but the dashboard re-implements both independently and untested:
+`src/js/autopilot.js:477` carries the escalated band as its own literal (`0.005 + escalationExtraPct/100`)
+and `src/js/strategy-config.js:65`'s `netRrPct()` is a second implementation of the R:R gate, consumed by
+`autopilot.js` and `tabs-signals.js`. Those two are the concrete divergence risk — extend the parity test
+to diff them against `trade.js` and `evaluateSymbol.js` the way the score is diffed today.
 
 ## 5. Stop escalation has never been observed against a real unfilled stop
 
@@ -63,3 +68,16 @@ market event, not a UI action. Do not fold it into a click-through item.
 express "every N hours" without a design change (an array of hours, or a repeat-interval per job). Blocks
 running `watchdog` more than once a day. **Nobody has asked for this** — it is listed so the limitation is
 not rediscovered as a bug.
+
+## 7. Plan entitlement stops at the routes; the dispatcher still runs free tenants
+
+Owned by the Suite roadmap (monetization phase 4, gap 2) but **the code that has to change is Trader's**,
+so a Trader-only scan would otherwise miss it. `requirePlan('pro')` gates the API surface, but
+`executeJob()` in `src/cronRoutes.js` resolves a tenant on credential and `isCronJobEnabled` alone — there
+is no `getPlan()` anywhere in `cronRoutes.js` or `tenantEngine.js`. A free tenant with a connected
+credential therefore still costs a full cycle of Alpaca calls and function time, which is the exact
+marginal cost Pro was priced to recover.
+
+The decision this needs is what a plan check does to a running tenant: skip with a reason (consistent with
+how an unreadable credential is handled) versus leaving positions unmanaged with no stop watchdog. **The
+second is the real hazard** — an entitlement lapse must not silently abandon open positions.

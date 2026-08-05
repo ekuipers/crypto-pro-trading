@@ -766,6 +766,8 @@
     "couldNotDisable2fa": "No se pudo deshabilitar 2FA.",
     "accountTitle": "Cuenta",
     "sharedAcrossSuite": "Esta cuenta se comparte en todas las aplicaciones de CryptoPro Suite.",
+    "switchApp": "Cambiar de aplicación",
+    "switchAppNote": "Has iniciado sesión con la misma cuenta en todas partes — elige una aplicación para continuar allí.",
     "notificationEmailLabel": "Email de notificación",
     "notificationEmailPlaceholder": "usted@ejemplo.com",
     "savingText": "Guardando…",

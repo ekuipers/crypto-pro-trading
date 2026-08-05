@@ -766,6 +766,8 @@
     "couldNotDisable2fa": "Kon 2FA niet uitschakelen.",
     "accountTitle": "Account",
     "sharedAcrossSuite": "Dit account wordt gedeeld door elke CryptoPro Suite-app.",
+    "switchApp": "Wissel van app",
+    "switchAppNote": "Je bent overal ingelogd met hetzelfde account — kies een app om daar verder te gaan.",
     "notificationEmailLabel": "Meldingsemail",
     "notificationEmailPlaceholder": "u@voorbeeld.com",
     "savingText": "Opslaan…",

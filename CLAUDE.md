@@ -272,7 +272,7 @@ sub-tabs. Settings persist to `localStorage`, seeded from `config.json`.
     session-scoped and are gated.
   - **The gate stops the API, not the work.** The dispatcher still runs *every* tenant's cron regardless of
     plan, so a free tenant still costs Alpaca calls and function time. Entitlement has not reached the
-    engine yet — see Suite's ROADMAP.
+    engine yet — see ROADMAP.md item 7 for the Trader-side change, Suite's ROADMAP for the decision.
 
 ## Modules
 

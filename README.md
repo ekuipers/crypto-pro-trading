@@ -126,8 +126,9 @@ administrator for 30 days**; after that a scheduled job in CryptoPro Suite erase
 
 Signing in on the CryptoPro Suite landing page and clicking through to this dashboard also signs you in
 here automatically — a short-lived, single-use `?sso=` ticket in the URL is redeemed for a local session
-and stripped from the address bar. This app only accepts that handoff today; it doesn't yet issue tickets
-for links to the other CryptoPro apps.
+and stripped from the address bar. The account modal's **Switch app** row does the same thing in reverse:
+it mints a ticket for whichever sibling app (Suite, Charts, Training) you pick and signs you in there too,
+so the same account follows you in either direction.
 
 ### 6. Scheduled jobs via Vercel Cron (live paper engine)
 

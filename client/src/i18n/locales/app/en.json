@@ -766,6 +766,8 @@
     "couldNotDisable2fa": "Could not disable 2FA.",
     "accountTitle": "Account",
     "sharedAcrossSuite": "This account is shared across every CryptoPro Suite app.",
+    "switchApp": "Switch app",
+    "switchAppNote": "You're signed in to the same account everywhere — pick an app to continue there.",
     "notificationEmailLabel": "Notification email",
     "notificationEmailPlaceholder": "you@example.com",
     "savingText": "Saving…",

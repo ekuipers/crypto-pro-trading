@@ -11,6 +11,40 @@
 
 let _authCurrentUser = null;
 
+// ---- Cross-project SSO handoff (Suite roadmap bug: "sign in to any app
+// should sign you in everywhere") ------------------------------------------
+// Suite's landing page already mints a ticket on click for its own outbound
+// tiles (Suite's src/js/auth.js wireCrossProjectLinks/withSsoTicket), but
+// that only covers Suite -> siblings: this dashboard (and Charts, and
+// Training) had no UI surface linking to any sibling app at all, so a user
+// who signs in here had nowhere to click. The account modal is the one
+// thing all four apps already have, so the switcher lives there. The
+// server-side ticket issue/consume routes are already symmetric across all
+// four apps (src/auth.js's /api/auth/sso-ticket + the ?sso= consume
+// middleware) — this is the missing client half for this app.
+const SSO_APPS = [
+  { url: 'https://cryptoprosuite.com/', label: 'CryptoPro Suite' },
+  { url: 'https://charts.cryptoprosuite.com/', label: 'CryptoPro Charts' },
+  { url: 'https://training.cryptoprosuite.com/', label: 'CryptoPro Training' },
+];
+
+// Mints a single-use ticket and appends it to `url`; on any failure (network
+// hiccup, database unavailable) falls back to the plain URL so the
+// destination just shows its own sign-in screen instead of the link silently
+// doing nothing.
+async function withSsoTicket(url) {
+  try {
+    const r = await fetch('/api/auth/sso-ticket', { method: 'POST' });
+    if (!r.ok) return url;
+    const { token } = await r.json();
+    const u = new URL(url);
+    u.searchParams.set('sso', token);
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
 function authEsc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -253,6 +287,13 @@ function openAccountModal(user) {
       </div>
       <div class="small" id="authNotifyEmailMsg" style="color:var(--muted);min-height:14px"></div>
     </div>
+    <div style="margin-bottom:12px">
+      <label>${window.t('app:auth.switchApp')}</label>
+      <p class="small" style="color:var(--muted);margin:2px 0 6px">${window.t('app:auth.switchAppNote')}</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${SSO_APPS.map((a, i) => `<button class="btn" data-sso-idx="${i}">${authEsc(a.label)}</button>`).join('')}
+      </div>
+    </div>
     <div class="danger-zone">
       <div class="danger-zone-title">${window.t('app:auth.dangerZone')}</div>
       <p class="small" style="color:var(--muted)">${window.t('app:auth.deleteAccountBlurb')}</p>
@@ -288,6 +329,12 @@ function openAccountModal(user) {
   $("authLogoutBtn").addEventListener('click', async () => {
     try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
     window.location.reload();
+  });
+  $("authModalBody").querySelectorAll('[data-sso-idx]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      window.location.href = await withSsoTicket(SSO_APPS[Number(btn.dataset.ssoIdx)].url);
+    });
   });
 }
 
