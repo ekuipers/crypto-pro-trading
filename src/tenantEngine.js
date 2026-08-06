@@ -16,6 +16,9 @@
 // env-var account. That fallback would look harmless — the engine keeps
 // trading — while actually placing one user's orders on the owner's Alpaca
 // account. Every failure path below returns a skip, never a default client.
+//
+// The same skip shape now also carries plan entitlement: a tenant who is not
+// on the Pro plan is skipped before any Alpaca client is built.
 import * as db from "./db.js";
 import { createAlpacaClient } from "./alpacaClient.js";
 import { resolveConfigForUser, cfgSymbolCap } from "./userConfig.js";
@@ -31,6 +34,7 @@ export const SKIP = {
   NO_CREDENTIAL: "no active Alpaca credential connected",
   UNREADABLE: "stored credential could not be decrypted",
   WRONG_ENVIRONMENT: "credential was saved from a different environment (key mismatch)",
+  NOT_PRO: "account is not on the Pro plan",
 };
 
 /**
@@ -43,6 +47,8 @@ export async function buildTenantContext(uid, deps = {}) {
   const getActiveAlpacaCredential = deps.getActiveAlpacaCredential || db.getActiveAlpacaCredential;
   const resolveConfig = deps.resolveConfigForUser || resolveConfigForUser;
   const makeClient = deps.createAlpacaClient || createAlpacaClient;
+  const getAccount = deps.getAccount || db.getAccount;
+  const getPlan = deps.getPlan || db.getPlan;
 
   let cred;
   try {
@@ -56,6 +62,34 @@ export async function buildTenantContext(uid, deps = {}) {
     throw e;
   }
   if (!cred) return { ok: false, uid, reason: SKIP.NO_CREDENTIAL };
+
+  // Plan entitlement (monetization phase 4). requirePlan('pro') already gates
+  // the HTTP surface, but the two GET cron routes authenticate with the
+  // CRON_SECRET bearer and carry no session or uid, so they structurally
+  // cannot take a route-level check — without this, a free tenant with a
+  // connected credential still cost a full cycle of Alpaca calls and function
+  // time. For POST ("Run now") this is a redundant backstop that also closes
+  // the plan-lapse race between the route check and the run itself.
+  //
+  // The role-then-getPlan order mirrors auth.js's requirePlan()/planGateStatus()
+  // exactly: an 'admin' or 'pro' role grants entitlement without spending a
+  // getPlan() query, because checking only the Patreon-driven subscriptions
+  // row would make Suite's manual role grant silently do nothing.
+  //
+  // Three placement/failure decisions, all deliberate:
+  //   - AFTER credential resolution, so a tenant who is both unentitled and
+  //     mis-keyed reports the credential reason — the one they can act on.
+  //   - BEFORE the client is built, so an unentitled tenant costs no Alpaca
+  //     calls, which is the entire point of the check.
+  //   - NOT wrapped in try/catch. A missing accounts row (a deletion race) is
+  //     a known bad state and fails closed to "not entitled", but a database
+  //     outage must PROPAGATE, exactly like a non-DecryptFailed error above.
+  //     Reporting an outage as "this user isn't paying" would stop every
+  //     tenant's engine while reading like a deliberate opt-out.
+  const account = await getAccount(uid);
+  const roleGrants = account?.role === "admin" || account?.role === "pro";
+  const entitled = account ? (roleGrants || (await getPlan(uid)) === "pro") : false;
+  if (!entitled) return { ok: false, uid, reason: SKIP.NOT_PRO };
 
   // Config is resolved before the client is built: createAlpacaClient bakes in
   // two of the order-band hard rules from cfg, so a per-user client built from

@@ -347,7 +347,10 @@
     .danger-zone .btn-red { margin-top:8px; }
 
     /* ---- Plans modal (Suite roadmap monetization phase 5) ---- */
-    #plansCurrentBadge {
+    /* Class version reused by the account modal's plan badge (Suite roadmap
+       monetization — link status), #plansCurrentBadge is the Plans modal's
+       own script-toggled hook and keeps its display:none default separate. */
+    #plansCurrentBadge, .plan-current-badge {
       display:inline-block;
       margin:4px 0 10px;
       padding:6px 14px;

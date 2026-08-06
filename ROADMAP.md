@@ -5,7 +5,7 @@ Open items only; completed ones are deleted, not archived (Suite rule 5). Scan t
 
 **Nothing user-facing is open.** Items 1–3 decide whether the strategy has an edge at all, 4 is a
 correctness gap that has already shipped bugs twice, 5 needs a market event, 6 is a limitation nobody has
-hit, 7 is the Trader half of a Suite monetization gap. **Do not add a browser click-through item** — the
+hit, 7 is a pre-launch decision left open by the plan-skip that just shipped. **Do not add a browser click-through item** — the
 whole dashboard, all four languages, was verified in the browser and found clean.
 
 ## 1. Whether the 6-point score predicts direction has never been tested
@@ -69,15 +69,16 @@ express "every N hours" without a design change (an array of hours, or a repeat-
 running `watchdog` more than once a day. **Nobody has asked for this** — it is listed so the limitation is
 not rediscovered as a bug.
 
-## 7. Plan entitlement stops at the routes; the dispatcher still runs free tenants
+## 7. A plan lapse now skips the tenant, including their open positions
 
-Owned by the Suite roadmap (monetization phase 4, gap 2) but **the code that has to change is Trader's**,
-so a Trader-only scan would otherwise miss it. `requirePlan('pro')` gates the API surface, but
-`executeJob()` in `src/cronRoutes.js` resolves a tenant on credential and `isCronJobEnabled` alone — there
-is no `getPlan()` anywhere in `cronRoutes.js` or `tenantEngine.js`. A free tenant with a connected
-credential therefore still costs a full cycle of Alpaca calls and function time, which is the exact
-marginal cost Pro was priced to recover.
+The engine half shipped 2026-08-06: `buildTenantContext()` resolves entitlement (role `admin`/`pro`, else
+`db.getPlan()`) and returns `SKIP.NOT_PRO` before building an Alpaca client, so a free tenant no longer
+costs a cycle of Alpaca calls on any of the three paths. It sits in `tenantEngine.js` rather than
+`cronRoutes.js` because the two GET cron routes are bearer-authenticated with no session and cannot take a
+`requirePlan()` route check.
 
-The decision this needs is what a plan check does to a running tenant: skip with a reason (consistent with
-how an unreadable credential is handled) versus leaving positions unmanaged with no stop watchdog. **The
-second is the real hazard** — an entitlement lapse must not silently abandon open positions.
+**What is left is the hazard the skip creates**, deferred deliberately: a skipped tenant gets no stop
+watchdog either, so an entitlement lapse abandons whatever is open. Acceptable now — every account is a
+test account, paper money, pre-production — and **must be decided before this project goes live**. The
+options are the usual three: flatten on lapse, keep running exits-only (watchdog yes, entries no), or a
+grace period. Suite's roadmap owns the pricing side of that decision.

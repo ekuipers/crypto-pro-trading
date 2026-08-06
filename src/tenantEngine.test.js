@@ -30,12 +30,23 @@ function stubClientFactory() {
   return { factory, calls };
 }
 
+// Baseline tenant: a plain account with no role grant, entitled through the
+// Patreon-driven subscriptions row. Chosen over a role grant so the default
+// path through every other test still exercises the getPlan() call.
 const deps = (over = {}) => ({
   getActiveAlpacaCredential: async () => PAPER,
   resolveConfigForUser: async () => ({ cfg: DEFAULT_CFG, errors: [] }),
   createAlpacaClient: stubClientFactory().factory,
+  getAccount: async () => ({ id: "alice", role: null }),
+  getPlan: async () => "pro",
   ...over,
 });
+
+/** Records every getPlan call so a test can prove the role shortcut skipped it. */
+function stubGetPlan(plan = "free") {
+  const calls = [];
+  return { calls, getPlan: async (uid) => { calls.push(uid); return plan; } };
+}
 
 describe("buildTenantContext", () => {
   test("builds a client from the tenant's own credential", async () => {
@@ -130,6 +141,112 @@ describe("buildTenantContext", () => {
 
     assert.equal(calls[0].symbolCap("BTC/USD"), 0.12);
     assert.equal(calls[0].symbolCap("SOL/USD"), 0.03);
+  });
+
+  // ---- Plan entitlement (ROADMAP item 7) ---------------------------------
+  // requirePlan('pro') stops the API, not the work: the two GET cron routes
+  // are bearer-authenticated with no session, so the dispatcher used to run a
+  // free tenant's full cycle — Alpaca calls and all — on a valid credential.
+  // The skip has to happen here, and before the client is built.
+  test("a free-plan tenant with a valid credential is skipped, and no client is built", async () => {
+    const { factory, calls } = stubClientFactory();
+    const ctx = await buildTenantContext("bob", deps({
+      getAccount: async () => ({ id: "bob", role: null }),
+      getPlan: async () => "free",
+      createAlpacaClient: factory,
+    }));
+
+    assert.equal(ctx.ok, false);
+    assert.equal(ctx.reason, SKIP.NOT_PRO);
+    assert.equal(calls.length, 0, "a client was built for a tenant with no Pro entitlement");
+    assert.equal(ctx.client, undefined, "a skipped tenant must not carry a client");
+  });
+
+  test("a lapsed subscription (getPlan resolves 'free') is skipped", async () => {
+    // The account still exists and still has a working credential — only the
+    // subscriptions row has gone non-active/expired. db.getPlan already folds
+    // every one of those cases into 'free'.
+    const ctx = await buildTenantContext("bob", deps({
+      getAccount: async () => ({ id: "bob", role: null, username: "bob" }),
+      getPlan: async () => "free",
+    }));
+
+    assert.equal(ctx.ok, false);
+    assert.equal(ctx.reason, SKIP.NOT_PRO);
+  });
+
+  test("no accounts row at all fails closed to NOT_PRO, not an error", async () => {
+    // Possible after a deletion race. Fail closed: an absent account is not a
+    // tenant to trade, and must not surface as an engine-wide failure either.
+    const ctx = await buildTenantContext("ghost", deps({
+      getAccount: async () => null,
+      getPlan: async () => "pro",
+    }));
+
+    assert.equal(ctx.ok, false);
+    assert.equal(ctx.reason, SKIP.NOT_PRO);
+  });
+
+  test("role 'admin' is entitled without a getPlan query", async () => {
+    // Same shortcut as auth.js's requirePlan()/planGateStatus(): checking only
+    // subscriptions.plan would lock admins out of the engine they support
+    // users on, and make Suite's manual role grant silently do nothing.
+    const { calls, getPlan } = stubGetPlan("free");
+    const ctx = await buildTenantContext("root", deps({
+      getAccount: async () => ({ id: "root", role: "admin" }),
+      getPlan,
+    }));
+
+    assert.equal(ctx.ok, true);
+    assert.equal(calls.length, 0, "the role grant should decide it without a getPlan query");
+  });
+
+  test("role 'pro' is entitled without a getPlan query", async () => {
+    // The manual comp grant, set by an admin via Suite's role endpoint.
+    const { calls, getPlan } = stubGetPlan("free");
+    const ctx = await buildTenantContext("comped", deps({
+      getAccount: async () => ({ id: "comped", role: "pro" }),
+      getPlan,
+    }));
+
+    assert.equal(ctx.ok, true);
+    assert.equal(calls.length, 0, "the role grant should decide it without a getPlan query");
+  });
+
+  test("a credential problem outranks a plan problem in the reported reason", async () => {
+    // Check order is load-bearing: a tenant who is both unentitled AND
+    // mis-keyed should hear about the credential, which is the one thing they
+    // can actually act on.
+    const ctx = await buildTenantContext("bob", deps({
+      getActiveAlpacaCredential: async () => { throw new KeyMismatch("row abc vs deployment def"); },
+      getAccount: async () => ({ id: "bob", role: null }),
+      getPlan: async () => "free",
+    }));
+
+    assert.equal(ctx.ok, false);
+    assert.equal(ctx.reason, SKIP.WRONG_ENVIRONMENT);
+  });
+
+  test("a getPlan database failure propagates instead of reading as 'not paying'", async () => {
+    // Same rule as the credential path above: a known bad state is a skip, an
+    // unexpected error is not. Swallowing an outage here would stop every
+    // tenant's engine while every skip line read like a deliberate opt-out.
+    await assert.rejects(
+      () => buildTenantContext("bob", deps({
+        getAccount: async () => ({ id: "bob", role: null }),
+        getPlan: async () => { throw new Error("connection reset"); },
+      })),
+      /connection reset/,
+    );
+  });
+
+  test("a getAccount database failure propagates instead of becoming a skip", async () => {
+    await assert.rejects(
+      () => buildTenantContext("bob", deps({
+        getAccount: async () => { throw new Error("connection reset"); },
+      })),
+      /connection reset/,
+    );
   });
 
   test("a live-mode credential resolves but is not trading-enabled", async () => {

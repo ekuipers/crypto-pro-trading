@@ -255,7 +255,21 @@ export function installAuthRoutes(app) {
     } else {
       try { plan = await db.getPlan(user.id); } catch (e) { console.error('[auth] /api/me getPlan failed:', e?.message || e); }
     }
-    res.json({ user: { ...publicUser(user), plan } });
+    // Link status is independent of `plan` — a role grant makes plan:'pro'
+    // with no Patreon link at all, and a lapsed pledge can leave
+    // patreon.linked:true with plan:'free'. Same fail-soft rule as getPlan().
+    let patreon = { linked: false, status: null, currentPeriodEnd: null };
+    try {
+      const sub = await db.getSubscription(user.id);
+      if (sub) {
+        patreon = {
+          linked: !!sub.patreon_member_id,
+          status: sub.status || null,
+          currentPeriodEnd: sub.current_period_end || null,
+        };
+      }
+    } catch (e) { console.error('[auth] /api/me getSubscription failed:', e?.message || e); }
+    res.json({ user: { ...publicUser(user), plan, patreon } });
   });
 
   app.post('/api/auth/register', async (req, res) => {

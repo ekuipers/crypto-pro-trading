@@ -692,6 +692,22 @@ export async function getPlan(uid) {
   return 'pro';
 }
 
+// Raw subscription row (ported from Suite's db.js — Suite owns the Patreon
+// OAuth link, but the `subscriptions` table is the same shared-DB table every
+// project reads). Unlike getPlan(), this preserves patreon_member_id/status
+// so a caller can tell "linked but plan lapsed" from "never linked" — getPlan
+// alone collapses both to 'free'.
+export async function getSubscription(uid) {
+  if (!uid) throw new TypeError('getSubscription requires a uid');
+  if (!dbEnabled()) return null;
+  const { rows } = await q(
+    `select uid, plan, status, current_period_end, patreon_member_id, updated_at
+       from subscriptions where uid = $1`,
+    [String(uid).toLowerCase()],
+  );
+  return rows[0] || null;
+}
+
 // ---- Sessions --------------------------------------------------------------
 export async function createSession(sid, uid, expiresAtMs) {
   await q('delete from sessions where expires_at < now()'); // prune expired

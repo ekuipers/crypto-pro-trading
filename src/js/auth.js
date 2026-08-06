@@ -274,8 +274,14 @@ function openDisableTotpModal() {
   });
 }
 
+// Same constants as plans-modal.js — Patreon's OAuth link is Suite-only.
+const ACCT_CONNECT_URL = 'https://cryptoprosuite.com/api/patreon/connect';
+const ACCT_PATREON_URL = 'https://www.patreon.com/vibesoftstudio';
+
 function openAccountModal(user) {
   const name = user.displayName || user.username;
+  const isPro = user.plan === 'pro';
+  const linked = !!(user.patreon && user.patreon.linked);
   renderAuthView(
     window.t('app:auth.accountTitle'),
     `
@@ -286,6 +292,13 @@ function openAccountModal(user) {
         <div class="small" style="color:var(--muted)">@${authEsc(user.username)}</div>
       </div>
     </div>
+    ${isPro
+      ? `<div class="plan-current-badge">${window.t('modals.plans.currentPro', { defaultValue: "You're on Pro — thank you for supporting CryptoPro." })}</div>
+         ${linked ? `<div class="plan-cta" style="margin-bottom:12px"><a class="btn" href="${ACCT_PATREON_URL}" target="_blank" rel="noopener">${window.t('modals.plans.manageBtn', { defaultValue: 'Manage on Patreon' })}</a></div>` : ''}`
+      : `<div class="plan-cta" style="margin-bottom:12px">
+           <a class="btn btn-green" href="${ACCT_PATREON_URL}" target="_blank" rel="noopener">${window.t('modals.plans.upgradeBtn', { defaultValue: 'Upgrade to Pro' })}</a>
+           ${!linked ? `<a class="btn" href="${ACCT_CONNECT_URL}">${window.t('modals.plans.connectBtn', { defaultValue: 'Already a patron? Connect your account' })}</a>` : ''}
+         </div>`}
     <p class="small" style="color:var(--muted)">${window.t('app:auth.sharedAcrossSuite')}</p>
     <div style="margin-bottom:12px">
       <label>${window.t('app:auth.notificationEmailLabel')}</label>

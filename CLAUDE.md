@@ -270,9 +270,19 @@ sub-tabs. Settings persist to `localStorage`, seeded from `config.json`.
     Vercel Cron contract, authenticated by the `CRON_SECRET` bearer with no session and no uid, so gating
     it would 401 the scheduler and stop the engine outright. POST ("Run now") and PUT (schedule) are
     session-scoped and are gated.
-  - **The gate stops the API, not the work.** The dispatcher still runs *every* tenant's cron regardless of
-    plan, so a free tenant still costs Alpaca calls and function time. Entitlement has not reached the
-    engine yet — see ROADMAP.md item 7 for the Trader-side change, Suite's ROADMAP for the decision.
+  - **The engine gate is a skip, not a status.** `buildTenantContext()` (`src/tenantEngine.js`) resolves
+    entitlement with the *same* role-then-`getPlan()` shortcut as `requirePlan()` and returns
+    `SKIP.NOT_PRO` — the same shape as an unreadable credential. It lives there, not in `cronRoutes.js`,
+    because that is the single answer to "which account are we trading" and because all three paths funnel
+    through it; the two GET cron routes carry a bearer secret and no session, so they structurally cannot
+    take a route-level `requirePlan()`. Two placements are load-bearing: **after** credential resolution
+    (a mis-keyed *and* unentitled tenant reports the credential reason, the one they can act on) and
+    **before** the client is built (an unentitled tenant costs no Alpaca calls, the whole point). A missing
+    `accounts` row fails closed to not-entitled; a **database failure rethrows** rather than skipping —
+    reporting an outage as "not paying" would stop every tenant while reading as an opt-out.
+  - **A skipped tenant gets no stop watchdog either**, so a lapse leaves open positions unmanaged. Accepted
+    only because every account is a pre-production test account — see ROADMAP.md item 7, which must be
+    decided before launch.
   - **`settings-engine.js` (fixed 2026-08-05) must show `proRequiredBanner()` on a 402, never let it fall
     through.** Every catch/callback on the credentials + strategy-config panel echoed `res.data.error`
     verbatim, which is the server's bare `upgrade_required` string, not copy meant for a user — a free
