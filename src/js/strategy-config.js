@@ -68,6 +68,15 @@
       return reward / (entry - stop);
     }
 
+    // Escalated stop-loss limit band once an exit order has sat unfilled for
+    // STRAT_CFG.escalationCycles cycles — mirrors risk.js's stopLossLimitPrice()
+    // (base band 0.5% + escalation extra). Its own function, not inlined at the
+    // autopilot.js call site, so a parity test can diff the real code against
+    // the engine instead of trusting a second hand-typed copy (ROADMAP item 4).
+    function escalatedStopBandPct() {
+      return 0.005 + STRAT_CFG.escalationExtraPct / 100;   // 0.5% base + escalation extra
+    }
+
     // Synthetic 4H bars from 1H bars (roadmap 2026-07-09 item 6 — mirrors
     // run_evaluation.aggregate_bars_to_4h). Buckets align to 4-hour UTC
     // boundaries; partial buckets (< 4 hourly bars) are dropped.

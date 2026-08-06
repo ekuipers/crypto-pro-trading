@@ -474,7 +474,7 @@
             try {
               await apCancelOrder(stale.id);
               delete orderAge[stale.id];
-              const escBand = 0.005 + STRAT_CFG.escalationExtraPct / 100;   // 0.5% + escalation extra
+              const escBand = escalatedStopBandPct();   // mirrors risk.js's stopLossLimitPrice() escalated band
               const qtyAll = apRoundQty(Math.abs(Number(p.qty || 0)));
               await apPlaceOrder(sym, "sell", qtyAll, apPrice(freshPx * (1 - escBand)),
                 `${exitReason} — escalated cancel-replace (exit unfilled ${age} cycles, band −${fmt(escBand * 100, 2)}%)`);

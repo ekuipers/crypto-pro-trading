@@ -437,6 +437,11 @@ Dashboard-only client-side logic gets a standalone Node harness in `tests/`. `te
 - **MACD signal line NaN** — the 9-bar signal EMA must be seeded on the NaN-stripped MACD series (not the raw NaN-prefixed array). See `calcMACD()` comment.
 - **Half-size pill thresholds** — use `score >= 3 && score < 4` (not `=== 3`) to catch scores like 3.5.
 
+The same vm-loading technique also pins two other engine/dashboard pairs that have each shipped a real bug
+from silent divergence: the net R:R entry gate (`risk.js`'s `netRr()` vs `src/js/strategy-config.js`'s
+`netRrPct()`) and the escalated stop-loss limit band (`risk.js`'s `stopLossLimitPrice()` vs
+`strategy-config.js`'s `escalatedStopBandPct()`) — see `src/rrAndStopParity.test.js`.
+
 ---
 
 ## Hosting
