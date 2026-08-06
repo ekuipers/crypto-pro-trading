@@ -157,6 +157,11 @@ Divergence between them has produced repeated shipped bugs, so:
 - **Reconciliation parity:** the FIFO/flatness/dust-tolerance logic exists in both
   `src/js/edge-insights.js`'s `apReconcileFromFills()` (browser Autopilot) and `src/reconcile.js` (engine).
   **Any fix must be applied to both** — this pair is not yet covered by a test.
+- **R:R gate and escalated stop band parity:** `src/rrAndStopParity.test.js` (2026-08-06) diffs
+  `src/js/strategy-config.js`'s `netRrPct()`/`roundTripCostPct()`/`escalatedStopBandPct()` against
+  `risk.js`'s `netRr()`/`roundTripCostPct()`/`STOP_LOSS_LIMIT_BAND_PCT`+`STOP_LOSS_ESCALATION_EXTRA_PCT`,
+  the same vm-loading technique as `scoreParity.test.js`. `escalatedStopBandPct()` exists specifically so
+  the real dashboard code is diffable — it used to be an inline literal in `autopilot.js`.
 - **ADX/OBV are informational only** — never fold them into the score.
 - **Never revert the FILL fetch to a single page.** Realized P&L must use `edgeFetchAllFills()` everywhere,
   so P&L and Backtest-vs-Live agree via `computeFifoStats()`.
@@ -280,9 +285,13 @@ sub-tabs. Settings persist to `localStorage`, seeded from `config.json`.
     **before** the client is built (an unentitled tenant costs no Alpaca calls, the whole point). A missing
     `accounts` row fails closed to not-entitled; a **database failure rethrows** rather than skipping —
     reporting an outage as "not paying" would stop every tenant while reading as an opt-out.
-  - **A skipped tenant gets no stop watchdog either**, so a lapse leaves open positions unmanaged. Accepted
-    only because every account is a pre-production test account — see ROADMAP.md item 7, which must be
-    decided before launch.
+  - **A lapsed-but-recently-paid tenant gets a grace window, not an immediate skip.** `ENGINE_GRACE_MS`
+    (`src/tenantEngine.js`, 3 days, decided 2026-08-06) keeps both `evaluate` and `watchdog` running past
+    `subscriptions.current_period_end` for that long, so a missed Patreon webhook or a brief payment hiccup
+    doesn't abandon an open position with no stop-watchdog cycle — engine-only, `requirePlan('pro')` on the
+    HTTP surface still cuts off immediately. Once the window fully elapses the original hazard still
+    applies: a skipped tenant gets no stop watchdog at all. Accepted only because every account is a
+    pre-production test account — see ROADMAP.md item 7.
   - **`settings-engine.js` (fixed 2026-08-05) must show `proRequiredBanner()` on a 402, never let it fall
     through.** Every catch/callback on the credentials + strategy-config panel echoed `res.data.error`
     verbatim, which is the server's bare `upgrade_required` string, not copy meant for a user — a free
