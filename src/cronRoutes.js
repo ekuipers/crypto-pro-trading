@@ -162,6 +162,12 @@ async function executeJob(job, triggeredBy, uid) {
   if (ctx.configErrors?.length) {
     console.warn(`[cron] ${job} config warnings for ${uid}: ${ctx.configErrors.join("; ")}`);
   }
+  // ROADMAP item 7: a lapsed subscription still ran this cycle on the grace
+  // window (tenantEngine.js's ENGINE_GRACE_MS) — otherwise silent, since the
+  // run itself looks identical to a fully-entitled one.
+  if (ctx.graceUntil) {
+    console.warn(`[cron] ${job} running for ${uid} on a lapsed-plan grace period, until ${ctx.graceUntil.toISOString()}`);
+  }
 
   const runId = await db.startJobRun(uid, job, triggeredBy);
   if (runId === null) return { job, uid, triggeredBy, status: 409, error: "already running" };

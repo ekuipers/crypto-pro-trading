@@ -18,7 +18,9 @@
 // account. Every failure path below returns a skip, never a default client.
 //
 // The same skip shape now also carries plan entitlement: a tenant who is not
-// on the Pro plan is skipped before any Alpaca client is built.
+// on the Pro plan is skipped before any Alpaca client is built. A tenant whose
+// Pro subscription just lapsed gets a short engine-only grace window first —
+// see ENGINE_GRACE_MS below (ROADMAP item 7, decided 2026-08-06).
 import * as db from "./db.js";
 import { createAlpacaClient } from "./alpacaClient.js";
 import { resolveConfigForUser, cfgSymbolCap } from "./userConfig.js";
@@ -37,10 +39,35 @@ export const SKIP = {
   NOT_PRO: "account is not on the Pro plan",
 };
 
+// ROADMAP item 7 ("A plan lapse now skips the tenant, including their open
+// positions") — decided 2026-08-06: grace period. A lapsed Pro subscription
+// keeps running the engine (both evaluate and watchdog) for this long after
+// `current_period_end`, so a missed Patreon webhook or a brief payment hiccup
+// doesn't strand an open position with no stop-watchdog cycle. Engine-only:
+// requirePlan('pro') on the HTTP surface (manual "Run now", schedule writes,
+// credential/strategy config) is untouched and still gates on getPlan() the
+// instant the period ends — that protects paid-only *features*, this protects
+// money already at risk. 3 days is a placeholder; the exact duration is a
+// pricing call Suite's roadmap owns, not an engine constraint.
+export const ENGINE_GRACE_MS = 3 * 24 * 60 * 60 * 1000;
+
+/**
+ * True while `sub.current_period_end` fell in the recent past — i.e. the
+ * account WAS a paid Pro subscriber and the paid period ended within the
+ * grace window. Never true for an account that was never Pro (nothing to
+ * grace from) and never true once the window has fully elapsed, which is the
+ * original hazard this item exists to bound rather than remove.
+ */
+function withinEngineGrace(sub, now) {
+  if (!sub || sub.plan !== "pro" || !sub.current_period_end) return false;
+  const lapsedAt = new Date(sub.current_period_end).getTime();
+  return lapsedAt <= now && now - lapsedAt <= ENGINE_GRACE_MS;
+}
+
 /**
  * Resolves one tenant's trading context.
  *
- * @returns {Promise<{ok: true, uid, client, cfg, configErrors: string[], mode, tradingEnabled}
+ * @returns {Promise<{ok: true, uid, client, cfg, configErrors: string[], mode, tradingEnabled, graceUntil: Date|null}
  *                 | {ok: false, uid, reason: string, detail?: string}>}
  */
 export async function buildTenantContext(uid, deps = {}) {
@@ -49,6 +76,7 @@ export async function buildTenantContext(uid, deps = {}) {
   const makeClient = deps.createAlpacaClient || createAlpacaClient;
   const getAccount = deps.getAccount || db.getAccount;
   const getPlan = deps.getPlan || db.getPlan;
+  const getSubscription = deps.getSubscription || db.getSubscription;
 
   let cred;
   try {
@@ -88,7 +116,20 @@ export async function buildTenantContext(uid, deps = {}) {
   //     tenant's engine while reading like a deliberate opt-out.
   const account = await getAccount(uid);
   const roleGrants = account?.role === "admin" || account?.role === "pro";
-  const entitled = account ? (roleGrants || (await getPlan(uid)) === "pro") : false;
+  let entitled = account ? (roleGrants || (await getPlan(uid)) === "pro") : false;
+
+  // Grace period (ROADMAP item 7): only spent when the fast paths above
+  // already failed, so a healthy Pro tenant never pays this extra query. Not
+  // wrapped in try/catch, same reasoning as getPlan() above — a lookup
+  // failure here must propagate, not read as "not paying".
+  let graceUntil = null;
+  if (!entitled && account) {
+    const sub = await getSubscription(uid);
+    if (withinEngineGrace(sub, Date.now())) {
+      entitled = true;
+      graceUntil = new Date(new Date(sub.current_period_end).getTime() + ENGINE_GRACE_MS);
+    }
+  }
   if (!entitled) return { ok: false, uid, reason: SKIP.NOT_PRO };
 
   // Config is resolved before the client is built: createAlpacaClient bakes in
@@ -107,7 +148,7 @@ export async function buildTenantContext(uid, deps = {}) {
     cfg,
   });
 
-  return { ok: true, uid, client, cfg, configErrors, mode: cred.mode, tradingEnabled: cred.tradingEnabled };
+  return { ok: true, uid, client, cfg, configErrors, mode: cred.mode, tradingEnabled: cred.tradingEnabled, graceUntil };
 }
 
 /**

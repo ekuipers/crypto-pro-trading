@@ -7,7 +7,7 @@
 // these tests assert on what did NOT happen.
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { buildTenantContext, tenantDeps, SKIP } from "./tenantEngine.js";
+import { buildTenantContext, tenantDeps, SKIP, ENGINE_GRACE_MS } from "./tenantEngine.js";
 import { DecryptFailed, KeyMismatch } from "./secretsCrypto.js";
 import { DEFAULT_CFG } from "./userConfig.js";
 import { ALPACA_HOSTS } from "./alpacaClient.js";
@@ -39,6 +39,9 @@ const deps = (over = {}) => ({
   createAlpacaClient: stubClientFactory().factory,
   getAccount: async () => ({ id: "alice", role: null }),
   getPlan: async () => "pro",
+  // Grace-period lookup (ROADMAP item 7) — null by default so every existing
+  // test's "free"/lapsed cases stay skipped without reaching for a real DB.
+  getSubscription: async () => null,
   ...over,
 });
 
@@ -173,6 +176,74 @@ describe("buildTenantContext", () => {
 
     assert.equal(ctx.ok, false);
     assert.equal(ctx.reason, SKIP.NOT_PRO);
+  });
+
+  // ---- Grace period (ROADMAP item 7, decided 2026-08-06) -----------------
+  // A tenant whose paid period just ended still runs — both evaluate and
+  // watchdog — for ENGINE_GRACE_MS past current_period_end, so a missed
+  // webhook or a brief payment hiccup doesn't abandon an open position with
+  // no stop-watchdog cycle.
+  test("a subscription that lapsed within the grace window still runs, and reports graceUntil", async () => {
+    const lapsedAt = Date.now() - ENGINE_GRACE_MS / 2; // halfway through the window
+    const { factory, calls } = stubClientFactory();
+    const ctx = await buildTenantContext("bob", deps({
+      getPlan: async () => "free",
+      getSubscription: async () => ({ plan: "pro", status: "canceled", current_period_end: new Date(lapsedAt) }),
+      createAlpacaClient: factory,
+    }));
+
+    assert.equal(ctx.ok, true);
+    assert.equal(calls.length, 1, "a grace-period tenant must still get a client, same as a fully entitled one");
+    assert.ok(ctx.graceUntil instanceof Date);
+    assert.equal(ctx.graceUntil.getTime(), lapsedAt + ENGINE_GRACE_MS);
+  });
+
+  test("a subscription that lapsed beyond the grace window is skipped as NOT_PRO", async () => {
+    const lapsedAt = Date.now() - ENGINE_GRACE_MS - 1000; // just past the window
+    const { factory, calls } = stubClientFactory();
+    const ctx = await buildTenantContext("bob", deps({
+      getPlan: async () => "free",
+      getSubscription: async () => ({ plan: "pro", status: "canceled", current_period_end: new Date(lapsedAt) }),
+      createAlpacaClient: factory,
+    }));
+
+    assert.equal(ctx.ok, false);
+    assert.equal(ctx.reason, SKIP.NOT_PRO);
+    assert.equal(calls.length, 0);
+  });
+
+  test("an account that was never Pro gets no grace, even with a subscriptions row", async () => {
+    // No current_period_end to anchor a grace window from — a free account
+    // must not be able to fabricate one.
+    const ctx = await buildTenantContext("bob", deps({
+      getPlan: async () => "free",
+      getSubscription: async () => ({ plan: "free", status: null, current_period_end: null }),
+    }));
+
+    assert.equal(ctx.ok, false);
+    assert.equal(ctx.reason, SKIP.NOT_PRO);
+  });
+
+  test("a fully entitled tenant never spends a getSubscription query", async () => {
+    const calls = [];
+    const ctx = await buildTenantContext("alice", deps({
+      getPlan: async () => "pro",
+      getSubscription: async (uid) => { calls.push(uid); return null; },
+    }));
+
+    assert.equal(ctx.ok, true);
+    assert.equal(ctx.graceUntil, null);
+    assert.equal(calls.length, 0, "the grace lookup should only run once the fast paths already failed");
+  });
+
+  test("a getSubscription database failure propagates instead of reading as 'not paying'", async () => {
+    await assert.rejects(
+      () => buildTenantContext("bob", deps({
+        getPlan: async () => "free",
+        getSubscription: async () => { throw new Error("connection reset"); },
+      })),
+      /connection reset/,
+    );
   });
 
   test("no accounts row at all fails closed to NOT_PRO, not an error", async () => {
