@@ -317,32 +317,6 @@
     }
     .cred-preview b { color:var(--text); }
 
-    /* Config editor. Monospace + generous height because the content is JSON
-       a user is expected to read, not a one-line field. */
-    #engineConfigEditor {
-      width:100%;
-      min-height:260px;
-      font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size:12px;
-      line-height:1.5;
-      resize:vertical;
-      tab-size:2;
-    }
-    .engine-errors {
-      margin:8px 0 0;
-      padding-left:18px;
-      font-size:12px;
-      color:var(--red);
-    }
-    .engine-errors li { margin:2px 0; }
-    .engine-keylist {
-      max-height:130px;
-      overflow:auto;
-      font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size:11px;
-      color:var(--muted);
-      line-height:1.6;
-    }
     .engine-audit {
       font-size:11px;
       color:var(--muted);

@@ -84,9 +84,11 @@ Postgres database (`src/js/settings-sync.js`), so they follow you across devices
 
 Below those fields, a separate **☁ Server-Side Trading Engine** panel does something different and is
 styled differently to say so. Its credentials go to the *server*, encrypted, and are used by your
-scheduled jobs — which run whether or not this browser is open. That panel is also where you edit your
-per-account strategy overrides as JSON. Connecting a key there is what makes your account a tenant of the
-scheduled engine; the browser fields above never are. See *Per-user Alpaca credentials* below.
+scheduled jobs — which run whether or not this browser is open. Connecting a key there is what makes your
+account a tenant of the scheduled engine; the browser fields above never are. See *Per-user Alpaca
+credentials* below. Earlier versions of this panel also let you edit per-account strategy overrides as
+JSON directly in the dashboard; that editor was removed (too confusing for beginner traders without IT
+knowledge) — `PUT/GET/DELETE /api/strategy-config` below is still live for anyone calling it directly.
 
 This panel is a **Pro** feature. A free signed-in account sees a "Pro feature" banner with an Upgrade to
 Pro button instead of the credential form — the browser-only fields above stay free for everyone.

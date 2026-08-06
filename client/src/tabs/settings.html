@@ -146,25 +146,7 @@
             Replacing the credential in use, or disconnecting one, asks for your account password.
           </div>
 
-          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:22px 0 10px" data-i18n="app:settings.engineConfigHeader">🎛 Strategy Overrides (JSON)</div>
-          <div class="small" style="margin-bottom:8px;color:var(--muted)" data-i18n="app:settings.engineConfigIntro">
-            Only the settings you change, as a JSON object. Everything else uses the shipped defaults.
-            Values outside the allowed range, unknown keys, and settings locked by the trading rules are rejected on save.
-          </div>
-          <textarea id="engineConfigEditor" spellcheck="false" aria-label="Strategy overrides JSON">{}</textarea>
-          <div id="engineConfigMsgEl"></div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
-            <button class="btn btn-green" onclick="engineSaveConfig()" data-i18n="app:settings.engineSaveConfigBtn">Save Overrides</button>
-            <button class="btn" onclick="engineFormatConfig()" data-i18n="app:settings.engineFormatBtn">⧉ Format</button>
-            <button class="btn btn-red" onclick="engineResetConfig()" data-i18n="app:settings.engineResetConfigBtn">↩ Reset to defaults</button>
-          </div>
-
           <details style="margin-top:14px">
-            <summary class="small" style="cursor:pointer;color:var(--muted)" data-i18n="app:settings.engineKeysSummary">Show editable settings and their defaults</summary>
-            <div id="engineKeyListEl" class="engine-keylist" style="margin-top:8px"></div>
-          </details>
-
-          <details style="margin-top:8px">
             <summary class="small" style="cursor:pointer;color:var(--muted)" data-i18n="app:settings.engineAuditSummary">Recent credential activity</summary>
             <div id="engineAuditEl" class="engine-audit" style="margin-top:8px"></div>
           </details>

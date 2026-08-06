@@ -3,7 +3,10 @@
 // ------------------------------------------------------------
 // Drives the "☁ Server-Side Trading Engine" panel in the Settings tab:
 // per-account Alpaca credentials (encrypted server-side, used by the scheduled
-// cron engine) and the per-account strategy-override JSON editor.
+// cron engine). The strategy-override JSON editor that used to live in this
+// panel was removed (Suite roadmap: too confusing for beginner traders) —
+// `PUT/GET/DELETE /api/strategy-config` (src/strategyConfigRoutes.js) stays
+// live server-side, it just has no UI surface here anymore.
 //
 // Classic global script — no modules, no bundler. Registered in
 // client/src/scriptLoader.js's SCRIPT_ORDER. Same conventions as the other
@@ -26,13 +29,10 @@
   "use strict";
 
   var CRED_URL = "/api/alpaca-credentials";
-  var CONFIG_URL = "/api/strategy-config";
 
   // Cached from the last GET so the credential list can be re-rendered (e.g.
   // after a step-up cancel) without another round trip.
   var lastCredentials = [];
-  var lastDefaults = {};
-  var lastSpec = {};
   // The action awaiting a password, if any: { run: function(password) }.
   var pendingStepUp = null;
 
@@ -86,13 +86,6 @@
     if (!text) { el.innerHTML = ""; return; }
     el.innerHTML = '<div class="warn-banner' + (kind ? " " + kind : "") +
       '" style="margin-bottom:10px">' + esc(text) + "</div>";
-  }
-
-  function bannerList(el, kind, text, items) {
-    if (!el) return;
-    var lis = (items || []).map(function (i) { return "<li>" + esc(i) + "</li>"; }).join("");
-    el.innerHTML = '<div class="warn-banner' + (kind ? " " + kind : "") + '" style="margin-top:10px">' +
-      esc(text) + (lis ? '<ul class="engine-errors">' + lis + "</ul>" : "") + "</div>";
   }
 
   // requirePlan('pro') answers every route here with a bare
@@ -297,42 +290,6 @@
     }).join("");
   }
 
-  // ---- Config editor rendering -------------------------------------------
-
-  function renderConfig(data) {
-    var editor = $("engineConfigEditor");
-    if (!editor) return;
-    lastDefaults = (data && data.defaults) || {};
-    lastSpec = (data && data.spec) || {};
-    editor.value = JSON.stringify((data && data.overrides) || {}, null, 2);
-
-    var msgEl = $("engineConfigMsgEl");
-    // Keys the user saved that no longer validate (a bound tightened since).
-    // The engine already ignores them; without this the editor would show a
-    // value that is not actually in force.
-    if (data && data.staleErrors && data.staleErrors.length) {
-      bannerList(msgEl, "", tr("app:settings.engineStale",
-        "Some saved settings are no longer valid and are being ignored by the engine:"), data.staleErrors);
-    } else if (msgEl) {
-      msgEl.innerHTML = "";
-    }
-
-    var keyEl = $("engineKeyListEl");
-    if (keyEl) {
-      var keys = (data && data.editableKeys) || [];
-      keyEl.innerHTML = keys.map(function (k) {
-        var spec = lastSpec[k] || {};
-        var bounds = "";
-        if (spec.type === "number" && (spec.min !== undefined || spec.max !== undefined)) {
-          bounds = " (" + (spec.min !== undefined ? spec.min : "−∞") + " … " + (spec.max !== undefined ? spec.max : "∞") + ")";
-        } else if (spec.type === "enum" && spec.values) {
-          bounds = " (" + spec.values.join(" | ") + ")";
-        }
-        return "<div>" + esc(k) + " = " + esc(JSON.stringify(lastDefaults[k])) + esc(bounds) + "</div>";
-      }).join("");
-    }
-  }
-
   // ---- Public actions (called from settings.html) --------------------------
 
   window.engineRefresh = function () {
@@ -340,10 +297,7 @@
     var listEl = $("engineCredListEl");
     if (listEl) listEl.textContent = tr("app:settings.engineLoading", "Loading…");
 
-    Promise.all([api(CRED_URL), api(CONFIG_URL)]).then(function (results) {
-      var cred = results[0];
-      var cfg = results[1];
-
+    api(CRED_URL).then(function (cred) {
       if (cred.status === 401) {
         // Guests see the panel (it is part of the static tab markup) but have
         // nothing to manage — say so plainly instead of showing an error.
@@ -355,20 +309,12 @@
         return;
       }
       // A signed-in free account — same shape as the 401 branch above, but
-      // with an upgrade CTA instead of a sign-in prompt. cfg shares the same
-      // requirePlan('pro') gate so it 402s together with cred; no need to
-      // check it separately.
+      // with an upgrade CTA instead of a sign-in prompt.
       if (cred.status === 402) {
         proRequiredBanner(statusEl);
         if (listEl) listEl.innerHTML = "";
         var auditEl2 = $("engineAuditEl");
         if (auditEl2) auditEl2.innerHTML = "";
-        var editorEl = $("engineConfigEditor");
-        if (editorEl) editorEl.value = "";
-        var keyListEl = $("engineKeyListEl");
-        if (keyListEl) keyListEl.innerHTML = "";
-        var configMsgEl = $("engineConfigMsgEl");
-        if (configMsgEl) configMsgEl.innerHTML = "";
         return;
       }
       if (!cred.ok) {
@@ -378,7 +324,6 @@
       }
       if (!$("engineStepUpEl") || !pendingStepUp) banner(statusEl, "", "");
       renderCredentials(cred.data);
-      if (cfg.ok) renderConfig(cfg.data);
     });
   };
 
@@ -422,64 +367,6 @@
       "Disconnecting stops this account's scheduled jobs, including the stop-loss watchdog. Enter your account password to confirm.");
     withStepUp(msg, function (password) {
       return jsonPost(CRED_URL + "/" + encodeURIComponent(mode), password ? { password: password } : {}, "DELETE");
-    });
-  };
-
-  window.engineFormatConfig = function () {
-    var editor = $("engineConfigEditor");
-    var msgEl = $("engineConfigMsgEl");
-    if (!editor) return;
-    try {
-      editor.value = JSON.stringify(JSON.parse(editor.value || "{}"), null, 2);
-      banner(msgEl, "", "");
-    } catch (e) {
-      banner(msgEl, "err", tr("app:settings.engineBadJson", "That is not valid JSON: ") + e.message);
-    }
-  };
-
-  window.engineSaveConfig = function () {
-    var editor = $("engineConfigEditor");
-    var msgEl = $("engineConfigMsgEl");
-    if (!editor) return;
-    var parsed;
-    try {
-      parsed = JSON.parse(editor.value || "{}");
-    } catch (e) {
-      // Caught here so a typo never reaches the server as a 400 the user has
-      // to decode; the message points at the character.
-      banner(msgEl, "err", tr("app:settings.engineBadJson", "That is not valid JSON: ") + e.message);
-      return;
-    }
-    jsonPost(CONFIG_URL, { config: parsed }, "PUT").then(function (res) {
-      if (res.status === 401) {
-        banner(msgEl, "err", tr("app:settings.engineSignInSave", "Sign in to save strategy overrides."));
-        return;
-      }
-      if (res.status === 402) { proRequiredBanner(msgEl); return; }
-      if (!res.ok) {
-        // The server is the authority on what is allowed — show its per-key
-        // reasons verbatim rather than paraphrasing them here, so the two can
-        // never drift apart.
-        bannerList(msgEl, "err", (res.data && res.data.error) || "Could not save", (res.data && res.data.errors) || []);
-        return;
-      }
-      banner(msgEl, "ok", tr("app:settings.engineConfigSaved", "Strategy overrides saved."));
-      engineRefresh();
-    });
-  };
-
-  window.engineResetConfig = function () {
-    var msgEl = $("engineConfigMsgEl");
-    if (!window.confirm(tr("app:settings.engineConfirmReset",
-      "Reset all strategy overrides back to the shipped defaults?"))) return;
-    api(CONFIG_URL, { method: "DELETE" }).then(function (res) {
-      if (res.status === 402) { proRequiredBanner(msgEl); return; }
-      if (!res.ok) {
-        banner(msgEl, "err", (res.data && res.data.error) || "Could not reset");
-        return;
-      }
-      banner(msgEl, "ok", tr("app:settings.engineConfigReset", "Overrides cleared — using the shipped defaults."));
-      engineRefresh();
     });
   };
 
