@@ -69,8 +69,8 @@ export default function Header() {
         <button id="upgradeBtn" className="btn btn-green" onClick={() => window.openPlansModal()} style={{ display: 'none' }}>
           ⭐ {t('header.upgradeBtn')}
         </button>
-        <button id="accountBtn" className="btn acct-btn" title={t('header.signIn')}>{t('header.signIn')}</button>
         <button className="btn btn-green" onClick={() => window.openSettings()}>{t('header.settings')}</button>
+        <button id="accountBtn" className="btn acct-btn" title={t('header.signIn')}>{t('header.signIn')}</button>
       </div>
     </header>
   );
