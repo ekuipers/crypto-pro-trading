@@ -384,10 +384,14 @@
     .plan-cta { display:flex; flex-direction:column; gap:8px; margin-top:auto; }
     .plan-cta .btn { text-align:center; text-decoration:none; }
     .plans-matrix-title { margin:18px 0 8px; font-size:13px; font-weight:600; }
-    .plans-matrix { width:100%; border-collapse:collapse; font-size:13px; }
-    .plans-matrix th, .plans-matrix td { padding:7px 8px; border-bottom:1px solid var(--border); text-align:left; }
+    /* min-width:0 overrides status-tables.css's bare `table { min-width:760px }`
+       (sized for wide dashboard data tables), which otherwise forces this
+       narrower modal table past the modal's own width. */
+    .plans-matrix { width:100%; min-width:0; table-layout:fixed; border-collapse:collapse; font-size:13px; }
+    .plans-matrix th, .plans-matrix td { padding:7px 8px; border-bottom:1px solid var(--border); text-align:left; overflow-wrap:break-word; }
     .plans-matrix th { color:var(--muted); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.02em; }
+    .plans-matrix th:first-child, .plans-matrix td:first-child { width:64%; }
     .plans-matrix th:nth-child(2), .plans-matrix th:nth-child(3),
-    .plans-matrix td:nth-child(2), .plans-matrix td:nth-child(3) { text-align:center; white-space:nowrap; }
+    .plans-matrix td:nth-child(2), .plans-matrix td:nth-child(3) { width:18%; text-align:center; }
     .plans-matrix .pm-yes { color:var(--green); font-weight:700; }
     .plans-matrix .pm-no { color:var(--muted); }
