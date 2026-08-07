@@ -124,7 +124,17 @@
       "pro3": "Strategieconfiguratie, Autopilot, journal en portfolio-inzichten",
       "upgradeBtn": "Upgrade naar Pro",
       "connectBtn": "Al patron? Koppel je account",
-      "manageBtn": "Beheren op Patreon"
+      "manageBtn": "Beheren op Patreon",
+      "matrixTitle": "Volledige functievergelijking",
+      "matrixColFeature": "Functie",
+      "matrixColFree": "Gratis",
+      "matrixColPro": "Pro",
+      "matrixRow1": "Dashboard, glossarium & trading-methode-documentatie bekijken",
+      "matrixRow2": "Account, SSO & 2FA",
+      "matrixRow3": "Koppel je eigen Alpaca paper-account",
+      "matrixRow4": "Autonome 24/7 paper-trading engine",
+      "matrixRow5": "Strategieconfiguratie & Autopilot",
+      "matrixRow6": "Journal & portfolio-inzichten"
     }
   }
 }

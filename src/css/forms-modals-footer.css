@@ -383,3 +383,11 @@
     .plan-features { margin:0; padding-left:18px; color:var(--muted); line-height:1.6; font-size:13px; }
     .plan-cta { display:flex; flex-direction:column; gap:8px; margin-top:auto; }
     .plan-cta .btn { text-align:center; text-decoration:none; }
+    .plans-matrix-title { margin:18px 0 8px; font-size:13px; font-weight:600; }
+    .plans-matrix { width:100%; border-collapse:collapse; font-size:13px; }
+    .plans-matrix th, .plans-matrix td { padding:7px 8px; border-bottom:1px solid var(--border); text-align:left; }
+    .plans-matrix th { color:var(--muted); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.02em; }
+    .plans-matrix th:nth-child(2), .plans-matrix th:nth-child(3),
+    .plans-matrix td:nth-child(2), .plans-matrix td:nth-child(3) { text-align:center; white-space:nowrap; }
+    .plans-matrix .pm-yes { color:var(--green); font-weight:700; }
+    .plans-matrix .pm-no { color:var(--muted); }

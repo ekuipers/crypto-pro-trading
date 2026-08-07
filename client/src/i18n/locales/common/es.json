@@ -124,7 +124,17 @@
       "pro3": "Configuración de estrategia, Autopilot, diario e información de cartera",
       "upgradeBtn": "Mejorar a Pro",
       "connectBtn": "¿Ya eres mecenas? Conecta tu cuenta",
-      "manageBtn": "Gestionar en Patreon"
+      "manageBtn": "Gestionar en Patreon",
+      "matrixTitle": "Comparación completa de funciones",
+      "matrixColFeature": "Función",
+      "matrixColFree": "Gratis",
+      "matrixColPro": "Pro",
+      "matrixRow1": "Explorar el panel, el glosario y la documentación del método",
+      "matrixRow2": "Cuenta, SSO y 2FA",
+      "matrixRow3": "Conecta tu propia cuenta paper de Alpaca",
+      "matrixRow4": "Motor de paper trading autónomo 24/7",
+      "matrixRow5": "Configuración de estrategia y Autopilot",
+      "matrixRow6": "Diario e información de la cartera"
     }
   }
 }
