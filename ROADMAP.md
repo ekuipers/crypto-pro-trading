@@ -40,19 +40,11 @@ risk per trade can be several multiples of it.
 Fixing it means picking one stop as the sizing input — the exit stop is the honest choice. That is a real
 strategy change, so measure it first.
 
-## 4. Parity coverage stops at the score — R:R gate + escalated band now covered, 2026-08-06
+## 4. Parity coverage stops at the score
 
-`src/scoreParity.test.js` pins the 6-point score. **Both engine/dashboard bugs that shipped lived in the
-uncovered area beyond it** (the stop-escalation clamp that made stops unfillable, and the R:R gate that
-failed open on exactly the setups it exists to catch) — those two are now pinned by
-`src/rrAndStopParity.test.js`, using the same vm-loading technique as `scoreParity.test.js`: the real
-`src/js/strategy-config.js` is loaded standalone and its `netRrPct()`/`roundTripCostPct()`/
-`escalatedStopBandPct()` are diffed against `risk.js`'s `netRr()`/`roundTripCostPct()`/
-`STOP_LOSS_LIMIT_BAND_PCT`+`STOP_LOSS_ESCALATION_EXTRA_PCT` across 500 randomly generated setups, the
-null-geometry fail-closed cases, and a sweep of escalation-extra values. `src/js/autopilot.js`'s escalated
-band was an inline literal (`0.005 + STRAT_CFG.escalationExtraPct/100`), not a callable — pulled out into
-`strategy-config.js`'s `escalatedStopBandPct()` (behavior-identical, same literal) purely so the real
-shipped code is what gets diffed, not a hand-typed copy of it.
+`src/scoreParity.test.js` pins the 6-point score. The two engine/dashboard bugs that had shipped in the
+uncovered area beyond it (the stop-escalation clamp, and the R:R gate) are now pinned too, by
+`src/rrAndStopParity.test.js` (same vm-loading technique, 2026-08-06 — see `git log`).
 
 **Still open:** the `reconcile.js` ↔ `apReconcileFromFills()` FIFO/flatness/dust-tolerance pair is still
 enforced by prose alone, not a test — `apReconcileFromFills()` lives in `src/js/edge-insights.js`, a much
@@ -75,24 +67,14 @@ express "every N hours" without a design change (an array of hours, or a repeat-
 running `watchdog` more than once a day. **Nobody has asked for this** — it is listed so the limitation is
 not rediscovered as a bug.
 
-## 7. A plan lapse now skips the tenant, including their open positions — grace period, done 2026-08-06
+## 7. A plan lapse now skips the tenant, including their open positions
 
-The engine half shipped 2026-08-06: `buildTenantContext()` resolves entitlement (role `admin`/`pro`, else
-`db.getPlan()`) and returns `SKIP.NOT_PRO` before building an Alpaca client, so a free tenant no longer
-costs a cycle of Alpaca calls on any of the three paths. It sits in `tenantEngine.js` rather than
-`cronRoutes.js` because the two GET cron routes are bearer-authenticated with no session and cannot take a
-`requirePlan()` route check.
-
-**Decision (user, 2026-08-06): grace period**, of the usual three (flatten on lapse, exits-only, grace
-period). `tenantEngine.js`'s `ENGINE_GRACE_MS` (3 days, placeholder — the exact duration is a pricing call
-Suite's roadmap owns, not an engine constraint) keeps a lapsed tenant fully entitled — both `evaluate` and
-`watchdog` — for that long past `subscriptions.current_period_end`, so a missed Patreon webhook or a brief
-payment hiccup doesn't abandon an open position with no stop-watchdog cycle. Engine-only: `requirePlan('pro')`
-on the HTTP surface (manual "Run now", schedule writes, credential/strategy config) is untouched and still
-gates on `getPlan()` the instant the period ends — that protects paid-only *features*, this protects money
-already at risk. `cronRoutes.js` logs a warning whenever a cycle ran on grace (`ctx.graceUntil`), otherwise
-silent since the run itself looks identical to a fully-entitled one. Covered by
-`tenantEngine.test.js`.
+`buildTenantContext()` (`src/tenantEngine.js`) skips an unentitled tenant with `SKIP.NOT_PRO` before
+building an Alpaca client. **Decision (user, 2026-08-06): grace period** — `ENGINE_GRACE_MS` (3 days,
+placeholder; the exact duration is a pricing call Suite's roadmap owns) keeps a lapsed tenant's engine
+running past `subscriptions.current_period_end` so a missed webhook doesn't strand an open position with no
+stop-watchdog cycle. Engine-only — `requirePlan('pro')` on the HTTP surface still cuts off instantly.
+Covered by `tenantEngine.test.js`.
 
 **Still open:** no UI/notification surfaces the grace window to the user — a lapsed tenant has no way to
 know their positions are on borrowed time until it actually ends. And once `ENGINE_GRACE_MS` fully elapses,
