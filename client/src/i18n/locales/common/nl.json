@@ -90,8 +90,8 @@
     "privacy": {
       "title": "Privacybeleid",
       "close": "Sluiten",
-      "updated": "Laatst bijgewerkt: 5 augustus 2026",
-      "introHtml": "CryptoPro wordt beheerd door <b>VibeSoft Studio</b> (info@vibesoftstudio.com). Dit beleid geldt voor CryptoPro Suite, Charts, Trader en Training, die één account en één database delen. Het legt uit wat we opslaan, waarom, en wat u daaraan kunt doen.",
+      "updated": "Laatst bijgewerkt: 7 augustus 2026",
+      "introHtml": "CryptoPro wordt beheerd door <b>VibeSoft Studio</b>, Kronenland 1116, 6605 RB Wijchen, Nederland (info@vibesoftstudio.com). Dit beleid geldt voor CryptoPro Suite, Charts, Trader en Training, die één account en één database delen. Het legt uit wat we opslaan, waarom, en wat u daaraan kunt doen.",
       "s1Title": "Wat we opslaan",
       "s1Html": "<b>Uw account:</b> gebruikersnaam, een gehasht wachtwoord (nooit het wachtwoord zelf) en — alleen als u dat inschakelt — een tweefactorsleutel. U kunt een e-mailadres voor meldingen toevoegen; dat wordt opgeslagen, maar er wordt nog niets verstuurd.<br><b>Wat u aanmaakt:</b> watchlists, chartindelingen en tekeningen, instellingen, uw gekozen thema en taal, cursusvoortgang en quizresultaten, en Traders handelsjournaal en paper-trading-status.<br><b>Brokersleutels:</b> als u Alpaca koppelt, worden uw API-gegevens versleuteld opgeslagen. Trader plaatst uitsluitend paper-orders.<br>We verzamelen geen betaalkaartgegevens en vragen niet om bijzondere persoonsgegevens.<br><b>Als u Patreon koppelt:</b> uw Patreon-lidnummer, uw tier en pledge-status, en de datum waarop uw betaalde periode eindigt. Wij zien uw kaartgegevens nooit — de pledge wordt op patreon.com gedaan en geïncasseerd.",
       "s2Title": "Waarom, en op welke grondslag",

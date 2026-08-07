@@ -112,6 +112,43 @@
       return _scoutPromos.symbols.filter(s => !base.includes(s));
     }
 
+    // ── per-account local-storage scoping (Suite roadmap bug, 2026-08-07) ──
+    // proDashboardSettings (browser-only Alpaca keys) and every autopilotXxx
+    // key are deliberately never synced to the server (see settings-sync.js) —
+    // but that also meant they were scoped to the BROWSER only, never to WHO
+    // is signed into it. A second account signing in on the same browser
+    // silently inherited the first account's Alpaca keys and Autopilot
+    // bookkeeping — a real cross-account credential leak ("everyone trades on
+    // the same Alpaca account"), not just a UX quirk. This makes the local-
+    // only state follow the signed-in identity: switching accounts (or
+    // signing out) on the same browser wipes it instead of handing it to
+    // whoever is next, while the SAME account signing in again keeps its own
+    // saved keys.
+    const PRO_SETTINGS_OWNER_KEY = "proDashboardSettingsOwner";
+    async function reconcileAccountScopedStorage() {
+      let uid = "guest";
+      try {
+        const r = await fetch("/api/me");
+        if (r.ok) {
+          const d = await r.json();
+          if (d && d.user && d.user.id) uid = d.user.id;
+        }
+      } catch (e) {
+        return; // network hiccup — leave storage as-is rather than guess wrong
+      }
+      const owner = localStorage.getItem(PRO_SETTINGS_OWNER_KEY);
+      // owner === null means "never recorded before" (upgrade from a version
+      // without this check) — treat as already-owned-by-whoever-is-here-now
+      // rather than wiping a pre-existing single-user setup on first load.
+      if (owner !== null && owner !== uid) {
+        localStorage.removeItem("proDashboardSettings");
+        Object.keys(localStorage)
+          .filter(function (k) { return k.indexOf("autopilot") === 0; })
+          .forEach(function (k) { localStorage.removeItem(k); });
+      }
+      localStorage.setItem(PRO_SETTINGS_OWNER_KEY, uid);
+    }
+
     function getSettings() {
       const saved       = JSON.parse(localStorage.getItem("proDashboardSettings") || "{}");
       const mode        = saved.mode || "paper";

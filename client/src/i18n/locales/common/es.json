@@ -90,8 +90,8 @@
     "privacy": {
       "title": "Política de privacidad",
       "close": "Cerrar",
-      "updated": "Última actualización: 5 de agosto de 2026",
-      "introHtml": "CryptoPro está gestionado por <b>VibeSoft Studio</b> (info@vibesoftstudio.com). Esta política cubre CryptoPro Suite, Charts, Trader y Training, que comparten una cuenta y una base de datos. Explica qué almacenamos, por qué y qué puede hacer usted al respecto.",
+      "updated": "Última actualización: 7 de agosto de 2026",
+      "introHtml": "CryptoPro está gestionado por <b>VibeSoft Studio</b>, Kronenland 1116, 6605 RB Wijchen, Países Bajos (info@vibesoftstudio.com). Esta política cubre CryptoPro Suite, Charts, Trader y Training, que comparten una cuenta y una base de datos. Explica qué almacenamos, por qué y qué puede hacer usted al respecto.",
       "s1Title": "Qué almacenamos",
       "s1Html": "<b>Su cuenta:</b> nombre de usuario, una contraseña cifrada con hash (nunca la contraseña en sí) y —solo si lo activa— un secreto de doble factor. Puede añadir un correo de notificaciones; se guarda, pero todavía no se envía ningún correo.<br><b>Lo que usted crea:</b> listas de seguimiento, diseños y dibujos de gráficos, ajustes, el tema y el idioma elegidos, el progreso del curso y los resultados de los cuestionarios, y el diario de operaciones y el estado de paper trading de Trader.<br><b>Claves del bróker:</b> si conecta Alpaca, sus credenciales de API se cifran antes de guardarse. Trader solo coloca órdenes simuladas.<br>No recopilamos datos de tarjetas de pago ni solicitamos categorías especiales de datos.<br><b>Si vincula Patreon:</b> su identificador de miembro de Patreon, su nivel y el estado de su suscripción, y la fecha en que finaliza su periodo pagado. Nunca vemos los datos de su tarjeta — la suscripción se realiza y se cobra en patreon.com.",
       "s2Title": "Por qué y con qué base legal",

@@ -90,8 +90,8 @@
     "privacy": {
       "title": "Privacy Policy",
       "close": "Close",
-      "updated": "Last updated: 5 August 2026",
-      "introHtml": "CryptoPro is operated by <b>VibeSoft Studio</b> (info@vibesoftstudio.com). This policy covers CryptoPro Suite, Charts, Trader and Training, which share one account and one database. It explains what we store, why, and what you can do about it.",
+      "updated": "Last updated: 7 August 2026",
+      "introHtml": "CryptoPro is operated by <b>VibeSoft Studio</b>, Kronenland 1116, 6605 RB Wijchen, Netherlands (info@vibesoftstudio.com). This policy covers CryptoPro Suite, Charts, Trader and Training, which share one account and one database. It explains what we store, why, and what you can do about it.",
       "s1Title": "What we store",
       "s1Html": "<b>Your account:</b> username, a hashed password (never the password itself), and — only if you switch it on — a two-factor secret. You may add a notification email; it is stored but nothing sends email yet.<br><b>What you create:</b> watchlists, chart layouts and drawings, settings, your chosen theme and language, course progress and quiz results, and Trader's trading journal and paper-trading state.<br><b>Broker keys:</b> if you connect Alpaca, your API credentials are encrypted before they are stored. Trader places paper orders only.<br>We do not collect payment card details, and we do not ask for special-category data.<br><b>If you link Patreon:</b> your Patreon member ID, your tier and pledge status, and the date your paid period ends. We never see your card details — the pledge is made and charged on patreon.com.",
       "s2Title": "Why, and on what legal basis",

@@ -90,8 +90,8 @@
     "privacy": {
       "title": "Politique de confidentialité",
       "close": "Fermer",
-      "updated": "Dernière mise à jour : 5 août 2026",
-      "introHtml": "CryptoPro est exploité par <b>VibeSoft Studio</b> (info@vibesoftstudio.com). Cette politique couvre CryptoPro Suite, Charts, Trader et Training, qui partagent un compte et une base de données. Elle explique ce que nous conservons, pourquoi, et ce que vous pouvez faire.",
+      "updated": "Dernière mise à jour : 7 août 2026",
+      "introHtml": "CryptoPro est exploité par <b>VibeSoft Studio</b>, Kronenland 1116, 6605 RB Wijchen, Pays-Bas (info@vibesoftstudio.com). Cette politique couvre CryptoPro Suite, Charts, Trader et Training, qui partagent un compte et une base de données. Elle explique ce que nous conservons, pourquoi, et ce que vous pouvez faire.",
       "s1Title": "Ce que nous conservons",
       "s1Html": "<b>Votre compte :</b> nom d'utilisateur, un mot de passe haché (jamais le mot de passe lui-même) et — uniquement si vous l'activez — un secret d'authentification à deux facteurs. Vous pouvez ajouter une adresse e-mail de notification ; elle est conservée, mais rien n'envoie encore d'e-mail.<br><b>Ce que vous créez :</b> listes de suivi, dispositions et dessins de graphiques, réglages, thème et langue choisis, progression et résultats de quiz, ainsi que le journal de trading et l'état de paper trading de Trader.<br><b>Clés de courtier :</b> si vous connectez Alpaca, vos identifiants API sont chiffrés avant d'être stockés. Trader ne passe que des ordres sur papier.<br>Nous ne collectons aucune donnée de carte bancaire et ne demandons pas de données sensibles.<br><b>Si vous liez Patreon :</b> votre identifiant de membre Patreon, votre palier et le statut de votre soutien, ainsi que la date de fin de votre période payée. Nous ne voyons jamais vos données de carte — le soutien est souscrit et prélevé sur patreon.com.",
       "s2Title": "Pourquoi, et sur quelle base légale",

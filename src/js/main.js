@@ -3,6 +3,10 @@
     enhanceTables();
 
     (async function bootstrapDashboard() {
+    // Must run before anything reads proDashboardSettings/autopilotXxx below —
+    // it wipes them if this browser's last-known account differs from who is
+    // signed in now (see api-config.js's reconcileAccountScopedStorage()).
+    if (typeof reconcileAccountScopedStorage === "function") await reconcileAccountScopedStorage();
     if (typeof loadSyncedSettings === "function") await loadSyncedSettings();
     await loadConfigFromFile();
     renderMode();

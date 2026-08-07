@@ -721,4 +721,6 @@ gate live trading from the browser UI specifically.
 > **Note:** This is a paper spot trading agent for research purposes. Past backtest performance
 > does not guarantee future results.
 
-Vibe coded by Erik Kuipers, @2026
+Vibe coded by VibeSoft Studio, @2026
+
+If you like our projects, support us on [Patreon](https://patreon.com/vibesoftstudio)
