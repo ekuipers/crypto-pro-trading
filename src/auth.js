@@ -142,6 +142,28 @@ export function planGateStatus(user, actualPlan, wanted = 'pro') {
   return 402;
 }
 
+/**
+ * Any authenticated account, Free or Pro — Trader's credentials/strategy-
+ * config/trader-state routes and the session-scoped cron endpoints used to
+ * require Pro (requirePlan('pro')); they now require only a session, since
+ * Free tenants get real engine access capped by src/risk.js's
+ * planPositionCapAllows() and userConfig.js's FREE_WATCHLIST_LIMIT instead of
+ * a route-level block (see CLAUDE.md "Plan entitlements").
+ */
+export function requireSignedIn() {
+  return async (req, res, next) => {
+    let user;
+    try {
+      user = await currentUser(req);
+    } catch (e) {
+      console.error('[auth] requireSignedIn lookup failed:', e?.message || e);
+      return res.status(503).json({ error: 'plan_check_unavailable' });
+    }
+    if (!user) return res.status(401).json({ error: 'Sign in required' });
+    return next();
+  };
+}
+
 export function requirePlan(plan = 'pro') {
   return async (req, res, next) => {
     let user;

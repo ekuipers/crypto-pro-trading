@@ -129,9 +129,15 @@
     // ═══════════════════════════════════════════════════════════════════════
     //  ACTIVE WATCHLIST — settings-managed, up to 20 symbols
     // ═══════════════════════════════════════════════════════════════════════
+    // Mirrors src/userConfig.js's DEFAULT_WATCHLIST (the Node-side canonical
+    // copy) -- kept as a literal here so the dashboard needs no server
+    // round-trip to seed a first-time user's list. Keep both in sync.
     const DEFAULT_WATCHLIST = ["BTC/USD","ETH/USD","SOL/USD","AVAX/USD","LINK/USD","DOT/USD","LTC/USD","DOGE/USD","ADA/USD","AAVE/USD"];
     const WL_STORAGE_KEY = "proDashboardWatchlist";
     const WL_MAX = 20;
+    // Free plan: how many of the symbols above the engine will actually scan
+    // and trade. Mirrors src/userConfig.js's FREE_WATCHLIST_LIMIT.
+    const FREE_WATCHLIST_LIMIT = 3;
 
     function getWatchlist() {
       try {
@@ -155,7 +161,10 @@
       el.innerHTML = wl.map((sym, i) =>
         `<span class="wl-sym-tag">${sym}<span class="wl-sym-tag-x" onclick="removeWatchlistSymbol(${i})" title="Remove">×</span></span>`
       ).join("");
-      if (countEl) countEl.textContent = wl.length;
+      if (countEl) {
+        const plan = typeof window.getCurrentPlan === "function" ? window.getCurrentPlan() : "free";
+        countEl.textContent = wl.length + "/" + (plan === "pro" ? WL_MAX : FREE_WATCHLIST_LIMIT);
+      }
       populateWatchlistOptions();   // keep the exchange dropdown in sync (excludes already-added symbols)
     }
 
@@ -171,6 +180,12 @@
       }
       if (!sym || !/\/(USD|USDT|USDC)$/.test(sym)) { alert("Symbol must be quoted in USD, USDT, or USDC — e.g. BTC/USD, BTC/USDT"); return; }
       const wl = getWatchlist();
+      const plan = typeof window.getCurrentPlan === "function" ? window.getCurrentPlan() : "free";
+      if (plan !== "pro" && wl.length >= FREE_WATCHLIST_LIMIT) {
+        alert(`Free plan is capped at ${FREE_WATCHLIST_LIMIT} watchlist symbols — upgrade to Pro for the full watchlist.`);
+        if (typeof window.openPlansModal === "function") window.openPlansModal();
+        return;
+      }
       if (wl.length >= WL_MAX) { alert(`Maximum ${WL_MAX} symbols allowed.`); return; }
       if (wl.includes(sym)) { alert(`${sym} is already in the watchlist.`); return; }
       wl.push(sym);

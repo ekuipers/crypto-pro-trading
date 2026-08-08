@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import { evaluateSymbol } from "./evaluateSymbol.js";
 import * as ps from "./positionState.js";
 import { STOP_LOSS_ESCALATION_CYCLES } from "./risk.js";
+import { DEFAULT_CFG } from "./userConfig.js";
 
 function bar(c, { o = c, h = c, l = c, v = 100, t = "2026-07-19T00:00:00Z" } = {}) {
   return { t, o, h, l, c, v };
@@ -235,6 +236,24 @@ describe("evaluateSymbol — flat entry (new position)", () => {
     const open = Array.from({ length: 7 }, (_, i) => `SYM${i}/USD`);
     const d = await evaluateSymbol("BTC/USD", {}, freshState(), open, { deps });
     assert.match(d.reason, /BLOCKED: correlation budget/);
+  });
+
+  test("Gate 2b: a Free-plan tenant is blocked once at the position cap", async () => {
+    const deps = baseDeps({ ind: withScore(5.0), cfg: { ...DEFAULT_CFG, PLAN: "free" } });
+    const d = await evaluateSymbol("BTC/USD", {}, freshState(), ["SYM0/USD", "SYM1/USD"], { deps });
+    assert.match(d.reason, /^BLOCKED: plan cap: 2\/2/);
+  });
+
+  test("Gate 2b: a Free-plan tenant under the cap is not blocked by it", async () => {
+    const deps = baseDeps({ ind: withScore(5.0), cfg: { ...DEFAULT_CFG, PLAN: "free" } });
+    const d = await evaluateSymbol("BTC/USD", {}, freshState(), ["SYM0/USD"], { deps });
+    assert.doesNotMatch(d.reason, /BLOCKED: plan cap/);
+  });
+
+  test("Gate 2b: a Pro-plan tenant is never blocked by the position cap", async () => {
+    const deps = baseDeps({ ind: withScore(5.0), cfg: { ...DEFAULT_CFG, PLAN: "pro" } });
+    const d = await evaluateSymbol("BTC/USD", {}, freshState(), ["SYM0/USD", "SYM1/USD", "SYM2/USD"], { deps });
+    assert.doesNotMatch(d.reason, /BLOCKED: plan cap/);
   });
 
   test("account fetch failure is reported and blocks the entry", async () => {

@@ -1,8 +1,8 @@
 // src/scout.js
 //
 // Universe scout -- finds tradable, uptrending, high-confluence symbols
-// OUTSIDE the static config.json watchlist and promotes them for
-// evaluation. A faithful port of scripts/scout.py.
+// OUTSIDE the default watchlist (userConfig.js's DEFAULT_WATCHLIST) and
+// promotes them for evaluation. A faithful port of scripts/scout.py.
 //
 // Why: the watchlist majors correlate at ~0.8. When BTC enters mark-down
 // the whole list is blocked by the daily regime gate and the bot sits 100%
@@ -38,6 +38,7 @@ import { defaultClient } from "./trade.js";
 import { toSlash } from "./symbols.js";
 import { sma, signalScore } from "./indicators.js";
 import { getCryptoBars, getCryptoBars4h, getCryptoBarsDaily } from "./marketData.js";
+import { DEFAULT_WATCHLIST } from "./userConfig.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.join(__dirname, "..");
@@ -63,8 +64,14 @@ export const MAX_SCAN = Number(_scoutCfg.max_scan ?? 60);
 
 const QUOTE_SUFFIXES = ["/USDT", "/USDC", "/BTC", "/ETH"];
 
+// The engine's per-tenant trading watchlist has no single shared value
+// anymore (each tenant scans their own Settings-page list -- see
+// tenantEngine.js), but scout is a shared/global analysis cache (one
+// data/watchlist_dynamic.json, refreshed on a TTL, not per tenant), so it
+// keeps using the canonical default list as its "outside the watchlist"
+// baseline rather than trying to be per-user.
 function watchlist() {
-  return [...(_cfg.watchlist?.symbols || [])];
+  return [...DEFAULT_WATCHLIST];
 }
 
 function toApiTimestamp(date) {

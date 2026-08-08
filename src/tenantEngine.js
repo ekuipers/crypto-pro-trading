@@ -17,17 +17,24 @@
 // trading — while actually placing one user's orders on the owner's Alpaca
 // account. Every failure path below returns a skip, never a default client.
 //
-// The same skip shape now also carries plan entitlement: a tenant who is not
-// on the Pro plan is skipped before any Alpaca client is built. A tenant whose
-// Pro subscription just lapsed gets a short engine-only grace window first —
-// see ENGINE_GRACE_MS below (ROADMAP item 7, decided 2026-08-06).
+// Plan entitlement (2026-08-08 revision) no longer gates cycle participation:
+// Free tenants get a real client and run real cycles too, so someone can see
+// the engine work before paying (Suite ROADMAP's "Free vs Pro distinction"
+// analysis). The resolved plan ('pro'|'free') is threaded onto cfg.PLAN and
+// onto the tenant's watchlist instead, so risk.js's planPositionCapAllows()
+// and the watchlist truncation below do the actual capping. This replaces the
+// old SKIP.NOT_PRO / ENGINE_GRACE_MS grace-period mechanism (ROADMAP item 7)
+// entirely: nobody is skipped for plan reasons anymore, so a lapsed Pro tenant
+// just becomes a capped Free tenant with permanent watchdog coverage instead
+// of a 3-day grace window.
 import * as db from "./db.js";
 import { createAlpacaClient } from "./alpacaClient.js";
-import { resolveConfigForUser, cfgSymbolCap } from "./userConfig.js";
+import { resolveConfigForUser, cfgSymbolCap, DEFAULT_WATCHLIST, FREE_WATCHLIST_LIMIT } from "./userConfig.js";
 import { DecryptFailed, KeyMismatch } from "./secretsCrypto.js";
 import { buildJournalBlockText } from "./journal.js";
 import { buildStopWatchdogBlockText } from "./stopWatchdog.js";
 import { amsterdamParts } from "./tz.js";
+import { isCrypto } from "./trade.js";
 import * as ps from "./positionState.js";
 import * as marketData from "./marketData.js";
 
@@ -36,38 +43,12 @@ export const SKIP = {
   NO_CREDENTIAL: "no active Alpaca credential connected",
   UNREADABLE: "stored credential could not be decrypted",
   WRONG_ENVIRONMENT: "credential was saved from a different environment (key mismatch)",
-  NOT_PRO: "account is not on the Pro plan",
 };
-
-// ROADMAP item 7 ("A plan lapse now skips the tenant, including their open
-// positions") — decided 2026-08-06: grace period. A lapsed Pro subscription
-// keeps running the engine (both evaluate and watchdog) for this long after
-// `current_period_end`, so a missed Patreon webhook or a brief payment hiccup
-// doesn't strand an open position with no stop-watchdog cycle. Engine-only:
-// requirePlan('pro') on the HTTP surface (manual "Run now", schedule writes,
-// credential/strategy config) is untouched and still gates on getPlan() the
-// instant the period ends — that protects paid-only *features*, this protects
-// money already at risk. 3 days is a placeholder; the exact duration is a
-// pricing call Suite's roadmap owns, not an engine constraint.
-export const ENGINE_GRACE_MS = 3 * 24 * 60 * 60 * 1000;
-
-/**
- * True while `sub.current_period_end` fell in the recent past — i.e. the
- * account WAS a paid Pro subscriber and the paid period ended within the
- * grace window. Never true for an account that was never Pro (nothing to
- * grace from) and never true once the window has fully elapsed, which is the
- * original hazard this item exists to bound rather than remove.
- */
-function withinEngineGrace(sub, now) {
-  if (!sub || sub.plan !== "pro" || !sub.current_period_end) return false;
-  const lapsedAt = new Date(sub.current_period_end).getTime();
-  return lapsedAt <= now && now - lapsedAt <= ENGINE_GRACE_MS;
-}
 
 /**
  * Resolves one tenant's trading context.
  *
- * @returns {Promise<{ok: true, uid, client, cfg, configErrors: string[], mode, tradingEnabled, graceUntil: Date|null}
+ * @returns {Promise<{ok: true, uid, client, cfg, configErrors: string[], mode, tradingEnabled, plan: string, watchlist: string[]}
  *                 | {ok: false, uid, reason: string, detail?: string}>}
  */
 export async function buildTenantContext(uid, deps = {}) {
@@ -76,7 +57,7 @@ export async function buildTenantContext(uid, deps = {}) {
   const makeClient = deps.createAlpacaClient || createAlpacaClient;
   const getAccount = deps.getAccount || db.getAccount;
   const getPlan = deps.getPlan || db.getPlan;
-  const getSubscription = deps.getSubscription || db.getSubscription;
+  const getUserWatchlist = deps.getUserWatchlist || db.getUserWatchlist;
 
   let cred;
   try {
@@ -91,51 +72,41 @@ export async function buildTenantContext(uid, deps = {}) {
   }
   if (!cred) return { ok: false, uid, reason: SKIP.NO_CREDENTIAL };
 
-  // Plan entitlement (monetization phase 4). requirePlan('pro') already gates
-  // the HTTP surface, but the two GET cron routes authenticate with the
-  // CRON_SECRET bearer and carry no session or uid, so they structurally
-  // cannot take a route-level check — without this, a free tenant with a
-  // connected credential still cost a full cycle of Alpaca calls and function
-  // time. For POST ("Run now") this is a redundant backstop that also closes
-  // the plan-lapse race between the route check and the run itself.
-  //
-  // The role-then-getPlan order mirrors auth.js's requirePlan()/planGateStatus()
-  // exactly: an 'admin' or 'pro' role grants entitlement without spending a
-  // getPlan() query, because checking only the Patreon-driven subscriptions
-  // row would make Suite's manual role grant silently do nothing.
-  //
-  // Three placement/failure decisions, all deliberate:
-  //   - AFTER credential resolution, so a tenant who is both unentitled and
-  //     mis-keyed reports the credential reason — the one they can act on.
-  //   - BEFORE the client is built, so an unentitled tenant costs no Alpaca
-  //     calls, which is the entire point of the check.
-  //   - NOT wrapped in try/catch. A missing accounts row (a deletion race) is
-  //     a known bad state and fails closed to "not entitled", but a database
-  //     outage must PROPAGATE, exactly like a non-DecryptFailed error above.
-  //     Reporting an outage as "this user isn't paying" would stop every
-  //     tenant's engine while reading like a deliberate opt-out.
+  // Plan resolution (2026-08-08 revision): no longer gates whether the tenant
+  // runs at all — see the module header. Just decides which cap applies.
+  // Role-then-getPlan mirrors auth.js's requirePlan()/planGateStatus() exactly:
+  // an 'admin' or 'pro' role grants Pro without spending a getPlan() query,
+  // because checking only the Patreon-driven subscriptions row would make
+  // Suite's manual role grant silently do nothing. Not wrapped in try/catch:
+  // a missing accounts row (a deletion race) is a known bad state and fails
+  // closed to 'free', but a database outage must PROPAGATE, exactly like a
+  // non-DecryptFailed error above — reporting an outage as "this user is
+  // free" would silently cap every tenant's positions instead of surfacing
+  // the failure.
   const account = await getAccount(uid);
   const roleGrants = account?.role === "admin" || account?.role === "pro";
-  let entitled = account ? (roleGrants || (await getPlan(uid)) === "pro") : false;
-
-  // Grace period (ROADMAP item 7): only spent when the fast paths above
-  // already failed, so a healthy Pro tenant never pays this extra query. Not
-  // wrapped in try/catch, same reasoning as getPlan() above — a lookup
-  // failure here must propagate, not read as "not paying".
-  let graceUntil = null;
-  if (!entitled && account) {
-    const sub = await getSubscription(uid);
-    if (withinEngineGrace(sub, Date.now())) {
-      entitled = true;
-      graceUntil = new Date(new Date(sub.current_period_end).getTime() + ENGINE_GRACE_MS);
-    }
-  }
-  if (!entitled) return { ok: false, uid, reason: SKIP.NOT_PRO };
+  const plan = account && (roleGrants || (await getPlan(uid)) === "pro") ? "pro" : "free";
 
   // Config is resolved before the client is built: createAlpacaClient bakes in
   // two of the order-band hard rules from cfg, so a per-user client built from
   // DEFAULT_CFG would quietly ignore that user's (tighter) bands.
-  const { cfg, errors: configErrors } = await resolveConfig(uid);
+  const { cfg: resolvedCfg, errors: configErrors } = await resolveConfig(uid);
+  // PLAN rides alongside the CONFIG_SPEC-validated tunables so evaluateSymbol.js's
+  // Gate 2b can read it off the same cfg bag as everything else — it is
+  // account/subscription data, not a user-settable CONFIG_SPEC key, so it's
+  // added after resolveConfig rather than going through mergeConfig.
+  const cfg = Object.freeze({ ...resolvedCfg, PLAN: plan });
+
+  // Per-tenant watchlist: the user's own Settings-page list (same one
+  // Autopilot/Journal/Signals/Portfolio already use), falling back to the
+  // canonical default for a tenant who never customized it. Free plan is
+  // capped to FREE_WATCHLIST_LIMIT symbols here as defense in depth — the
+  // client (analytics-watchlist.js) and PUT /api/session are the primary
+  // enforcement, this only covers a stale row from before a Pro->Free
+  // downgrade.
+  const rawWatchlist = (await getUserWatchlist(uid)) || DEFAULT_WATCHLIST;
+  let watchlist = [...new Set(rawWatchlist.filter(isCrypto))];
+  if (plan === "free") watchlist = watchlist.slice(0, FREE_WATCHLIST_LIMIT);
 
   const client = makeClient({
     keyId: cred.keyId,
@@ -148,7 +119,7 @@ export async function buildTenantContext(uid, deps = {}) {
     cfg,
   });
 
-  return { ok: true, uid, client, cfg, configErrors, mode: cred.mode, tradingEnabled: cred.tradingEnabled, graceUntil };
+  return { ok: true, uid, client, cfg, configErrors, mode: cred.mode, tradingEnabled: cred.tradingEnabled, plan, watchlist };
 }
 
 /**

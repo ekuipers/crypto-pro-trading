@@ -10,7 +10,8 @@ import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
-import { installAuthRoutes, currentUid, requirePlan } from './src/auth.js';
+import { installAuthRoutes, currentUid, currentUser, requireSignedIn } from './src/auth.js';
+import { FREE_WATCHLIST_LIMIT } from './src/userConfig.js';
 import { installCronRoutes } from './src/cronRoutes.js';
 import { installCredentialsRoutes } from './src/credentialsRoutes.js';
 import { installStrategyConfigRoutes } from './src/strategyConfigRoutes.js';
@@ -63,25 +64,28 @@ app.use((err, req, res, next) => {
 // Postgres database as the rest of CryptoPro Suite. See src/db.js.
 installAuthRoutes(app);
 
-// ---- Pro entitlement gate (monetization phase 4) ---------------------------
-// Trader is a Pro-tier project: the whole surface is server-backed and every
-// tenant costs Alpaca calls and function time. Mounted before the route
-// installers below, since Express runs middleware in declaration order.
+// ---- Sign-in gate (2026-08-08 revision of monetization phase 4) -----------
+// Trader used to be all-or-nothing Pro (requirePlan('pro')) on this whole
+// surface. Free tenants now get real engine access too — capped at
+// FREE_MAX_OPEN_POSITIONS open positions and FREE_WATCHLIST_LIMIT watchlist
+// symbols (src/risk.js, src/userConfig.js) — so this only needs a session,
+// not a plan. Mounted before the route installers below, since Express runs
+// middleware in declaration order.
 //
-// `/api/cron` is split by METHOD, not by path, and this is load-bearing:
+// `/api/cron` is still split by METHOD, and this is still load-bearing:
 // **GET is the Vercel Cron machine contract** — authenticated by the
-// CRON_SECRET bearer header, with no session and no uid — so plan-gating it
+// CRON_SECRET bearer header, with no session and no uid — so gating it here
 // would 401 the scheduler and stop the engine outright. POST is the dashboard
-// "Run now" for the calling user, and PUT writes that user's schedule; both are
-// session-scoped and are gated.
+// "Run now" for the calling user, and PUT writes that user's schedule; both
+// require a session.
 //
 // Left open deliberately: /api/glossary (served to users, and public content),
 // plus /api/health, /api/me, /api/session and the auth routes.
 app.use('/api/cron', (req, res, next) => {
   if (req.method === 'GET') return next();
-  return requirePlan('pro')(req, res, next);
+  return requireSignedIn()(req, res, next);
 });
-app.use(['/api/alpaca-credentials', '/api/strategy-config', '/api/trader-state'], requirePlan('pro'));
+app.use(['/api/alpaca-credentials', '/api/strategy-config', '/api/trader-state'], requireSignedIn());
 
 // Vercel Cron (or a manual dashboard trigger) drives the evaluate and
 // watchdog engines. See src/cronRoutes.js.
@@ -136,8 +140,23 @@ app.get('/api/session', async (req, res) => {
 
 app.put('/api/session', async (req, res) => {
   try {
-    await db.putLayout(await currentUid(req), db.SESSION_NAME, req.body);
-    res.json({ ok: true });
+    const uid = await currentUid(req);
+    let body = req.body;
+    // Free-tier watchlist cap, defense in depth (analytics-watchlist.js's
+    // addWatchlistSymbol() is the primary enforcement — this only catches a
+    // modified client or a stale list from before a Pro->Free downgrade).
+    // Truncates just this one field; every other setting in the blob still
+    // saves untouched, same "drop the bad part, don't fail the whole write"
+    // precedent as userConfig.js's CONFIG_SPEC merge.
+    if (Array.isArray(body?.proDashboardWatchlist) && body.proDashboardWatchlist.length > FREE_WATCHLIST_LIMIT) {
+      const user = await currentUser(req);
+      const isPro = user && (user.role === 'admin' || user.role === 'pro' || (await db.getPlan(user.id)) === 'pro');
+      if (!isPro) {
+        body = { ...body, proDashboardWatchlist: body.proDashboardWatchlist.slice(0, FREE_WATCHLIST_LIMIT) };
+      }
+    }
+    await db.putLayout(uid, db.SESSION_NAME, body);
+    res.json({ ok: true, ...(body !== req.body ? { proDashboardWatchlist: body.proDashboardWatchlist } : {}) });
   } catch (e) {
     console.error('[api] put session:', e.message);
     res.status(500).json({ error: String(e.message) });

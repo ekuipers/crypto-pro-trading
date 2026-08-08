@@ -345,6 +345,28 @@ export function correlationBudgetAllows(
   return { allowed: true, reason: "ok" };
 }
 
+// Free plan: how many concurrent open positions the engine will open a NEW
+// entry into (existing positions still get managed -- exits, stops, partial-TP,
+// trailing -- regardless of plan). Pro is uncapped. See CLAUDE.md "Plan
+// entitlements".
+export const FREE_MAX_OPEN_POSITIONS = 2;
+
+/**
+ * Returns { allowed, reason }. `plan` is `cfg.PLAN` ('pro'|'free') -- Pro is
+ * never blocked here. The reason is deliberately prefixed "plan cap:", not
+ * "correlation budget:" -- rotation.js string-matches "BLOCKED: correlation
+ * budget" to find rotation-eligible slots, and a Free tenant at its position
+ * cap should not get rotation-swap behavior.
+ */
+export function planPositionCapAllows(openSymbols, plan, limit = FREE_MAX_OPEN_POSITIONS) {
+  if (plan !== "free") return { allowed: true, reason: "ok" };
+  const total = openSymbols.length;
+  if (total >= limit) {
+    return { allowed: false, reason: `plan cap: ${total}/${limit} free-tier positions open` };
+  }
+  return { allowed: true, reason: "ok" };
+}
+
 // ---------------------------------------------------------------------------
 // Daily drawdown gate
 // ---------------------------------------------------------------------------

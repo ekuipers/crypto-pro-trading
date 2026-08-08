@@ -263,43 +263,37 @@ sub-tabs. Settings persist to `localStorage`, seeded from `config.json`.
 - **Privacy policy** states there is exactly one cookie and no tracking of any kind — a factual claim about
   this codebase, so anything adding storage, a processor or a retention change must update it (Suite rule
   27). Footer also carries a trading-risk disclaimer and a Terms of Service modal.
-- **Plan entitlements — Trader is a Pro-tier project.** `requirePlan('pro')` (`src/auth.js`) gates
+- **Plan entitlements — Free gets a real, capped taste; Pro is uncapped (decided 2026-08-08).** Every
+  tenant with a connected credential runs real `evaluate`/`watchdog` cycles now — entitlement no longer
+  gates cycle participation, it only decides which cap applies. `requireSignedIn()` (`src/auth.js`) gates
   `/api/alpaca-credentials`, `/api/strategy-config`, `/api/trader-state` and the session-scoped half of
-  `/api/cron`, mounted in `server.js` as path prefixes *before* the route installers so sub-paths are
-  covered by construction. Entitlement comes from **either** `accounts.role` (`admin`, or a manually
-  granted `pro`) **or** `getPlan(uid)` — checking only `getPlan()` would lock admins out and make Suite's
-  role grant do nothing. Denials are 401 (signed out) / 402 `upgrade_required` (not entitled) /
-  **503 on an unexpected failure, never 402** — a paying user must not be told to upgrade because a query
-  blipped. The decision is pure in `planGateStatus()` and pinned by `src/planGate.test.js`.
-  - **`/api/cron` is gated by METHOD, and this is load-bearing.** **GET is never plan-gated** — it is the
-    Vercel Cron contract, authenticated by the `CRON_SECRET` bearer with no session and no uid, so gating
-    it would 401 the scheduler and stop the engine outright. POST ("Run now") and PUT (schedule) are
-    session-scoped and are gated.
-  - **The engine gate is a skip, not a status.** `buildTenantContext()` (`src/tenantEngine.js`) resolves
-    entitlement with the *same* role-then-`getPlan()` shortcut as `requirePlan()` and returns
-    `SKIP.NOT_PRO` — the same shape as an unreadable credential. It lives there, not in `cronRoutes.js`,
-    because that is the single answer to "which account are we trading" and because all three paths funnel
-    through it; the two GET cron routes carry a bearer secret and no session, so they structurally cannot
-    take a route-level `requirePlan()`. Two placements are load-bearing: **after** credential resolution
-    (a mis-keyed *and* unentitled tenant reports the credential reason, the one they can act on) and
-    **before** the client is built (an unentitled tenant costs no Alpaca calls, the whole point). A missing
-    `accounts` row fails closed to not-entitled; a **database failure rethrows** rather than skipping —
-    reporting an outage as "not paying" would stop every tenant while reading as an opt-out.
-  - **A lapsed-but-recently-paid tenant gets a grace window, not an immediate skip.** `ENGINE_GRACE_MS`
-    (`src/tenantEngine.js`, 3 days, decided 2026-08-06) keeps both `evaluate` and `watchdog` running past
-    `subscriptions.current_period_end` for that long, so a missed Patreon webhook or a brief payment hiccup
-    doesn't abandon an open position with no stop-watchdog cycle — engine-only, `requirePlan('pro')` on the
-    HTTP surface still cuts off immediately. Once the window fully elapses the original hazard still
-    applies: a skipped tenant gets no stop watchdog at all. Accepted only because every account is a
-    pre-production test account — see ROADMAP.md item 7.
-  - **`settings-engine.js` (fixed 2026-08-05) must show `proRequiredBanner()` on a 402, never let it fall
-    through.** Every catch/callback on the credentials + strategy-config panel echoed `res.data.error`
-    verbatim, which is the server's bare `upgrade_required` string, not copy meant for a user — a free
-    account saw that literal string in the status banner instead of an explanation. `engineRefresh()`,
-    `afterCredentialChange()`, `engineSaveConfig()` and `engineResetConfig()` all check `status === 402`
-    before the generic error path. `trader-state`'s two client reads (`tabs-command.js`, `autopilot.js`)
-    were left alone — both are best-effort HWM merges already wrapped to degrade silently on any failure,
-    not a panel a free user looks at.
+  `/api/cron` (any authenticated account, Free or Pro), mounted in `server.js` as path prefixes *before*
+  the route installers so sub-paths are covered by construction. `requirePlan()`/`planGateStatus()`
+  (`src/auth.js`, pinned by `src/planGate.test.js`) remain as generic building blocks but gate nothing in
+  Trader today.
+  - **`/api/cron` is still gated by METHOD.** **GET is never gated** — it is the Vercel Cron contract,
+    authenticated by the `CRON_SECRET` bearer with no session and no uid. POST ("Run now") and PUT
+    (schedule) are session-scoped and require sign-in only.
+  - **The two caps live in `buildTenantContext()` (`src/tenantEngine.js`), not a route.** It resolves each
+    tenant's plan (`'pro'`|`'free'`, same role-then-`getPlan()` shortcut as `requirePlan()` used to use —
+    checking only `getPlan()` would lock admins out and make Suite's role grant do nothing) onto
+    `ctx.plan`/`cfg.PLAN`, and resolves `ctx.watchlist` from the tenant's own Settings-page watchlist
+    (`db.getUserWatchlist()`, falling back to `userConfig.js`'s `DEFAULT_WATCHLIST`). A missing `accounts`
+    row fails closed to `'free'`; a **database failure rethrows** rather than degrading — reporting an
+    outage as "this user is free" would silently cap every tenant instead of surfacing the failure.
+  - **Free: max `FREE_MAX_OPEN_POSITIONS` (2) open positions, `FREE_WATCHLIST_LIMIT` (3) watchlist
+    symbols. Pro: uncapped.** The position cap is `src/risk.js`'s `planPositionCapAllows()`, called as
+    Gate 2b in `evaluateSymbol.js`'s `evaluateFlatEntry()` right after the correlation-budget Gate 2 — it
+    only blocks **new** entries, never forces a close, so a Pro→Free downgrade while holding more positions
+    never liquidates anything. Its reason string is prefixed `"plan cap:"`, not `"correlation budget:"`,
+    so `rotation.js`'s `"BLOCKED: correlation budget"` string-match doesn't sweep a capped Free tenant into
+    rotation-swap behavior. The watchlist cap is enforced three times — client (`analytics-watchlist.js`'s
+    `addWatchlistSymbol()`, primary), `PUT /api/session` (server, defense in depth), and
+    `buildTenantContext()` (engine, covers a stale row from before a downgrade) — same "block before
+    creation" pattern as CryptoPro Charts' `FREE_WATCHLIST_LIMIT`.
+  - This supersedes the old grace-period mechanism (`ENGINE_GRACE_MS`/`withinEngineGrace()`, ROADMAP item
+    7): nobody is skipped for plan reasons anymore, so a lapsed Pro tenant simply becomes a capped Free
+    tenant with *permanent* watchdog coverage instead of a 3-day window.
 
 ## Modules
 

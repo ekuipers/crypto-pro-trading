@@ -11,6 +11,14 @@
 
 let _authCurrentUser = null;
 
+// Global read for other classic-global scripts (e.g. analytics-watchlist.js's
+// Free-tier watchlist cap) that need the caller's plan synchronously, without
+// each duplicating its own /api/me fetch. Fails closed to 'free' before
+// initAuth()'s fetchMe() resolves or when signed out -- the brief race window
+// is just the one network round trip on page load, well before a user could
+// interact with a plan-gated control.
+window.getCurrentPlan = () => (_authCurrentUser && _authCurrentUser.plan) || 'free';
+
 // ---- Cross-project SSO handoff (Suite roadmap bug: "sign in to any app
 // should sign you in everywhere") ------------------------------------------
 // Suite's landing page already mints a ticket on click for its own outbound

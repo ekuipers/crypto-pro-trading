@@ -74,6 +74,41 @@ describe("main — dry-run happy path", () => {
     assert.deepEqual(journalCalls[0].executed, []);
   });
 
+  test("an injected symbols list is used verbatim, with no scout merge", async () => {
+    // Multi-tenant: tenantEngine.js resolves each tenant's own watchlist
+    // (already filtered/deduped/plan-capped) and passes it in directly — a
+    // scout merge here could push a Free tenant's scan past their cap.
+    const evaluated = [];
+    const promotedCalls = [];
+    const deps = baseDeps({
+      evaluateSymbol: async (symbol) => {
+        evaluated.push(symbol);
+        return { symbol, action: "HOLD", reason: "no entry", score: 1.0, qty: null, limitPrice: null, ask: 100, netRr: null };
+      },
+      promotedSymbols: async () => { promotedCalls.push(1); return ["DOGE/USD"]; },
+    });
+    const code = await main({ execute: false, deps, symbols: ["BTC/USD", "ETH/USD"] });
+    assert.equal(code, 0);
+    assert.deepEqual(evaluated, ["BTC/USD", "ETH/USD"]);
+    assert.equal(promotedCalls.length, 0, "scout must not be consulted for an injected per-tenant watchlist");
+  });
+
+  test("with no injected symbols, falls back to DEFAULT_WATCHLIST plus scout promotions (legacy/CLI path)", async () => {
+    const evaluated = [];
+    const deps = baseDeps({
+      evaluateSymbol: async (symbol) => {
+        evaluated.push(symbol);
+        return { symbol, action: "HOLD", reason: "no entry", score: 1.0, qty: null, limitPrice: null, ask: 100, netRr: null };
+      },
+      promotedSymbols: async () => ["SHIB/USD"],
+    });
+    const code = await main({ execute: false, deps });
+    assert.equal(code, 0);
+    assert.ok(evaluated.length >= 10, "the default watchlist has 10 symbols");
+    assert.ok(evaluated.includes("BTC/USD"));
+    assert.ok(evaluated.includes("SHIB/USD"), "scout promotions still merge on the legacy/CLI path");
+  });
+
   test("actionable BUY decisions are reported as a dry-run count, not executed", async () => {
     const deps = baseDeps({
       evaluateSymbol: async (symbol) => ({ symbol, action: "BUY", reason: "TA BUY", score: 4.0, qty: 1, limitPrice: 100, ask: 100 }),

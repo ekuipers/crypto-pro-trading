@@ -22,7 +22,7 @@
 // which does not exist yet. Do not read a good number here as "profitable".
 import { loadEnv } from "../src/env.js";
 import { replaySymbol } from "../src/replay.js";
-import { DEFAULT_CFG } from "../src/userConfig.js";
+import { DEFAULT_CFG, DEFAULT_WATCHLIST } from "../src/userConfig.js";
 
 loadEnv();
 const { getCryptoBars } = await import("../src/marketData.js");
@@ -36,8 +36,7 @@ function arg(name, fallback = null) {
   return i >= 0 && process.argv[i + 1] && !process.argv[i + 1].startsWith("--") ? process.argv[i + 1] : fallback;
 }
 
-const symbols = (arg("symbols") || (DEFAULT_CFG.WATCHLIST || []).join(",") ||
-  "BTC/USD,ETH/USD,SOL/USD,ADA/USD,DOGE/USD,LINK/USD,AVAX/USD,DOT/USD,LTC/USD,AAVE/USD")
+const symbols = (arg("symbols") || DEFAULT_WATCHLIST.join(","))
   .split(",").map((s) => s.trim()).filter(Boolean);
 const days = Number(arg("days", "30"));
 const spreadPct = Number(arg("spread-pct", "0.0058"));

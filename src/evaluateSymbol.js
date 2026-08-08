@@ -39,6 +39,7 @@ import {
   shouldPartialTp,
   isStalePosition,
   correlationBudgetAllows,
+  planPositionCapAllows,
   roundTripCostPct,
   netRr,
   stopLossLimitPrice,
@@ -533,6 +534,15 @@ async function evaluateFlatEntry({ decision, symbol, score, ask, bid, state, ope
   );
   if (!allowed) {
     decision.reason = "BLOCKED: " + budgetReason;
+    return decision;
+  }
+
+  // Gate 2b: Free plan -- max concurrent open positions (CLAUDE.md "Plan
+  // entitlements"). Only blocks new entries; existing positions are managed
+  // regardless of plan.
+  const { allowed: planAllowed, reason: planReason } = planPositionCapAllows(openSymbols, cfg.PLAN);
+  if (!planAllowed) {
+    decision.reason = "BLOCKED: " + planReason;
     return decision;
   }
 

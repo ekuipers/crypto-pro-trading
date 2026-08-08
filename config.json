@@ -113,20 +113,6 @@
     },
     "default_cap": 0.05
   },
-  "watchlist": {
-    "symbols": [
-      "BTC/USD",
-      "ETH/USD",
-      "SOL/USD",
-      "AVAX/USD",
-      "LINK/USD",
-      "DOT/USD",
-      "LTC/USD",
-      "DOGE/USD",
-      "ADA/USD",
-      "AAVE/USD"
-    ]
-  },
   "scout": {
     "_comment": "Universe scout: auto-promote uptrending high-confluence */USD pairs outside the watchlist (scripts/scout.py). Promoted symbols use the default 5% cap and all existing gates.",
     "enabled": true,

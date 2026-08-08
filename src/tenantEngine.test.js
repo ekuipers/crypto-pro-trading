@@ -7,9 +7,9 @@
 // these tests assert on what did NOT happen.
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { buildTenantContext, tenantDeps, SKIP, ENGINE_GRACE_MS } from "./tenantEngine.js";
+import { buildTenantContext, tenantDeps, SKIP } from "./tenantEngine.js";
 import { DecryptFailed, KeyMismatch } from "./secretsCrypto.js";
-import { DEFAULT_CFG } from "./userConfig.js";
+import { DEFAULT_CFG, DEFAULT_WATCHLIST, FREE_WATCHLIST_LIMIT } from "./userConfig.js";
 import { ALPACA_HOSTS } from "./alpacaClient.js";
 
 const PAPER = {
@@ -39,9 +39,9 @@ const deps = (over = {}) => ({
   createAlpacaClient: stubClientFactory().factory,
   getAccount: async () => ({ id: "alice", role: null }),
   getPlan: async () => "pro",
-  // Grace-period lookup (ROADMAP item 7) — null by default so every existing
-  // test's "free"/lapsed cases stay skipped without reaching for a real DB.
-  getSubscription: async () => null,
+  // null by default -- every existing test falls back to DEFAULT_WATCHLIST
+  // without reaching for a real DB.
+  getUserWatchlist: async () => null,
   ...over,
 });
 
@@ -146,12 +146,12 @@ describe("buildTenantContext", () => {
     assert.equal(calls[0].symbolCap("SOL/USD"), 0.03);
   });
 
-  // ---- Plan entitlement (ROADMAP item 7) ---------------------------------
-  // requirePlan('pro') stops the API, not the work: the two GET cron routes
-  // are bearer-authenticated with no session, so the dispatcher used to run a
-  // free tenant's full cycle — Alpaca calls and all — on a valid credential.
-  // The skip has to happen here, and before the client is built.
-  test("a free-plan tenant with a valid credential is skipped, and no client is built", async () => {
+  // ---- Plan resolution (2026-08-08 revision) ------------------------------
+  // Plan no longer gates whether a tenant runs at all — Free tenants get a
+  // real client and cycle too, capped elsewhere (risk.js's
+  // planPositionCapAllows(), the watchlist truncation below). These tests
+  // pin ctx.plan and ctx.watchlist instead of a skip.
+  test("a free-plan tenant with a valid credential still gets a client, plan 'free'", async () => {
     const { factory, calls } = stubClientFactory();
     const ctx = await buildTenantContext("bob", deps({
       getAccount: async () => ({ id: "bob", role: null }),
@@ -159,106 +159,32 @@ describe("buildTenantContext", () => {
       createAlpacaClient: factory,
     }));
 
-    assert.equal(ctx.ok, false);
-    assert.equal(ctx.reason, SKIP.NOT_PRO);
-    assert.equal(calls.length, 0, "a client was built for a tenant with no Pro entitlement");
-    assert.equal(ctx.client, undefined, "a skipped tenant must not carry a client");
-  });
-
-  test("a lapsed subscription (getPlan resolves 'free') is skipped", async () => {
-    // The account still exists and still has a working credential — only the
-    // subscriptions row has gone non-active/expired. db.getPlan already folds
-    // every one of those cases into 'free'.
-    const ctx = await buildTenantContext("bob", deps({
-      getAccount: async () => ({ id: "bob", role: null, username: "bob" }),
-      getPlan: async () => "free",
-    }));
-
-    assert.equal(ctx.ok, false);
-    assert.equal(ctx.reason, SKIP.NOT_PRO);
-  });
-
-  // ---- Grace period (ROADMAP item 7, decided 2026-08-06) -----------------
-  // A tenant whose paid period just ended still runs — both evaluate and
-  // watchdog — for ENGINE_GRACE_MS past current_period_end, so a missed
-  // webhook or a brief payment hiccup doesn't abandon an open position with
-  // no stop-watchdog cycle.
-  test("a subscription that lapsed within the grace window still runs, and reports graceUntil", async () => {
-    const lapsedAt = Date.now() - ENGINE_GRACE_MS / 2; // halfway through the window
-    const { factory, calls } = stubClientFactory();
-    const ctx = await buildTenantContext("bob", deps({
-      getPlan: async () => "free",
-      getSubscription: async () => ({ plan: "pro", status: "canceled", current_period_end: new Date(lapsedAt) }),
-      createAlpacaClient: factory,
-    }));
-
     assert.equal(ctx.ok, true);
-    assert.equal(calls.length, 1, "a grace-period tenant must still get a client, same as a fully entitled one");
-    assert.ok(ctx.graceUntil instanceof Date);
-    assert.equal(ctx.graceUntil.getTime(), lapsedAt + ENGINE_GRACE_MS);
+    assert.equal(ctx.plan, "free");
+    assert.equal(ctx.cfg.PLAN, "free");
+    assert.equal(calls.length, 1, "a free tenant with a valid credential must still get a client");
   });
 
-  test("a subscription that lapsed beyond the grace window is skipped as NOT_PRO", async () => {
-    const lapsedAt = Date.now() - ENGINE_GRACE_MS - 1000; // just past the window
-    const { factory, calls } = stubClientFactory();
-    const ctx = await buildTenantContext("bob", deps({
-      getPlan: async () => "free",
-      getSubscription: async () => ({ plan: "pro", status: "canceled", current_period_end: new Date(lapsedAt) }),
-      createAlpacaClient: factory,
-    }));
-
-    assert.equal(ctx.ok, false);
-    assert.equal(ctx.reason, SKIP.NOT_PRO);
-    assert.equal(calls.length, 0);
-  });
-
-  test("an account that was never Pro gets no grace, even with a subscriptions row", async () => {
-    // No current_period_end to anchor a grace window from — a free account
-    // must not be able to fabricate one.
-    const ctx = await buildTenantContext("bob", deps({
-      getPlan: async () => "free",
-      getSubscription: async () => ({ plan: "free", status: null, current_period_end: null }),
-    }));
-
-    assert.equal(ctx.ok, false);
-    assert.equal(ctx.reason, SKIP.NOT_PRO);
-  });
-
-  test("a fully entitled tenant never spends a getSubscription query", async () => {
-    const calls = [];
-    const ctx = await buildTenantContext("alice", deps({
-      getPlan: async () => "pro",
-      getSubscription: async (uid) => { calls.push(uid); return null; },
-    }));
-
+  test("a Pro tenant resolves plan 'pro' and an unpadded cfg.PLAN", async () => {
+    const ctx = await buildTenantContext("alice", deps({ getPlan: async () => "pro" }));
     assert.equal(ctx.ok, true);
-    assert.equal(ctx.graceUntil, null);
-    assert.equal(calls.length, 0, "the grace lookup should only run once the fast paths already failed");
+    assert.equal(ctx.plan, "pro");
+    assert.equal(ctx.cfg.PLAN, "pro");
   });
 
-  test("a getSubscription database failure propagates instead of reading as 'not paying'", async () => {
-    await assert.rejects(
-      () => buildTenantContext("bob", deps({
-        getPlan: async () => "free",
-        getSubscription: async () => { throw new Error("connection reset"); },
-      })),
-      /connection reset/,
-    );
-  });
-
-  test("no accounts row at all fails closed to NOT_PRO, not an error", async () => {
-    // Possible after a deletion race. Fail closed: an absent account is not a
-    // tenant to trade, and must not surface as an engine-wide failure either.
+  test("no accounts row at all fails closed to plan 'free', not an error", async () => {
+    // Possible after a deletion race. Fail closed to the more restrictive
+    // plan rather than surfacing an absent account as an engine-wide failure.
     const ctx = await buildTenantContext("ghost", deps({
       getAccount: async () => null,
       getPlan: async () => "pro",
     }));
 
-    assert.equal(ctx.ok, false);
-    assert.equal(ctx.reason, SKIP.NOT_PRO);
+    assert.equal(ctx.ok, true);
+    assert.equal(ctx.plan, "free");
   });
 
-  test("role 'admin' is entitled without a getPlan query", async () => {
+  test("role 'admin' resolves 'pro' without a getPlan query", async () => {
     // Same shortcut as auth.js's requirePlan()/planGateStatus(): checking only
     // subscriptions.plan would lock admins out of the engine they support
     // users on, and make Suite's manual role grant silently do nothing.
@@ -269,10 +195,11 @@ describe("buildTenantContext", () => {
     }));
 
     assert.equal(ctx.ok, true);
+    assert.equal(ctx.plan, "pro");
     assert.equal(calls.length, 0, "the role grant should decide it without a getPlan query");
   });
 
-  test("role 'pro' is entitled without a getPlan query", async () => {
+  test("role 'pro' resolves 'pro' without a getPlan query", async () => {
     // The manual comp grant, set by an admin via Suite's role endpoint.
     const { calls, getPlan } = stubGetPlan("free");
     const ctx = await buildTenantContext("comped", deps({
@@ -281,7 +208,40 @@ describe("buildTenantContext", () => {
     }));
 
     assert.equal(ctx.ok, true);
+    assert.equal(ctx.plan, "pro");
     assert.equal(calls.length, 0, "the role grant should decide it without a getPlan query");
+  });
+
+  // ---- Watchlist resolution ------------------------------------------------
+  test("a tenant who never customized their watchlist falls back to DEFAULT_WATCHLIST", async () => {
+    const ctx = await buildTenantContext("alice", deps({ getPlan: async () => "pro" }));
+    assert.deepEqual(ctx.watchlist, [...DEFAULT_WATCHLIST]);
+  });
+
+  test("a tenant's own Settings-page watchlist is used verbatim when Pro", async () => {
+    const ctx = await buildTenantContext("alice", deps({
+      getPlan: async () => "pro",
+      getUserWatchlist: async () => ["BTC/USD", "LINK/USD", "AAVE/USD", "DOT/USD"],
+    }));
+    assert.deepEqual(ctx.watchlist, ["BTC/USD", "LINK/USD", "AAVE/USD", "DOT/USD"]);
+  });
+
+  test("a Free tenant's watchlist is truncated to FREE_WATCHLIST_LIMIT", async () => {
+    const ctx = await buildTenantContext("bob", deps({
+      getAccount: async () => ({ id: "bob", role: null }),
+      getPlan: async () => "free",
+      getUserWatchlist: async () => ["BTC/USD", "LINK/USD", "AAVE/USD", "DOT/USD"],
+    }));
+    assert.equal(ctx.watchlist.length, FREE_WATCHLIST_LIMIT);
+    assert.deepEqual(ctx.watchlist, ["BTC/USD", "LINK/USD", "AAVE/USD"].slice(0, FREE_WATCHLIST_LIMIT));
+  });
+
+  test("watchlist is deduped and filtered to valid crypto pairs", async () => {
+    const ctx = await buildTenantContext("alice", deps({
+      getPlan: async () => "pro",
+      getUserWatchlist: async () => ["BTC/USD", "BTC/USD", "AAPL", "not-a-symbol"],
+    }));
+    assert.deepEqual(ctx.watchlist, ["BTC/USD"]);
   });
 
   test("a credential problem outranks a plan problem in the reported reason", async () => {

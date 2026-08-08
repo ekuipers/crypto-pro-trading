@@ -90,8 +90,9 @@ credentials* below. Earlier versions of this panel also let you edit per-account
 JSON directly in the dashboard; that editor was removed (too confusing for beginner traders without IT
 knowledge) — `PUT/GET/DELETE /api/strategy-config` below is still live for anyone calling it directly.
 
-This panel is a **Pro** feature. A free signed-in account sees a "Pro feature" banner with an Upgrade to
-Pro button instead of the credential form — the browser-only fields above stay free for everyone.
+This panel is open to any signed-in account. Free tenants get real engine access — connect credentials,
+run scheduled jobs — capped at 2 concurrent open positions and 3 watchlist symbols; Pro is uncapped. See
+CLAUDE.md "Plan entitlements".
 
 > **Safety:** pointing `APCA_BASE_URL` (or the dashboard's mode selector) at live does not enable live
 > trading — it makes the connection read-only. Orders can only be placed against
@@ -264,7 +265,7 @@ build is live. `db.init()` warns at boot if a database still has the old primary
 ```mermaid
 flowchart LR
   subgraph LIVE["LIVE/PAPER TRADING LOOP (Vercel Cron dispatcher, hourly)"]
-    A[watchlist_crypto.json] --> B["src/runEvaluation.js"]
+    A["Tenant's own Settings-page watchlist\n(userConfig.js DEFAULT_WATCHLIST if unset)"] --> B["src/runEvaluation.js"]
     B --> C["(Alpaca API)"]
     C -->|/v2/positions| B
     C -->|quotes & bars| B
@@ -285,8 +286,13 @@ Python engine (2026-07-25), and the dashboard banner that read its output was re
 
 ## Watchlist
 
-Defined in `watchlist_crypto.json`. Crypto symbols use Alpaca's slash form (`BTC/USD`).
-All 10 symbols trade 24/7 — the `/v2/clock` market-hours gate is **not** used.
+Each tenant scans their own watchlist — the same "Active Watchlist" list configured on the Settings page
+(`src/js/analytics-watchlist.js`, already used by Autopilot/Daily Journal/Signals/Portfolio), read by the
+cron engine via `db.getUserWatchlist()`. A tenant who never customized it gets the 10-symbol default,
+`src/userConfig.js`'s `DEFAULT_WATCHLIST`. Crypto symbols use Alpaca's slash form (`BTC/USD`). All symbols
+trade 24/7 — the `/v2/clock` market-hours gate is **not** used. Free-plan tenants are capped to
+`FREE_WATCHLIST_LIMIT` (3) symbols; Pro is uncapped (up to the dashboard's own 20-symbol cap). See
+CLAUDE.md "Plan entitlements".
 
 | Symbol    | Symbol    |
 |-----------|-----------|
@@ -688,9 +694,8 @@ alpaca-trading-agent/
 ├── .env                       # API credentials (git-ignored)
 ├── .gitignore
 ├── CLAUDE.md                  # Agent operating instructions
-├── config.json                # Central strategy + risk configuration
-├── portfolio_caps.json        # Per-symbol position caps (BTC/USD slash form)
-└── watchlist_crypto.json      # Symbols to trade
+└── config.json                # Central strategy + risk configuration (portfolio caps; default watchlist
+                                # lives in src/userConfig.js — see "Watchlist" above)
 ```
 
 ---

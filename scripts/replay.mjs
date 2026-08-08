@@ -26,7 +26,7 @@
 // this deliberately does and does not answer.
 import { loadEnv } from "../src/env.js";
 import { replaySymbol, summarize } from "../src/replay.js";
-import { DEFAULT_CFG } from "../src/userConfig.js";
+import { DEFAULT_CFG, DEFAULT_WATCHLIST } from "../src/userConfig.js";
 
 loadEnv();
 
@@ -41,8 +41,7 @@ function arg(name, fallback = null) {
     : fallback;
 }
 
-const symbols = (arg("symbols") || (DEFAULT_CFG.WATCHLIST || []).join(",") ||
-  "BTC/USD,ETH/USD,SOL/USD,ADA/USD,DOGE/USD,LINK/USD,AVAX/USD,DOT/USD,LTC/USD,AAVE/USD")
+const symbols = (arg("symbols") || DEFAULT_WATCHLIST.join(","))
   .split(",").map((s) => s.trim()).filter(Boolean);
 const barCount = Number(arg("bars", "500"));
 const TIMEFRAMES = ["15Min", "1Hour", "4Hour", "1Day"];

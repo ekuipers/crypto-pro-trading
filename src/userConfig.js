@@ -124,6 +124,28 @@ export const DEFAULT_CFG = Object.freeze({
 });
 
 // ---------------------------------------------------------------------------
+// Watchlist -- the canonical default symbol list and the Free-plan cap on it.
+//
+// Mirrored in the browser at src/js/analytics-watchlist.js's DEFAULT_WATCHLIST
+// (same convention as MIN_TRADED_BARS's three-way mirror note in CLAUDE.md) --
+// that copy exists because the dashboard needs it with no server round-trip.
+// This is the Node-side canonical copy: the seed for a tenant who has never
+// customized their Settings-page watchlist, and the fallback for the
+// legacy/CLI single-tenant path and the offline measurement scripts.
+// ---------------------------------------------------------------------------
+export const DEFAULT_WATCHLIST = Object.freeze([
+  "BTC/USD", "ETH/USD", "SOL/USD", "AVAX/USD", "LINK/USD",
+  "DOT/USD", "LTC/USD", "DOGE/USD", "ADA/USD", "AAVE/USD",
+]);
+
+// Free plan: how many symbols of a tenant's own watchlist the engine will
+// scan. Pro is uncapped (up to the dashboard's own WL_MAX). Enforced in three
+// places -- see CLAUDE.md's "Plan entitlements": client (analytics-watchlist.js,
+// primary), PUT /api/session (defense in depth), buildTenantContext() (covers
+// a stale row from before a Pro->Free downgrade).
+export const FREE_WATCHLIST_LIMIT = 3;
+
+// ---------------------------------------------------------------------------
 // Spec -- types, bounds, and which keys a user may set at all
 // ---------------------------------------------------------------------------
 

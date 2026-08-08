@@ -764,6 +764,16 @@ export async function putLayout(uid, name, data) {
   );
 }
 
+// Reads back the same row /api/session serves, for the engine (buildTenantContext,
+// no live browser request) to find a tenant's own Settings-page watchlist. Returns
+// null when the user never customized it (no row, or the field isn't a non-empty
+// array) so the caller can fall back to DEFAULT_WATCHLIST.
+export async function getUserWatchlist(uid) {
+  const data = await getLayout(uid, SESSION_NAME);
+  const wl = data?.proDashboardWatchlist;
+  return Array.isArray(wl) && wl.length ? wl : null;
+}
+
 // ---- Trader state / journal (cron cutover; uid-scoped since Phase 4) -------
 //
 // Every accessor below takes the owning uid first. There is deliberately NO

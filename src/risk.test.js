@@ -123,6 +123,30 @@ describe("correlation budget", () => {
   });
 });
 
+describe("plan position cap", () => {
+  test("Pro is never blocked, regardless of open position count", () => {
+    const { allowed } = risk.planPositionCapAllows(["BTC/USD", "ETH/USD", "SOL/USD"], "pro");
+    assert.ok(allowed);
+  });
+  test("Free is allowed under the cap", () => {
+    const { allowed } = risk.planPositionCapAllows(["BTC/USD"], "free");
+    assert.ok(allowed);
+  });
+  test("Free is blocked at the cap, with a 'plan cap:' reason (not 'correlation budget:')", () => {
+    const { allowed, reason } = risk.planPositionCapAllows(
+      ["BTC/USD", "ETH/USD"],
+      "free",
+      risk.FREE_MAX_OPEN_POSITIONS
+    );
+    assert.ok(!allowed);
+    assert.match(reason, /^plan cap: 2\/2/);
+  });
+  test("an undefined plan (legacy/CLI cfg with no PLAN field) is never blocked", () => {
+    const { allowed } = risk.planPositionCapAllows(["BTC/USD", "ETH/USD", "SOL/USD"], undefined);
+    assert.ok(allowed);
+  });
+});
+
 describe("daily drawdown gate", () => {
   test("not triggered just under the gate", () => {
     assert.ok(!risk.dailyDrawdownGateTriggered(100_000, 97_001));

@@ -46,7 +46,7 @@ import {
 import { promotedSymbols as defaultPromotedSymbols } from "./scout.js";
 import { updateStreakThrottle, dailyDrawdownGateTriggered } from "./risk.js";
 import { CFG, BREADTH_GATE_ENABLED, assertNotShipped } from "./strategyConfig.js";
-import { DEFAULT_CFG } from "./userConfig.js";
+import { DEFAULT_CFG, DEFAULT_WATCHLIST } from "./userConfig.js";
 
 // Portfolio-level breadth gate ships OFF in the live config and needs
 // breadthPct()/breadthPolicy(), not yet ported to risk.js -- fail loudly if
@@ -66,7 +66,7 @@ const CADENCE_WARNING_MIN = CADENCE_EXPECTED_MIN + 60;
  * 1 hard failure). `execute=false` (the default) is a dry run: decisions
  * and the journal are still computed/written, but no orders are placed.
  */
-export async function main({ execute = false, deps = {} } = {}) {
+export async function main({ execute = false, deps = {}, symbols: symbolsOpt = null } = {}) {
   const getPositions = deps.getPositions || defaultGetPositions;
   const getAccount = deps.getAccount || defaultGetAccount;
   const getOpenOrders = deps.getOpenOrders || defaultGetOpenOrders;
@@ -137,22 +137,33 @@ export async function main({ execute = false, deps = {} } = {}) {
   // ── Load persistent position state ────────────────────────────────────
   const state = loadState();
 
-  let symbols = (CFG.watchlist?.symbols || []).filter(isCrypto);
-  // Universe scout: merge auto-promoted uptrending symbols. Promoted
-  // symbols pass through every existing gate unchanged.
-  if (CFG.scout?.enabled) {
-    try {
-      const extra = (await promotedSymbols({ refresh: true })).filter((x) => isCrypto(x) && !symbols.includes(x));
-      if (extra.length) {
-        console.log("Scout promoted: " + extra.join(", "));
-        symbols = symbols.concat(extra);
+  // Multi-tenant: each tenant scans their own Settings-page watchlist
+  // (tenantEngine.js's buildTenantContext resolves it, already
+  // filtered/deduped/plan-capped) -- passed in verbatim, no scout merge, so a
+  // Free tenant's cap can't be silently exceeded by a promoted symbol. The
+  // legacy/CLI single-tenant path (no uid, symbolsOpt null) keeps today's
+  // behavior: the default watchlist plus scout promotions.
+  let symbols;
+  if (symbolsOpt) {
+    symbols = symbolsOpt.filter(isCrypto);
+  } else {
+    symbols = [...DEFAULT_WATCHLIST].filter(isCrypto);
+    // Universe scout: merge auto-promoted uptrending symbols. Promoted
+    // symbols pass through every existing gate unchanged.
+    if (CFG.scout?.enabled) {
+      try {
+        const extra = (await promotedSymbols({ refresh: true })).filter((x) => isCrypto(x) && !symbols.includes(x));
+        if (extra.length) {
+          console.log("Scout promoted: " + extra.join(", "));
+          symbols = symbols.concat(extra);
+        }
+      } catch (e) {
+        console.log(`Scout skipped: ${e}`);
       }
-    } catch (e) {
-      console.log(`Scout skipped: ${e}`);
     }
   }
   if (!symbols.length) {
-    console.error("FAIL: no crypto symbols in config.json > watchlist.symbols");
+    console.error("FAIL: no crypto symbols in the watchlist");
     return 1;
   }
 
