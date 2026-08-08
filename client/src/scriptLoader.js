@@ -34,6 +34,7 @@ export const SCRIPT_ORDER = [
   'autopilot.js',
   'edge-insights.js',
   'tabs-portfolio.js',
+  'tabs-manual-trading.js',
   'qrcode-lib.js',
   'auth.js',
   'settings-sync.js',

@@ -244,9 +244,19 @@ them.** Three rules:
 ## Dashboard
 
 Left-sidebar nav (Command / Trade / Portfolio / Analysis / Settings) with hash deep links and
-`localStorage.lastTab`. Command hosts the Autopilot loop plus News/Socials/Glossary/Scheduled Jobs
-sub-tabs. Settings persist to `localStorage`, seeded from `config.json`.
+`localStorage.lastTab`. Command hosts the Autopilot loop plus News/Socials/Glossary/Scheduled Jobs/Manual
+Trading sub-tabs. Settings persist to `localStorage`, seeded from `config.json`.
 
+- **Manual Trading (`src/js/tabs-manual-trading.js`, added 2026-08-08) is a paper-trading sandbox** — the
+  user opens/closes positions by hand, a fourth trading surface alongside the cron engine, Autopilot and
+  the Portfolio tab's own trade modal. It reuses existing pieces rather than adding new ones: order
+  placement is `trade-modal.js`'s unmodified `openTradeModal()`; the score is `ta-lib.js`'s
+  parity-tested `calcSignalScore()` (never `tabs-portfolio.js`'s unused `portConfluenceScore()`, a
+  parallel reimplementation that sat there uncalled — a future cleanup candidate once nothing needs it);
+  rendering reuses that same file's previously-dead `portScoreBar()`/`portActionChip()`. Free plan: Buy
+  blocks with an upgrade toast at `MT_FREE_MAX_OPEN_POSITIONS` (2, mirroring `src/risk.js`'s
+  `FREE_MAX_OPEN_POSITIONS`) — client-side courtesy only, same trust level the existing Portfolio-tab Buy
+  button already has (no server-side position-count check on manual orders either).
 - **Autopilot is a third, intentionally independent trading loop.** It runs only while a browser tab is
   open, reacting faster when the user is watching; the cron engine covers the gaps. Its orders are tagged
   `client_order_id` `ap-`, it is always OFF on page load, and the kill switch cancels all orders.

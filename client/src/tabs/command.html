@@ -5,6 +5,7 @@
         <button id="subtab-news" class="subtab-btn" onclick="commandSubTab('news')" data-i18n="app:command.subnavNews">📰 News</button>
         <button id="subtab-socials" class="subtab-btn" onclick="commandSubTab('socials')" data-i18n="app:command.subnavSocials">🐦 Socials</button>
         <button id="subtab-glossary" class="subtab-btn" onclick="commandSubTab('glossary')" data-i18n="app:command.subnavGlossary">📖 Glossary</button>
+        <button id="subtab-manual-trading" class="subtab-btn" onclick="commandSubTab('manual-trading')" data-i18n="app:command.subnavManualTrading">🧪 Manual Trading</button>
       </div>
 
     <div id="subpage-command-overview" class="subpage active">
@@ -202,6 +203,49 @@
         <div id="glossaryList"><div class="small" style="color:var(--muted)" data-i18n="app:command.glossaryLoading">Loading glossary…</div></div>
       </section>
     </div><!-- /subpage-glossary -->
+
+    <!-- 🧪 Manual Trading sub-tab (Suite roadmap item 1) — a paper-trading
+         sandbox: the user opens/closes positions themselves, separate from
+         the automated cron engine and Autopilot. One table = the tenant's
+         own watchlist (getWatchlist(), analytics-watchlist.js) union any
+         held position, each row scored live via ta-lib.js's parity-tested
+         calcSignalScore() and rendered with tabs-portfolio.js's existing
+         (previously unused) portScoreBar()/portActionChip() helpers. Buy/
+         Sell/Cover reuse trade-modal.js's openTradeModal() unchanged — no
+         new order-placement code. Free plan: capped at
+         FREE_MAX_OPEN_POSITIONS open positions (client-side courtesy gate;
+         see tabs-manual-trading.js). Paper mode only — never places orders
+         in live mode (trade-modal.js's existing guard). -->
+    <div id="subpage-manual-trading" class="subpage">
+      <section>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap">
+          <div class="section-title" style="margin-bottom:0" data-i18n="app:command.mtTitle">🧪 Manual Trading</div>
+          <span id="mtStatus" class="small" style="color:var(--muted)"></span>
+          <button class="btn" style="margin-left:auto" onclick="loadManualTrading()" data-i18n="app:command.mtRefresh">↻ Refresh</button>
+        </div>
+        <div class="small" style="color:var(--muted);margin-bottom:12px" data-i18n="app:command.mtDescHtml">
+          Practice paper trading by hand — separate from the automated engine and Autopilot. Each row is a
+          watchlist symbol or an open position, scored live on the same 6-point signal-confluence scale the
+          strategy uses. Orders placed here are real paper orders on the Alpaca account connected above.
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-i18n="app:command.mtColSymbol">Symbol</th>
+                <th data-i18n="app:command.mtColScore">Score</th>
+                <th data-i18n="app:command.mtColAction">Signal</th>
+                <th class="right" data-i18n="app:command.mtColPrice">Price</th>
+                <th data-i18n="app:command.mtColPosition">Position</th>
+                <th class="right" data-i18n="app:command.mtColPl">P&amp;L %</th>
+                <th data-i18n="app:command.mtColTrade">Trade</th>
+              </tr>
+            </thead>
+            <tbody id="mtBody"><tr><td colspan="7" class="placeholder" data-i18n="app:command.mtLoading">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </div><!-- /subpage-manual-trading -->
     </div>
 
     <!-- Analytics parent page — merges Performance + P&L + Edge (roadmap). Deep
