@@ -41,11 +41,34 @@
   flex: 1;
   overflow: hidden;
 }
-.manual-toc {
+.manual-toc-col {
   width: 190px;
   flex: 0 0 190px;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+.manual-tour-btn {
+  display: block;
+  margin: 8px 8px 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--blue);
+  background: var(--surface2);
+  color: var(--blue);
+  font-weight: 700;
+  font-size: 13px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.manual-tour-btn:hover {
+  background: var(--hover);
+}
+.manual-toc {
+  flex: 1;
+  overflow-y: auto;
   padding: 8px;
 }
 .manual-toc-btn {
@@ -102,11 +125,76 @@
   .manual-body {
     flex-direction: column;
   }
-  .manual-toc {
+  .manual-toc-col {
     width: 100%;
     flex: 0 0 auto;
-    max-height: 140px;
+    max-height: 180px;
     border-right: none;
     border-bottom: 1px solid var(--border);
   }
+  .manual-toc {
+    max-height: 140px;
+  }
+}
+
+/* ══════════════ QUICK TOUR (Suite roadmap, 2026-08-08) ══════════════
+   Backdrop blocks every click on the app underneath (pointer-events: auto)
+   so a step never lets the visitor accidentally fire a real toggle (e.g.
+   Autopilot) while it's mid-explanation. The spotlight box sits above the
+   backdrop and uses a 9999px box-shadow spread to dim everything outside
+   the target's own rect, with pointer-events: none so it never itself
+   intercepts a click — the backdrop underneath already does that job. */
+.tour-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, .15);
+  pointer-events: auto;
+}
+.tour-spotlight {
+  position: fixed;
+  z-index: 201;
+  border-radius: 8px;
+  outline: 2px solid var(--blue);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, .65);
+  pointer-events: none;
+  transition: top .2s ease, left .2s ease, width .2s ease, height .2s ease;
+}
+.tour-card {
+  position: fixed;
+  z-index: 202;
+  width: 300px;
+  max-width: 90vw;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .4);
+  padding: 16px;
+  transition: top .2s ease, left .2s ease;
+}
+.tour-card h4 {
+  margin: 0 0 8px;
+  color: var(--blue);
+  font-size: 15px;
+}
+.tour-card p {
+  margin: 0 0 14px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.tour-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.tour-step-count {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.tour-card-nav {
+  display: flex;
+  gap: 6px;
 }

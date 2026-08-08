@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 function tab(id, label, extraStyle) {
   return (
     <button
+      id={`nav-${id}`}
       className={id === 'command' ? 'tab-btn active' : 'tab-btn'}
       style={extraStyle}
       onClick={(e) => window.switchTab(id, e.currentTarget)}

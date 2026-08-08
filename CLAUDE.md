@@ -19,7 +19,7 @@ Project-specific rules:
 
 - **Live trading engine = Node.js via Vercel Cron (`/api/cron/dispatch`)** — the only engine. No Python, no
   GitHub Actions. There is no backtester: walk-forward was removed, not ported.
-- **Dashboard** = React/Vite shell (`client/`) + ~30 classic-global `src/js/*.js` + 10 `src/css/*.css`.
+- **Dashboard** = React/Vite shell (`client/`) + ~32 classic-global `src/js/*.js` + 10 `src/css/*.css`.
   `server.js` serves `client/dist`, so `npm run build` before `npm start`. Vercel only — no `file://`.
 - **`client/` is its own npm project, not a workspace.** Root build runs
   `npm --prefix client install && npm --prefix client run build` — the `install` half matters, or a fresh
@@ -244,9 +244,25 @@ them.** Three rules:
 ## Dashboard
 
 Left-sidebar nav (Command / Trade / Portfolio / Analysis / Settings) with hash deep links and
-`localStorage.lastTab`. Command hosts the Autopilot loop plus News/Socials/Glossary/Scheduled Jobs/Manual
-Trading sub-tabs. Settings persist to `localStorage`, seeded from `config.json`.
+`localStorage.lastTab`. Command hosts the Autopilot loop plus Manual Trading/Scheduled Jobs/News/Socials/
+Glossary sub-tabs (Manual Trading sits 2nd, directly after Overview — Suite roadmap item 2, 2026-08-08).
+Settings persist to `localStorage`, seeded from `config.json`.
 
+- **🚀 Quick Tour (`src/js/tour.js`, added 2026-08-08, Suite roadmap item 3)** — a 10-step guided
+  walkthrough launched from `#quickTourBtn`, which sits directly above "Overview" in the ❓ Help panel's
+  left rail (`.manual-toc-col`, `client/src/fragments/modals.html`). Each step switches tab/sub-tab
+  (reusing `switchTab()`/`commandSubTab()`) and spotlights a **static** DOM id — one that exists as soon
+  as that tab's HTML skeleton mounts (`client/src/tabIndex.js` concatenates every tab up front; only
+  `.page.active` toggles visibility) — so no step ever waits on an API call or targets something that
+  only appears after data loads. A full-viewport `.tour-backdrop` blocks every click on the app
+  underneath, so a step can never trigger a real action (e.g. toggling Autopilot for real) by accident;
+  only the tour card's own controls and Escape/←/→ are live. Ending or skipping returns to whichever tab
+  was active when the tour started. Text lives in `app:tour.*` (all 4 locales), rendered via `window.t()`
+  the same way `manual.js` renders `MANUAL_SECTIONS` bodies — with its own `lang-changed` listener since
+  neither carries `data-i18n`.
+- **⚙ Settings header button is icon-only since 2026-08-08 (Suite roadmap item 1)** — `#settingsBtn`,
+  directly left of the account button, changed from a text `Settings` button to a bare gear icon
+  (`.theme-btn`, matching ❓ Help / 🌙 Theme) to save header width; the label moved to its `title` tooltip.
 - **Manual Trading (`src/js/tabs-manual-trading.js`, added 2026-08-08) is a paper-trading sandbox** — the
   user opens/closes positions by hand, a fourth trading surface alongside the cron engine, Autopilot and
   the Portfolio tab's own trade modal. It reuses existing pieces rather than adding new ones: order

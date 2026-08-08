@@ -1,4 +1,4 @@
-// Loads the 31 dashboard scripts (src/js/*.js, served by the Express server
+// Loads the 32 dashboard scripts (src/js/*.js, served by the Express server
 // at /js/*) as classic, non-module scripts sharing one global scope — the
 // same file set and load order as the prior EJS shell's <script> tags. They
 // must load *after* React's first render puts the .page divs in the
@@ -42,6 +42,7 @@ export const SCRIPT_ORDER = [
   // renders a "sign in first" state rather than an error for guests.
   'settings-engine.js',
   'manual.js',
+  'tour.js',
   'terms-modal.js',
   'plans-modal.js',
   'main.js',
