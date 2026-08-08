@@ -768,9 +768,18 @@ export async function putLayout(uid, name, data) {
 // no live browser request) to find a tenant's own Settings-page watchlist. Returns
 // null when the user never customized it (no row, or the field isn't a non-empty
 // array) so the caller can fall back to DEFAULT_WATCHLIST.
+//
+// proDashboardWatchlist is stored as a JSON-encoded STRING, not a JSON array --
+// settings-sync.js's settingsSnapshot() reads it straight out of localStorage
+// (already a JSON.stringify'd string there) and forwards it verbatim, so the
+// Postgres row holds a string-typed value, confirmed live against testfree's
+// actual synced row (2026-08-08). Must parse before use.
 export async function getUserWatchlist(uid) {
   const data = await getLayout(uid, SESSION_NAME);
-  const wl = data?.proDashboardWatchlist;
+  const raw = data?.proDashboardWatchlist;
+  if (typeof raw !== "string") return null;
+  let wl;
+  try { wl = JSON.parse(raw); } catch { return null; }
   return Array.isArray(wl) && wl.length ? wl : null;
 }
 

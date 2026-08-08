@@ -148,15 +148,26 @@ app.put('/api/session', async (req, res) => {
     // Truncates just this one field; every other setting in the blob still
     // saves untouched, same "drop the bad part, don't fail the whole write"
     // precedent as userConfig.js's CONFIG_SPEC merge.
-    if (Array.isArray(body?.proDashboardWatchlist) && body.proDashboardWatchlist.length > FREE_WATCHLIST_LIMIT) {
-      const user = await currentUser(req);
-      const isPro = user && (user.role === 'admin' || user.role === 'pro' || (await db.getPlan(user.id)) === 'pro');
-      if (!isPro) {
-        body = { ...body, proDashboardWatchlist: body.proDashboardWatchlist.slice(0, FREE_WATCHLIST_LIMIT) };
-      }
+    //
+    // proDashboardWatchlist arrives as a JSON-encoded STRING, not an array —
+    // settingsSnapshot() (settings-sync.js) reads it straight out of
+    // localStorage, where it's already JSON.stringify'd. Must parse before
+    // checking length, and re-stringify before saving, or the client's next
+    // localStorage.setItem(k, data[k]) round-trip on this field breaks.
+    let truncated = null;
+    if (typeof body?.proDashboardWatchlist === 'string') {
+      try {
+        const arr = JSON.parse(body.proDashboardWatchlist);
+        if (Array.isArray(arr) && arr.length > FREE_WATCHLIST_LIMIT) {
+          const user = await currentUser(req);
+          const isPro = user && (user.role === 'admin' || user.role === 'pro' || (await db.getPlan(user.id)) === 'pro');
+          if (!isPro) truncated = arr.slice(0, FREE_WATCHLIST_LIMIT);
+        }
+      } catch { /* not JSON — leave it for putLayout to store as-is */ }
     }
+    if (truncated) body = { ...body, proDashboardWatchlist: JSON.stringify(truncated) };
     await db.putLayout(uid, db.SESSION_NAME, body);
-    res.json({ ok: true, ...(body !== req.body ? { proDashboardWatchlist: body.proDashboardWatchlist } : {}) });
+    res.json({ ok: true, ...(truncated ? { proDashboardWatchlist: truncated } : {}) });
   } catch (e) {
     console.error('[api] put session:', e.message);
     res.status(500).json({ error: String(e.message) });
